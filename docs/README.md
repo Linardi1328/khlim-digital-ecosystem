@@ -1,37 +1,70 @@
 # Project Documentation
 
-This directory is the source of truth for the product, engineering, UX, security, and delivery decisions behind KHLIM Super App.
+This directory is the source of truth for product, engineering, UX, security, and delivery decisions behind KHLIM Super App.
+
+The current direction is **KHLIM Basketball first, sport-aware platform core**.
 
 ## Structure
 
 ```text
 docs/
-├── product/        # Why the product exists, users, scope, and requirements
-├── roadmap/        # Delivery phases from planning to public launch
-├── architecture/   # System structure, boundaries, data and integration direction
-├── security/       # Security, privacy, minors, access control, and operational safety
-├── ux/             # Core workflows for each user role
-└── decisions/      # Architecture Decision Records (ADRs)
+├── product/
+│   ├── product-brief.md       # Why the product exists
+│   ├── platform-vision.md     # Long-term multi-sport/competition direction
+│   ├── mvp-scope.md           # What Basketball MVP 1.0 includes/excludes
+│   ├── requirements.md        # Implementation-oriented requirements
+│   └── user-roles.md          # Roles, relationships, permission model
+│
+├── roadmap/
+│   └── development-roadmap.md # Player-first development through public launch + expansion
+│
+├── architecture/
+│   ├── system-architecture.md # Final Phase 1 system/stack direction
+│   ├── data-model.md          # Conceptual Athlete/Sport relational model
+│   ├── module-boundaries.md   # Domain ownership and coupling rules
+│   ├── localization.md        # Multilingual architecture and rollout
+│   └── deployment.md          # Environment/release direction
+│
+├── security/
+│   └── security-and-privacy.md
+│
+├── ux/
+│   └── core-user-workflows.md
+│
+└── decisions/
+    └── Architecture Decision Records (ADRs)
 ```
 
 ## Working rules
 
 - Product behavior should be documented before or alongside implementation.
-- Major architecture choices should receive an ADR.
-- MVP scope changes should update `product/mvp-scope.md`.
+- Major architecture choices receive an ADR.
+- MVP scope changes update `product/mvp-scope.md`.
+- Strategic future capabilities belong in `product/platform-vision.md` and must not silently become MVP scope.
 - Roadmap status should be updated as phases move from planned to active to complete.
-- Security-sensitive decisions must be documented in `security/` and reflected in implementation tests.
-- Documentation should describe intent and constraints; code remains the source of truth for exact runtime behavior.
+- Security-sensitive decisions must be documented and reflected in implementation tests.
+- Basketball-specific UX can remain focused while universal domains avoid unnecessary basketball-only coupling.
+- Locale is presentation context, not a business identifier or authorization rule.
+- Documentation describes intent and constraints; code/tests become the source of truth for exact implemented runtime behavior.
 
 ## Document status labels
 
-Documents may use the following labels:
-
-- **Draft** — still being discussed.
+- **Draft** — still being discussed/refined.
 - **Accepted** — agreed direction for current implementation.
 - **Superseded** — retained for history but replaced by a newer decision.
-- **Implemented** — accepted direction is present in production code.
+- **Implemented** — accepted direction is present in tested production code.
 
 ## Current stage
 
-The project is in **pre-development / product definition**. The immediate goal is to finish requirements, UX flows, data boundaries, security constraints, and stack decisions before application scaffolding begins.
+**Phase 0 documentation baseline is complete.**
+
+The project is moving into **Phase 1 — Engineering Foundation**.
+
+Immediate work before feature scaffolding:
+- preserve the finalized stack through ADR 0004;
+- scaffold the monorepo/apps/packages/database;
+- establish Sport/Athlete fundamentals;
+- establish localization resources from the first UI components;
+- establish CI/testing/environment conventions.
+
+The first functional product vertical after the foundation is the **KHLIM Basketball player experience**, followed by the coach/admin/parent workflows required to make its information authoritative and regularly maintainable.
