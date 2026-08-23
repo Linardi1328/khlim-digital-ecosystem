@@ -1,10 +1,12 @@
 # Core User Workflows
 
-**Status:** Draft
+**Status:** Accepted for current MVP planning baseline
 
-These workflows define the behavior the MVP must make simple and reliable. Screen designs may change, but the business outcome should remain stable unless the product requirements change.
+These workflows define the behavior the basketball MVP must make simple and reliable. Screen designs may change, but the business outcomes should remain stable unless product requirements change.
 
-## Player
+The basketball UI may say **Player** while the platform internally models that user as an **Athlete**.
+
+## Player / Athlete
 
 ### 1. Daily/weekly home flow
 
@@ -30,33 +32,60 @@ Schedule
 → Open training session
 → View time, venue, team, coach, notes/status
 → Attend session
-→ Coach records attendance
-→ Player sees updated attendance/points when processed
+→ Coach confirms attendance
+→ Player sees attendance update
+→ Rewards module may award points
 ```
+
+The player does not self-author official attendance in MVP.
 
 ### 3. Development flow
 
 ```text
 Progress
+→ Basketball development framework
 → Current development priorities
 → Strengths
 → Latest coach-shared notes/evaluation
 → Evaluation history
 ```
 
-Player cannot edit official evaluation content.
+The player cannot edit official evaluation content.
 
 ### 4. KHERO/reward flow
 
 ```text
 KHERO
-→ View current mascot/profile
+→ View mascot/profile
 → View points balance/history
 → View unlocked customization
 → Choose allowed customization
 → View eligible/upcoming rewards
 → Submit/complete permitted redemption flow
 ```
+
+### 5. Competition/event flow
+
+```text
+Home / Schedule / Competitions
+→ Open eligible event
+→ View date, venue, category, deadline, status
+→ See whether parent action is required
+→ Receive updates if event changes
+```
+
+For a minor athlete, registration may be completed by an authorized guardian rather than the player.
+
+### 6. Language flow
+
+```text
+Profile / Settings
+→ Language
+→ Select preferred locale
+→ UI and system-generated messages render in selected language
+```
+
+A player language choice does not change the linked parent's language.
 
 ## Parent / Guardian
 
@@ -69,7 +98,9 @@ Open app
 → Select a child for detailed view
 ```
 
-A parent with multiple children should not need to log into separate accounts.
+A parent with multiple children should not need separate accounts.
+
+Future multi-sport behavior may combine schedules across a child's sports without changing the guardian relationship.
 
 ### 2. Child overview
 
@@ -88,17 +119,30 @@ Select child
 ```text
 Notification/dashboard action
 → Open event
-→ Review date, venue, eligibility, deadline, notes
+→ Review sport, date, venue, eligibility, deadline, notes
 → Register/interested OR decline
 → Confirmation
 → Coach/admin sees response
 ```
 
-### 4. Progress supervision
+### 4. Event update flow
+
+```text
+Admin changes venue/time/status/deadline
+→ Event record updated once
+→ Relevant users see updated event
+→ Notification generated for material change
+→ Parent opens event for authoritative latest details
+```
+
+Cancelled events remain visible as cancelled rather than silently disappearing where history/clarity matters.
+
+### 5. Progress supervision
 
 ```text
 Child
 → Progress
+→ Relevant sport framework
 → Latest shared evaluation
 → Strengths and development priorities
 → Historical updates
@@ -106,47 +150,114 @@ Child
 
 Internal coach notes are never displayed through this flow.
 
-### 5. Coach enquiry
+### 6. Coach enquiry
 
 ```text
 Coach directory / assigned coach
-→ View specialization/service availability
+→ View sport/specialization and service availability
 → Submit enquiry
 → Confirmation/status
 ```
 
 MVP does not require instant booking or payment.
 
+### 7. Family language behavior
+
+Each account stores its own locale.
+
+Example:
+
+```text
+Child: English
+Mother: Simplified Chinese
+Father: Bahasa Melayu
+```
+
+All three can reference the same underlying training/event data while system UI and templates render separately.
+
 ## Coach
 
-### 1. Today's training
+### 1. Today's training and attendance
 
 ```text
 Open app
 → Today's assigned sessions
 → Open session
 → Roster
-→ Mark present / absent / late / excused
+→ Mark All Present (optional fast action)
+→ Change exceptions to late / absent / excused
+→ Review roster
 → Confirm attendance
 ```
 
-The workflow should minimize taps and support quick correction with auditability.
+The coach should be able to complete a normal roster quickly.
 
-### 2. Player development update
+Example:
+
+```text
+Alex      Present
+Ethan     Present
+Jayden    Late
+Caleb     Absent
+Ryan      Excused
+
+[Confirm Attendance]
+```
+
+After confirmation:
+
+```text
+Attendance becomes official
+→ athlete history updates
+→ parent visibility updates
+→ AthleteAttendanceConfirmed event emitted
+→ reward/notification consumers process independently
+```
+
+### 2. Attendance correction
+
+```text
+Open past/current session
+→ Select athlete
+→ Correct attendance
+→ Enter/choose correction reason where required
+→ Save
+→ Audit metadata retained
+→ downstream correction event processed safely
+```
+
+### 3. Future QR-assisted check-in
+
+Not required for MVP.
+
+Possible later flow:
+
+```text
+Coach starts temporary check-in
+→ session-specific QR displayed
+→ athlete scans QR
+→ draft check-in appears on coach roster
+→ coach reviews and confirms official attendance
+```
+
+QR check-in must not become an unaudited way to award attendance/reward credit automatically.
+
+### 4. Athlete development update
 
 ```text
 Team / roster
-→ Player
+→ Athlete
 → Development profile
+→ Relevant sport framework
 → Create/update evaluation
 → Set strengths/priorities
 → Add shared note and/or internal note
 → Save
 ```
 
-The UI must make the visibility difference between shared and internal notes extremely clear.
+The UI must make the visibility difference between shared and internal notes unmistakable.
 
-### 3. Schedule
+### 5. Schedule
 
 ```text
 Schedule
@@ -154,12 +265,12 @@ Schedule
 → Open item for time, venue, team, notes/status
 ```
 
-### 4. Private-training enquiries
+### 6. Private-training enquiries
 
 ```text
 Coach services
 → Enquiries
-→ Open family/player enquiry
+→ Open family/athlete enquiry
 → Review details
 → Update allowed status / follow approved communication process
 ```
@@ -172,47 +283,103 @@ Coach services
 Admin web
 → Create/import users
 → Assign roles
+→ Create/enable sport (Basketball for MVP)
 → Create teams/rosters
-→ Link guardians and players
-→ Assign coaches to teams
+→ Link guardians and athletes
+→ Assign coaches to sport/teams
 → Verify relationships
 ```
 
-### 2. Schedule club operations
+### 2. Schedule recurring club operations
 
 ```text
-Teams/training
-→ Create session
-→ Assign team/coach/venue/time
-→ Publish
-→ Relevant users receive schedule update
+Team / Training
+→ Configure normal recurring pattern
+→ Generate/maintain upcoming sessions
+→ Modify individual exceptions as needed
+→ Publish/update
+→ relevant users see authoritative schedule
 ```
+
+Examples of normal staff-managed changes:
+- venue moved;
+- training time changed;
+- session cancelled;
+- substitute coach assigned.
+
+These changes must not require developer intervention or an App Store release.
 
 ### 3. Publish competition/event
 
 ```text
 Events
-→ Create event
+→ Create draft
+→ Choose Basketball
+→ Choose team/individual format
 → Choose audience/eligibility
-→ Add date, venue, deadline, details
+→ Add date, venue, registration window, details
+→ Add translations where available
+→ Preview
 → Publish
-→ Families receive notification
-→ Monitor responses
+→ eligible users notified
+→ monitor registrations/responses
 ```
 
-### 4. Selection announcement
+### 4. Maintain event lifecycle
+
+```text
+Draft
+→ Published / Registration Open
+→ Registration Closed
+→ Event Occurs
+→ Completed
+```
+
+Alternative path:
+
+```text
+Published
+→ Material change
+→ Save update
+→ targeted update notification
+```
+
+or:
+
+```text
+Published
+→ Cancel
+→ record reason
+→ targeted cancellation notification
+→ event retained as Cancelled
+```
+
+### 5. Selection announcement
 
 ```text
 Selections/announcements
 → Define appropriate audience
 → Enter result/update
+→ Add reviewed translations where needed
 → Preview visibility
 → Publish
 ```
 
 Selection information must not accidentally become public to unrelated users.
 
-### 5. Reward administration
+### 6. Development framework administration
+
+```text
+Basketball
+→ Development Framework
+→ Add/reorder/deactivate criterion
+→ Publish safe configuration change
+→ coach evaluation UI reflects active framework
+```
+
+Historical evaluations should retain meaning even when a future framework version changes.
+
+### 7. Reward administration
 
 ```text
 Rewards
@@ -228,25 +395,45 @@ OR
 
 ```text
 Domain event occurs
-→ Notification module checks audience + preferences + severity
-→ In-app notification created
-→ Push notification sent when appropriate
-→ User opens destination screen
+→ determine recipients/audience
+→ Notification module checks preferences + severity
+→ select recipient locale
+→ render approved template/fallback
+→ in-app notification created
+→ push notification sent when appropriate
+→ user opens destination screen
 ```
 
 Operational modules should not directly implement third-party push-provider logic.
+
+## How information stays current
+
+The platform uses three update sources:
+
+| Update source | Example |
+| --- | --- |
+| Authorized staff/manual operations | Admin publishes competition; coach writes evaluation |
+| User transactions | Parent registers child; coach confirms attendance |
+| Automated system behavior | Registration closes; reminder is scheduled; reward points awarded |
+
+The goal is **enter authoritative information once, then render the appropriate view to every authorized user**.
 
 ## End-to-end MVP validation journeys
 
 Before launch, automated/manual test plans should cover at least:
 
-1. Admin creates a team, links player/guardian, assigns coach, schedules training.
+1. Admin enables Basketball, creates a team, links athlete/guardian, assigns coach, and schedules training.
 2. Parent and player see the correct session; unrelated family cannot see it.
-3. Coach records attendance; attendance history updates.
-4. Attendance event awards the configured points exactly once.
-5. Player/parent see updated points without gaining edit access.
+3. Coach uses fast roster marking and confirms attendance.
+4. Attendance history updates for player/parent and emits the trusted event.
+5. Attendance event awards configured points exactly once.
 6. Coach writes a shared note and an internal note; player/parent only see the shared note.
 7. Admin publishes an event; eligible family responds; coach/admin sees response.
-8. Guardian link is removed; former guardian immediately loses child access.
-9. Player account deletion/deactivation follows the approved data/account lifecycle.
-10. Admin point adjustment is traceable to actor and reason.
+8. Admin changes an event venue; affected users receive the updated authoritative details.
+9. Admin cancels an event; it remains visibly cancelled and notifications are delivered.
+10. Guardian link is removed; former guardian immediately loses child access.
+11. Two linked users with different locales see localized UI without changing permissions or source data.
+12. Missing translation falls back safely to English instead of exposing raw translation keys.
+13. Player account deletion/deactivation follows the approved data/account lifecycle.
+14. Admin point adjustment is traceable to actor and reason.
+15. Core identity/family tests do not depend on Basketball-only fields, preserving the future path to another sport.
