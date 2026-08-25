@@ -1,0 +1,35 @@
+name: PPO PR validation
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Node syntax checks
+        run: find . -path './.git' -prune -o -type f -name '*.mjs' -print0 | xargs -0 -r -n1 node --check
+
+      - name: Shell syntax checks
+        run: find . -path './.git' -prune -o -type f -name '*.sh' -print0 | xargs -0 -r -n1 bash -n
+
+      - name: Full regression suite
+        run: node --test tests/foundation.test.mjs
+
+      - name: Diff whitespace checks
+        run: |
+          git diff --check
+          git diff --check origin/main...HEAD
