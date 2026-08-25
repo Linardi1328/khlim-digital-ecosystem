@@ -72,24 +72,56 @@ test("shared TypeScript configs define strict runtime-specific foundations", asy
     "nextjs.json",
     "node.json",
   ]);
-  assert.equal(base.compilerOptions.strict, true);
-  assert.equal(base.compilerOptions.noEmit, true);
-  assert.equal(base.compilerOptions.isolatedModules, true);
-  assert.equal(base.compilerOptions.target, "ES2022");
-
-  assert.equal(node.extends, "./base.json");
-  assert.equal(node.compilerOptions.module, "NodeNext");
-  assert.equal(node.compilerOptions.moduleResolution, "NodeNext");
-
-  assert.equal(nextjs.extends, "./base.json");
-  assert.equal(nextjs.compilerOptions.jsx, "preserve");
-  assert.equal(nextjs.compilerOptions.moduleResolution, "Bundler");
-  assert.deepEqual(nextjs.compilerOptions.plugins, [{ name: "next" }]);
-
-  assert.equal(expo.extends, "./base.json");
-  assert.equal(expo.compilerOptions.jsx, "react-native");
-  assert.equal(expo.compilerOptions.moduleResolution, "Bundler");
-  assert.deepEqual(expo.compilerOptions.customConditions, ["react-native"]);
+  assert.deepEqual(manifest.exports, {
+    "./base.json": "./base.json",
+    "./expo.json": "./expo.json",
+    "./nextjs.json": "./nextjs.json",
+    "./node.json": "./node.json",
+  });
+  assert.deepEqual(base.compilerOptions, {
+    esModuleInterop: true,
+    forceConsistentCasingInFileNames: true,
+    isolatedModules: true,
+    noEmit: true,
+    noUncheckedIndexedAccess: true,
+    resolveJsonModule: true,
+    skipLibCheck: true,
+    strict: true,
+    target: "ES2022",
+  });
+  assert.deepEqual(node, {
+    $schema: "https://json.schemastore.org/tsconfig",
+    extends: "./base.json",
+    compilerOptions: {
+      lib: ["ES2022"],
+      module: "NodeNext",
+      moduleResolution: "NodeNext",
+    },
+  });
+  assert.deepEqual(nextjs, {
+    $schema: "https://json.schemastore.org/tsconfig",
+    extends: "./base.json",
+    compilerOptions: {
+      incremental: true,
+      jsx: "preserve",
+      lib: ["DOM", "DOM.Iterable", "ES2022"],
+      module: "ESNext",
+      moduleResolution: "Bundler",
+      plugins: [{ name: "next" }],
+    },
+  });
+  assert.deepEqual(expo, {
+    $schema: "https://json.schemastore.org/tsconfig",
+    extends: "./base.json",
+    compilerOptions: {
+      allowJs: true,
+      jsx: "react-native",
+      lib: ["ES2022"],
+      module: "ESNext",
+      moduleResolution: "Bundler",
+      customConditions: ["react-native"],
+    },
+  });
 });
 
 test("each application inherits only its matching shared TypeScript config", async () => {

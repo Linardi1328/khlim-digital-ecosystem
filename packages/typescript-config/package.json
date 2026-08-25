@@ -2,6 +2,12 @@
   "name": "@khlim/typescript-config",
   "version": "0.0.0",
   "private": true,
+  "exports": {
+    "./base.json": "./base.json",
+    "./expo.json": "./expo.json",
+    "./nextjs.json": "./nextjs.json",
+    "./node.json": "./node.json"
+  },
   "files": [
     "base.json",
     "expo.json",
