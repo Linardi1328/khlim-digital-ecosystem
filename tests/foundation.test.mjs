@@ -59,6 +59,51 @@ test("Turborepo exposes the common deterministic task graph", async () => {
   assert.equal(turbo.tasks.dev.persistent, true);
 });
 
+test("shared TypeScript configs define strict runtime-specific foundations", async () => {
+  const manifest = await readJson("packages/typescript-config/package.json");
+  const base = await readJson("packages/typescript-config/base.json");
+  const node = await readJson("packages/typescript-config/node.json");
+  const nextjs = await readJson("packages/typescript-config/nextjs.json");
+  const expo = await readJson("packages/typescript-config/expo.json");
+
+  assert.deepEqual(manifest.files, [
+    "base.json",
+    "expo.json",
+    "nextjs.json",
+    "node.json",
+  ]);
+  assert.equal(base.compilerOptions.strict, true);
+  assert.equal(base.compilerOptions.noEmit, true);
+  assert.equal(base.compilerOptions.isolatedModules, true);
+  assert.equal(base.compilerOptions.target, "ES2022");
+
+  assert.equal(node.extends, "./base.json");
+  assert.equal(node.compilerOptions.module, "NodeNext");
+  assert.equal(node.compilerOptions.moduleResolution, "NodeNext");
+
+  assert.equal(nextjs.extends, "./base.json");
+  assert.equal(nextjs.compilerOptions.jsx, "preserve");
+  assert.equal(nextjs.compilerOptions.moduleResolution, "Bundler");
+  assert.deepEqual(nextjs.compilerOptions.plugins, [{ name: "next" }]);
+
+  assert.equal(expo.extends, "./base.json");
+  assert.equal(expo.compilerOptions.jsx, "react-native");
+  assert.equal(expo.compilerOptions.moduleResolution, "Bundler");
+  assert.deepEqual(expo.compilerOptions.customConditions, ["react-native"]);
+});
+
+test("each application inherits only its matching shared TypeScript config", async () => {
+  const consumers = {
+    "apps/admin/tsconfig.json": "../../packages/typescript-config/nextjs.json",
+    "apps/api/tsconfig.json": "../../packages/typescript-config/node.json",
+    "apps/mobile/tsconfig.json": "../../packages/typescript-config/expo.json",
+  };
+
+  for (const [path, expectedBase] of Object.entries(consumers)) {
+    assert.deepEqual(await readJson(path), { extends: expectedBase });
+  }
+});
+
 test("the Prisma boundary starts with PostgreSQL and versioned migrations", async () => {
   const schema = await readFile(new URL("prisma/schema.prisma", root), "utf8");
   const migrationMarker = await readFile(
