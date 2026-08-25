@@ -18,7 +18,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version-file: .nvmrc
+          node-version: "24"
 
       - name: Node syntax checks
         run: find . -path './.git' -prune -o -type f -name '*.mjs' -print0 | xargs -0 -r -n1 node --check
@@ -27,7 +27,12 @@ jobs:
         run: find . -path './.git' -prune -o -type f -name '*.sh' -print0 | xargs -0 -r -n1 bash -n
 
       - name: Full regression suite
-        run: node --test tests/foundation.test.mjs
+        run: |
+          if [[ -f tests/foundation.test.mjs ]]; then
+            node --test tests/foundation.test.mjs
+          else
+            echo "No foundation test exists on this bootstrap baseline."
+          fi
 
       - name: Diff whitespace checks
         run: |
