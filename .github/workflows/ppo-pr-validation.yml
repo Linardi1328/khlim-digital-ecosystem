@@ -27,14 +27,29 @@ jobs:
         run: find . -path './.git' -prune -o -type f -name '*.sh' -print0 | xargs -0 -r -n1 bash -n
 
       - name: Full regression suite
-        run: |
-          if [[ -f tests/foundation.test.mjs ]]; then
-            node --test tests/foundation.test.mjs
-          else
-            echo "No foundation test exists on this bootstrap baseline."
-          fi
+        run: node --test tests/*.test.mjs
 
       - name: Diff whitespace checks
         run: |
           git diff --check
           git diff --check origin/main...HEAD
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.0 --activate
+          pnpm --version
+
+      - name: Install workspace dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Type checks
+        run: pnpm typecheck
+
+      - name: Prisma schema validation
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/khlim_validation
+        run: pnpm prisma:validate
+
+      - name: Runtime builds
+        run: pnpm build
