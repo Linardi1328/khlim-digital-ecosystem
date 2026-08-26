@@ -1,3 +1,12 @@
 {
-  "extends": "../../packages/typescript-config/node.json"
+  "extends": "../../packages/typescript-config/node.json",
+  "compilerOptions": {
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "noEmit": false,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "sourceMap": true
+  },
+  "include": ["src/**/*.ts"]
 }

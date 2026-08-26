@@ -9,11 +9,15 @@
   },
   "scripts": {
     "build": "turbo run build",
+    "dev": "turbo run dev",
     "lint": "turbo run lint",
-    "test": "node --test tests/foundation.test.mjs",
-    "typecheck": "turbo run typecheck"
+    "test": "node --test tests/*.test.mjs",
+    "typecheck": "turbo run typecheck",
+    "prisma:generate": "prisma generate",
+    "prisma:validate": "prisma validate"
   },
   "devDependencies": {
+    "prisma": "7.9.1",
     "turbo": "2.5.6",
     "typescript": "5.9.2"
   }
