@@ -1,120 +1,136 @@
 # User Roles and Permission Model
 
-**Status:** Accepted for current planning baseline
+**Status:** Accepted current planning baseline
 
-The product has four primary user roles. Role checks alone are not enough; access must also be limited by relationships such as linked children, assigned sports, teams/groups, sessions, and administrative scope.
+Role checks alone are insufficient. Access is constrained by explicit family relationships, programme/team assignments, financial/admin scope, and server-side authorization.
 
-A single account may hold more than one role where legitimate. For example, a KHLIM coach may also be a parent. The application can expose role-aware navigation or a future mode switch without requiring duplicate accounts.
-
-## Player / Athlete
-
-The basketball UI uses **Player**. The internal platform concept is **Athlete** so the same identity can participate in additional sports later.
-
-### Can
-- View and update allowed parts of their own profile.
-- View sports and teams/groups relevant to their memberships.
-- View their training schedule.
-- View their own attendance history.
-- View coach-shared development information for the relevant sport/framework.
-- View and customize allowed KHERO attributes where eligible.
-- View their points, reward history, and eligible rewards.
-- View events, competitions, selections, and announcements relevant to them.
-- View appropriate coach profiles and approved enquiry options.
-- Choose their preferred interface locale.
-
-### Cannot
-- Edit official attendance.
-- Edit official coach evaluations.
-- View internal coach notes.
-- View another athlete's private information unless a future explicitly approved feature requires it.
-- Award or modify their own points.
-- Gain access to another sport/team merely because the account has an Athlete role.
+A single account may hold multiple legitimate roles, for example a coach who is also a parent.
 
 ## Parent / Guardian
 
-A guardian account may be linked to multiple athletes. An athlete may have multiple authorized guardians. The relationship is independent of sport so the same family link remains usable if a child joins another KHLIM sport later.
+A guardian may manage multiple athletes; an athlete may have multiple authorized guardians.
 
 ### Can
-- Switch between linked children.
-- View linked children's relevant sports, teams/groups, schedules, and attendance.
-- View coach-shared progress and development priorities.
-- View relevant events, deadlines, selections, and announcements.
-- Submit permitted event responses or registrations for linked children.
-- View points and rewards for linked children.
-- Maintain approved guardian-controlled information.
-- Submit coach/private-training enquiries where allowed.
-- Choose a preferred interface locale independently of the linked child.
+- manage approved parts of their own profile;
+- manage/select linked children;
+- view programmes and eligible Programme Offerings;
+- create memberships for linked athletes where allowed;
+- review/accept membership and recurring-payment terms;
+- initiate secure payment checkout through approved providers;
+- view their own/linked-family membership and payment history appropriate to their role;
+- view upcoming training/schedules for linked active memberships;
+- later register linked children for tournaments/camps and receive eligible member pricing;
+- choose their own preferred locale.
 
 ### Cannot
-- View unlinked athletes.
-- Edit official evaluations or attendance.
-- View internal coach notes.
-- Directly manipulate point balances.
-- Gain access to all club sports merely because a linked child participates in one sport.
+- access unlinked athletes;
+- modify authoritative price/payment/membership state directly;
+- view another family's financial information;
+- view internal coach notes;
+- edit official coach evaluations/attendance.
+
+## Player / Athlete
+
+Basketball UI may use **Player** while the internal identity is **Athlete**.
+
+For the first website MVP, young athletes do not need to own the commercial workflow; guardians normally manage membership/payment. Athlete self-service may expand with age/policy.
+
+### Can, where age/policy allows
+- view approved profile/membership/programme information;
+- view schedule and later attendance/development/event history;
+- choose preferred locale for their own account if they have one;
+- later use KHERO/rewards and Super App features.
+
+### Cannot
+- alter official payment/membership state;
+- edit official attendance/evaluations;
+- access other athletes' private data;
+- access guardian financial data merely because they are linked.
 
 ## Coach
 
-Coach access is scoped to sports, teams/groups, sessions, and athletes they are authorized to manage.
+Coach access is scoped to assigned sports, programmes/teams, sessions, and athletes.
 
 ### Can
-- View assigned training sessions and rosters.
-- Record or correct attendance within allowed rules.
-- Confirm official attendance.
-- View authorized athlete profiles.
-- Create and update official athlete evaluations under the appropriate sport development framework.
-- Set development priorities.
-- Create shared development notes.
-- Create internal coaching notes.
-- View relevant team/sport events and announcements.
-- Maintain approved coach profile/service information.
-- Receive relevant private-training enquiries.
-- Choose a preferred interface locale.
+- view assigned sessions/rosters;
+- later record/confirm attendance;
+- later create official athlete evaluations/development notes within scope;
+- maintain approved coach profile/service information;
+- view operational event/team information relevant to assignments.
 
-### Cannot
-- Access unrelated athletes by default.
-- Access a different sport merely because they are a coach in another sport.
-- Modify club-wide roles/permissions unless separately granted admin privileges.
-- Modify point balances outside explicitly authorized workflows.
+### Cannot by default
+- view family payment methods/transaction details or finance dashboards;
+- change Membership Plan prices;
+- grant themselves broader athlete/programme access;
+- modify points/financial state outside explicit authorized workflows.
 
-## Administrator
+## Administrative/staff roles
 
-Administrative permissions should be granular enough to support future staff roles rather than assuming every administrator needs unrestricted access.
+Administrative access should be granular rather than one universal admin role. A small team may initially assign multiple scopes to the same person, while the authorization model preserves separation.
 
-### Can
-- Manage users, roles, sports, teams/groups, rosters, seasons, and family links.
-- Manage schedules, events, competitions, selections, announcements, development frameworks, and rewards.
-- Review operational data and audit history appropriate to their privilege level.
-- Perform authorized point adjustments with a required reason.
-- Manage coach-service information and enquiries.
-- Publish and update operational content without developer intervention.
-- Manage approved locale variants for club-authored content where localization is enabled.
+### Super Admin
 
-### Requirements
-- Strong authentication, preferably MFA.
-- Sensitive actions should be audit logged.
-- High-risk operations should require explicit permissions.
-- Administrative access should be capable of being scoped by sport or operational responsibility in the future.
+High-privilege technical/organizational administration. Manages roles/permissions and sensitive system configuration. Strong authentication/MFA required.
+
+### Management
+
+Broad business/operational oversight including programme/membership/revenue reporting where authorized, without automatically inheriting every technical permission.
+
+### Finance / Admin
+
+Can, within policy:
+- view payment/installment/failed-payment operational data;
+- manage approved billing/member support workflows;
+- perform authorized refunds/manual adjustments with audit/reason requirements where implemented;
+- view membership status and billing-relevant family information.
+
+Cannot automatically view internal coaching notes unless separately granted.
+
+### Academy Admin
+
+Can manage:
+- families/athletes;
+- Programmes/Programme Offerings;
+- Membership Plans where commercial permission is granted;
+- Memberships;
+- Venues/Courts;
+- schedules/capacity;
+- operational communication.
+
+Financial visibility may be limited depending on scope.
+
+### Head Coach / Coach
+
+Own coaching operations and athlete-development access according to assignments. Head Coach may have broader sport/programme oversight but does not automatically gain finance privileges.
+
+### Event Staff — later
+
+Can manage authorized tournament/camp/event operations without receiving unrelated academy finance or internal-development access.
 
 ## Permission principles
 
-1. **Deny by default.** Access exists only when a rule explicitly allows it.
-2. **Enforce on the server.** Hidden UI is never a security boundary.
-3. **Relationship-aware access.** A parent role does not grant access to every child; a coach role does not grant access to every athlete.
-4. **Sport-aware scope.** Sport/team assignments are part of authorization where applicable.
-5. **Least privilege.** Give each user only the access required for their responsibility.
-6. **Separate shared and internal data.** Coach-internal notes must use different authorization rules from family-visible progress.
-7. **Audit sensitive mutations.** Role changes, family links, evaluations, attendance corrections, point adjustments, and similar actions should be attributable.
-8. **Plan for age-aware policies.** The data model should allow future permission differences based on athlete age and applicable policy without redesigning account relationships.
-9. **Locale is presentation, not authorization.** Changing language must never change what data a user is allowed to access.
+1. **Deny by default.** Access exists only when a policy explicitly allows it.
+2. **Enforce on the server.** Hidden UI is not a security boundary.
+3. **Relationship-aware.** Guardian access depends on active GuardianAthleteLink; Coach access depends on active assignments.
+4. **Least privilege.** Finance, coaching, academy operations, and high-level administration remain distinguishable.
+5. **Payment privacy.** Coaches/event staff do not receive sensitive family financial data without explicit need/permission.
+6. **Backend-authoritative mutations.** Users cannot alter price, membership, payment, entitlement, attendance, or evaluation truth by changing frontend payloads.
+7. **Audit sensitive actions.** Role changes, family links, financial adjustments, membership overrides, attendance corrections, and similar actions should be attributable.
+8. **Separate shared/internal coaching data.** Family-visible progress and internal notes use distinct policies.
+9. **Age-aware evolution.** The model supports future age-based self-service/consent rules without replacing family relationships.
+10. **Locale is presentation, not authorization.** Language never changes access.
+11. **One identity across KHLIM.** Academy, tournaments, camps, teams, future coaching/commerce reuse the same user/family identities.
 
 ## Relationship model
 
 ```text
-Parent / Guardian ──< GuardianAthleteLink >── Athlete
+Guardian ──< GuardianAthleteLink >── Athlete
 
-Sport ──< Team / Group ──< TeamMembership >── Athlete
+Sport ──< Programme ──< ProgrammeOffering ──< Membership >── Athlete
 
-Coach ──< CoachAssignment >── Sport / Team / Group / Session
+Sport ──< Team ──< TeamMembership >── Athlete
+
+Coach ──< Assignment >── Sport / Programme / Team / Session
+
+User ──< StaffRole/Permission scope
 ```
-
-These explicit relationship records should carry status and audit metadata rather than being represented as loose arrays on a user record.
