@@ -41,7 +41,7 @@ Completed foundation includes:
 
 ## Phase 1 — Engineering foundation
 
-**Status:** Active
+**Status:** Complete
 
 **Goal:** Create a deterministic, testable engineering platform before business-domain implementation.
 
@@ -79,6 +79,8 @@ A developer can clone the repository, configure a safe development environment, 
 ---
 
 ## Phase 2 — Identity, family, and authorization
+
+**Status:** Next
 
 **Goal:** Establish trustworthy accounts and relationships before financial or child-specific workflows.
 

@@ -64,7 +64,10 @@ test("development environment contract contains placeholders rather than product
     "SUPABASE_JWT_ISSUER=",
     "SENTRY_DSN=",
   ]) {
-    assert.match(sample, new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.match(
+      sample,
+      new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
   }
 
   assert.match(sample, /Never commit real credentials/);

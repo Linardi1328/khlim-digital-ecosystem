@@ -8,18 +8,39 @@
     "pnpm": "10.15.0"
   },
   "scripts": {
-    "build": "turbo run build",
+    "build": "pnpm prisma:generate && turbo run build",
     "dev": "turbo run dev",
-    "lint": "turbo run lint",
+    "lint": "eslint .",
+    "format": "prettier --write \"apps/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,mjs,json}\" \"tests/**/*.mjs\" \"scripts/**/*.mjs\" \"*.{json,mjs}\" \".github/workflows/*.yml\"",
+    "format:check": "prettier --check \"apps/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,mjs,json}\" \"tests/**/*.mjs\" \"scripts/**/*.mjs\" \"*.{json,mjs}\" \".github/workflows/*.yml\"",
     "test": "node --test tests/*.test.mjs",
-    "typecheck": "turbo run typecheck",
+    "typecheck": "pnpm prisma:generate && turbo run typecheck",
     "prisma:generate": "prisma generate",
-    "prisma:validate": "prisma validate"
+    "prisma:validate": "prisma validate",
+    "openapi:export": "pnpm --filter @khlim/api openapi:export",
+    "openapi:types": "openapi-typescript openapi/khlim-v1.json -o packages/api-client/src/schema.d.ts",
+    "openapi:generate": "pnpm prisma:generate && pnpm openapi:export && pnpm openapi:types",
+    "openapi:check": "pnpm openapi:generate && git diff --exit-code -- openapi/khlim-v1.json packages/api-client/src/schema.d.ts",
+    "bootstrap:verify": "node scripts/verify-bootstrap.mjs"
   },
   "devDependencies": {
     "dotenv": "17.4.2",
+    "eslint": "10.9.1",
+    "openapi-typescript": "7.13.0",
+    "prettier": "3.9.6",
     "prisma": "7.9.1",
     "turbo": "2.5.6",
     "typescript": "5.9.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/engines",
+      "prisma"
+    ],
+    "ignoredBuiltDependencies": [
+      "@scarf/scarf",
+      "@sentry/cli",
+      "unrs-resolver"
+    ]
   }
 }

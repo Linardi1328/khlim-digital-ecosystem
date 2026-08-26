@@ -1,8 +1,10 @@
 // Prisma 7 keeps connection URLs in prisma.config.ts rather than the schema.
 
 generator client {
-  provider = "prisma-client"
-  output   = "../apps/api/src/generated/prisma"
+  provider     = "prisma-client"
+  output       = "../apps/api/src/generated/prisma"
+  engineType   = "client"
+  moduleFormat = "cjs"
 }
 
 datasource db {
