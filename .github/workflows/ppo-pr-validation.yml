@@ -26,14 +26,6 @@ jobs:
       - name: Shell syntax checks
         run: find . -path './.git' -prune -o -type f -name '*.sh' -print0 | xargs -0 -r -n1 bash -n
 
-      - name: Full regression suite
-        run: node --test tests/*.test.mjs
-
-      - name: Diff whitespace checks
-        run: |
-          git diff --check
-          git diff --check origin/main...HEAD
-
       - name: Enable pnpm
         run: |
           corepack enable
@@ -41,7 +33,24 @@ jobs:
           pnpm --version
 
       - name: Install workspace dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify developer bootstrap contract
+        run: pnpm bootstrap:verify
+
+      - name: Full regression suite
+        run: pnpm test
+
+      - name: Diff whitespace checks
+        run: |
+          git diff --check
+          git diff --check origin/main...HEAD
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Formatting
+        run: pnpm format:check
 
       - name: Type checks
         run: pnpm typecheck
@@ -50,6 +59,11 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/khlim_validation
         run: pnpm prisma:validate
+
+      - name: Generated OpenAPI contract check
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/khlim_validation
+        run: pnpm openapi:check
 
       - name: Runtime builds
         run: pnpm build

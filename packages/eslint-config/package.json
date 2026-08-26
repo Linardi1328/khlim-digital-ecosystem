@@ -1,5 +1,13 @@
 {
   "name": "@khlim/eslint-config",
   "version": "0.0.0",
-  "private": true
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.mjs"
+  },
+  "dependencies": {
+    "eslint-config-next": "16.3.2",
+    "typescript-eslint": "8.67.0"
+  }
 }

@@ -9,6 +9,7 @@ dist/
 .next/
 out/
 coverage/
+apps/api/src/generated/prisma/
 
 # Expo / React Native
 .expo/
