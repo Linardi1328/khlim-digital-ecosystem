@@ -372,6 +372,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/athletes/{athleteId}/memberships/{membershipId}/billing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["BillingController_getMembershipBilling"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/athletes/{athleteId}/memberships/{membershipId}/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a provider checkout for the first membership installment
+         * @description Prices are loaded from server-side plan data. A browser success redirect does not activate membership; verified provider events do.
+         */
+        post: operations["BillingController_prepareCheckout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/payments/webhooks/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Receive a signed payment-provider webhook */
+        post: operations["BillingController_handleWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -503,6 +556,10 @@ export interface components {
         LinkPlanOfferingDto: {
             planId: string;
             offeringId: string;
+        };
+        PrepareMembershipCheckoutDto: {
+            /** @example true */
+            acceptTerms: boolean;
         };
     };
     responses: never;
@@ -1026,6 +1083,69 @@ export interface operations {
                 "application/json": components["schemas"]["LinkPlanOfferingDto"];
             };
         };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    BillingController_getMembershipBilling: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                athleteId: string;
+                membershipId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    BillingController_prepareCheckout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                athleteId: string;
+                membershipId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrepareMembershipCheckoutDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    BillingController_handleWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             201: {
                 headers: {

@@ -63,6 +63,49 @@ enum MembershipStatus {
   EXPIRED
 }
 
+enum BillingProfileStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PaymentMethodStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PaymentScheduleStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentInstallmentStatus {
+  SCHEDULED
+  PROCESSING
+  PAID
+  FAILED
+  OVERDUE
+  WAIVED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum PaymentProviderEventProcessingStatus {
+  RECEIVED
+  PROCESSED
+  ACTION_REQUIRED
+  FAILED
+}
+
 model User {
   id                          String                    @id @default(uuid()) @db.Uuid
   authProviderSubject         String                    @unique @map("auth_provider_subject")
@@ -80,6 +123,9 @@ model User {
   createdGuardianInvitations  GuardianInvitation[]       @relation("CreatedGuardianInvitations")
   acceptedGuardianInvitations GuardianInvitation[]       @relation("AcceptedGuardianInvitations")
   purchasedMemberships        Membership[]               @relation("MembershipPurchaser")
+  billingProfiles             BillingProfile[]
+  acceptedMembershipAgreements MembershipAgreement[]     @relation("MembershipAgreementAcceptor")
+  payments                    Payment[]                  @relation("PaymentPayer")
 
   @@index([status])
   @@map("users")
@@ -195,14 +241,14 @@ model Sport {
 }
 
 model Venue {
-  id         String              @id @default(uuid()) @db.Uuid
-  name       String
-  address    String?
-  active     Boolean             @default(true)
-  createdAt  DateTime            @default(now()) @map("created_at")
-  updatedAt  DateTime            @updatedAt @map("updated_at")
-  courts     Court[]
-  offerings  ProgrammeOffering[]
+  id        String              @id @default(uuid()) @db.Uuid
+  name      String
+  address   String?
+  active    Boolean             @default(true)
+  createdAt DateTime            @default(now()) @map("created_at")
+  updatedAt DateTime            @updatedAt @map("updated_at")
+  courts    Court[]
+  offerings ProgrammeOffering[]
 
   @@index([active])
   @@map("venues")
@@ -243,22 +289,22 @@ model Programme {
 }
 
 model ProgrammeOffering {
-  id                  String                              @id @default(uuid()) @db.Uuid
-  programmeId         String                              @map("programme_id") @db.Uuid
-  venueId             String?                             @map("venue_id") @db.Uuid
-  name                String
-  capacity            Int
-  enrollmentOpensAt   DateTime?                           @map("enrollment_opens_at")
-  enrollmentClosesAt  DateTime?                           @map("enrollment_closes_at")
-  startsOn            DateTime?                           @map("starts_on") @db.Date
-  endsOn              DateTime?                           @map("ends_on") @db.Date
-  status              ProgrammeOfferingStatus             @default(DRAFT)
-  createdAt           DateTime                            @default(now()) @map("created_at")
-  updatedAt           DateTime                            @updatedAt @map("updated_at")
-  programme           Programme                           @relation(fields: [programmeId], references: [id], onDelete: Restrict)
-  venue               Venue?                              @relation(fields: [venueId], references: [id], onDelete: SetNull)
-  planEligibilities   MembershipPlanOfferingEligibility[]
-  memberships         Membership[]
+  id                 String                              @id @default(uuid()) @db.Uuid
+  programmeId        String                              @map("programme_id") @db.Uuid
+  venueId            String?                             @map("venue_id") @db.Uuid
+  name               String
+  capacity           Int
+  enrollmentOpensAt  DateTime?                           @map("enrollment_opens_at")
+  enrollmentClosesAt DateTime?                           @map("enrollment_closes_at")
+  startsOn           DateTime?                           @map("starts_on") @db.Date
+  endsOn             DateTime?                           @map("ends_on") @db.Date
+  status             ProgrammeOfferingStatus             @default(DRAFT)
+  createdAt          DateTime                            @default(now()) @map("created_at")
+  updatedAt          DateTime                            @updatedAt @map("updated_at")
+  programme          Programme                           @relation(fields: [programmeId], references: [id], onDelete: Restrict)
+  venue              Venue?                              @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  planEligibilities  MembershipPlanOfferingEligibility[]
+  memberships        Membership[]
 
   @@index([programmeId, status])
   @@index([venueId, status])
@@ -266,33 +312,33 @@ model ProgrammeOffering {
 }
 
 model MembershipPlan {
-  id                String                              @id @default(uuid()) @db.Uuid
-  name              String
-  durationMonths    Int?                                @map("duration_months")
-  commitmentCycles  Int?                                @map("commitment_cycles")
-  billingFrequency  BillingFrequency                    @map("billing_frequency")
-  recurringAmountMinor Int?                             @map("recurring_amount_minor")
-  upfrontAmountMinor   Int?                             @map("upfront_amount_minor")
-  currency          String                              @default("MYR")
-  sessionAllowance  Int?                                @map("session_allowance")
-  benefitsSummary   String?                             @map("benefits_summary")
-  active            Boolean                             @default(true)
-  createdAt         DateTime                            @default(now()) @map("created_at")
-  updatedAt         DateTime                            @updatedAt @map("updated_at")
-  offeringEligibilities MembershipPlanOfferingEligibility[]
-  memberships       Membership[]
+  id                       String                              @id @default(uuid()) @db.Uuid
+  name                     String
+  durationMonths           Int?                                @map("duration_months")
+  commitmentCycles         Int?                                @map("commitment_cycles")
+  billingFrequency         BillingFrequency                    @map("billing_frequency")
+  recurringAmountMinor     Int?                                @map("recurring_amount_minor")
+  upfrontAmountMinor       Int?                                @map("upfront_amount_minor")
+  currency                 String                              @default("MYR")
+  sessionAllowance         Int?                                @map("session_allowance")
+  benefitsSummary          String?                             @map("benefits_summary")
+  active                   Boolean                             @default(true)
+  createdAt                DateTime                            @default(now()) @map("created_at")
+  updatedAt                DateTime                            @updatedAt @map("updated_at")
+  offeringEligibilities    MembershipPlanOfferingEligibility[]
+  memberships              Membership[]
 
   @@index([active])
   @@map("membership_plans")
 }
 
 model MembershipPlanOfferingEligibility {
-  id          String            @id @default(uuid()) @db.Uuid
-  planId      String            @map("plan_id") @db.Uuid
-  offeringId  String            @map("offering_id") @db.Uuid
-  createdAt   DateTime          @default(now()) @map("created_at")
-  plan        MembershipPlan    @relation(fields: [planId], references: [id], onDelete: Cascade)
-  offering    ProgrammeOffering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
+  id         String            @id @default(uuid()) @db.Uuid
+  planId     String            @map("plan_id") @db.Uuid
+  offeringId String            @map("offering_id") @db.Uuid
+  createdAt  DateTime          @default(now()) @map("created_at")
+  plan       MembershipPlan    @relation(fields: [planId], references: [id], onDelete: Cascade)
+  offering   ProgrammeOffering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
 
   @@unique([planId, offeringId])
   @@index([offeringId])
@@ -318,9 +364,151 @@ model Membership {
   programmeOffering   ProgrammeOffering @relation(fields: [programmeOfferingId], references: [id], onDelete: Restrict)
   membershipPlan      MembershipPlan    @relation(fields: [membershipPlanId], references: [id], onDelete: Restrict)
   purchasedBy         User?             @relation("MembershipPurchaser", fields: [purchasedByUserId], references: [id], onDelete: SetNull)
+  agreements          MembershipAgreement[]
+  paymentSchedule     PaymentSchedule?
+  payments            Payment[]
 
   @@index([athleteId, status])
   @@index([programmeOfferingId, status])
   @@index([membershipPlanId, status])
   @@map("memberships")
+}
+
+model MembershipAgreement {
+  id                       String           @id @default(uuid()) @db.Uuid
+  membershipId             String           @map("membership_id") @db.Uuid
+  termsVersion             String           @map("terms_version")
+  acceptedByUserId         String           @map("accepted_by_user_id") @db.Uuid
+  acceptedAt               DateTime         @default(now()) @map("accepted_at")
+  amountMinorSnapshot      Int              @map("amount_minor_snapshot")
+  currencySnapshot         String           @map("currency_snapshot")
+  billingFrequencySnapshot BillingFrequency @map("billing_frequency_snapshot")
+  installmentCountSnapshot Int              @map("installment_count_snapshot")
+  createdAt                DateTime         @default(now()) @map("created_at")
+  membership               Membership       @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+  acceptedBy               User             @relation("MembershipAgreementAcceptor", fields: [acceptedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([membershipId, termsVersion])
+  @@index([acceptedByUserId])
+  @@map("membership_agreements")
+}
+
+model BillingProfile {
+  id                 String               @id @default(uuid()) @db.Uuid
+  userId             String               @map("user_id") @db.Uuid
+  provider           String
+  providerCustomerId String               @map("provider_customer_id")
+  status             BillingProfileStatus @default(ACTIVE)
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
+  paymentMethods     PaymentMethod[]
+
+  @@unique([userId, provider])
+  @@unique([provider, providerCustomerId])
+  @@index([status])
+  @@map("billing_profiles")
+}
+
+model PaymentMethod {
+  id                             String              @id @default(uuid()) @db.Uuid
+  billingProfileId               String              @map("billing_profile_id") @db.Uuid
+  provider                       String
+  providerPaymentMethodReference String              @map("provider_payment_method_reference")
+  methodType                     String              @map("method_type")
+  brand                          String?
+  lastFour                       String?              @map("last_four")
+  expiryMonth                    Int?                 @map("expiry_month")
+  expiryYear                     Int?                 @map("expiry_year")
+  status                         PaymentMethodStatus @default(ACTIVE)
+  createdAt                      DateTime             @default(now()) @map("created_at")
+  updatedAt                      DateTime             @updatedAt @map("updated_at")
+  billingProfile                 BillingProfile      @relation(fields: [billingProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerPaymentMethodReference])
+  @@index([billingProfileId, status])
+  @@map("payment_methods")
+}
+
+model PaymentSchedule {
+  id                        String                @id @default(uuid()) @db.Uuid
+  membershipId              String                @unique @map("membership_id") @db.Uuid
+  frequency                 BillingFrequency
+  installmentCount          Int                   @map("installment_count")
+  amountPerInstallmentMinor Int                   @map("amount_per_installment_minor")
+  currency                  String
+  startsAt                  DateTime              @map("starts_at")
+  status                    PaymentScheduleStatus @default(PENDING)
+  providerSubscriptionReference String?           @map("provider_subscription_reference")
+  createdAt                 DateTime              @default(now()) @map("created_at")
+  updatedAt                 DateTime              @updatedAt @map("updated_at")
+  membership                Membership            @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+  installments              PaymentInstallment[]
+
+  @@index([status])
+  @@map("payment_schedules")
+}
+
+model PaymentInstallment {
+  id                String                   @id @default(uuid()) @db.Uuid
+  paymentScheduleId String                   @map("payment_schedule_id") @db.Uuid
+  sequenceNumber    Int                      @map("sequence_number")
+  dueAt             DateTime                 @map("due_at")
+  amountMinor       Int                      @map("amount_minor")
+  currency          String
+  status            PaymentInstallmentStatus @default(SCHEDULED)
+  paidAt            DateTime?                @map("paid_at")
+  createdAt         DateTime                 @default(now()) @map("created_at")
+  updatedAt         DateTime                 @updatedAt @map("updated_at")
+  paymentSchedule   PaymentSchedule          @relation(fields: [paymentScheduleId], references: [id], onDelete: Cascade)
+  payments          Payment[]
+
+  @@unique([paymentScheduleId, sequenceNumber])
+  @@index([status, dueAt])
+  @@map("payment_installments")
+}
+
+model Payment {
+  id                   String        @id @default(uuid()) @db.Uuid
+  payerUserId          String        @map("payer_user_id") @db.Uuid
+  membershipId         String?       @map("membership_id") @db.Uuid
+  paymentInstallmentId String?       @map("payment_installment_id") @db.Uuid
+  provider             String
+  providerPaymentId    String?       @map("provider_payment_id")
+  idempotencyKey       String        @unique @map("idempotency_key")
+  amountMinor          Int           @map("amount_minor")
+  currency             String
+  status               PaymentStatus @default(PENDING)
+  attemptNumber        Int           @default(1) @map("attempt_number")
+  attemptedAt          DateTime      @default(now()) @map("attempted_at")
+  settledAt            DateTime?     @map("settled_at")
+  failedAt             DateTime?     @map("failed_at")
+  failureCode          String?       @map("failure_code")
+  safeFailureReason    String?       @map("safe_failure_reason")
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+  payer                User          @relation("PaymentPayer", fields: [payerUserId], references: [id], onDelete: Restrict)
+  membership           Membership?   @relation(fields: [membershipId], references: [id], onDelete: SetNull)
+  paymentInstallment   PaymentInstallment? @relation(fields: [paymentInstallmentId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, providerPaymentId])
+  @@index([membershipId, status])
+  @@index([paymentInstallmentId, status])
+  @@map("payments")
+}
+
+model PaymentProviderEvent {
+  id               String                               @id @default(uuid()) @db.Uuid
+  provider         String
+  providerEventId  String                               @map("provider_event_id")
+  eventType        String                               @map("event_type")
+  receivedAt       DateTime                             @default(now()) @map("received_at")
+  processedAt      DateTime?                            @map("processed_at")
+  processingStatus PaymentProviderEventProcessingStatus @default(RECEIVED) @map("processing_status")
+  payloadHash      String                               @map("payload_hash")
+  safeMetadata     Json?                                @map("safe_metadata")
+
+  @@unique([provider, providerEventId])
+  @@index([processingStatus, receivedAt])
+  @@map("payment_provider_events")
 }
