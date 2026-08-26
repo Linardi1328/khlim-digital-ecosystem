@@ -28,6 +28,7 @@ test("root tooling is pinned to the Phase 1 baseline", async () => {
   assert.equal(manifest.private, true);
   assert.equal(manifest.packageManager, "pnpm@10.15.0");
   assert.deepEqual(manifest.engines, { node: "24.x", pnpm: "10.15.0" });
+  assert.equal(manifest.devDependencies.dotenv, "17.4.2");
   assert.equal(manifest.devDependencies.prisma, "7.9.1");
   assert.equal(manifest.devDependencies.turbo, "2.5.6");
   assert.equal(manifest.devDependencies.typescript, "5.9.2");
@@ -165,14 +166,19 @@ test("website and admin are the first web clients while mobile remains reserved"
   assert.equal(mobile.dependencies, undefined);
 });
 
-test("the Prisma boundary starts with PostgreSQL and versioned migrations", async () => {
+test("Prisma 7 owns PostgreSQL schema and connection configuration", async () => {
   const schema = await readFile(new URL("prisma/schema.prisma", root), "utf8");
+  const config = await readFile(new URL("prisma.config.ts", root), "utf8");
   const migrationMarker = await readFile(
     new URL("prisma/migrations/.gitkeep", root),
     "utf8",
   );
 
   assert.match(schema, /provider = "postgresql"/);
-  assert.match(schema, /env\("DATABASE_URL"\)/);
+  assert.match(schema, /provider = "prisma-client"/);
+  assert.match(schema, /output\s+= "\.\.\/apps\/api\/src\/generated\/prisma"/);
+  assert.doesNotMatch(schema, /url\s+=\s+env\("DATABASE_URL"\)/);
+  assert.match(config, /url: env\("DATABASE_URL"\)/);
+  assert.match(config, /path: "prisma\/migrations"/);
   assert.equal(migrationMarker, "");
 });
