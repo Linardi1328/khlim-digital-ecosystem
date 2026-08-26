@@ -41,9 +41,7 @@ export class IdentityService {
       authProviderSubject: user.authProviderSubject,
       email: user.email,
       preferredLocale: user.preferredLocale,
-      roles: user.roleAssignments
-        .map((assignment) => assignment.role)
-        .sort(),
+      roles: user.roleAssignments.map((assignment) => assignment.role).sort(),
     };
   }
 }
