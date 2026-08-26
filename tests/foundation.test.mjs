@@ -28,9 +28,12 @@ test("root tooling is pinned to the Phase 1 baseline", async () => {
   assert.equal(manifest.private, true);
   assert.equal(manifest.packageManager, "pnpm@10.15.0");
   assert.deepEqual(manifest.engines, { node: "24.x", pnpm: "10.15.0" });
+  assert.equal(manifest.devDependencies.prisma, "7.9.1");
   assert.equal(manifest.devDependencies.turbo, "2.5.6");
   assert.equal(manifest.devDependencies.typescript, "5.9.2");
-  assert.equal(manifest.scripts.test, "node --test tests/foundation.test.mjs");
+  assert.equal(manifest.scripts.dev, "turbo run dev");
+  assert.equal(manifest.scripts.test, "node --test tests/*.test.mjs");
+  assert.equal(manifest.scripts["prisma:validate"], "prisma validate");
 });
 
 test("pnpm includes only the planned workspace boundaries", async () => {
@@ -125,17 +128,28 @@ test("shared TypeScript configs define strict runtime-specific foundations", asy
   });
 });
 
-test("each application inherits only its matching shared TypeScript config", async () => {
-  const consumers = {
+test("each application inherits the matching runtime TypeScript foundation", async () => {
+  const simpleConsumers = {
     "apps/web/tsconfig.json": "../../packages/typescript-config/nextjs.json",
     "apps/admin/tsconfig.json": "../../packages/typescript-config/nextjs.json",
-    "apps/api/tsconfig.json": "../../packages/typescript-config/node.json",
     "apps/mobile/tsconfig.json": "../../packages/typescript-config/expo.json",
   };
 
-  for (const [path, expectedBase] of Object.entries(consumers)) {
+  for (const [path, expectedBase] of Object.entries(simpleConsumers)) {
     assert.deepEqual(await readJson(path), { extends: expectedBase });
   }
+
+  const api = await readJson("apps/api/tsconfig.json");
+  assert.equal(api.extends, "../../packages/typescript-config/node.json");
+  assert.deepEqual(api.compilerOptions, {
+    emitDecoratorMetadata: true,
+    experimentalDecorators: true,
+    noEmit: false,
+    outDir: "./dist",
+    rootDir: "./src",
+    sourceMap: true,
+  });
+  assert.deepEqual(api.include, ["src/**/*.ts"]);
 });
 
 test("website and admin are the first web clients while mobile remains reserved", async () => {
@@ -146,6 +160,9 @@ test("website and admin are the first web clients while mobile remains reserved"
   assert.equal(web.name, "@khlim/web");
   assert.equal(admin.name, "@khlim/admin");
   assert.equal(mobile.name, "@khlim/mobile");
+  assert.equal(web.dependencies.next, "16.3.2");
+  assert.equal(admin.dependencies.next, "16.3.2");
+  assert.equal(mobile.dependencies, undefined);
 });
 
 test("the Prisma boundary starts with PostgreSQL and versioned migrations", async () => {
