@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "../../../lib/i18n-context";
 import { useAuth } from "../../../lib/auth-context";
@@ -11,26 +11,52 @@ import { Alert } from "../../../components/ui/alert";
 
 export default function GuardianOnboardingPage() {
   const { t } = useI18n();
-  const { guardianProfile, updateGuardianProfile } = useAuth();
+  const { guardianProfile, updateGuardianProfile, isAuthenticated, isLoading: authLoading } = useAuth();
   const router = useRouter();
 
-  const [displayName, setDisplayName] = useState(guardianProfile?.displayName ?? "Richie Lim");
-  const [phone, setPhone] = useState(guardianProfile?.phone ?? "+60 12-345 6789");
-  const [emergencyName, setEmergencyName] = useState(guardianProfile?.emergencyContactName ?? "Sarah Tan");
-  const [emergencyPhone, setEmergencyPhone] = useState(guardianProfile?.emergencyContactPhone ?? "+60 19-876 5432");
+  const [displayName, setDisplayName] = useState(guardianProfile?.displayName || "");
+  const [phone, setPhone] = useState(guardianProfile?.phone || "");
+  const [emergencyName, setEmergencyName] = useState(guardianProfile?.emergencyContactName || "");
+  const [emergencyPhone, setEmergencyPhone] = useState(guardianProfile?.emergencyContactPhone || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.replace("/auth/login?redirect=/onboarding/guardian");
+    }
+  }, [authLoading, isAuthenticated, router]);
+
+  useEffect(() => {
+    if (guardianProfile) {
+      if (guardianProfile.displayName) setDisplayName(guardianProfile.displayName);
+      if (guardianProfile.phone) setPhone(guardianProfile.phone);
+      if (guardianProfile.emergencyContactName) setEmergencyName(guardianProfile.emergencyContactName);
+      if (guardianProfile.emergencyContactPhone) setEmergencyPhone(guardianProfile.emergencyContactPhone);
+    }
+  }, [guardianProfile]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!displayName.trim()) {
+      setError("Please provide a guardian display name.");
+      return;
+    }
+
     setIsSubmitting(true);
+    setError("");
     try {
       await updateGuardianProfile({
-        displayName,
-        phone,
-        emergencyContactName: emergencyName,
-        emergencyContactPhone: emergencyPhone,
+        displayName: displayName.trim(),
+        phone: phone.trim(),
+        emergencyContactName: emergencyName.trim() || undefined,
+        emergencyContactPhone: emergencyPhone.trim() || undefined,
       });
-      router.push("/enrol");
+      router.push("/portal/dashboard");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to save guardian profile";
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -72,6 +98,12 @@ export default function GuardianOnboardingPage() {
           </CardHeader>
 
           <CardContent>
+            {error && (
+              <div style={{ marginBottom: "16px" }}>
+                <Alert variant="danger">{error}</Alert>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
               <Input
                 label={t("onboarding.guardian.displayName")}
@@ -83,11 +115,10 @@ export default function GuardianOnboardingPage() {
 
               <Input
                 label={t("onboarding.guardian.phone")}
-                required
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="e.g. +60 12-345 6789"
-                helperText="Used for schedule updates and coach emergency communication."
+                placeholder="+60 12-345 6789"
+                helperText="Used for emergency contact and schedule update notifications."
               />
 
               <div style={{ paddingTop: "12px", borderTop: "1px solid #F4F4F5" }}>
@@ -97,17 +128,15 @@ export default function GuardianOnboardingPage() {
                 <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
                   <Input
                     label="Emergency Contact Name"
-                    required
                     value={emergencyName}
                     onChange={(e) => setEmergencyName(e.target.value)}
-                    placeholder="e.g. Sarah Tan (Spouse / Relative)"
+                    placeholder="e.g. Spouse / Relative"
                   />
                   <Input
                     label="Emergency Contact Phone"
-                    required
                     value={emergencyPhone}
                     onChange={(e) => setEmergencyPhone(e.target.value)}
-                    placeholder="e.g. +60 19-876 5432"
+                    placeholder="+60 19-876 5432"
                   />
                 </div>
               </div>

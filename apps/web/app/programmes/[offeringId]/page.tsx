@@ -1,6 +1,6 @@
 "use client";
 
-import React, { use } from "react";
+import React, { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { useI18n } from "../../../lib/i18n-context";
 import { PublicHeader } from "../../../components/layout/public-header";
@@ -8,7 +8,8 @@ import { PublicFooter } from "../../../components/layout/public-footer";
 import { Button } from "../../../components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "../../../components/ui/card";
 import { Badge } from "../../../components/ui/badge";
-import { INITIAL_OFFERINGS, INITIAL_PROGRAMMES, INITIAL_MEMBERSHIP_PLANS } from "../../../lib/api-service";
+import { apiService } from "../../../lib/api-service";
+import type { PublicOfferingItem } from "../../../lib/types";
 
 export default function OfferingDetailPage({
   params,
@@ -18,12 +19,54 @@ export default function OfferingDetailPage({
   const { offeringId } = use(params);
   const { t, formatCurrency } = useI18n();
 
-  const offering =
-    INITIAL_OFFERINGS.find((o) => o.id === offeringId) || INITIAL_OFFERINGS[0]!;
-  const programme =
-    INITIAL_PROGRAMMES.find((p) => p.id === offering.programmeId) || INITIAL_PROGRAMMES[0]!;
+  const [offering, setOffering] = useState<PublicOfferingItem | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  const spotsLeft = offering.capacity - offering.enrolledCount;
+  useEffect(() => {
+    apiService
+      .getPublicOfferings()
+      .then((offerings) => {
+        const match = offerings.find((o) => o.id === offeringId) || offerings[0] || null;
+        setOffering(match);
+      })
+      .catch((err) => console.warn("Failed to load offering details:", err))
+      .finally(() => setLoading(false));
+  }, [offeringId]);
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+        <PublicHeader />
+        <main style={{ flex: 1, maxWidth: "1000px", margin: "0 auto", padding: "60px 20px", textAlign: "center", color: "#71717A" }}>
+          Loading offering details from server...
+        </main>
+        <PublicFooter />
+      </div>
+    );
+  }
+
+  if (!offering) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+        <PublicHeader />
+        <main style={{ flex: 1, maxWidth: "1000px", margin: "0 auto", padding: "60px 20px", textAlign: "center" }}>
+          <h2>Offering Not Found</h2>
+          <p style={{ color: "#71717A", marginBottom: "24px" }}>
+            The requested programme offering is not currently open or active.
+          </p>
+          <Link href="/programmes" style={{ textDecoration: "none" }}>
+            <Button variant="primary" size="md">
+              ← Return to Programmes Catalogue
+            </Button>
+          </Link>
+        </main>
+        <PublicFooter />
+      </div>
+    );
+  }
+
+  const prg = offering.programme;
+  const plans = offering.planEligibilities?.map((pe) => pe.plan) || [];
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -52,17 +95,17 @@ export default function OfferingDetailPage({
             <div>
               <div style={{ display: "flex", gap: "8px", alignItems: "center", marginBottom: "8px" }}>
                 <Badge variant="brand" size="md">
-                  Age {programme.minAge}–{programme.maxAge}
+                  Age {prg?.minimumAge}–{prg?.maximumAge}
                 </Badge>
-                <Badge variant={spotsLeft > 3 ? "success" : "warning"} size="md">
-                  {spotsLeft} Spots Available
+                <Badge variant="success" size="md">
+                  Capacity: {offering.capacity} Students
                 </Badge>
               </div>
               <h1 style={{ fontSize: "2.25rem", fontWeight: 900, color: "#18181B", margin: "0 0 8px" }}>
-                {offering.programmeName}
+                {offering.name}
               </h1>
               <p style={{ fontSize: "1rem", color: "#71717A", margin: 0, maxWidth: "600px" }}>
-                {programme.description}
+                {prg?.description || prg?.name}
               </p>
             </div>
 
@@ -73,7 +116,7 @@ export default function OfferingDetailPage({
             </Link>
           </div>
 
-          {/* Offering Operational Metadata */}
+          {/* Operational Metadata */}
           <div
             style={{
               display: "grid",
@@ -86,103 +129,109 @@ export default function OfferingDetailPage({
           >
             <div>
               <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#71717A", textTransform: "uppercase" }}>
-                Schedule & Time
+                Term Start Date
               </div>
               <div style={{ fontSize: "1rem", fontWeight: 700, color: "#18181B", marginTop: "4px" }}>
-                Every {offering.dayOfWeek}
+                {offering.startsOn}
               </div>
               <div style={{ fontSize: "0.875rem", color: "#52525B" }}>
-                {offering.startTime} - {offering.endTime}
+                {offering.endsOn ? `Ends: ${offering.endsOn}` : "Ongoing Term"}
               </div>
             </div>
 
             <div>
               <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#71717A", textTransform: "uppercase" }}>
-                Venue & Court
+                Training Venue
               </div>
               <div style={{ fontSize: "1rem", fontWeight: 700, color: "#18181B", marginTop: "4px" }}>
-                {offering.venueName}
+                {offering.venue?.name || "KHLIM Training Facility"}
               </div>
               <div style={{ fontSize: "0.875rem", color: "#52525B" }}>
-                {offering.court}
+                {offering.venue?.address || "Malaysia"}
               </div>
             </div>
 
             <div>
               <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#71717A", textTransform: "uppercase" }}>
-                Enrolment Capacity
+                Level Category
               </div>
               <div style={{ fontSize: "1rem", fontWeight: 700, color: "#18181B", marginTop: "4px" }}>
-                {offering.enrolledCount} / {offering.capacity} Enrolled
+                {prg?.level || "Development"}
               </div>
-              <div style={{ width: "100%", height: "6px", backgroundColor: "#E4E4E7", borderRadius: "3px", marginTop: "6px" }}>
-                <div
-                  style={{
-                    width: `${(offering.enrolledCount / offering.capacity) * 100}%`,
-                    height: "100%",
-                    backgroundColor: "#10B981",
-                    borderRadius: "3px",
-                  }}
-                />
+              <div style={{ fontSize: "0.875rem", color: "#52525B" }}>
+                Sport: {prg?.sport?.defaultName || "Basketball"}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Membership Plans Available */}
+        {/* Eligible Membership Plans */}
         <div>
           <h2 style={{ fontSize: "1.75rem", fontWeight: 800, color: "#18181B", marginBottom: "8px" }}>
             Available Membership Plans
           </h2>
           <p style={{ fontSize: "0.9375rem", color: "#71717A", marginBottom: "24px" }}>
-            All packages include training jersey, coach evaluations, and full parent portal access. Prices calculated authoritatively by KHLIM backend.
+            Prices are calculated authoritatively by KHLIM backend contracts.
           </p>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "20px" }}>
-            {INITIAL_MEMBERSHIP_PLANS.map((plan) => (
-              <Card key={plan.id} style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-                <div>
-                  <CardHeader>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-                      <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: "#71717A" }}>
-                        {plan.commitmentCycles} Months Commitment
-                      </span>
-                    </div>
-                    <CardTitle>{plan.name}</CardTitle>
-                  </CardHeader>
+          {plans.length === 0 ? (
+            <Card style={{ padding: "24px", color: "#71717A", textAlign: "center" }}>
+              No plans linked to this offering.
+            </Card>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "20px" }}>
+              {plans.map((plan) => {
+                const monthlyPrice = plan.recurringAmountMinor / 100;
+                const upfrontPrice = plan.upfrontAmountMinor / 100;
 
-                  <CardContent>
-                    <div style={{ margin: "16px 0" }}>
-                      <div style={{ fontSize: "2rem", fontWeight: 900, color: "#18181B" }}>
-                        {formatCurrency(plan.monthlyAmount)}
-                        <span style={{ fontSize: "0.9375rem", fontWeight: 500, color: "#71717A" }}> / month</span>
-                      </div>
-                      <div style={{ fontSize: "0.8125rem", color: "#71717A", marginTop: "2px" }}>
-                        Total for term: {formatCurrency(plan.upfrontAmount)}
-                      </div>
-                    </div>
-
-                    <div style={{ fontSize: "0.8125rem", color: "#52525B", display: "flex", flexDirection: "column", gap: "6px" }}>
-                      {plan.benefitsSummary.map((b, idx) => (
-                        <div key={idx} style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                          <span style={{ color: "#10B981", fontWeight: 700 }}>✓</span>
-                          <span>{b}</span>
+                return (
+                  <Card key={plan.id} style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                    <div>
+                      <CardHeader>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                          <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: "#71717A" }}>
+                            {plan.commitmentCycles} Cycle(s) Commitment
+                          </span>
                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </div>
+                        <CardTitle>{plan.name}</CardTitle>
+                      </CardHeader>
 
-                <div style={{ marginTop: "20px", paddingTop: "16px", borderTop: "1px solid #F4F4F5" }}>
-                  <Link href={`/enrol?offeringId=${offering.id}&planId=${plan.id}`} style={{ width: "100%", textDecoration: "none" }}>
-                    <Button variant="primary" size="md" style={{ width: "100%" }}>
-                      Select & Enrol Child →
-                    </Button>
-                  </Link>
-                </div>
-              </Card>
-            ))}
-          </div>
+                      <CardContent>
+                        <div style={{ margin: "16px 0" }}>
+                          <div style={{ fontSize: "2rem", fontWeight: 900, color: "#18181B" }}>
+                            {formatCurrency(monthlyPrice)}
+                            <span style={{ fontSize: "0.9375rem", fontWeight: 500, color: "#71717A" }}>
+                              {" "}
+                              / {plan.billingFrequency.toLowerCase()}
+                            </span>
+                          </div>
+                          {upfrontPrice > 0 && upfrontPrice !== monthlyPrice && (
+                            <div style={{ fontSize: "0.8125rem", color: "#71717A", marginTop: "2px" }}>
+                              Total for term: {formatCurrency(upfrontPrice)}
+                            </div>
+                          )}
+                        </div>
+
+                        {plan.benefitsSummary && (
+                          <div style={{ fontSize: "0.8125rem", color: "#52525B" }}>
+                            {plan.benefitsSummary}
+                          </div>
+                        )}
+                      </CardContent>
+                    </div>
+
+                    <div style={{ marginTop: "20px", paddingTop: "16px", borderTop: "1px solid #F4F4F5" }}>
+                      <Link href={`/enrol?offeringId=${offering.id}&planId=${plan.id}`} style={{ width: "100%", textDecoration: "none" }}>
+                        <Button variant="primary" size="md" style={{ width: "100%" }}>
+                          Select & Enrol Child →
+                        </Button>
+                      </Link>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </div>
       </main>
 

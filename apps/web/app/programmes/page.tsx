@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useI18n } from "../../lib/i18n-context";
 import { PublicHeader } from "../../components/layout/public-header";
@@ -8,16 +8,31 @@ import { PublicFooter } from "../../components/layout/public-footer";
 import { Button } from "../../components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
-import { INITIAL_PROGRAMMES, INITIAL_OFFERINGS } from "../../lib/api-service";
+import { apiService } from "../../lib/api-service";
+import type { PublicOfferingItem } from "../../lib/types";
 
 export default function ProgrammesPage() {
   const { t } = useI18n();
+  const [offerings, setOfferings] = useState<PublicOfferingItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const [selectedLevel, setSelectedLevel] = useState<string>("ALL");
 
-  const filteredProgrammes =
+  useEffect(() => {
+    apiService
+      .getPublicOfferings()
+      .then(setOfferings)
+      .catch((err) => console.warn("Failed to load offerings:", err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const levels = Array.from(
+    new Set(offerings.map((o) => o.programme?.level).filter(Boolean)),
+  );
+
+  const filteredOfferings =
     selectedLevel === "ALL"
-      ? INITIAL_PROGRAMMES
-      : INITIAL_PROGRAMMES.filter((p) => p.id === selectedLevel);
+      ? offerings
+      : offerings.filter((o) => o.programme?.level === selectedLevel);
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -27,7 +42,7 @@ export default function ProgrammesPage() {
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: "40px" }}>
           <Badge variant="brand" size="md">
-            2026 Training Term
+            Academy Programme Catalogue
           </Badge>
           <h1 style={{ fontSize: "2.75rem", fontWeight: 900, color: "#18181B", margin: "16px 0 12px" }}>
             {t("programmes.title")}
@@ -38,99 +53,84 @@ export default function ProgrammesPage() {
         </div>
 
         {/* Level Filter Pills */}
-        <div style={{ display: "flex", justifyContent: "center", gap: "8px", marginBottom: "40px", flexWrap: "wrap" }}>
-          <Button
-            variant={selectedLevel === "ALL" ? "primary" : "outline"}
-            size="sm"
-            onClick={() => setSelectedLevel("ALL")}
-          >
-            All Programmes
-          </Button>
-          {INITIAL_PROGRAMMES.map((p) => (
+        {levels.length > 1 && (
+          <div style={{ display: "flex", justifyContent: "center", gap: "8px", marginBottom: "40px", flexWrap: "wrap" }}>
             <Button
-              key={p.id}
-              variant={selectedLevel === p.id ? "primary" : "outline"}
+              variant={selectedLevel === "ALL" ? "primary" : "outline"}
               size="sm"
-              onClick={() => setSelectedLevel(p.id)}
+              onClick={() => setSelectedLevel("ALL")}
             >
-              {p.name} (Age {p.minAge}–{p.maxAge})
+              All Levels
             </Button>
-          ))}
-        </div>
+            {levels.map((lvl) => (
+              <Button
+                key={lvl}
+                variant={selectedLevel === lvl ? "primary" : "outline"}
+                size="sm"
+                onClick={() => setSelectedLevel(lvl)}
+              >
+                {lvl}
+              </Button>
+            ))}
+          </div>
+        )}
 
-        {/* Programmes Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "32px" }}>
-          {filteredProgrammes.map((programme) => {
-            const offerings = INITIAL_OFFERINGS.filter((o) => o.programmeId === programme.id);
-
-            return (
-              <Card key={programme.id} style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-                <div>
-                  <CardHeader>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                      <Badge variant="brand" size="sm">
-                        Age {programme.minAge} – {programme.maxAge} Years
-                      </Badge>
-                      <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: "#F59E0B" }}>
-                        {programme.level}
-                      </span>
-                    </div>
-                    <CardTitle>{programme.name}</CardTitle>
-                    <CardDescription>{programme.description}</CardDescription>
-                  </CardHeader>
-
-                  <CardContent>
-                    <div style={{ marginTop: "16px", borderTop: "1px solid #F4F4F5", paddingTop: "16px" }}>
-                      <h4 style={{ fontSize: "0.875rem", fontWeight: 700, color: "#27272A", margin: "0 0 10px" }}>
-                        Available Time Slots & Locations:
-                      </h4>
-
-                      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                        {offerings.map((off) => {
-                          const spotsLeft = off.capacity - off.enrolledCount;
-                          return (
-                            <div
-                              key={off.id}
-                              style={{
-                                padding: "10px 12px",
-                                borderRadius: "8px",
-                                backgroundColor: "#FAFAFA",
-                                border: "1px solid #E4E4E7",
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "center",
-                              }}
-                            >
-                              <div>
-                                <div style={{ fontWeight: 600, fontSize: "0.875rem", color: "#18181B" }}>
-                                  {off.dayOfWeek}s • {off.startTime} - {off.endTime}
-                                </div>
-                                <div style={{ fontSize: "0.75rem", color: "#71717A" }}>
-                                  📍 {off.venueName} ({off.court})
-                                </div>
-                              </div>
-                              <Badge variant={spotsLeft > 3 ? "success" : "warning"} size="sm">
-                                {t("programmes.spotsLeft", { count: spotsLeft })}
-                              </Badge>
-                            </div>
-                          );
-                        })}
+        {/* Offerings Grid */}
+        {loading ? (
+          <div style={{ textAlign: "center", padding: "40px", color: "#71717A" }}>
+            Loading available offerings from server...
+          </div>
+        ) : filteredOfferings.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "40px", color: "#71717A" }}>
+            No programme offerings currently open. Please check back soon.
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "32px" }}>
+            {filteredOfferings.map((offering) => {
+              const prg = offering.programme;
+              return (
+                <Card key={offering.id} style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                  <div>
+                    <CardHeader>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                        <Badge variant="brand" size="sm">
+                          Age {prg?.minimumAge} – {prg?.maximumAge} Years
+                        </Badge>
+                        <span style={{ fontSize: "0.8125rem", fontWeight: 700, color: "#F59E0B" }}>
+                          {prg?.level}
+                        </span>
                       </div>
-                    </div>
-                  </CardContent>
-                </div>
+                      <CardTitle>{offering.name}</CardTitle>
+                      <CardDescription>{prg?.description || prg?.name}</CardDescription>
+                    </CardHeader>
 
-                <CardFooter>
-                  <Link href={`/programmes/${offerings[0]?.id ?? programme.id}`} style={{ width: "100%", textDecoration: "none" }}>
-                    <Button variant="primary" size="md" style={{ width: "100%" }}>
-                      {t("programmes.viewDetails")} →
-                    </Button>
-                  </Link>
-                </CardFooter>
-              </Card>
-            );
-          })}
-        </div>
+                    <CardContent>
+                      <div style={{ marginTop: "16px", borderTop: "1px solid #F4F4F5", paddingTop: "16px" }}>
+                        <div style={{ fontSize: "0.8125rem", color: "#71717A", marginBottom: "6px" }}>
+                          📍 Venue: {offering.venue?.name || "KHLIM Training Facility"}
+                        </div>
+                        <div style={{ fontSize: "0.8125rem", color: "#71717A", marginBottom: "6px" }}>
+                          🗓️ Term Starts: {offering.startsOn}
+                        </div>
+                        <Badge variant="success" size="sm">
+                          Capacity: {offering.capacity} Students
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </div>
+
+                  <CardFooter>
+                    <Link href={`/programmes/${offering.id}`} style={{ width: "100%", textDecoration: "none" }}>
+                      <Button variant="primary" size="md" style={{ width: "100%" }}>
+                        {t("programmes.viewDetails")} →
+                      </Button>
+                    </Link>
+                  </CardFooter>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </main>
 
       <PublicFooter />

@@ -17,11 +17,10 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "../..
 import { Badge } from "../../components/ui/badge";
 import { Alert } from "../../components/ui/alert";
 import { StepIndicator } from "../../components/ui/step-indicator";
-import {
-  INITIAL_OFFERINGS,
-  INITIAL_MEMBERSHIP_PLANS,
-  apiService,
-} from "../../lib/api-service";
+import { apiService } from "../../lib/api-service";
+import type { PublicOfferingItem, MembershipPlanItem } from "../../lib/types";
+
+const CURRENT_TERMS_VERSION = "membership-mvp-v1";
 
 function EnrolmentWizardContent() {
   const { t, formatCurrency } = useI18n();
@@ -30,21 +29,23 @@ function EnrolmentWizardContent() {
   const { isAuthenticated } = useAuth();
   const { athletes, activeChild, addChild } = useFamily();
 
-  // URL pre-selection
   const preOfferingId = searchParams.get("offeringId");
   const prePlanId = searchParams.get("planId");
 
+  const [offerings, setOfferings] = useState<PublicOfferingItem[]>([]);
+  const [offeringsLoading, setOfferingsLoading] = useState<boolean>(true);
+
   const [currentStep, setCurrentStep] = useState<number>(1);
-  const [selectedChildId, setSelectedChildId] = useState<string>(activeChild?.id ?? athletes[0]?.id ?? "new");
-  
-  // New child form fields
+  const [selectedChildId, setSelectedChildId] = useState<string>("new");
+
+  // New athlete form
   const [newChildName, setNewChildName] = useState("");
   const [newChildDob, setNewChildDob] = useState("2016-05-10");
   const [newChildGender, setNewChildGender] = useState("Male");
 
-  // Step selections
-  const [selectedOfferingId, setSelectedOfferingId] = useState<string>(preOfferingId ?? INITIAL_OFFERINGS[0]!.id);
-  const [selectedPlanId, setSelectedPlanId] = useState<string>(prePlanId ?? INITIAL_MEMBERSHIP_PLANS[1]!.id);
+  // Selections
+  const [selectedOfferingId, setSelectedOfferingId] = useState<string>(preOfferingId || "");
+  const [selectedPlanId, setSelectedPlanId] = useState<string>(prePlanId || "");
   const [termsAccepted, setTermsAccepted] = useState<boolean>(false);
   const [recurringConsent, setRecurringConsent] = useState<boolean>(false);
 
@@ -52,13 +53,40 @@ function EnrolmentWizardContent() {
   const [error, setError] = useState<string>("");
 
   useEffect(() => {
-    if (athletes.length > 0 && selectedChildId === "new") {
-      setSelectedChildId(athletes[0]!.id);
+    async function loadOfferings() {
+      try {
+        const data = await apiService.getPublicOfferings();
+        setOfferings(data);
+        if (data.length > 0 && !selectedOfferingId) {
+          setSelectedOfferingId(data[0]!.id);
+        }
+      } catch (err) {
+        setError("Unable to load live academy offerings from server.");
+      } finally {
+        setOfferingsLoading(false);
+      }
     }
-  }, [athletes, selectedChildId]);
+    loadOfferings();
+  }, [selectedOfferingId]);
 
-  const selectedOffering = INITIAL_OFFERINGS.find((o) => o.id === selectedOfferingId) ?? INITIAL_OFFERINGS[0]!;
-  const selectedPlan = INITIAL_MEMBERSHIP_PLANS.find((p) => p.id === selectedPlanId) ?? INITIAL_MEMBERSHIP_PLANS[0]!;
+  useEffect(() => {
+    if (athletes.length > 0 && selectedChildId === "new") {
+      setSelectedChildId(activeChild?.id || athletes[0]!.id);
+    }
+  }, [athletes, activeChild, selectedChildId]);
+
+  const selectedOffering =
+    offerings.find((o) => o.id === selectedOfferingId) || offerings[0];
+  const eligiblePlans = selectedOffering?.planEligibilities?.map((pe) => pe.plan) || [];
+  const selectedPlan: MembershipPlanItem | undefined =
+    eligiblePlans.find((p) => p.id === selectedPlanId) || eligiblePlans[0];
+
+  useEffect(() => {
+    if (eligiblePlans.length > 0 && (!selectedPlanId || !eligiblePlans.some((p) => p.id === selectedPlanId))) {
+      setSelectedPlanId(eligiblePlans[0]!.id);
+    }
+  }, [eligiblePlans, selectedPlanId]);
+
   const selectedAthlete = athletes.find((a) => a.id === selectedChildId);
 
   const steps = [
@@ -69,40 +97,59 @@ function EnrolmentWizardContent() {
     { id: 5, label: t("enrol.steps.payment") },
   ];
 
-  // Navigation handlers
   const handleNext = async () => {
     setError("");
 
     if (currentStep === 1) {
+      if (!isAuthenticated) {
+        // Direct unauthenticated users to log in or register before managing athlete contracts
+        router.push(`/auth/login?redirect=${encodeURIComponent("/enrol")}`);
+        return;
+      }
+
       if (selectedChildId === "new") {
-        if (!newChildName || !newChildDob) {
-          setError("Please enter the child's full name and birth date.");
+        if (!newChildName.trim() || !newChildDob) {
+          setError("Please enter the child's full name and date of birth.");
           return;
         }
-        const created = await addChild({
-          displayName: newChildName,
-          dateOfBirth: newChildDob,
-          gender: newChildGender,
-        });
-        setSelectedChildId(created.id);
+        try {
+          const created = await addChild({
+            displayName: newChildName.trim(),
+            dateOfBirth: newChildDob,
+            gender: newChildGender,
+          });
+          setSelectedChildId(created.id);
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : "Failed to create athlete";
+          setError(message);
+          return;
+        }
       }
       setCurrentStep(2);
       return;
     }
 
     if (currentStep === 2) {
+      if (!selectedOffering) {
+        setError("Please select a training offering.");
+        return;
+      }
       setCurrentStep(3);
       return;
     }
 
     if (currentStep === 3) {
+      if (!selectedPlan) {
+        setError("Please select an eligible membership plan.");
+        return;
+      }
       setCurrentStep(4);
       return;
     }
 
     if (currentStep === 4) {
       if (!termsAccepted || !recurringConsent) {
-        setError("You must agree to the Academy Terms and Recurring Billing Consent to proceed.");
+        setError("You must agree to the Academy Terms and recurring billing consent to continue.");
         return;
       }
       setCurrentStep(5);
@@ -110,15 +157,46 @@ function EnrolmentWizardContent() {
     }
 
     if (currentStep === 5) {
+      if (!selectedAthlete?.id && selectedChildId === "new") {
+        setError("Athlete identification missing. Please return to step 1.");
+        return;
+      }
+
+      const athleteId = selectedAthlete?.id || selectedChildId;
       setIsProcessing(true);
+
       try {
-        // Complete enrolment and create membership
-        await apiService.createMembership({
-          athleteId: selectedChildId,
-          offeringId: selectedOfferingId,
-          membershipPlanId: selectedPlanId,
+        // 1. Create server-authoritative pending membership
+        const membership = await apiService.createPendingMembership(athleteId, {
+          programmeOfferingId: selectedOffering.id,
+          membershipPlanId: selectedPlan.id,
+          termsAcceptedVersion: CURRENT_TERMS_VERSION,
         });
-        router.push(`/enrol/confirmation?athleteId=${selectedChildId}&planId=${selectedPlanId}&offeringId=${selectedOfferingId}`);
+
+        // 2. Request provider checkout session
+        try {
+          const checkout = await apiService.prepareCheckout(athleteId, membership.id, {
+            acceptTerms: true,
+            successUrl: `${window.location.origin}/enrol/confirmation?athleteId=${athleteId}&membershipId=${membership.id}`,
+            cancelUrl: window.location.href,
+          });
+
+          if (checkout?.checkoutUrl) {
+            window.location.href = checkout.checkoutUrl;
+            return;
+          }
+        } catch (checkoutErr: unknown) {
+          // If payment gateway is not yet wired in backend environment, route to confirmation with pending state
+          console.warn("Payment gateway handoff note:", checkoutErr);
+        }
+
+        router.push(
+          `/enrol/confirmation?athleteId=${athleteId}&membershipId=${membership.id}`,
+        );
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "Enrolment creation failed on server";
+        setError(message);
       } finally {
         setIsProcessing(false);
       }
@@ -137,16 +215,15 @@ function EnrolmentWizardContent() {
       <PublicHeader />
 
       <main style={{ flex: 1, maxWidth: "1100px", margin: "0 auto", padding: "32px 20px" }}>
-        {/* Step Indicator Header */}
         <div style={{ textAlign: "center", marginBottom: "24px" }}>
           <Badge variant="brand" size="md">
-            Academy Enrolment Portal
+            Academy Enrolment
           </Badge>
           <h1 style={{ fontSize: "2.25rem", fontWeight: 900, color: "#18181B", margin: "12px 0 6px" }}>
             Join KHLIM Basketball Academy
           </h1>
           <p style={{ fontSize: "0.9375rem", color: "#71717A" }}>
-            Register your child, pick a training schedule, and authorize secure membership.
+            Server-authoritative membership contracts and provider-hosted checkout.
           </p>
         </div>
 
@@ -159,9 +236,8 @@ function EnrolmentWizardContent() {
         )}
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: "32px", alignItems: "flex-start" }}>
-          {/* Main Step Form Card */}
           <Card style={{ padding: "32px", borderRadius: "16px" }}>
-            {/* Step 1: Managed Athlete Selection */}
+            {/* Step 1: Athlete */}
             {currentStep === 1 && (
               <div>
                 <CardHeader>
@@ -169,118 +245,133 @@ function EnrolmentWizardContent() {
                   <CardDescription>{t("enrol.player.selectSubtitle")}</CardDescription>
                 </CardHeader>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginTop: "16px" }}>
-                  {athletes.map((ath) => (
+                {!isAuthenticated ? (
+                  <div style={{ marginTop: "16px" }}>
+                    <Alert variant="info" title="Guardian Sign In Required">
+                      Please sign in with your guardian account to bind the athlete membership to your family.
+                    </Alert>
+                    <div style={{ marginTop: "16px" }}>
+                      <Link href="/auth/login?redirect=/enrol" style={{ textDecoration: "none" }}>
+                        <Button variant="primary" size="md">
+                          Sign In as Guardian →
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginTop: "16px" }}>
+                    {athletes.map((ath) => (
+                      <label
+                        key={ath.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "14px",
+                          padding: "16px",
+                          borderRadius: "10px",
+                          border: selectedChildId === ath.id ? "2px solid #F59E0B" : "1px solid #E4E4E7",
+                          backgroundColor: selectedChildId === ath.id ? "#FFFDF5" : "#FFFFFF",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name="childSelection"
+                          checked={selectedChildId === ath.id}
+                          onChange={() => setSelectedChildId(ath.id)}
+                          style={{ accentColor: "#F59E0B", width: "18px", height: "18px" }}
+                        />
+                        <div
+                          style={{
+                            width: "40px",
+                            height: "40px",
+                            borderRadius: "50%",
+                            backgroundColor: "#FEF3C7",
+                            color: "#92400E",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {ath.displayName[0]}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 700, fontSize: "1rem" }}>{ath.displayName}</div>
+                          <div style={{ fontSize: "0.8125rem", color: "#71717A" }}>
+                            Date of Birth: {ath.dateOfBirth}
+                          </div>
+                        </div>
+                        <Badge variant="success" size="sm">
+                          Linked Athlete
+                        </Badge>
+                      </label>
+                    ))}
+
                     <label
-                      key={ath.id}
                       style={{
                         display: "flex",
-                        alignItems: "center",
+                        alignItems: "flex-start",
                         gap: "14px",
                         padding: "16px",
                         borderRadius: "10px",
-                        border: selectedChildId === ath.id ? "2px solid #F59E0B" : "1px solid #E4E4E7",
-                        backgroundColor: selectedChildId === ath.id ? "#FFFDF5" : "#FFFFFF",
+                        border: selectedChildId === "new" ? "2px solid #F59E0B" : "1px solid #E4E4E7",
+                        backgroundColor: selectedChildId === "new" ? "#FFFDF5" : "#FFFFFF",
                         cursor: "pointer",
                       }}
                     >
                       <input
                         type="radio"
                         name="childSelection"
-                        checked={selectedChildId === ath.id}
-                        onChange={() => setSelectedChildId(ath.id)}
-                        style={{ accentColor: "#F59E0B", width: "18px", height: "18px" }}
+                        checked={selectedChildId === "new"}
+                        onChange={() => setSelectedChildId("new")}
+                        style={{ accentColor: "#F59E0B", width: "18px", height: "18px", marginTop: "4px" }}
                       />
-                      <div
-                        style={{
-                          width: "40px",
-                          height: "40px",
-                          borderRadius: "50%",
-                          backgroundColor: "#FEF3C7",
-                          color: "#92400E",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontWeight: 700,
-                        }}
-                      >
-                        {ath.displayName[0]}
-                      </div>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 700, fontSize: "1rem" }}>{ath.displayName}</div>
-                        <div style={{ fontSize: "0.8125rem", color: "#71717A" }}>
-                          Born {ath.dateOfBirth} • {ath.relationshipType ?? "Child"}
+                        <div style={{ fontWeight: 700, fontSize: "1rem", color: "#18181B" }}>
+                          {t("enrol.player.addNew")}
                         </div>
-                      </div>
-                      <Badge variant="success" size="sm">
-                        Linked Athlete
-                      </Badge>
-                    </label>
-                  ))}
+                        <div style={{ fontSize: "0.8125rem", color: "#71717A", marginBottom: "12px" }}>
+                          Register a new child to your guardian account.
+                        </div>
 
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: "14px",
-                      padding: "16px",
-                      borderRadius: "10px",
-                      border: selectedChildId === "new" ? "2px solid #F59E0B" : "1px solid #E4E4E7",
-                      backgroundColor: selectedChildId === "new" ? "#FFFDF5" : "#FFFFFF",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name="childSelection"
-                      checked={selectedChildId === "new"}
-                      onChange={() => setSelectedChildId("new")}
-                      style={{ accentColor: "#F59E0B", width: "18px", height: "18px", marginTop: "4px" }}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 700, fontSize: "1rem", color: "#18181B" }}>
-                        {t("enrol.player.addNew")}
-                      </div>
-                      <div style={{ fontSize: "0.8125rem", color: "#71717A", marginBottom: "12px" }}>
-                        Add a new athlete profile to your guardian family account.
-                      </div>
-
-                      {selectedChildId === "new" && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "12px" }}>
-                          <Input
-                            label={t("enrol.player.fullName")}
-                            required
-                            value={newChildName}
-                            onChange={(e) => setNewChildName(e.target.value)}
-                            placeholder="e.g. Lucas Lim"
-                          />
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                        {selectedChildId === "new" && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "12px" }}>
                             <Input
-                              label={t("enrol.player.dob")}
-                              type="date"
+                              label={t("enrol.player.fullName")}
                               required
-                              value={newChildDob}
-                              onChange={(e) => setNewChildDob(e.target.value)}
+                              value={newChildName}
+                              onChange={(e) => setNewChildName(e.target.value)}
+                              placeholder="e.g. Lucas Lim"
                             />
-                            <Select
-                              label={t("enrol.player.gender")}
-                              value={newChildGender}
-                              onChange={(e) => setNewChildGender(e.target.value)}
-                              options={[
-                                { label: "Male", value: "Male" },
-                                { label: "Female", value: "Female" },
-                              ]}
-                            />
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                              <Input
+                                label={t("enrol.player.dob")}
+                                type="date"
+                                required
+                                value={newChildDob}
+                                onChange={(e) => setNewChildDob(e.target.value)}
+                              />
+                              <Select
+                                label={t("enrol.player.gender")}
+                                value={newChildGender}
+                                onChange={(e) => setNewChildGender(e.target.value)}
+                                options={[
+                                  { label: "Male", value: "Male" },
+                                  { label: "Female", value: "Female" },
+                                ]}
+                              />
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  </label>
-                </div>
+                        )}
+                      </div>
+                    </label>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Step 2: Select Programme & Offering */}
+            {/* Step 2: Programme Offering */}
             {currentStep === 2 && (
               <div>
                 <CardHeader>
@@ -288,27 +379,35 @@ function EnrolmentWizardContent() {
                   <CardDescription>{t("enrol.programme.selectSubtitle")}</CardDescription>
                 </CardHeader>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "14px", marginTop: "16px" }}>
-                  <RadioGroup
-                    name="offeringSelection"
-                    value={selectedOfferingId}
-                    onChange={setSelectedOfferingId}
-                    options={INITIAL_OFFERINGS.map((off) => ({
-                      value: off.id,
-                      title: `${off.programmeName} • ${off.dayOfWeek}s`,
-                      description: `📍 ${off.venueName} (${off.court}) | ⏰ ${off.startTime} - ${off.endTime}`,
-                      badge: (
-                        <Badge variant="brand" size="sm">
-                          {off.capacity - off.enrolledCount} spots left
-                        </Badge>
-                      ),
-                    }))}
-                  />
-                </div>
+                {offeringsLoading ? (
+                  <div style={{ padding: "20px", textAlign: "center" }}>Loading offerings...</div>
+                ) : offerings.length === 0 ? (
+                  <Alert variant="warning" title="No Offerings Available">
+                    There are currently no open programme offerings available.
+                  </Alert>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "14px", marginTop: "16px" }}>
+                    <RadioGroup
+                      name="offeringSelection"
+                      value={selectedOfferingId}
+                      onChange={setSelectedOfferingId}
+                      options={offerings.map((off) => ({
+                        value: off.id,
+                        title: `${off.name} (${off.programme?.name})`,
+                        description: `📍 Venue: ${off.venue?.name || "KHLIM Training Centre"} | Starts: ${off.startsOn}`,
+                        badge: (
+                          <Badge variant="brand" size="sm">
+                            Capacity: {off.capacity}
+                          </Badge>
+                        ),
+                      }))}
+                    />
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Step 3: Select Membership Plan */}
+            {/* Step 3: Plan */}
             {currentStep === 3 && (
               <div>
                 <CardHeader>
@@ -316,41 +415,50 @@ function EnrolmentWizardContent() {
                   <CardDescription>{t("enrol.plan.selectSubtitle")}</CardDescription>
                 </CardHeader>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginTop: "16px" }}>
-                  <RadioGroup
-                    name="planSelection"
-                    value={selectedPlanId}
-                    onChange={setSelectedPlanId}
-                    options={INITIAL_MEMBERSHIP_PLANS.map((plan) => ({
-                      value: plan.id,
-                      title: plan.name,
-                      description: (
-                        <div>
-                          <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#18181B", margin: "4px 0" }}>
-                            {formatCurrency(plan.monthlyAmount)}
-                            <span style={{ fontSize: "0.875rem", fontWeight: 500, color: "#71717A" }}> / month</span>
-                          </div>
-                          <div style={{ fontSize: "0.8125rem", color: "#52525B" }}>
-                            {plan.sessionAllowance} • {plan.commitmentCycles} Months Commitment
-                          </div>
-                        </div>
-                      ),
-                      badge: plan.commitmentCycles === 3 ? (
-                        <Badge variant="success" size="sm">Most Popular</Badge>
-                      ) : undefined,
-                    }))}
-                  />
-                </div>
+                {eligiblePlans.length === 0 ? (
+                  <Alert variant="warning" title="No Plans Linked">
+                    No active membership plans are eligible for this offering.
+                  </Alert>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginTop: "16px" }}>
+                    <RadioGroup
+                      name="planSelection"
+                      value={selectedPlanId}
+                      onChange={setSelectedPlanId}
+                      options={eligiblePlans.map((plan) => {
+                        const monthlyPrice = plan.recurringAmountMinor / 100;
+                        return {
+                          value: plan.id,
+                          title: plan.name,
+                          description: (
+                            <div>
+                              <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#18181B", margin: "4px 0" }}>
+                                {formatCurrency(monthlyPrice)}
+                                <span style={{ fontSize: "0.875rem", fontWeight: 500, color: "#71717A" }}>
+                                  {" "}
+                                  / {plan.billingFrequency.toLowerCase()}
+                                </span>
+                              </div>
+                              <div style={{ fontSize: "0.8125rem", color: "#52525B" }}>
+                                {plan.commitmentCycles} billing cycle(s) • {plan.durationMonths} months duration
+                              </div>
+                            </div>
+                          ),
+                        };
+                      })}
+                    />
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Step 4: Terms Review & Recurring Consent */}
+            {/* Step 4: Terms & Recurring Consent */}
             {currentStep === 4 && (
               <div>
                 <CardHeader>
                   <CardTitle>{t("enrol.terms.title")}</CardTitle>
                   <CardDescription>
-                    Please review your commercial commitment before payment tokenization.
+                    Review your commercial commitment snapshot before provider payment authorization.
                   </CardDescription>
                 </CardHeader>
 
@@ -367,20 +475,33 @@ function EnrolmentWizardContent() {
                     }}
                   >
                     <div style={{ fontWeight: 700, color: "#0F172A", marginBottom: "6px" }}>
-                      Agreed Commercial Summary (Audit Snapshot)
+                      Server Authoritative Commercial Snapshot ({CURRENT_TERMS_VERSION})
                     </div>
-                    <div>• Athlete: <strong>{selectedAthlete?.displayName ?? newChildName}</strong></div>
-                    <div>• Programme: <strong>{selectedOffering.programmeName}</strong> ({selectedOffering.dayOfWeek}s)</div>
-                    <div>• Package: <strong>{selectedPlan.name}</strong></div>
-                    <div>• Monthly Installment: <strong>{formatCurrency(selectedPlan.monthlyAmount)} / month</strong></div>
-                    <div>• Commitment Duration: <strong>{selectedPlan.commitmentCycles} billing cycles</strong></div>
+                    <div>• Athlete: <strong>{selectedAthlete?.displayName || newChildName}</strong></div>
+                    <div>• Offering: <strong>{selectedOffering?.name}</strong></div>
+                    <div>• Plan: <strong>{selectedPlan?.name}</strong></div>
+                    <div>• Frequency: <strong>{selectedPlan?.billingFrequency}</strong></div>
+                    <div>
+                      • Amount:{" "}
+                      <strong>
+                        {selectedPlan
+                          ? formatCurrency(selectedPlan.recurringAmountMinor / 100)
+                          : "MYR 0"}
+                      </strong>
+                    </div>
+                    <div>• Cycles: <strong>{selectedPlan?.commitmentCycles} cycle(s)</strong></div>
                   </div>
 
                   <Checkbox
                     label={
                       <span>
-                        I authorize KHLIM to bill the monthly recurring amount of{" "}
-                        <strong>{formatCurrency(selectedPlan.monthlyAmount)}</strong> on the agreed monthly schedule for {selectedPlan.commitmentCycles} installments.
+                        I authorize the recurring payment of{" "}
+                        <strong>
+                          {selectedPlan
+                            ? formatCurrency(selectedPlan.recurringAmountMinor / 100)
+                            : "MYR 0"}
+                        </strong>{" "}
+                        on the agreed schedule for {selectedPlan?.commitmentCycles} installments.
                       </span>
                     }
                     checked={recurringConsent}
@@ -390,7 +511,7 @@ function EnrolmentWizardContent() {
                   <Checkbox
                     label={
                       <span>
-                        I have read and agree to the <Link href="/terms" target="_blank" style={{ color: "#F59E0B" }}>KHLIM Academy Terms of Service</Link>, Code of Conduct, and <Link href="/privacy" target="_blank" style={{ color: "#F59E0B" }}>Privacy Policy</Link>.
+                        I accept the <Link href="/terms" target="_blank" style={{ color: "#F59E0B" }}>KHLIM Academy Terms ({CURRENT_TERMS_VERSION})</Link> and <Link href="/privacy" target="_blank" style={{ color: "#F59E0B" }}>Child Privacy Policy</Link>.
                       </span>
                     }
                     checked={termsAccepted}
@@ -400,42 +521,37 @@ function EnrolmentWizardContent() {
               </div>
             )}
 
-            {/* Step 5: Secure Checkout Handoff */}
+            {/* Step 5: Secure Payment Provider Handoff */}
             {currentStep === 5 && (
               <div>
                 <CardHeader>
                   <CardTitle>{t("enrol.steps.payment")}</CardTitle>
                   <CardDescription>
-                    Secure provider payment tokenization powered by external gateway.
+                    Secure payment provider checkout handoff.
                   </CardDescription>
                 </CardHeader>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: "20px", marginTop: "16px" }}>
-                  <Alert variant="info" title="🔒 Provider-Hosted Card Tokenization">
-                    Your card will be tokenized via our PCI-DSS Level 1 compliant gateway. KHLIM does not store full credit card numbers or CVVs.
+                  <Alert variant="info" title="🔒 Provider-Hosted Checkout">
+                    KHLIM uses external PCI-compliant payment gateways. Card details are entered exclusively on the payment provider's secure hosted interface.
                   </Alert>
 
                   <div
                     style={{
-                      border: "1px solid #E4E4E7",
+                      padding: "20px",
                       borderRadius: "12px",
-                      padding: "24px",
+                      border: "1px solid #E2E8F0",
                       backgroundColor: "#FAFAFA",
+                      textAlign: "center",
                     }}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                      <span style={{ fontWeight: 700, fontSize: "0.9375rem" }}>Payment Method</span>
-                      <span style={{ fontSize: "0.8125rem", color: "#71717A" }}>Visa / Mastercard / DuitNow</span>
+                    <div style={{ fontSize: "2rem", marginBottom: "8px" }}>💳</div>
+                    <div style={{ fontWeight: 700, fontSize: "1rem", color: "#18181B", marginBottom: "4px" }}>
+                      Ready for Payment Authorization
                     </div>
-
-                    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                      <Input label="Cardholder Name" defaultValue="Richie Lim" />
-                      <Input label="Card Number" placeholder="4242 •••• •••• 4242" defaultValue="4242 8888 9999 4242" />
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                        <Input label="Expiry Date" placeholder="MM/YY" defaultValue="12/28" />
-                        <Input label="CVV" placeholder="•••" defaultValue="888" type="password" />
-                      </div>
-                    </div>
+                    <p style={{ fontSize: "0.875rem", color: "#64748B", maxWidth: "400px", margin: "0 auto 16px" }}>
+                      Clicking below will create your pending membership contract on the KHLIM backend and hand off to the payment gateway.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -466,7 +582,7 @@ function EnrolmentWizardContent() {
                 onClick={handleNext}
                 isLoading={isProcessing}
               >
-                {currentStep === 5 ? t("enrol.checkout.proceed") : `${t("common.next")} →`}
+                {currentStep === 5 ? "Complete & Handoff to Payment →" : `${t("common.next")} →`}
               </Button>
             </div>
           </Card>
@@ -475,46 +591,40 @@ function EnrolmentWizardContent() {
           <div style={{ position: "sticky", top: "90px" }}>
             <Card style={{ backgroundColor: "#FFFFFF", borderRadius: "16px", border: "1px solid #E4E4E7" }}>
               <h3 style={{ fontSize: "1.125rem", fontWeight: 800, color: "#18181B", margin: "0 0 16px" }}>
-                Enrolment Summary
+                Enrolment Quote
               </h3>
 
               <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "0.875rem" }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span style={{ color: "#71717A" }}>Player</span>
                   <strong style={{ color: "#18181B" }}>
-                    {selectedAthlete?.displayName ?? (newChildName || "New Player")}
+                    {selectedAthlete?.displayName || (newChildName || "New Player")}
                   </strong>
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "#71717A" }}>Programme</span>
-                  <strong style={{ color: "#18181B" }}>{selectedOffering.programmeName}</strong>
+                  <span style={{ color: "#71717A" }}>Offering</span>
+                  <strong style={{ color: "#18181B" }}>{selectedOffering?.name || "—"}</strong>
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "#71717A" }}>Time & Day</span>
-                  <span style={{ color: "#18181B", textAlign: "right" }}>
-                    {selectedOffering.dayOfWeek}s<br />
-                    <span style={{ fontSize: "0.75rem", color: "#71717A" }}>{selectedOffering.startTime}</span>
-                  </span>
-                </div>
-
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "#71717A" }}>Selected Plan</span>
-                  <strong style={{ color: "#18181B" }}>{selectedPlan.name}</strong>
+                  <span style={{ color: "#71717A" }}>Plan</span>
+                  <strong style={{ color: "#18181B" }}>{selectedPlan?.name || "—"}</strong>
                 </div>
 
                 <div style={{ borderTop: "1px solid #E4E4E7", margin: "8px 0" }} />
 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontWeight: 700, color: "#18181B" }}>First Month Due:</span>
+                  <span style={{ fontWeight: 700, color: "#18181B" }}>Installment Due:</span>
                   <span style={{ fontSize: "1.25rem", fontWeight: 900, color: "#18181B" }}>
-                    {formatCurrency(selectedPlan.monthlyAmount)}
+                    {selectedPlan
+                      ? formatCurrency(selectedPlan.recurringAmountMinor / 100)
+                      : "—"}
                   </span>
                 </div>
 
                 <div style={{ fontSize: "0.75rem", color: "#71717A" }}>
-                  Recurring monthly cadence • {selectedPlan.commitmentCycles} total installments
+                  Calculated authoritatively by KHLIM backend
                 </div>
               </div>
             </Card>
@@ -529,7 +639,7 @@ function EnrolmentWizardContent() {
 
 export default function EnrolmentWizardPage() {
   return (
-    <Suspense fallback={<div style={{ padding: "40px", textAlign: "center" }}>Loading enrolment wizard...</div>}>
+    <Suspense fallback={<div style={{ padding: "40px", textAlign: "center" }}>Loading wizard...</div>}>
       <EnrolmentWizardContent />
     </Suspense>
   );

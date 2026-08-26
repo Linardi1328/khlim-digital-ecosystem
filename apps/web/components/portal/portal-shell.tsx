@@ -1,12 +1,13 @@
 "use client";
 
-import React, { type ReactNode } from "react";
+import React, { useEffect, type ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "../../lib/i18n-context";
 import { useAuth } from "../../lib/auth-context";
 import { LocaleSwitcher } from "../layout/locale-switcher";
 import { ChildSwitcher } from "./child-switcher";
+import { Button } from "../ui/button";
 
 export interface PortalShellProps {
   children: ReactNode;
@@ -14,8 +15,38 @@ export interface PortalShellProps {
 
 export function PortalShell({ children }: PortalShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { t } = useI18n();
-  const { guardianProfile, logout } = useAuth();
+  const { guardianProfile, isAuthenticated, isLoading, logout } = useAuth();
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace(`/auth/login?redirect=${encodeURIComponent(pathname)}`);
+    }
+  }, [isLoading, isAuthenticated, router, pathname]);
+
+  if (isLoading) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#F8FAFC",
+        }}
+      >
+        <div style={{ textAlign: "center", color: "#64748B" }}>
+          <div style={{ fontSize: "2rem", marginBottom: "8px" }}>🏀</div>
+          <div>Loading authenticated parent portal...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   const navItems = [
     { href: "/portal/dashboard", label: t("nav.dashboard"), icon: "📊" },
@@ -31,6 +62,7 @@ export function PortalShell({ children }: PortalShellProps) {
     <div style={{ minHeight: "100vh", display: "flex", backgroundColor: "#F8FAFC" }}>
       {/* Desktop Left Sidebar */}
       <aside
+        aria-label="Parent Portal Sidebar"
         style={{
           width: "260px",
           backgroundColor: "#18181B",
@@ -43,6 +75,7 @@ export function PortalShell({ children }: PortalShellProps) {
           borderRight: "1px solid #27272A",
           flexShrink: 0,
         }}
+        className="portal-desktop-sidebar"
       >
         {/* Brand */}
         <div style={{ padding: "24px 20px", borderBottom: "1px solid #27272A" }}>
@@ -75,13 +108,17 @@ export function PortalShell({ children }: PortalShellProps) {
         </div>
 
         {/* Nav Links */}
-        <nav style={{ flex: 1, padding: "16px 12px", display: "flex", flexDirection: "column", gap: "4px" }}>
+        <nav
+          aria-label="Portal Desktop Navigation"
+          style={{ flex: 1, padding: "16px 12px", display: "flex", flexDirection: "column", gap: "4px" }}
+        >
           {navItems.map((item) => {
             const isActive = pathname.startsWith(item.href);
             return (
               <Link
                 key={item.href}
                 href={item.href}
+                aria-current={isActive ? "page" : undefined}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -97,7 +134,7 @@ export function PortalShell({ children }: PortalShellProps) {
                   transition: "all 0.15s ease",
                 }}
               >
-                <span style={{ fontSize: "1.125rem" }}>{item.icon}</span>
+                <span style={{ fontSize: "1.125rem" }} aria-hidden="true">{item.icon}</span>
                 <span>{item.label}</span>
               </Link>
             );
@@ -109,19 +146,21 @@ export function PortalShell({ children }: PortalShellProps) {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
               <div style={{ fontWeight: 700, fontSize: "0.875rem", color: "#FFFFFF" }}>
-                {guardianProfile?.displayName ?? "Guardian"}
+                {guardianProfile?.displayName || "Guardian Account"}
               </div>
-              <div style={{ fontSize: "0.75rem", color: "#71717A" }}>Parent Account</div>
+              <div style={{ fontSize: "0.75rem", color: "#71717A" }}>Authorized Guardian</div>
             </div>
             <button
               onClick={logout}
               title="Sign Out"
+              aria-label="Sign Out"
               style={{
                 background: "none",
                 border: "none",
                 color: "#A1A1AA",
                 cursor: "pointer",
-                fontSize: "1rem",
+                fontSize: "1.125rem",
+                padding: "6px",
               }}
             >
               🚪
@@ -131,7 +170,7 @@ export function PortalShell({ children }: PortalShellProps) {
       </aside>
 
       {/* Main Content Area */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, paddingBottom: "70px" }}>
         {/* Top Header */}
         <header
           style={{
@@ -171,10 +210,81 @@ export function PortalShell({ children }: PortalShellProps) {
         </header>
 
         {/* Body Content */}
-        <main style={{ flex: 1, padding: "32px 24px 80px", maxWidth: "1200px", width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
+        <main
+          style={{
+            flex: 1,
+            padding: "32px 24px 80px",
+            maxWidth: "1200px",
+            width: "100%",
+            margin: "0 auto",
+            boxSizing: "border-box",
+          }}
+        >
           {children}
         </main>
       </div>
+
+      {/* Mobile Portal Navigation Bottom Bar */}
+      <nav
+        aria-label="Mobile Bottom Navigation"
+        style={{
+          display: "flex",
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: "60px",
+          backgroundColor: "#FFFFFF",
+          borderTop: "1px solid #E2E8F0",
+          zIndex: 45,
+          justifyContent: "space-around",
+          alignItems: "center",
+        }}
+        className="portal-mobile-bottom-nav"
+      >
+        {navItems.slice(0, 5).map((item) => {
+          const isActive = pathname.startsWith(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={isActive ? "page" : undefined}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: "2px",
+                textDecoration: "none",
+                color: isActive ? "#F59E0B" : "#64748B",
+                fontSize: "0.6875rem",
+                fontWeight: isActive ? 700 : 500,
+                padding: "4px 8px",
+              }}
+            >
+              <span style={{ fontSize: "1.125rem" }} aria-hidden="true">{item.icon}</span>
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+        <Link
+          href="/portal/account"
+          aria-current={pathname.startsWith("/portal/account") ? "page" : undefined}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "2px",
+            textDecoration: "none",
+            color: pathname.startsWith("/portal/account") ? "#F59E0B" : "#64748B",
+            fontSize: "0.6875rem",
+            fontWeight: pathname.startsWith("/portal/account") ? 700 : 500,
+            padding: "4px 8px",
+          }}
+        >
+          <span style={{ fontSize: "1.125rem" }} aria-hidden="true">⚙️</span>
+          <span>{t("nav.account")}</span>
+        </Link>
+      </nav>
     </div>
   );
 }

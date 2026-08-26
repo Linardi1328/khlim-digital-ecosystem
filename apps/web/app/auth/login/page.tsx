@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "../../../lib/i18n-context";
 import { useAuth } from "../../../lib/auth-context";
 import { Button } from "../../../components/ui/button";
@@ -10,10 +10,12 @@ import { Input } from "../../../components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "../../../components/ui/card";
 import { Alert } from "../../../components/ui/alert";
 
-export default function LoginPage() {
+function LoginContent() {
   const { t } = useI18n();
   const { login, isLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectPath = searchParams.get("redirect") || "/portal/dashboard";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,18 +25,22 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
 
-    if (!email) {
-      setError("Please enter your registered email address.");
+    if (!email || !password) {
+      setError("Please enter both email and password.");
       return;
     }
 
     try {
       const success = await login(email, password);
       if (success) {
-        router.push("/portal/dashboard");
+        router.push(redirectPath);
       }
-    } catch {
-      setError("Sign in failed. Please verify your credentials and try again.");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Invalid credentials. Please verify your email and password.";
+      setError(message);
     }
   };
 
@@ -137,5 +143,13 @@ export default function LoginPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: "40px", textAlign: "center" }}>Loading login...</div>}>
+      <LoginContent />
+    </Suspense>
   );
 }

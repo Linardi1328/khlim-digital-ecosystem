@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useI18n } from "../lib/i18n-context";
 import { PublicHeader } from "../components/layout/public-header";
@@ -8,10 +8,21 @@ import { PublicFooter } from "../components/layout/public-footer";
 import { Button } from "../components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
-import { INITIAL_PROGRAMMES, INITIAL_OFFERINGS } from "../lib/api-service";
+import { apiService } from "../lib/api-service";
+import type { PublicOfferingItem } from "../lib/types";
 
 export default function HomePage() {
-  const { t } = useI18n();
+  const { t, formatCurrency } = useI18n();
+  const [offerings, setOfferings] = useState<PublicOfferingItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    apiService
+      .getPublicOfferings()
+      .then(setOfferings)
+      .catch((err) => console.warn("Could not load offerings:", err))
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -76,7 +87,15 @@ export default function HomePage() {
                 </Button>
               </Link>
               <Link href="/programmes" style={{ textDecoration: "none" }}>
-                <Button variant="outline" size="lg" style={{ backgroundColor: "rgba(255,255,255,0.1)", color: "#FFFFFF", borderColor: "rgba(255,255,255,0.2)" }}>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  style={{
+                    backgroundColor: "rgba(255,255,255,0.1)",
+                    color: "#FFFFFF",
+                    borderColor: "rgba(255,255,255,0.2)",
+                  }}
+                >
                   {t("hero.cta.explore")}
                 </Button>
               </Link>
@@ -102,10 +121,10 @@ export default function HomePage() {
             }}
           >
             {[
-              { icon: "🏆", title: t("hero.feature.coaching"), desc: "Experienced coaches focusing on technique, discipline, and fun." },
-              { icon: "🏟️", title: t("hero.feature.venues"), desc: "Top-tier hardwood indoor facilities in Serdang & Cyberjaya." },
-              { icon: "📱", title: t("hero.feature.portal"), desc: "Real-time attendance, schedule, and transparent payments." },
-              { icon: "📈", title: t("hero.feature.development"), desc: "Clear milestone progression from grassroots to elite leagues." },
+              { icon: "🏆", title: t("hero.feature.coaching"), desc: "Structured progression and fundamental skill development." },
+              { icon: "🏟️", title: t("hero.feature.venues"), desc: "Dedicated academy courts with verified scheduling." },
+              { icon: "📱", title: t("hero.feature.portal"), desc: "Authoritative family schedule, attendance, and billing visibility." },
+              { icon: "📈", title: t("hero.feature.development"), desc: "Clear milestone progression from grassroots to competitive." },
             ].map((f, i) => (
               <Card key={i} style={{ border: "1px solid #E4E4E7", boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
                 <div style={{ fontSize: "2rem", marginBottom: "12px" }}>{f.icon}</div>
@@ -116,7 +135,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Programmes Preview */}
+        {/* Live Programmes Preview */}
         <section style={{ maxWidth: "1200px", margin: "60px auto", padding: "0 20px" }}>
           <div style={{ textAlign: "center", marginBottom: "48px" }}>
             <Badge variant="neutral" size="md">
@@ -130,54 +149,67 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-              gap: "24px",
-            }}
-          >
-            {INITIAL_PROGRAMMES.map((prg) => {
-              const offerings = INITIAL_OFFERINGS.filter((o) => o.programmeId === prg.id);
-              return (
-                <Card key={prg.id} hoverable style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-                  <div>
-                    <CardHeader>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                        <Badge variant="brand" size="sm">
-                          Age {prg.minAge}–{prg.maxAge}
-                        </Badge>
-                        <span style={{ fontSize: "0.75rem", color: "#71717A", fontWeight: 600 }}>{prg.level}</span>
-                      </div>
-                      <CardTitle>{prg.name}</CardTitle>
-                      <CardDescription>{prg.description}</CardDescription>
-                    </CardHeader>
-
-                    <CardContent>
-                      <div style={{ marginTop: "12px", borderTop: "1px solid #F4F4F5", paddingTop: "12px" }}>
-                        <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "#52525B", marginBottom: "6px" }}>
-                          Available Sessions:
+          {loading ? (
+            <div style={{ textAlign: "center", padding: "40px", color: "#71717A" }}>
+              Loading academy offerings from server...
+            </div>
+          ) : offerings.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "40px", color: "#71717A" }}>
+              No open offerings currently scheduled. Check back soon.
+            </div>
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                gap: "24px",
+              }}
+            >
+              {offerings.map((off) => {
+                const prg = off.programme;
+                return (
+                  <Card key={off.id} hoverable style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                    <div>
+                      <CardHeader>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                          <Badge variant="brand" size="sm">
+                            Age {prg?.minimumAge}–{prg?.maximumAge}
+                          </Badge>
+                          <span style={{ fontSize: "0.75rem", color: "#71717A", fontWeight: 600 }}>
+                            {prg?.level}
+                          </span>
                         </div>
-                        {offerings.map((off) => (
-                          <div key={off.id} style={{ fontSize: "0.8125rem", color: "#71717A", marginBottom: "4px" }}>
-                            📍 {off.venueName} • {off.dayOfWeek} {off.startTime}
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </div>
+                        <CardTitle>{off.name}</CardTitle>
+                        <CardDescription>{prg?.description || prg?.name}</CardDescription>
+                      </CardHeader>
 
-                  <CardFooter>
-                    <Link href={`/programmes/${offerings[0]?.id ?? prg.id}`} style={{ width: "100%", textDecoration: "none" }}>
-                      <Button variant="outline" size="md" style={{ width: "100%" }}>
-                        {t("programmes.viewDetails")} →
-                      </Button>
-                    </Link>
-                  </CardFooter>
-                </Card>
-              );
-            })}
-          </div>
+                      <CardContent>
+                        <div style={{ marginTop: "12px", borderTop: "1px solid #F4F4F5", paddingTop: "12px" }}>
+                          <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "#52525B", marginBottom: "6px" }}>
+                            Location & Schedule:
+                          </div>
+                          <div style={{ fontSize: "0.8125rem", color: "#71717A" }}>
+                            📍 Venue: {off.venue?.name || "KHLIM Training Facility"}
+                          </div>
+                          <div style={{ fontSize: "0.8125rem", color: "#71717A", marginTop: "2px" }}>
+                            🗓️ Term Starts: {off.startsOn}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </div>
+
+                    <CardFooter>
+                      <Link href={`/programmes/${off.id}`} style={{ width: "100%", textDecoration: "none" }}>
+                        <Button variant="outline" size="md" style={{ width: "100%" }}>
+                          {t("programmes.viewDetails")} →
+                        </Button>
+                      </Link>
+                    </CardFooter>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         {/* CTA Banner */}
@@ -192,10 +224,10 @@ export default function HomePage() {
             }}
           >
             <h2 style={{ fontSize: "2rem", fontWeight: 800, margin: "0 0 16px" }}>
-              Ready to start your child's basketball journey?
+              Start your child&apos;s basketball journey with KHLIM
             </h2>
             <p style={{ fontSize: "1.0625rem", color: "#A1A1AA", maxWidth: "600px", margin: "0 auto 32px" }}>
-              Enrol online in minutes with our transparent membership packages and parent portal.
+              Enrol online through our guardian portal with server-authoritative membership contracts.
             </p>
             <Link href="/enrol" style={{ textDecoration: "none" }}>
               <Button variant="primary" size="lg">

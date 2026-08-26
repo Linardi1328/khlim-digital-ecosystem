@@ -1,74 +1,93 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import type { AthleteProfile } from "./types";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  type ReactNode,
+} from "react";
+import { useAuth } from "./auth-context";
 import { apiService } from "./api-service";
+import type {
+  ManagedAthlete,
+  ManagedAthleteLinkItem,
+  CreateManagedAthleteDto,
+} from "./types";
 
 interface FamilyContextValue {
-  athletes: AthleteProfile[];
-  activeChild: AthleteProfile | null;
-  setActiveChild: (child: AthleteProfile | null) => void;
-  setActiveChildById: (id: string) => void;
-  addChild: (data: { displayName: string; dateOfBirth: string; gender?: string }) => Promise<AthleteProfile>;
+  athleteLinks: ManagedAthleteLinkItem[];
+  athletes: ManagedAthlete[];
+  activeChild: ManagedAthlete | null;
   isLoading: boolean;
-  refreshAthletes: () => Promise<void>;
+  setActiveChild: (child: ManagedAthlete | null) => void;
+  addChild: (dto: CreateManagedAthleteDto) => Promise<ManagedAthlete>;
+  refreshFamily: () => Promise<void>;
 }
 
 const FamilyContext = createContext<FamilyContextValue | null>(null);
 
 export function FamilyProvider({ children }: { children: ReactNode }) {
-  const [athletes, setAthletes] = useState<AthleteProfile[]>([]);
-  const [activeChild, setActiveChild] = useState<AthleteProfile | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const { isAuthenticated } = useAuth();
+  const [athleteLinks, setAthleteLinks] = useState<ManagedAthleteLinkItem[]>([]);
+  const [activeChild, setActiveChild] = useState<ManagedAthlete | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const loadAthletes = async () => {
+  const refreshFamily = useCallback(async () => {
+    if (!isAuthenticated) {
+      setAthleteLinks([]);
+      setActiveChild(null);
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const list = await apiService.getLinkedAthletes();
-      setAthletes(list);
+      const links = await apiService.listManagedAthletes();
+      setAthleteLinks(links);
+      const list = links.map((l) => l.athlete);
       if (list.length > 0) {
-        // preserve active child or set first
         setActiveChild((prev) => {
-          if (prev) {
-            const match = list.find((a) => a.id === prev.id);
-            if (match) return match;
-          }
-          return list[0] ?? null;
+          if (!prev) return list[0] ?? null;
+          const found = list.find((a) => a.id === prev.id);
+          return found ?? list[0] ?? null;
         });
+      } else {
+        setActiveChild(null);
       }
+    } catch {
+      setAthleteLinks([]);
+      setActiveChild(null);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isAuthenticated]);
 
   useEffect(() => {
-    loadAthletes();
-  }, []);
+    refreshFamily();
+  }, [refreshFamily]);
 
-  const setActiveChildById = (id: string) => {
-    const found = athletes.find((a) => a.id === id);
-    if (found) {
-      setActiveChild(found);
-    }
+  const addChild = async (
+    dto: CreateManagedAthleteDto,
+  ): Promise<ManagedAthlete> => {
+    const createdLink = await apiService.createManagedAthlete(dto);
+    await refreshFamily();
+    setActiveChild(createdLink.athlete);
+    return createdLink.athlete;
   };
 
-  const addChild = async (data: { displayName: string; dateOfBirth: string; gender?: string }): Promise<AthleteProfile> => {
-    const newAthlete = await apiService.createAthlete(data);
-    await loadAthletes();
-    setActiveChild(newAthlete);
-    return newAthlete;
-  };
+  const athletes = athleteLinks.map((l) => l.athlete);
 
   return (
     <FamilyContext.Provider
       value={{
+        athleteLinks,
         athletes,
         activeChild,
-        setActiveChild,
-        setActiveChildById,
-        addChild,
         isLoading,
-        refreshAthletes: loadAthletes,
+        setActiveChild,
+        addChild,
+        refreshFamily,
       }}
     >
       {children}
@@ -77,9 +96,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 }
 
 export function useFamily(): FamilyContextValue {
-  const ctx = useContext(FamilyContext);
-  if (!ctx) {
+  const context = useContext(FamilyContext);
+  if (!context) {
     throw new Error("useFamily must be used within a FamilyProvider");
   }
-  return ctx;
+  return context;
 }

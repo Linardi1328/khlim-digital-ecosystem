@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useI18n } from "../../../lib/i18n-context";
+import { useAuth } from "../../../lib/auth-context";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "../../../components/ui/card";
@@ -10,13 +11,23 @@ import { Alert } from "../../../components/ui/alert";
 
 export default function ForgotPasswordPage() {
   const { t } = useI18n();
+  const { requestPasswordReset, isLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email) {
+    if (!email) return;
+    setError("");
+
+    try {
+      await requestPasswordReset(email);
       setSent(true);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Password recovery request failed.";
+      setError(message);
     }
   };
 
@@ -39,9 +50,15 @@ export default function ForgotPasswordPage() {
           </CardHeader>
 
           <CardContent>
+            {error && (
+              <div style={{ marginBottom: "16px" }}>
+                <Alert variant="danger">{error}</Alert>
+              </div>
+            )}
+
             {sent ? (
-              <Alert variant="success" title="Recovery Link Sent">
-                If an account exists for {email}, you will receive a secure password reset link shortly.
+              <Alert variant="success" title="Recovery Link Dispatched">
+                If an account exists for {email}, a secure password reset link has been dispatched via Supabase Auth.
               </Alert>
             ) : (
               <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -54,7 +71,7 @@ export default function ForgotPasswordPage() {
                   placeholder="guardian@example.com"
                 />
 
-                <Button variant="primary" size="lg" type="submit" style={{ width: "100%" }}>
+                <Button variant="primary" size="lg" type="submit" isLoading={isLoading} style={{ width: "100%" }}>
                   {t("auth.forgot.submit")} →
                 </Button>
               </form>

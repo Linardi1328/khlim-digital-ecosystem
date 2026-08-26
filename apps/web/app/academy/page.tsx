@@ -63,64 +63,63 @@ export default function AcademyPage() {
             </CardHeader>
             <CardContent>
               <p style={{ fontSize: "0.9375rem", color: "#52525B", lineHeight: 1.6 }}>
-                No more WhatsApp chaos or lost schedules. Parents have their own portal with authoritative training calendars, attendance confirmation, and easy online renewals.
+                Parents have direct access to their authenticated portal with authoritative schedules, verified attendance records, and transparent billing.
               </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Coaching Staff Section */}
+        {/* Coaching Standard Notice */}
         <div style={{ marginBottom: "64px" }}>
-          <h2 style={{ fontSize: "2rem", fontWeight: 800, color: "#18181B", marginBottom: "24px", textAlign: "center" }}>
-            Our Certified Coaching Staff
+          <h2 style={{ fontSize: "2rem", fontWeight: 800, color: "#18181B", marginBottom: "8px", textAlign: "center" }}>
+            Certified Academy Coaching Framework
           </h2>
+          <p style={{ fontSize: "0.9375rem", color: "#71717A", textAlign: "center", maxWidth: "600px", margin: "0 auto 28px" }}>
+            [Draft Coaching Framework — Specific coach assignments are finalized per term schedule]
+          </p>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "24px" }}>
             {[
               {
-                name: "Coach Marcus Wong",
-                role: "Head Academy Coach",
-                cred: "FIBA Level 2 • 12+ Years Coaching Youth & State Teams",
-                bio: "Specializes in junior tactical development, shooting biomechanics, and competitive mindset.",
+                role: "Head Academy Coaching Staff",
+                standard: "FIBA / National Youth Certified",
+                focus: "Tactical progression, shooting mechanics, and competitive game awareness.",
               },
               {
-                name: "Coach Cheryl Tan",
-                role: "Grassroots Director (U9 / U12)",
-                cred: "National Youth Coach Certified • Former National Athlete",
-                bio: "Passionate about youth agility, hand-eye coordination, and instilling love for the game.",
+                role: "Grassroots Development Coaches",
+                standard: "Youth Specialization Framework",
+                focus: "Agility, hand-eye coordination, team camaraderie, and foundational motor skills.",
               },
               {
-                name: "Coach Daniel Lee",
-                role: "Strength & Agility Specialist",
-                cred: "CSCS Certified • Elite Youth Performance Trainer",
-                bio: "Focuses on injury prevention, lateral quickness, core stability, and athletic conditioning.",
+                role: "Conditioning & Movement Staff",
+                standard: "Youth Athletic Performance Standard",
+                focus: "Injury prevention, lateral speed, core strength, and safe athletic movement.",
               },
             ].map((c, i) => (
               <Card key={i}>
-                <div style={{ width: "64px", height: "64px", borderRadius: "50%", backgroundColor: "#FEF3C7", color: "#92400E", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem", fontWeight: 800, marginBottom: "16px" }}>
-                  {c.name.split(" ")[1]?.[0] ?? "C"}
+                <div style={{ width: "48px", height: "48px", borderRadius: "10px", backgroundColor: "#FEF3C7", color: "#92400E", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.5rem", marginBottom: "16px" }}>
+                  🏀
                 </div>
-                <h3 style={{ fontSize: "1.25rem", fontWeight: 700, margin: "0 0 4px" }}>{c.name}</h3>
-                <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "#F59E0B", marginBottom: "8px" }}>{c.role}</div>
-                <div style={{ fontSize: "0.75rem", color: "#71717A", fontWeight: 600, marginBottom: "12px" }}>{c.cred}</div>
-                <p style={{ fontSize: "0.875rem", color: "#52525B", lineHeight: 1.5, margin: 0 }}>{c.bio}</p>
+                <h3 style={{ fontSize: "1.125rem", fontWeight: 700, margin: "0 0 4px" }}>{c.role}</h3>
+                <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "#F59E0B", marginBottom: "8px" }}>{c.standard}</div>
+                <p style={{ fontSize: "0.875rem", color: "#52525B", lineHeight: 1.5, margin: 0 }}>{c.focus}</p>
               </Card>
             ))}
           </div>
         </div>
 
-        {/* Venues Section */}
+        {/* Venues Notice */}
         <div style={{ backgroundColor: "#F4F4F5", borderRadius: "16px", padding: "40px 32px", textAlign: "center" }}>
           <h2 style={{ fontSize: "1.75rem", fontWeight: 800, color: "#18181B", margin: "0 0 12px" }}>
-            World-Class Training Venues
+            Authoritative Academy Facilities
           </h2>
           <p style={{ fontSize: "1rem", color: "#71717A", maxWidth: "600px", margin: "0 auto 32px" }}>
-            We operate in purpose-built indoor sports centres with FIBA-standard hardwood flooring, modern electronic scoreboards, and comfortable parent viewing galleries.
+            Training sessions operate at dedicated indoor sports venues. View current active schedules and venue courts directly in our programmes catalogue.
           </p>
           <div style={{ display: "flex", justifyContent: "center", gap: "16px", flexWrap: "wrap" }}>
             <Link href="/programmes" style={{ textDecoration: "none" }}>
               <Button variant="primary" size="lg">
-                View Academy Schedule & Venues →
+                View Active Programmes & Schedules →
               </Button>
             </Link>
           </div>

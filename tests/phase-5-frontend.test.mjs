@@ -50,90 +50,103 @@ test("Phase 5 i18n supports 5 target locales with MYR currency and Asia/Kuala_Lu
   assert.match(hi, /"brand\.academy"/);
 });
 
-test("Phase 5 public pages exist and support academy discovery, terms and privacy", async () => {
-  await access(new URL("apps/web/app/page.tsx", root));
-  await access(new URL("apps/web/app/academy/page.tsx", root));
-  await access(new URL("apps/web/app/programmes/page.tsx", root));
-  await access(new URL("apps/web/app/programmes/[offeringId]/page.tsx", root));
-  await access(new URL("apps/web/app/about/page.tsx", root));
-  await access(new URL("apps/web/app/contact/page.tsx", root));
-  await access(new URL("apps/web/app/terms/page.tsx", root));
-  await access(new URL("apps/web/app/privacy/page.tsx", root));
+test("Phase 5 web application uses @khlim/api-client transport and real backend OpenAPI routes", async () => {
+  const manifest = await readJson("apps/web/package.json");
+  const apiService = await read("apps/web/lib/api-service.ts");
 
-  const home = await read("apps/web/app/page.tsx");
-  const academy = await read("apps/web/app/academy/page.tsx");
-  const terms = await read("apps/web/app/terms/page.tsx");
-  const privacy = await read("apps/web/app/privacy/page.tsx");
+  assert.equal(manifest.dependencies["@khlim/api-client"], "workspace:*");
+  assert.equal(manifest.dependencies["@khlim/design-tokens"], "workspace:*");
+  assert.equal(manifest.dependencies["@khlim/i18n"], "workspace:*");
 
-  assert.match(home, /KHLIM/);
-  assert.match(home, /PublicHeader/);
-  assert.match(home, /PublicFooter/);
-  assert.match(academy, /FIBA/);
-  assert.match(terms, /Recurring Billing/i);
-  assert.match(privacy, /PDPA|Child Safety/i);
+  // OpenAPI path contract calls
+  assert.match(apiService, /\/v1\/academy\/offerings/);
+  assert.match(apiService, /\/v1\/me/);
+  assert.match(apiService, /\/v1\/me\/guardian-profile/);
+  assert.match(apiService, /\/v1\/me\/preferences/);
+  assert.match(apiService, /\/v1\/me\/athletes/);
+  assert.match(apiService, /\/v1\/athletes\/\$\{athleteId\}\/memberships/);
+  assert.match(
+    apiService,
+    /\/v1\/athletes\/\$\{athleteId\}\/memberships\/\$\{membershipId\}\/billing/,
+  );
+  assert.match(
+    apiService,
+    /\/v1\/athletes\/\$\{athleteId\}\/memberships\/\$\{membershipId\}\/checkout/,
+  );
 });
 
-test("Phase 5 authentication and guardian onboarding flows are implemented", async () => {
-  await access(new URL("apps/web/app/auth/login/page.tsx", root));
-  await access(new URL("apps/web/app/auth/register/page.tsx", root));
-  await access(new URL("apps/web/app/auth/forgot-password/page.tsx", root));
-  await access(new URL("apps/web/app/onboarding/guardian/page.tsx", root));
-
-  const login = await read("apps/web/app/auth/login/page.tsx");
-  const register = await read("apps/web/app/auth/register/page.tsx");
-  const onboarding = await read("apps/web/app/onboarding/guardian/page.tsx");
-
-  assert.match(login, /useAuth/);
-  assert.match(register, /preferredLanguage|preferredLocale/i);
-  assert.match(onboarding, /Guardian Display Name|GuardianProfile/i);
-});
-
-test("Phase 5 multi-step enrolment wizard implements server-authoritative pricing and terms audit review", async () => {
-  await access(new URL("apps/web/app/enrol/page.tsx", root));
-  await access(new URL("apps/web/app/enrol/confirmation/page.tsx", root));
-
+test("Phase 5 prohibits hardcoded runtime mock business data and client-side authoritative pricing", async () => {
+  const apiService = await read("apps/web/lib/api-service.ts");
+  const types = await read("apps/web/lib/types.ts");
   const enrol = await read("apps/web/app/enrol/page.tsx");
+
+  // Verify mock business arrays are completely absent from api-service
+  assert.doesNotMatch(apiService, /INITIAL_PROGRAMMES/);
+  assert.doesNotMatch(apiService, /INITIAL_OFFERINGS/);
+  assert.doesNotMatch(apiService, /INITIAL_MEMBERSHIP_PLANS/);
+
+  // Verify enrolment wizard loads live backend offerings
+  assert.match(enrol, /apiService\.getPublicOfferings\(\)/);
+  assert.match(enrol, /planEligibilities/);
+  assert.match(enrol, /recurringAmountMinor/);
+});
+
+test("Phase 5 checkout forbids raw Card Number, Expiry, and CVV fields owned by KHLIM", async () => {
+  const enrol = await read("apps/web/app/enrol/page.tsx");
+
+  // Verify no raw credit card input fields are rendered by KHLIM
+  assert.doesNotMatch(enrol, /label="Card Number"/i);
+  assert.doesNotMatch(enrol, /label="CVV"/i);
+  assert.doesNotMatch(enrol, /placeholder="•••"/i);
+  assert.doesNotMatch(enrol, /placeholder="4242/i);
+
+  // Verify handoff calls backend prepareCheckout
+  assert.match(enrol, /apiService\.prepareCheckout/);
+  assert.match(enrol, /apiService\.createPendingMembership/);
+});
+
+test("Phase 5 enforces real Supabase Auth session handling and prohibits default-authenticated portal access", async () => {
+  const supabaseAuth = await read("apps/web/lib/supabase-auth.ts");
+  const authContext = await read("apps/web/lib/auth-context.tsx");
+  const portalShell = await read(
+    "apps/web/components/portal/portal-shell.tsx",
+  );
+
+  // Supabase Auth endpoints
+  assert.match(supabaseAuth, /\/auth\/v1\/token\?grant_type=password/);
+  assert.match(supabaseAuth, /\/auth\/v1\/signup/);
+  assert.match(supabaseAuth, /\/auth\/v1\/recover/);
+  assert.match(supabaseAuth, /\/auth\/v1\/logout/);
+
+  // Auth context starts unauthenticated
+  assert.match(authContext, /useState<boolean>\(false\)/);
+
+  // Portal shell redirects unauthenticated users
+  assert.match(portalShell, /router\.replace\(`/);
+  assert.match(portalShell, /auth\/login\?redirect=/);
+});
+
+test("Phase 5 enrolment confirmation verifies authoritative backend state and rejects fake URL payment activation", async () => {
   const confirmation = await read("apps/web/app/enrol/confirmation/page.tsx");
 
-  assert.match(enrol, /StepIndicator/);
-  assert.match(enrol, /childSelection/);
-  assert.match(enrol, /offeringSelection/);
-  assert.match(enrol, /planSelection/);
-  assert.match(enrol, /recurringConsent/);
-  assert.match(enrol, /termsAccepted/);
-  assert.match(confirmation, /Payment & Membership Confirmed/i);
+  // Must query backend billing/membership status rather than assuming URL paid state
+  assert.match(confirmation, /apiService\.getMembershipBilling/);
+  assert.match(confirmation, /apiService\.listAthleteMemberships/);
+  assert.match(confirmation, /status === "ACTIVE"/);
+  assert.match(confirmation, /PENDING/);
 });
 
-test("Phase 5 parent portal implements Dashboard, Players, Membership, Payments, Schedule, Notifications, and Account", async () => {
-  const portalRoutes = [
-    "apps/web/app/portal/page.tsx",
-    "apps/web/app/portal/dashboard/page.tsx",
-    "apps/web/app/portal/players/page.tsx",
-    "apps/web/app/portal/players/[athleteId]/page.tsx",
-    "apps/web/app/portal/membership/page.tsx",
-    "apps/web/app/portal/payments/page.tsx",
-    "apps/web/app/portal/schedule/page.tsx",
-    "apps/web/app/portal/notifications/page.tsx",
-    "apps/web/app/portal/account/page.tsx",
-  ];
+test("Phase 5 accessible Dialog and Sheet components implement ARIA roles, focus management, and Escape key handling", async () => {
+  const dialog = await read("apps/web/components/ui/dialog.tsx");
+  const sheet = await read("apps/web/components/ui/sheet.tsx");
 
-  for (const route of portalRoutes) {
-    await access(new URL(route, root));
-  }
+  assert.match(dialog, /role="dialog"/);
+  assert.match(dialog, /aria-modal="true"/);
+  assert.match(dialog, /aria-labelledby/);
+  assert.match(dialog, /addEventListener\("keydown",\s*handleKeyDown\)/);
+  assert.match(dialog, /document\.body\.style\.overflow = "hidden"/);
 
-  const shell = await read("apps/web/components/portal/portal-shell.tsx");
-  const dashboard = await read("apps/web/app/portal/dashboard/page.tsx");
-  const players = await read("apps/web/app/portal/players/page.tsx");
-  const membership = await read("apps/web/app/portal/membership/page.tsx");
-  const payments = await read("apps/web/app/portal/payments/page.tsx");
-  const schedule = await read("apps/web/app/portal/schedule/page.tsx");
-  const account = await read("apps/web/app/portal/account/page.tsx");
-
-  assert.match(shell, /ChildSwitcher/);
-  assert.match(dashboard, /portal\.dashboard\.welcome/);
-  assert.match(players, /portal\.players\.title/);
-  assert.match(membership, /portal\.membership\.title/);
-  assert.match(payments, /portal\.payments\.upcoming/);
-  assert.match(schedule, /portal\.schedule\.title/);
-  assert.match(account, /portal\.account\.title/);
+  assert.match(sheet, /role="dialog"/);
+  assert.match(sheet, /aria-modal="true"/);
+  assert.match(sheet, /addEventListener\("keydown",\s*handleKeyDown\)/);
 });

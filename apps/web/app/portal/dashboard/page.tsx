@@ -9,43 +9,56 @@ import { PortalShell } from "../../../components/portal/portal-shell";
 import { Button } from "../../../components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "../../../components/ui/card";
 import { Badge } from "../../../components/ui/badge";
-import { Alert } from "../../../components/ui/alert";
-import {
-  apiService,
-} from "../../../lib/api-service";
-import type { Membership, TrainingSession, NotificationItem } from "../../../lib/types";
+import { apiService } from "../../../lib/api-service";
+import type { AthleteMembershipItem, MembershipBillingResponse } from "../../../lib/types";
 
 export default function DashboardPage() {
-  const { t, formatCurrency, formatDate } = useI18n();
+  const { t, formatCurrency } = useI18n();
   const { guardianProfile } = useAuth();
   const { activeChild, athletes } = useFamily();
 
-  const [memberships, setMemberships] = useState<Membership[]>([]);
-  const [sessions, setSessions] = useState<TrainingSession[]>([]);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [memberships, setMemberships] = useState<AthleteMembershipItem[]>([]);
+  const [billing, setBilling] = useState<MembershipBillingResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
+      if (!activeChild?.id) {
+        setMemberships([]);
+        setBilling(null);
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
       try {
-        const [memList, sessList, notifList] = await Promise.all([
-          apiService.getMemberships(activeChild?.id),
-          apiService.getTrainingSessions(activeChild?.id),
-          apiService.getNotifications(),
-        ]);
+        const memList = await apiService.listAthleteMemberships(activeChild.id);
         setMemberships(memList);
-        setSessions(sessList);
-        setNotifications(notifList);
+        if (memList[0]?.id) {
+          try {
+            const billData = await apiService.getMembershipBilling(
+              activeChild.id,
+              memList[0].id,
+            );
+            setBilling(billData);
+          } catch {
+            // Non-blocking billing load
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load memberships:", err);
       } finally {
         setIsLoading(false);
       }
     }
+
     loadData();
   }, [activeChild]);
 
   const activeMembership = memberships[0];
-  const nextSession = sessions[0];
+  const nextInstallment = billing?.paymentSchedule?.installments?.find(
+    (i) => i.status === "PENDING" || i.status === "SCHEDULED",
+  );
 
   return (
     <PortalShell>
@@ -53,21 +66,11 @@ export default function DashboardPage() {
         {/* Welcome Header */}
         <div style={{ marginBottom: "28px" }}>
           <h1 style={{ fontSize: "2rem", fontWeight: 800, color: "#0F172A", margin: "0 0 6px" }}>
-            {t("portal.dashboard.welcome", { name: guardianProfile?.displayName ?? "Parent" })}
+            {t("portal.dashboard.welcome", { name: guardianProfile?.displayName || "Guardian" })}
           </h1>
           <p style={{ fontSize: "0.9375rem", color: "#64748B", margin: 0 }}>
-            Supervising <strong>{activeChild?.displayName ?? "Athlete"}</strong> • {athletes.length} Managed Child(ren)
+            Active Athlete: <strong>{activeChild?.displayName || "None selected"}</strong> • {athletes.length} Managed Athlete(s)
           </p>
-        </div>
-
-        {/* Action Alert if active */}
-        <div style={{ marginBottom: "24px" }}>
-          <Alert
-            variant="info"
-            title="🏀 Season 2026 Training Term Active"
-          >
-            Coach Marcus has published the updated September court assignments. Please review your session times below.
-          </Alert>
         </div>
 
         {/* Primary Status Overview Cards */}
@@ -86,164 +89,125 @@ export default function DashboardPage() {
                 <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>
                   {t("portal.dashboard.membershipStatus")}
                 </span>
-                <Badge variant={activeMembership?.status === "ACTIVE" ? "success" : "warning"} size="sm">
-                  {activeMembership?.status ?? "PENDING"}
+                <Badge
+                  variant={activeMembership?.status === "ACTIVE" ? "success" : "warning"}
+                  size="sm"
+                >
+                  {activeMembership?.status || "NO ACTIVE MEMBERSHIP"}
                 </Badge>
               </div>
               <CardTitle style={{ marginTop: "6px" }}>
-                {activeMembership?.programmeName ?? "Academy Programme"}
+                {activeMembership?.programmeOffering?.name || "No Enrolled Programme"}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div style={{ fontSize: "0.875rem", color: "#475569", marginBottom: "12px" }}>
-                Package: <strong>{activeMembership?.planName ?? "3-Month Term"}</strong>
-              </div>
-              <div style={{ fontSize: "0.8125rem", color: "#64748B", marginBottom: "16px" }}>
-                Valid: {activeMembership?.startsAt} → {activeMembership?.endsAt}
-              </div>
+              {activeMembership ? (
+                <>
+                  <div style={{ fontSize: "0.875rem", color: "#475569", marginBottom: "8px" }}>
+                    Plan: <strong>{activeMembership.membershipPlan?.name || "Standard Plan"}</strong>
+                  </div>
+                  <div style={{ fontSize: "0.8125rem", color: "#64748B", marginBottom: "16px" }}>
+                    Status: {activeMembership.status}
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontSize: "0.875rem", color: "#64748B", marginBottom: "16px" }}>
+                  Enrol your child to begin structured academy training.
+                </div>
+              )}
               <Link href="/portal/membership" style={{ textDecoration: "none" }}>
                 <Button variant="outline" size="sm" style={{ width: "100%" }}>
-                  Manage Membership →
+                  Manage Memberships →
                 </Button>
               </Link>
             </CardContent>
           </Card>
 
-          {/* Card 2: Next Training Session */}
+          {/* Card 2: Training Sessions */}
           <Card>
             <CardHeader>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>
                   {t("portal.dashboard.nextTraining")}
                 </span>
-                <Badge variant="brand" size="sm">
-                  {nextSession ? "Confirmed" : "None"}
+                <Badge variant="neutral" size="sm">
+                  Schedule
                 </Badge>
               </div>
               <CardTitle style={{ marginTop: "6px" }}>
-                {nextSession ? `${formatDate(nextSession.sessionDate)}` : "No upcoming sessions"}
+                {activeMembership?.programmeOffering?.startsOn
+                  ? `Term Starts: ${activeMembership.programmeOffering.startsOn}`
+                  : "No Scheduled Sessions"}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {nextSession ? (
-                <>
-                  <div style={{ fontSize: "1rem", fontWeight: 700, color: "#0F172A", marginBottom: "4px" }}>
-                    ⏰ {nextSession.startTime} - {nextSession.endTime}
-                  </div>
-                  <div style={{ fontSize: "0.8125rem", color: "#475569", marginBottom: "4px" }}>
-                    📍 {nextSession.venueName} ({nextSession.court})
-                  </div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B", marginBottom: "16px" }}>
-                    Lead Coach: {nextSession.coachName}
-                  </div>
-                </>
-              ) : (
-                <div style={{ fontSize: "0.875rem", color: "#64748B", marginBottom: "16px" }}>
-                  Check the full schedule for future session dates.
-                </div>
-              )}
+              <div style={{ fontSize: "0.875rem", color: "#64748B", marginBottom: "16px" }}>
+                {activeMembership?.programmeOffering?.venue?.name
+                  ? `📍 Venue: ${activeMembership.programmeOffering.venue.name}`
+                  : "Session times will appear here once scheduled by the academy."}
+              </div>
               <Link href="/portal/schedule" style={{ textDecoration: "none" }}>
                 <Button variant="outline" size="sm" style={{ width: "100%" }}>
-                  View Full Schedule →
+                  View Academy Schedule →
                 </Button>
               </Link>
             </CardContent>
           </Card>
 
-          {/* Card 3: Next Payment Due */}
+          {/* Card 3: Next Payment */}
           <Card>
             <CardHeader>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>
                   {t("portal.dashboard.nextPayment")}
                 </span>
-                <Badge variant="neutral" size="sm">
-                  Scheduled
+                <Badge variant={nextInstallment ? "warning" : "neutral"} size="sm">
+                  {nextInstallment ? "Scheduled" : "Up to date"}
                 </Badge>
               </div>
               <CardTitle style={{ marginTop: "6px" }}>
-                {activeMembership?.nextPaymentAmount ? formatCurrency(activeMembership.nextPaymentAmount) : formatCurrency(195)}
+                {nextInstallment
+                  ? formatCurrency(nextInstallment.amountMinor / 100)
+                  : activeMembership?.membershipPlan
+                    ? formatCurrency(activeMembership.membershipPlan.recurringAmountMinor / 100)
+                    : "MYR 0"}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div style={{ fontSize: "0.875rem", color: "#475569", marginBottom: "4px" }}>
-                Due Date: <strong>{activeMembership?.nextPaymentDate ?? "2026-09-01"}</strong>
-              </div>
-              <div style={{ fontSize: "0.8125rem", color: "#64748B", marginBottom: "16px" }}>
-                Auto-charge via Visa •••• 4242
+              <div style={{ fontSize: "0.875rem", color: "#475569", marginBottom: "16px" }}>
+                {nextInstallment
+                  ? `Due on ${nextInstallment.dueOn}`
+                  : "All payments up to date."}
               </div>
               <Link href="/portal/payments" style={{ textDecoration: "none" }}>
                 <Button variant="outline" size="sm" style={{ width: "100%" }}>
-                  Billing & Receipts →
+                  Billing & Installments →
                 </Button>
               </Link>
             </CardContent>
           </Card>
         </div>
 
-        {/* Recent Activity & Quick Action Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "24px" }}>
-          {/* Activity / Notifications Feed */}
+        {/* Quick Actions */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "24px" }}>
           <Card>
             <CardHeader>
-              <CardTitle style={{ fontSize: "1.125rem" }}>
-                {t("portal.dashboard.recentActivity")}
-              </CardTitle>
+              <CardTitle style={{ fontSize: "1.125rem" }}>Family Quick Actions</CardTitle>
             </CardHeader>
             <CardContent>
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                {notifications.map((n) => (
-                  <div
-                    key={n.id}
-                    style={{
-                      padding: "12px 14px",
-                      borderRadius: "8px",
-                      backgroundColor: n.isRead ? "#FFFFFF" : "#FFFDF5",
-                      border: n.isRead ? "1px solid #E2E8F0" : "1px solid #FDE68A",
-                      display: "flex",
-                      gap: "12px",
-                      alignItems: "flex-start",
-                    }}
-                  >
-                    <div style={{ fontSize: "1.25rem" }}>
-                      {n.category === "BILLING" ? "💳" : n.category === "SCHEDULE" ? "📅" : "📢"}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 700, fontSize: "0.875rem", color: "#0F172A" }}>
-                        {n.title}
-                      </div>
-                      <div style={{ fontSize: "0.8125rem", color: "#475569", marginTop: "2px" }}>
-                        {n.message}
-                      </div>
-                      <div style={{ fontSize: "0.6875rem", color: "#94A3B8", marginTop: "4px" }}>
-                        {n.createdAt}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Quick Enrol / Family Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle style={{ fontSize: "1.125rem" }}>Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
                 <Link href="/enrol" style={{ textDecoration: "none" }}>
-                  <Button variant="primary" size="md" style={{ width: "100%" }}>
-                    + Enrol Another Child
+                  <Button variant="primary" size="md">
+                    + Enrol Player in Programme
                   </Button>
                 </Link>
                 <Link href="/portal/players" style={{ textDecoration: "none" }}>
-                  <Button variant="outline" size="md" style={{ width: "100%" }}>
+                  <Button variant="outline" size="md">
                     Manage Player Profiles
                   </Button>
                 </Link>
                 <Link href="/portal/account" style={{ textDecoration: "none" }}>
-                  <Button variant="ghost" size="md" style={{ width: "100%" }}>
+                  <Button variant="ghost" size="md">
                     Account & Preferences
                   </Button>
                 </Link>

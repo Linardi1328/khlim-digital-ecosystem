@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useI18n } from "../../../lib/i18n-context";
 import { useAuth } from "../../../lib/auth-context";
 import { PortalShell } from "../../../components/portal/portal-shell";
@@ -9,23 +9,36 @@ import { Input } from "../../../components/ui/input";
 import { Select } from "../../../components/ui/select";
 import { Card, CardHeader, CardTitle, CardContent } from "../../../components/ui/card";
 import { Alert } from "../../../components/ui/alert";
+import { apiService } from "../../../lib/api-service";
 import type { SupportedLocale } from "@khlim/i18n";
 
 export default function AccountPage() {
   const { t, locale, setLocale } = useI18n();
-  const { user, guardianProfile, updateGuardianProfile } = useAuth();
+  const { account, guardianProfile, updateGuardianProfile, requestPasswordReset } = useAuth();
 
-  const [displayName, setDisplayName] = useState(guardianProfile?.displayName ?? "Richie Lim");
-  const [phone, setPhone] = useState(guardianProfile?.phone ?? "+60 12-345 6789");
-  const [emergencyName, setEmergencyName] = useState(guardianProfile?.emergencyContactName ?? "Sarah Tan");
-  const [emergencyPhone, setEmergencyPhone] = useState(guardianProfile?.emergencyContactPhone ?? "+60 19-876 5432");
+  const [displayName, setDisplayName] = useState(guardianProfile?.displayName || "");
+  const [phone, setPhone] = useState(guardianProfile?.phone || "");
+  const [emergencyName, setEmergencyName] = useState(guardianProfile?.emergencyContactName || "");
+  const [emergencyPhone, setEmergencyPhone] = useState(guardianProfile?.emergencyContactPhone || "");
 
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [passwordSent, setPasswordSent] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (guardianProfile) {
+      setDisplayName(guardianProfile.displayName || "");
+      setPhone(guardianProfile.phone || "");
+      setEmergencyName(guardianProfile.emergencyContactName || "");
+      setEmergencyPhone(guardianProfile.emergencyContactPhone || "");
+    }
+  }, [guardianProfile]);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
+    setError("");
     try {
       await updateGuardianProfile({
         displayName,
@@ -35,8 +48,33 @@ export default function AccountPage() {
       });
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 3000);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to update profile";
+      setError(message);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleLocaleChange = async (newLocale: SupportedLocale) => {
+    setLocale(newLocale);
+    try {
+      await apiService.updatePreferences({ preferredLocale: newLocale });
+    } catch (err) {
+      console.warn("Failed to persist language preference:", err);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (account?.email) {
+      try {
+        await requestPasswordReset(account.email);
+        setPasswordSent(true);
+        setTimeout(() => setPasswordSent(false), 4000);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Password recovery request failed";
+        setError(message);
+      }
     }
   };
 
@@ -54,9 +92,23 @@ export default function AccountPage() {
 
         {savedSuccess && (
           <div style={{ marginBottom: "20px" }}>
-            <Alert variant="success" title="Profile Updated">
-              Your guardian contact details have been successfully saved.
+            <Alert variant="success" title="Profile Saved">
+              Your guardian contact details have been successfully updated on the server.
             </Alert>
+          </div>
+        )}
+
+        {passwordSent && (
+          <div style={{ marginBottom: "20px" }}>
+            <Alert variant="info" title="Recovery Email Dispatched">
+              A password reset link has been dispatched to {account?.email}.
+            </Alert>
+          </div>
+        )}
+
+        {error && (
+          <div style={{ marginBottom: "20px" }}>
+            <Alert variant="danger">{error}</Alert>
           </div>
         )}
 
@@ -73,7 +125,7 @@ export default function AccountPage() {
                 <Input
                   label="Registered Email (Immutable Account ID)"
                   disabled
-                  value={user?.email ?? "guardian@example.com"}
+                  value={account?.email || "guardian@example.com"}
                   helperText="Bound to your verified Supabase authentication identity."
                 />
 
@@ -85,11 +137,11 @@ export default function AccountPage() {
                 />
 
                 <Input
-                  label="WhatsApp Mobile Number"
-                  required
+                  label="Primary Contact Phone"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  helperText="Used for automated training schedule change alerts."
+                  placeholder="+60 12-345 6789"
+                  helperText="Used for schedule notifications and emergency contact."
                 />
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
@@ -124,12 +176,12 @@ export default function AccountPage() {
             <CardContent>
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                 <p style={{ fontSize: "0.875rem", color: "#64748B", margin: 0 }}>
-                  Each guardian and player account can choose their preferred language independently.
+                  Select your preferred language. Preferences are saved to your KHLIM account.
                 </p>
                 <Select
                   label="Application Language"
                   value={locale}
-                  onChange={(e) => setLocale(e.target.value as SupportedLocale)}
+                  onChange={(e) => handleLocaleChange(e.target.value as SupportedLocale)}
                   options={[
                     { label: "English", value: "en" },
                     { label: "Bahasa Melayu", value: "ms" },
@@ -142,7 +194,7 @@ export default function AccountPage() {
             </CardContent>
           </Card>
 
-          {/* Account Security & Deletion Request */}
+          {/* Security & Deactivation */}
           <Card>
             <CardHeader>
               <CardTitle style={{ fontSize: "1.25rem" }}>
@@ -156,8 +208,8 @@ export default function AccountPage() {
                     <div style={{ fontWeight: 600, fontSize: "0.9375rem" }}>Account Password</div>
                     <div style={{ fontSize: "0.8125rem", color: "#64748B" }}>Protected via Supabase Auth</div>
                   </div>
-                  <Button variant="outline" size="sm" onClick={() => alert("Password reset email sent.")}>
-                    Change Password
+                  <Button variant="outline" size="sm" onClick={handlePasswordReset}>
+                    Send Reset Link
                   </Button>
                 </div>
 
@@ -165,10 +217,16 @@ export default function AccountPage() {
                   <div>
                     <div style={{ fontWeight: 600, fontSize: "0.9375rem", color: "#DC2626" }}>Deactivate Account</div>
                     <div style={{ fontSize: "0.8125rem", color: "#64748B" }}>
-                      Submit an account deactivation or data export request under PDPA.
+                      [Draft Workflow] Submit an account deactivation or data export request.
                     </div>
                   </div>
-                  <Button variant="danger" size="sm" onClick={() => alert("Account deactivation request logged.")}>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() =>
+                      alert("Account deactivation workflow is queued for administrative review.")
+                    }
+                  >
                     Request Deactivation
                   </Button>
                 </div>

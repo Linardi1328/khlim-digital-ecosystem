@@ -39,12 +39,14 @@ export default function RegisterPage() {
 
     try {
       setLocale(selectedLocale);
-      const success = await register(email, fullName, selectedLocale);
+      const success = await register(email, password, fullName, selectedLocale);
       if (success) {
         router.push("/onboarding/guardian");
       }
-    } catch {
-      setError("Registration failed. Please try again.");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Registration failed. Please try again.";
+      setError(message);
     }
   };
 
