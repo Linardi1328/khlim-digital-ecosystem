@@ -7,7 +7,6 @@ import { useI18n } from "../../lib/i18n-context";
 import { useAuth } from "../../lib/auth-context";
 import { LocaleSwitcher } from "../layout/locale-switcher";
 import { ChildSwitcher } from "./child-switcher";
-import { Button } from "../ui/button";
 
 export interface PortalShellProps {
   children: ReactNode;
@@ -60,7 +59,6 @@ export function PortalShell({ children }: PortalShellProps) {
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", backgroundColor: "#F8FAFC" }}>
-      {/* Desktop Left Sidebar */}
       <aside
         aria-label="Parent Portal Sidebar"
         style={{
@@ -77,7 +75,6 @@ export function PortalShell({ children }: PortalShellProps) {
         }}
         className="portal-desktop-sidebar"
       >
-        {/* Brand */}
         <div style={{ padding: "24px 20px", borderBottom: "1px solid #27272A" }}>
           <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: "10px" }}>
             <div
@@ -107,7 +104,6 @@ export function PortalShell({ children }: PortalShellProps) {
           </Link>
         </div>
 
-        {/* Nav Links */}
         <nav
           aria-label="Portal Desktop Navigation"
           style={{ flex: 1, padding: "16px 12px", display: "flex", flexDirection: "column", gap: "4px" }}
@@ -141,7 +137,6 @@ export function PortalShell({ children }: PortalShellProps) {
           })}
         </nav>
 
-        {/* User Summary / Logout */}
         <div style={{ padding: "16px 20px", borderTop: "1px solid #27272A" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
@@ -151,7 +146,7 @@ export function PortalShell({ children }: PortalShellProps) {
               <div style={{ fontSize: "0.75rem", color: "#71717A" }}>Authorized Guardian</div>
             </div>
             <button
-              onClick={logout}
+              onClick={() => void logout()}
               title="Sign Out"
               aria-label="Sign Out"
               style={{
@@ -169,9 +164,7 @@ export function PortalShell({ children }: PortalShellProps) {
         </div>
       </aside>
 
-      {/* Main Content Area */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, paddingBottom: "70px" }}>
-        {/* Top Header */}
         <header
           style={{
             height: "64px",
@@ -186,10 +179,8 @@ export function PortalShell({ children }: PortalShellProps) {
             zIndex: 30,
           }}
         >
-          {/* Child Switcher Component */}
           <ChildSwitcher />
 
-          {/* Right Toolbar */}
           <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
             <LocaleSwitcher />
             <Link
@@ -209,7 +200,6 @@ export function PortalShell({ children }: PortalShellProps) {
           </div>
         </header>
 
-        {/* Body Content */}
         <main
           style={{
             flex: 1,
@@ -224,7 +214,6 @@ export function PortalShell({ children }: PortalShellProps) {
         </main>
       </div>
 
-      {/* Mobile Portal Navigation Bottom Bar */}
       <nav
         aria-label="Mobile Bottom Navigation"
         style={{
