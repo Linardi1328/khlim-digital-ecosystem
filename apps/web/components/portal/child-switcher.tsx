@@ -2,32 +2,42 @@
 
 import React, { useState } from "react";
 import { useFamily } from "../../lib/family-context";
-import { Badge } from "../ui/badge";
+import { Alert } from "../ui/alert";
 import { Dialog } from "../ui/dialog";
 import { Input } from "../ui/input";
-import { Select } from "../ui/select";
 import { Button } from "../ui/button";
 
 export function ChildSwitcher() {
   const { athletes, activeChild, setActiveChild, addChild } = useFamily();
   const [modalOpen, setModalOpen] = useState(false);
   const [newChildName, setNewChildName] = useState("");
-  const [newChildDob, setNewChildDob] = useState("2017-06-15");
-  const [newChildGender, setNewChildGender] = useState("Male");
+  const [newChildDob, setNewChildDob] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const handleAddChild = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newChildName) return;
+    if (!newChildName.trim() || !newChildDob) {
+      setError("Enter the child's name and date of birth.");
+      return;
+    }
+
     setIsSaving(true);
+    setError("");
     try {
       await addChild({
-        displayName: newChildName,
+        displayName: newChildName.trim(),
         dateOfBirth: newChildDob,
-        gender: newChildGender,
       });
       setNewChildName("");
+      setNewChildDob("");
       setModalOpen(false);
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Unable to create the athlete profile.",
+      );
     } finally {
       setIsSaving(false);
     }
@@ -39,7 +49,7 @@ export function ChildSwitcher() {
         Active Player:
       </div>
 
-      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+      <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
         {athletes.map((child) => {
           const isSelected = activeChild?.id === child.id;
           return (
@@ -68,7 +78,10 @@ export function ChildSwitcher() {
         })}
 
         <button
-          onClick={() => setModalOpen(true)}
+          onClick={() => {
+            setError("");
+            setModalOpen(true);
+          }}
           style={{
             padding: "6px 10px",
             borderRadius: "9999px",
@@ -85,14 +98,22 @@ export function ChildSwitcher() {
         </button>
       </div>
 
-      {/* Add Child Dialog */}
       <Dialog
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         title="Add Child / Athlete Profile"
-        description="Register a new child to your guardian account for programme enrolments."
+        description="Create a managed athlete profile linked to your guardian account."
       >
-        <form onSubmit={handleAddChild} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        {error ? <Alert variant="danger">{error}</Alert> : null}
+        <form
+          onSubmit={handleAddChild}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "16px",
+            marginTop: error ? "16px" : 0,
+          }}
+        >
           <Input
             label="Child Full Name"
             required
@@ -100,24 +121,13 @@ export function ChildSwitcher() {
             onChange={(e) => setNewChildName(e.target.value)}
             placeholder="e.g. Maya Lim"
           />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-            <Input
-              label="Date of Birth"
-              type="date"
-              required
-              value={newChildDob}
-              onChange={(e) => setNewChildDob(e.target.value)}
-            />
-            <Select
-              label="Gender"
-              value={newChildGender}
-              onChange={(e) => setNewChildGender(e.target.value)}
-              options={[
-                { label: "Male", value: "Male" },
-                { label: "Female", value: "Female" },
-              ]}
-            />
-          </div>
+          <Input
+            label="Date of Birth"
+            type="date"
+            required
+            value={newChildDob}
+            onChange={(e) => setNewChildDob(e.target.value)}
+          />
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "12px" }}>
             <Button variant="outline" size="md" type="button" onClick={() => setModalOpen(false)}>
               Cancel
