@@ -17,12 +17,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       isLoading = false,
       disabled,
       style,
-      className,
       ...props
     },
     ref,
   ) => {
-    // Base styles
     const baseStyle: React.CSSProperties = {
       display: "inline-flex",
       alignItems: "center",
@@ -41,7 +39,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       userSelect: "none",
     };
 
-    // Variant styles
     const variantStyles: Record<string, React.CSSProperties> = {
       primary: {
         backgroundColor: "#F59E0B",
@@ -71,7 +68,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       },
     };
 
-    // Size styles
     const sizeStyles: Record<string, React.CSSProperties> = {
       sm: {
         padding: "6px 12px",
