@@ -26,7 +26,6 @@ export function PublicFooter() {
           gap: "40px",
         }}
       >
-        {/* Brand Column */}
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
             <div
@@ -53,42 +52,37 @@ export function PublicFooter() {
             {t("hero.subtitle")}
           </p>
           <div style={{ marginTop: "16px", fontSize: "0.8125rem", color: "#71717A" }}>
-            📍 Seri Kembangan & Cyberjaya, Selangor, Malaysia
+            Malaysia • Current venue details are published with active programme offerings.
           </div>
         </div>
 
-        {/* Programmes Column */}
         <div>
           <h4 style={{ color: "#FFFFFF", fontSize: "1rem", fontWeight: 700, margin: "0 0 16px" }}>
             {t("nav.programmes")}
           </h4>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", fontSize: "0.875rem" }}>
             <Link href="/programmes" style={{ color: "#A1A1AA", textDecoration: "none" }}>
-              U9 Foundation Academy
+              Current Programme Offerings
             </Link>
-            <Link href="/programmes" style={{ color: "#A1A1AA", textDecoration: "none" }}>
-              U12 Junior Academy
+            <Link href="/enrol" style={{ color: "#A1A1AA", textDecoration: "none" }}>
+              Academy Enrolment
             </Link>
-            <Link href="/programmes" style={{ color: "#A1A1AA", textDecoration: "none" }}>
-              U15 Youth Academy
-            </Link>
-            <Link href="/programmes" style={{ color: "#A1A1AA", textDecoration: "none" }}>
-              Advanced Elite Training
+            <Link href="/academy" style={{ color: "#A1A1AA", textDecoration: "none" }}>
+              Academy Approach
             </Link>
           </div>
         </div>
 
-        {/* Academy & Community Column */}
         <div>
           <h4 style={{ color: "#FFFFFF", fontSize: "1rem", fontWeight: 700, margin: "0 0 16px" }}>
             {t("nav.academy")}
           </h4>
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", fontSize: "0.875rem" }}>
             <Link href="/academy" style={{ color: "#A1A1AA", textDecoration: "none" }}>
-              Coaching Philosophy
+              Development Approach
             </Link>
-            <Link href="/academy" style={{ color: "#A1A1AA", textDecoration: "none" }}>
-              Venues & Courts
+            <Link href="/programmes" style={{ color: "#A1A1AA", textDecoration: "none" }}>
+              Venues & Programme Terms
             </Link>
             <Link href="/about" style={{ color: "#A1A1AA", textDecoration: "none" }}>
               {t("nav.about")}
@@ -99,7 +93,6 @@ export function PublicFooter() {
           </div>
         </div>
 
-        {/* Member & Legal Column */}
         <div>
           <h4 style={{ color: "#FFFFFF", fontSize: "1rem", fontWeight: 700, margin: "0 0 16px" }}>
             {t("nav.portal")}
@@ -112,10 +105,10 @@ export function PublicFooter() {
               {t("hero.cta.join")}
             </Link>
             <Link href="/terms" style={{ color: "#A1A1AA", textDecoration: "none" }}>
-              Terms of Service
+              Draft Terms
             </Link>
             <Link href="/privacy" style={{ color: "#A1A1AA", textDecoration: "none" }}>
-              Privacy Policy
+              Draft Privacy Notice
             </Link>
           </div>
         </div>
@@ -136,8 +129,8 @@ export function PublicFooter() {
           color: "#71717A",
         }}
       >
-        <div>© 2026 KHLIM Digital Sports Ecosystem. All rights reserved.</div>
-        <div>Authoritative Malaysian Youth Sports & Academy Platform</div>
+        <div>© 2026 KHLIM Digital Sports Ecosystem.</div>
+        <div>Basketball academy platform for families and staff.</div>
       </div>
     </footer>
   );
