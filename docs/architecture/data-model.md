@@ -1,6 +1,6 @@
 # Initial Data Model
 
-**Status:** Accepted conceptual baseline for website-first MVP  
+**Status:** Accepted conceptual baseline for website-first MVP
 
 This is a planning model, not a final Prisma schema. Exact table names, enums, indexes, constraints, money types, and module ownership are finalized through versioned migrations and implementation reviews.
 
