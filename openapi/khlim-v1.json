@@ -247,6 +247,219 @@
           "family"
         ]
       }
+    },
+    "/v1/me/athletes/{athleteId}/guardian-invitations": {
+      "post": {
+        "operationId": "FamilyController_createGuardianInvitation",
+        "parameters": [
+          {
+            "name": "athleteId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGuardianInvitationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Invite another guardian to manage an athlete",
+        "tags": [
+          "family"
+        ]
+      }
+    },
+    "/v1/me/athletes/{athleteId}/guardian-invitations/{invitationId}": {
+      "delete": {
+        "operationId": "FamilyController_revokeGuardianInvitation",
+        "parameters": [
+          {
+            "name": "athleteId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "invitationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Revoke a pending guardian invitation",
+        "tags": [
+          "family"
+        ]
+      }
+    },
+    "/v1/family-invitations/accept": {
+      "post": {
+        "operationId": "FamilyController_acceptGuardianInvitation",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptGuardianInvitationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Accept a guardian invitation",
+        "tags": [
+          "family"
+        ]
+      }
+    },
+    "/v1/admin/users/{userId}": {
+      "get": {
+        "operationId": "AdminController_getUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Get an account for identity administration",
+        "tags": [
+          "admin-identity"
+        ]
+      }
+    },
+    "/v1/admin/users/{userId}/staff-roles": {
+      "put": {
+        "operationId": "AdminController_replaceStaffRoles",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStaffRolesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Replace staff role assignments",
+        "tags": [
+          "admin-identity"
+        ]
+      }
+    },
+    "/v1/admin/users/{userId}/status": {
+      "patch": {
+        "operationId": "AdminController_updateAccountStatus",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAccountStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Suspend, reactivate, or deactivate an account",
+        "tags": [
+          "admin-identity"
+        ]
+      }
     }
   },
   "info": {
@@ -364,6 +577,66 @@
             "example": "en"
           }
         }
+      },
+      "CreateGuardianInvitationDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "parent@example.com",
+            "maxLength": 320
+          },
+          "relationshipType": {
+            "type": "string",
+            "example": "parent",
+            "maxLength": 50
+          }
+        },
+        "required": [
+          "email"
+        ]
+      },
+      "AcceptGuardianInvitationDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "One-time invitation token"
+          }
+        },
+        "required": [
+          "token"
+        ]
+      },
+      "UpdateStaffRolesDto": {
+        "type": "object",
+        "properties": {
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "roles"
+        ]
+      },
+      "UpdateAccountStatusDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "SUSPENDED",
+              "DEACTIVATED"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
       }
     }
   }

@@ -15,7 +15,9 @@ import type {
 } from "./identity.dto";
 import { requireSupportedLocale } from "./locale-policy";
 
-function resolveAal(identity: VerifiedSupabaseIdentity): AuthenticatorAssuranceLevel {
+function resolveAal(
+  identity: VerifiedSupabaseIdentity,
+): AuthenticatorAssuranceLevel {
   const value = identity.payload.aal;
   return value === "aal1" || value === "aal2" ? value : null;
 }

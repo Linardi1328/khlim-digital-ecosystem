@@ -64,9 +64,7 @@ export class AdminService {
 
     const roles = [...new Set(body.roles)];
     if (
-      roles.some(
-        (role) => typeof role !== "string" || !staffRoleSet.has(role),
-      )
+      roles.some((role) => typeof role !== "string" || !staffRoleSet.has(role))
     ) {
       throw new BadRequestException("roles contains an unsupported staff role");
     }
@@ -76,12 +74,16 @@ export class AdminService {
     }
 
     const target = await this.getUser(userId);
-    const targetRoles = target.roleAssignments.map((assignment) => assignment.role);
+    const targetRoles = target.roleAssignments.map(
+      (assignment) => assignment.role,
+    );
     if (
       targetRoles.includes("SUPER_ADMIN") &&
       !actor.roles.includes("SUPER_ADMIN")
     ) {
-      throw new ForbiddenException("Only a Super Admin can modify a Super Admin");
+      throw new ForbiddenException(
+        "Only a Super Admin can modify a Super Admin",
+      );
     }
 
     return this.prisma.client.$transaction(async (transaction) => {
@@ -116,7 +118,9 @@ export class AdminService {
     body: UpdateAccountStatusDto,
   ) {
     if (actor.id === userId) {
-      throw new ForbiddenException("Staff cannot change their own account status");
+      throw new ForbiddenException(
+        "Staff cannot change their own account status",
+      );
     }
 
     if (typeof body?.status !== "string" || !accountStatuses.has(body.status)) {
@@ -124,12 +128,16 @@ export class AdminService {
     }
 
     const target = await this.getUser(userId);
-    const targetRoles = target.roleAssignments.map((assignment) => assignment.role);
+    const targetRoles = target.roleAssignments.map(
+      (assignment) => assignment.role,
+    );
     if (
       targetRoles.includes("SUPER_ADMIN") &&
       !actor.roles.includes("SUPER_ADMIN")
     ) {
-      throw new ForbiddenException("Only a Super Admin can modify a Super Admin");
+      throw new ForbiddenException(
+        "Only a Super Admin can modify a Super Admin",
+      );
     }
 
     return this.prisma.client.user.update({

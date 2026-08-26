@@ -1,14 +1,7 @@
 import { Body, Controller, Get, Param, Patch, Put } from "@nestjs/common";
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiTags,
-} from "@nestjs/swagger";
+import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import type { AuthenticatedUserContext } from "../auth/authenticated-user";
-import {
-  RequireAnyRole,
-  RequireMfa,
-} from "../auth/authorization.decorators";
+import { RequireAnyRole, RequireMfa } from "../auth/authorization.decorators";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { AdminService } from "./admin.service";
 import { UpdateAccountStatusDto, UpdateStaffRolesDto } from "./admin.dto";

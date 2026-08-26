@@ -124,6 +124,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/athletes/{athleteId}/guardian-invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Invite another guardian to manage an athlete */
+        post: operations["FamilyController_createGuardianInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/athletes/{athleteId}/guardian-invitations/{invitationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke a pending guardian invitation */
+        delete: operations["FamilyController_revokeGuardianInvitation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/family-invitations/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Accept a guardian invitation */
+        post: operations["FamilyController_acceptGuardianInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get an account for identity administration */
+        get: operations["AdminController_getUser"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{userId}/staff-roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace staff role assignments */
+        put: operations["AdminController_replaceStaffRoles"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{userId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Suspend, reactivate, or deactivate an account */
+        patch: operations["AdminController_updateAccountStatus"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -170,6 +272,23 @@ export interface components {
              * @enum {string}
              */
             preferredLocale?: "en" | "ms" | "zh-Hans" | "zh-Hant" | "hi";
+        };
+        CreateGuardianInvitationDto: {
+            /** @example parent@example.com */
+            email: string;
+            /** @example parent */
+            relationshipType?: string;
+        };
+        AcceptGuardianInvitationDto: {
+            /** @description One-time invitation token */
+            token: string;
+        };
+        UpdateStaffRolesDto: {
+            roles: string[];
+        };
+        UpdateAccountStatusDto: {
+            /** @enum {string} */
+            status: "ACTIVE" | "SUSPENDED" | "DEACTIVATED";
         };
     };
     responses: never;
@@ -357,6 +476,135 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Family link revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FamilyController_createGuardianInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                athleteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateGuardianInvitationDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FamilyController_revokeGuardianInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                athleteId: string;
+                invitationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FamilyController_acceptGuardianInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptGuardianInvitationDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminController_getUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminController_replaceStaffRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateStaffRolesDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminController_updateAccountStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAccountStatusDto"];
+            };
+        };
+        responses: {
             200: {
                 headers: {
                     [name: string]: unknown;
