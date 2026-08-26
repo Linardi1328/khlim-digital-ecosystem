@@ -1,204 +1,236 @@
 # Product Requirements
 
-**Status:** Draft
+**Status:** Draft aligned to website-first MVP
 
-This document translates the product brief and MVP scope into implementation-oriented requirements. Requirement IDs should be referenced by issues, tests, and future design discussions where useful.
+This document translates the product brief and roadmap into implementation-oriented requirements. Requirement IDs may be referenced by issues, tests, PPO delivery tasks, and design discussions.
+
+`MVP` means required for the first public website/member-platform launch. `V1+` means the architecture must not block it, but implementation may follow after launch.
 
 ## Functional requirements
 
+### Platform/channel architecture
+
+- **PLT-001 (MVP):** `apps/web`, `apps/admin`, and `apps/api` shall use one shared backend/business domain rather than separate databases or duplicated membership/payment logic.
+- **PLT-002 (MVP):** `apps/mobile` shall remain compatible with the same API/auth/business contracts for later activation.
+- **PLT-003 (MVP):** Business-authoritative state shall reside in backend services/database, not frontend-only logic.
+- **PLT-004 (MVP):** Public and authenticated projections of the same data shall expose only fields appropriate to their audience.
+
 ### Identity and access
 
-- **AUTH-001:** The system shall authenticate users before protected data is accessed.
-- **AUTH-002:** The system shall support Athlete/Player, Parent/Guardian, Coach, and Administrator roles.
-- **AUTH-003:** The backend shall enforce authorization independently of client UI visibility.
-- **AUTH-004:** A parent/guardian shall only access athletes linked through an active authorized relationship.
-- **AUTH-005:** A coach shall only access sports, teams/groups, sessions, and athletes permitted by active assignments or explicit elevated permission.
-- **AUTH-006:** Administrative access shall support stronger authentication controls such as MFA.
-- **AUTH-007:** Session revocation/deactivation shall prevent subsequent protected access.
-- **AUTH-008:** The account model shall not require duplicate accounts when a user legitimately holds multiple roles.
+- **AUTH-001 (MVP):** The system shall authenticate users before protected data is accessed.
+- **AUTH-002 (MVP):** The account model shall support Guardian, Athlete, Coach, and administrative/staff roles.
+- **AUTH-003 (MVP):** The backend shall enforce authorization independently of client UI visibility.
+- **AUTH-004 (MVP):** A guardian shall only access athletes linked through active authorized relationships.
+- **AUTH-005 (MVP):** An athlete may have multiple authorized guardians and a guardian may manage multiple athletes.
+- **AUTH-006 (MVP):** Administrative access shall support strong authentication such as MFA.
+- **AUTH-007 (MVP):** Session revocation/deactivation shall prevent subsequent protected access.
+- **AUTH-008 (MVP):** Legitimate multi-role users shall not require duplicate KHLIM accounts.
+- **AUTH-009 (MVP):** Staff permissions shall support least-privilege separation between finance/admin, academy operations, coaches, event staff, and higher-privilege management roles where needed.
 
 ### Sport foundation
 
-- **SPT-001:** The core model shall contain a stable `Sport` concept.
-- **SPT-002:** Basketball shall be the only sport required to be enabled for MVP 1.0.
-- **SPT-003:** Teams/groups, training sessions, development frameworks, competitions/events, and coach assignments shall be able to reference a sport where relevant.
-- **SPT-004:** Core identity and family relationships shall not be basketball-specific.
-- **SPT-005:** The platform shall use athlete-oriented internal concepts while allowing sport-specific UI terminology such as `Player` for basketball.
-- **SPT-006:** Adding a future sport shall not require redesigning authentication, guardian relationships, notification ownership, or audit fundamentals.
+- **SPT-001 (MVP):** The core model shall contain a stable `Sport` concept.
+- **SPT-002 (MVP):** Basketball shall be the only sport required to be enabled for the first release.
+- **SPT-003 (MVP):** Core identity/family/billing/notification modules shall not depend on basketball-specific fields.
+- **SPT-004 (MVP):** Internal domain naming shall use Athlete where a cross-sport identity is intended while basketball UI may display Player.
+- **SPT-005 (V1+):** Adding a future sport shall not require replacing authentication, family, billing, notification, or audit foundations.
 
-### Family
+### Family and profiles
 
-- **FAM-001:** A guardian account shall support links to multiple athletes.
-- **FAM-002:** An athlete shall support links to multiple authorized guardians.
-- **FAM-003:** Family links shall record status and audit metadata.
-- **FAM-004:** Removing/deactivating a family link shall remove access without requiring a mobile app update.
+- **FAM-001 (MVP):** A guardian shall link/manage multiple athletes.
+- **FAM-002 (MVP):** An athlete shall support multiple authorized guardians.
+- **FAM-003 (MVP):** Family relationships shall include status and audit metadata.
+- **FAM-004 (MVP):** Revoking a family link shall remove access without requiring a client release.
+- **PRO-001 (MVP):** Athletes shall have a durable KHLIM profile.
+- **PRO-002 (MVP):** Guardian profiles shall contain approved contact/profile fields.
+- **PRO-003 (MVP):** Coaches shall have approved public/professional profile fields.
+- **PRO-004 (MVP):** Each account shall store its own preferred locale.
+- **PRO-005 (MVP):** Child/minor data collection shall be limited to documented operational purposes.
 
-### Profiles
+### Programmes and offerings
 
-- **PRO-001:** Athletes shall have a club profile with approved editable fields.
-- **PRO-002:** Coaches shall have a profile containing sport, role/specialization, and approved service/contact information.
-- **PRO-003:** Academic information collected in MVP shall be limited to fields with an agreed club purpose.
-- **PRO-004:** Users shall have a preferred locale setting independent of other linked users.
+- **PRG-001 (MVP):** Admins shall configure Programme records without code changes for categories such as U9, U12, U15, Advanced Training, or future variants.
+- **PRG-002 (MVP):** The schema shall not hard-code only U9/U12/U15 as the complete set of Academy programmes.
+- **PRG-003 (MVP):** A Programme shall support multiple Programme Offerings across venues/schedules/terms.
+- **PRG-004 (MVP):** Programme Offerings shall support capacity and active/enrolment status.
+- **PRG-005 (MVP):** Programme and Team shall remain distinct domain concepts.
+- **PRG-006 (MVP):** Programme changes/deactivation shall not erase historical athlete membership records.
 
-### Teams and training
+### Membership plans and memberships
 
-- **TRN-001:** Administrators shall create/manage sport-scoped teams/groups and memberships.
-- **TRN-002:** Administrators/authorized staff shall create training sessions with sport/team context, coach, venue, date/time, status, and notes.
-- **TRN-003:** Players shall see sessions relevant to their memberships.
-- **TRN-004:** Parents shall see sessions relevant to linked children.
-- **TRN-005:** Coaches shall see assigned sessions.
-- **TRN-006:** The administration workflow shall support recurring training patterns or an equivalent mechanism that avoids manual recreation of every normal weekly session.
-- **TRN-007:** Material schedule changes shall be capable of producing targeted notifications.
+- **MEM-001 (MVP):** Admins shall configure Membership Plans including name, duration/commitment, billing frequency, amounts, currency, session allowance, eligibility, benefits reference, start/end rules, and active status.
+- **MEM-002 (MVP):** Membership pricing shall not be hard-coded into client source code.
+- **MEM-003 (MVP):** A Membership shall link an Athlete to a Programme Offering and selected Membership Plan.
+- **MEM-004 (MVP):** Membership lifecycle shall support at least Pending, Active, Suspended, Cancelled, Completed, and Expired states.
+- **MEM-005 (MVP):** Membership status shall be independent from payment/installment status.
+- **MEM-006 (MVP):** Accepted membership/recurring-payment terms shall be auditable with version, actor, timestamp, and agreed commercial snapshot.
+- **MEM-007 (MVP):** Membership history shall remain available after completion/cancellation/expiry.
+- **MEM-008 (MVP/V1):** Membership-term extensions/adjustments caused by closure or approved interruption shall be auditable rather than silent date rewrites.
 
-### Attendance
+### Billing and payments
 
-- **ATT-001:** Authorized coaches shall record present, absent, late, or excused status for rostered athletes.
-- **ATT-002:** Attendance corrections shall be attributable/auditable.
-- **ATT-003:** Athletes and authorized guardians shall view attendance history.
-- **ATT-004:** Confirmed attendance shall produce a trusted business event suitable for downstream consumers.
-- **ATT-005:** Attendance processing shall not directly mutate reward/KHERO state.
-- **ATT-006:** MVP attendance shall support fast coach marking such as bulk `Mark All Present` followed by exception editing.
-- **ATT-007:** Attendance shall become official only after an authorized coach/staff confirmation step.
-- **ATT-008:** Future QR/NFC/kiosk check-in signals shall not independently become official attendance without an approved confirmation policy.
+- **PAY-001 (MVP):** KHLIM shall use an external payment provider for sensitive payment capture/tokenization.
+- **PAY-002 (MVP):** KHLIM shall not store full card number, CVV, or raw card credentials.
+- **PAY-003 (MVP):** Payment-provider integration shall sit behind a provider-neutral payment service/interface.
+- **PAY-004 (MVP):** The system shall support one-time/upfront payments.
+- **PAY-005 (MVP):** The system shall support approved fixed-cycle recurring monthly membership billing when supported by the selected provider.
+- **PAY-006 (MVP):** A finite 3/6/12-cycle schedule shall not create charges beyond its configured installment count.
+- **PAY-007 (MVP):** Billing shall represent Payment Schedule and expected Installment state independently from actual Payment attempts.
+- **PAY-008 (MVP):** Payment/installment statuses shall support scheduled, processing, paid, failed, overdue, waived, and cancelled semantics as appropriate.
+- **PAY-009 (MVP):** The backend shall calculate authoritative charge amount/discount and shall not trust client-supplied totals.
+- **PAY-010 (MVP):** Payment-provider webhooks shall be signature verified.
+- **PAY-011 (MVP):** Provider event IDs shall be deduplicated/idempotently processed.
+- **PAY-012 (MVP):** Charge-creating/retryable backend operations shall use idempotency protection where duplicate requests could double charge.
+- **PAY-013 (MVP):** Browser/checkout success redirects shall not be treated as the sole authoritative payment result.
+- **PAY-014 (MVP):** Payment transaction/attempt history shall be auditable and reconcilable.
+- **PAY-015 (MVP):** Payment-provider test/staging/production configuration and credentials shall be isolated.
+- **PAY-016 (MVP):** Parents shall be able to view appropriate payment history/receipt information.
+- **PAY-017 (V1):** Failed recurring payments shall support configurable retry/reminder/grace-period policies.
+- **PAY-018 (V1):** Overdue billing may suspend membership according to configurable policy and successful recovery may reactivate it automatically when appropriate.
+- **PAY-019 (V1+):** Local methods such as payment links/QR/DuitNow may be added through the payment abstraction without rewriting Memberships.
 
-### Athlete development
+### Benefits and entitlements
 
-- **DEV-001:** The club shall configure sport-specific development frameworks/categories without requiring mobile code changes where practical.
-- **DEV-002:** Authorized coaches shall create athlete evaluations.
-- **DEV-003:** Evaluations shall support strengths and current development priorities.
-- **DEV-004:** Shared development notes shall be visible to the relevant athlete and authorized guardians.
-- **DEV-005:** Internal coach notes shall not be visible to athletes/guardians.
-- **DEV-006:** Official evaluations shall not be editable by athletes/guardians.
-- **DEV-007:** The system shall retain evaluation history according to approved retention rules.
-- **DEV-008:** Development criteria shall not be globally hard-coded to basketball-only concepts.
+- **BEN-001 (V1):** Package benefits shall be represented through generic Benefit/Entitlement concepts rather than hard-coded jersey/ball conditions inside Membership logic.
+- **BEN-002 (V1):** Entitlement eligibility may depend on payment milestones or upfront completion.
+- **BEN-003 (V1):** Entitlement fulfilment shall support states such as Eligible, Awaiting Input, Ordered, Ready for Collection, Collected, Expired/Cancelled as appropriate.
+- **BEN-004 (V1+):** Future benefits may represent merchandise, tournament/camp discounts, evaluation credits, coaching credits, or priority registration.
 
-### KHERO
+### Venues and scheduling
 
-- **KHR-001:** Each eligible KHLIM Basketball athlete shall have a KHERO profile.
-- **KHR-002:** Players shall select only approved customization options.
-- **KHR-003:** KHERO customization and unlock logic shall not own attendance truth.
-- **KHR-004:** Official visual implementation shall follow KHLIM/KHERO assets and rules supplied by the organization.
-- **KHR-005:** Future use of KHERO across non-basketball sports shall remain configurable rather than being assumed in MVP schema design.
+- **SCH-001 (MVP):** The system shall support multiple Venue records.
+- **SCH-002 (MVP):** A Venue may contain one or more Courts.
+- **SCH-003 (MVP):** Programme Offerings/Sessions shall reference venues/courts rather than hard-coding one location.
+- **SCH-004 (MVP):** The scheduling model shall separate recurring schedule/session-series definitions from explicit session occurrences.
+- **SCH-005 (MVP):** Families shall view upcoming sessions relevant to linked active memberships.
+- **SCH-006 (MVP):** Authorized staff shall create/update/cancel basic session occurrences without code deployment.
+- **SCH-007 (MVP/V1):** The model shall support venue/court closures, holidays, cancellations, rescheduling, and replacement sessions.
+- **SCH-008 (MVP/V1):** Historical sessions shall not be silently deleted when schedules change.
 
-### Points and rewards
+### Website/member portal
 
-- **RWD-001:** Point changes shall be represented by auditable transactions.
-- **RWD-002:** Trusted system events such as confirmed attendance may trigger configurable point rules.
-- **RWD-003:** Duplicate processing shall not award duplicate points for the same qualifying occurrence.
-- **RWD-004:** Manual point adjustments shall require authorized actor and reason.
-- **RWD-005:** Reward redemption shall be transactional and prevent double-spending.
-- **RWD-006:** Athletes and authorized guardians shall view balance and relevant history.
-- **RWD-007:** Reward rules shall be able to become sport-specific or organization-wide in the future without replacing the ledger model.
-
-### Events, competitions, and selections
-
-- **EVT-001:** Authorized staff shall create generic events representing competitions, trials, camps, selections, or club activities.
-- **EVT-002:** Events shall support sport, audience/eligibility targeting, date/time, venue, deadline, status, and details.
-- **EVT-003:** The event/competition model shall support team and individual participation formats where required.
-- **EVT-004:** Authorized guardians shall submit permitted responses/registrations for linked children.
-- **EVT-005:** Selection announcements shall support controlled audiences.
-- **EVT-006:** Unrelated users shall not receive private selection/athlete-specific information.
-- **EVT-007:** Authorized admins shall publish, update, cancel, close registration for, and complete events without requiring a mobile application release.
-- **EVT-008:** Important event changes such as time, venue, cancellation, or deadline changes shall be capable of producing targeted notifications.
-- **EVT-009:** The system shall preserve completed/cancelled events as history rather than silently deleting them where historical visibility matters.
-
-### Notifications and announcements
-
-- **NOT-001:** The system shall support club, sport, team, and appropriately scoped athlete/family announcements.
-- **NOT-002:** In-app notification records shall be supported.
-- **NOT-003:** Push notifications shall be used for approved operational categories.
-- **NOT-004:** Users shall control non-critical notification preferences.
-- **NOT-005:** Domain modules shall not contain direct third-party push-provider business logic.
-- **NOT-006:** System-generated notification templates shall support locale-specific rendering.
-
-### Localization
-
-- **I18N-001:** User-facing production UI copy shall be referenced through localization keys rather than hard-coded English strings where practical.
-- **I18N-002:** The platform shall support locale identifiers for English (`en`), Bahasa Melayu (`ms`), Simplified Chinese (`zh-Hans`), Traditional Chinese (`zh-Hant`), and Hindi (`hi`).
-- **I18N-003:** English shall be the canonical fallback when a requested translation is unavailable.
-- **I18N-004:** A user's preferred locale shall not be inherited implicitly from a linked parent or child.
-- **I18N-005:** Date, time, number, and plural formatting shall use locale-aware formatting APIs.
-- **I18N-006:** Important text shall not be embedded into KHERO or club artwork when the text must be translated dynamically.
-- **I18N-007:** Admin-authored content shall preserve the original text and may support approved locale variants.
-- **I18N-008:** Automated/AI translation of coach-authored development notes shall never overwrite the authoritative original text.
-- **I18N-009:** A dedicated Cantonese locale may be added later; Traditional Chinese shall not be labeled internally as Cantonese.
-
-### Coach services
-
-- **COA-001:** Families shall browse approved coach profiles/services.
-- **COA-002:** Families shall submit private-training/consultation enquiries.
-- **COA-003:** Authorized coach/admin users shall view and manage enquiry status.
-- **COA-004:** MVP shall not require integrated payment or complex booking scheduling.
+- **WEB-001 (MVP):** Public users shall view approved KHLIM/Academy/programme information without authentication.
+- **WEB-002 (MVP):** A guardian shall create an account, add/select a child, choose a Programme Offering and Membership Plan, accept terms, and enter secure provider checkout.
+- **WEB-003 (MVP):** The member portal shall show linked athletes, programme/membership summary, membership status, payment information/history, and upcoming schedule.
+- **WEB-004 (MVP):** Website UI shall be responsive for common mobile/tablet/desktop widths.
+- **WEB-005 (MVP):** Sensitive/member-only data shall not leak into public routes or unauthenticated caches.
 
 ### Administration
 
-- **ADM-001:** A web admin interface shall manage users, family links, sports, teams/groups, rosters, schedules, events, announcements, rewards, and relevant configuration.
-- **ADM-002:** Sensitive admin actions shall create audit records where specified by security policy.
-- **ADM-003:** Bulk import shall be supported where manual onboarding at club scale would be impractical.
-- **ADM-004:** Routine schedule, event, competition, announcement, development-framework, and reward updates shall not require developer intervention.
+- **ADM-001 (MVP):** Admin web shall manage families/athletes, Programmes, Programme Offerings, Membership Plans, Memberships, Venues/Courts, and schedule basics.
+- **ADM-002 (MVP):** Authorized finance/admin roles shall view payment/failed-payment/receipt operational information.
+- **ADM-003 (MVP):** Coaches shall not automatically receive financial/admin access.
+- **ADM-004 (MVP):** Sensitive state changes shall create audit records where specified.
+- **ADM-005 (MVP):** Routine programme/price/capacity/schedule changes shall not require developer intervention.
+- **ADM-006 (MVP):** Admin interfaces shall not bypass backend authorization/business rules.
+
+### Notifications
+
+- **NOT-001 (MVP):** Domain modules shall publish business facts rather than directly call notification-channel providers.
+- **NOT-002 (MVP):** A Notification service shall support transactional email for required MVP categories.
+- **NOT-003 (MVP):** System templates shall support locale-aware rendering.
+- **NOT-004 (MVP):** Delivery attempts/failures shall be observable where operationally important.
+- **NOT-005 (V1):** WhatsApp shall be addable as a channel adapter without rewriting Membership/Billing/Scheduling logic.
+- **NOT-006 (Super App):** Push/in-app notifications shall integrate through the same Notification domain.
+- **NOT-007 (MVP+):** Sensitive overdue/payment communication shall not use public social-media channels.
+
+### Attendance — V1
+
+- **ATT-001:** Authorized coaches shall record present, absent, late, or excused status.
+- **ATT-002:** Official attendance shall require authorized coach/staff confirmation.
+- **ATT-003:** Corrections shall be auditable.
+- **ATT-004:** Confirmed attendance shall publish a trusted business event.
+- **ATT-005:** QR/NFC/kiosk check-in shall not automatically become official attendance without an approved policy.
+
+### Athlete development — V2
+
+- **DEV-001:** Development Frameworks/Criteria shall be sport configurable.
+- **DEV-002:** Authorized coaches shall create official athlete evaluations.
+- **DEV-003:** Shared and internal notes shall have distinct authorization.
+- **DEV-004:** Evaluation history shall be retained.
+- **DEV-005:** AI/translation derivatives shall never overwrite authoritative coach original text.
+
+### Events, tournaments, and camps — V2+
+
+- **EVT-001:** Generic Event shall support publication, dates, venue, audience, registration window, status, and translations.
+- **EVT-002:** Tournament and Camp capabilities shall extend shared Event infrastructure rather than create disconnected event databases.
+- **EVT-003:** Existing KHLIM families shall reuse the same account/Athlete identity for registrations.
+- **EVT-004:** Member discount/eligibility shall be calculated server-side from authoritative membership state.
+- **EVT-005:** Tournament/Camp payments shall reuse Billing.
+- **EVT-006:** KHLIM Assist shall consume approved event/public APIs/read models rather than own duplicate event truth.
+
+### KHERO/rewards — later
+
+- **KHR-001:** KHERO shall remain an engagement/presentation domain, not owner of attendance/payment/evaluation truth.
+- **RWD-001:** Point changes shall use an auditable ledger.
+- **RWD-002:** Financial Payment and KHERO PointTransaction shall remain separate ledgers/concepts.
+
+### Localization
+
+- **I18N-001 (MVP):** Production UI copy shall use localization resources/keys where practical.
+- **I18N-002 (MVP):** Register `en`, `ms`, `zh-Hans`, `zh-Hant`, and `hi`.
+- **I18N-003 (MVP):** English shall be fallback.
+- **I18N-004 (MVP):** Preferred locale is per account, not inherited automatically from linked users.
+- **I18N-005 (MVP):** Dates/numbers/currency display shall be locale-aware while authoritative stored values remain locale-neutral.
 
 ### Account lifecycle
 
-- **ACC-001:** Users shall have a supported account deletion/request flow before public launch.
-- **ACC-002:** Deactivation/deletion shall follow documented retention and legal/business rules rather than uncontrolled hard deletion.
-- **ACC-003:** Production support shall have a documented process for compromised accounts.
+- **ACC-001 (MVP):** Users shall have an account deletion/request path before public launch.
+- **ACC-002 (MVP):** Deletion/deactivation shall follow retention/legal/business policy instead of uncontrolled hard deletion.
+- **ACC-003 (MVP):** Production support shall have a process for compromised accounts.
 
 ## Non-functional requirements
 
-### Security
+### Security/privacy
 
-- **NFR-SEC-001:** All production network traffic shall use TLS.
-- **NFR-SEC-002:** Production secrets shall not be stored in the source repository.
-- **NFR-SEC-003:** Authorization boundaries shall have automated integration tests.
-- **NFR-SEC-004:** Sensitive logs shall avoid tokens, passwords, secrets, and unnecessary private child information.
-- **NFR-SEC-005:** Production dependencies and third-party SDKs shall be reviewed for security/data implications.
-
-### Privacy
-
+- **NFR-SEC-001:** All production traffic shall use TLS.
+- **NFR-SEC-002:** Secrets shall not be committed to the repository.
+- **NFR-SEC-003:** Authorization boundaries shall have automated tests.
+- **NFR-SEC-004:** Logs shall avoid secrets/tokens/raw payment credentials and unnecessary minor/family data.
+- **NFR-SEC-005:** Production admin access shall follow least privilege and stronger authentication.
 - **NFR-PRI-001:** Data collection shall be minimized to documented purposes.
-- **NFR-PRI-002:** Production/staging/development data and credentials shall remain isolated.
-- **NFR-PRI-003:** Data retention/deletion rules shall be documented before launch.
-- **NFR-PRI-004:** The product shall support required privacy/store disclosures for integrated services.
+- **NFR-PRI-002:** Development/staging/production data/credentials shall be isolated.
+- **NFR-PRI-003:** Privacy/retention/deletion/payment disclosures shall be ready before public launch.
 
-### Reliability and recovery
+### Reliability/recovery
 
 - **NFR-REL-001:** Production database backups shall be automated.
-- **NFR-REL-002:** A restoration procedure shall be tested before public launch.
-- **NFR-REL-003:** Critical reward/registration operations shall handle retries safely.
-- **NFR-REL-004:** The system shall expose health/error information sufficient for production diagnosis.
+- **NFR-REL-002:** Restore shall be tested into a safe non-production environment before public launch.
+- **NFR-REL-003:** Payment/webhook/critical registration operations shall tolerate retries safely.
+- **NFR-REL-004:** Production shall expose health/error/payment-provider/notification failure telemetry sufficient for diagnosis.
+- **NFR-REL-005:** Web/API releases shall have documented rollback/forward-fix procedures.
+- **NFR-REL-006:** Failure of one optional external integration shall not unnecessarily crash unrelated core modules.
+- **NFR-REL-007:** Public launch shall be blocked by unresolved P0/P1 defects.
 
-### Maintainability and extensibility
+### Maintainability/extensibility
 
 - **NFR-MNT-001:** Business domains shall follow documented module boundaries.
-- **NFR-MNT-002:** Client screens shall not directly depend on database table implementation.
+- **NFR-MNT-002:** Clients shall not directly depend on Prisma/database table internals.
 - **NFR-MNT-003:** Major architecture changes shall be recorded as ADRs.
-- **NFR-MNT-004:** Configurable club concepts shall not require client releases when safe server/admin configuration is sufficient.
-- **NFR-MNT-005:** Sport-specific configuration shall not leak unnecessary sport assumptions into identity, family, audit, or infrastructure modules.
-- **NFR-MNT-006:** API contracts shall use stable identifiers rather than localized labels as domain keys.
+- **NFR-MNT-004:** Configurable programmes/prices/venues/benefits/schedules shall not require client releases where safe admin/server configuration is sufficient.
+- **NFR-MNT-005:** Provider-specific payment/notification code shall remain behind adapters.
+- **NFR-MNT-006:** API contracts shall use stable identifiers, not localized labels.
 
-### Performance
+### Performance/UX
 
-Exact targets should be established after prototype measurement, but MVP should avoid designs requiring unbounded reads or loading entire club datasets on normal screens.
+- **NFR-PERF-001:** Growing list APIs shall support pagination/filtering.
+- **NFR-PERF-002:** Normal family dashboard load shall avoid excessive sequential network round trips.
+- **NFR-PERF-003:** Payment/registration flows shall clearly represent pending/processing states and avoid duplicate submission.
+- **NFR-UX-001:** Important status shall not be conveyed by color alone.
+- **NFR-UX-002:** Core website forms/navigation shall follow accessibility conventions.
+- **NFR-UX-003:** Layouts shall tolerate translated text expansion.
 
-- **NFR-PERF-001:** List APIs shall support pagination/filtering where dataset growth is expected.
-- **NFR-PERF-002:** Normal player/parent home screens shall not require a large number of sequential network round trips.
-- **NFR-PERF-003:** Attendance submission for a normal team roster shall remain usable on typical mobile connectivity.
+## Acceptance and launch strategy
 
-### Accessibility and UX
+Each phase converts relevant requirements into unit, integration, end-to-end, authorization, payment-sandbox, localization, and exploratory tests.
 
-- **NFR-UX-001:** Important status/information shall not be conveyed by color alone.
-- **NFR-UX-002:** Text, touch targets, and navigation shall follow platform accessibility conventions.
-- **NFR-UX-003:** Coach attendance workflows shall minimize unnecessary interaction cost.
-- **NFR-UX-004:** Visibility of shared versus internal notes shall be unmistakable to coaches.
-- **NFR-UX-005:** Layout components shall tolerate translated text expansion and different writing-system metrics without clipping essential information.
+Before public MVP launch:
+1. internal alpha;
+2. closed beta with approximately 5–10 families;
+3. expanded pilot approximately 15–30 families;
+4. feature freeze/release candidate;
+5. no open P0/P1 defect;
+6. tested backup/restore and rollback/incident procedures;
+7. limited production cohort before broad public opening.
 
-## Acceptance strategy
-
-Each development phase should convert relevant requirements into:
-- unit tests for domain rules;
-- integration tests for API/database/authorization behavior;
-- end-to-end tests for critical user journeys;
-- localization checks for missing translation keys and fallback behavior;
-- manual exploratory tests for high-impact UX and platform behavior.
-
-Requirements may change as KHLIM validates the product, but changes should update this document rather than silently diverging from it.
+Requirements change with validated KHLIM needs, but implementation must not silently diverge from this document.
