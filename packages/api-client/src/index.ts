@@ -108,21 +108,47 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     };
   }
 
+  async function get<T>(
+    path: string,
+    requestOptions?: ApiRequestOptions,
+  ): Promise<T> {
+    return request<T>(path, { ...requestOptions, method: "GET" });
+  }
+
+  async function post<T>(
+    path: string,
+    body?: unknown,
+    requestOptions: ApiRequestOptions = {},
+  ): Promise<T> {
+    return request<T>(path, {
+      ...withJsonBody(body, requestOptions),
+      method: "POST",
+    });
+  }
+
+  async function patch<T>(
+    path: string,
+    body?: unknown,
+    requestOptions: ApiRequestOptions = {},
+  ): Promise<T> {
+    return request<T>(path, {
+      ...withJsonBody(body, requestOptions),
+      method: "PATCH",
+    });
+  }
+
+  async function deleteRequest<T>(
+    path: string,
+    requestOptions?: ApiRequestOptions,
+  ): Promise<T> {
+    return request<T>(path, { ...requestOptions, method: "DELETE" });
+  }
+
   return {
     request,
-    get: (path, requestOptions) =>
-      request(path, { ...requestOptions, method: "GET" }),
-    post: (path, body, requestOptions = {}) =>
-      request(path, {
-        ...withJsonBody(body, requestOptions),
-        method: "POST",
-      }),
-    patch: (path, body, requestOptions = {}) =>
-      request(path, {
-        ...withJsonBody(body, requestOptions),
-        method: "PATCH",
-      }),
-    delete: (path, requestOptions) =>
-      request(path, { ...requestOptions, method: "DELETE" }),
+    get,
+    post,
+    patch,
+    delete: deleteRequest,
   };
 }
