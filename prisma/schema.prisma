@@ -10,3 +10,116 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum UserRoleCode {
+  GUARDIAN
+  ATHLETE
+  COACH
+  SUPER_ADMIN
+  MANAGEMENT
+  FINANCE_ADMIN
+  ACADEMY_ADMIN
+  HEAD_COACH
+  EVENT_STAFF
+}
+
+enum GuardianAthleteLinkStatus {
+  PENDING
+  ACTIVE
+  REVOKED
+}
+
+model User {
+  id                          String                    @id @default(uuid()) @db.Uuid
+  authProviderSubject         String                    @unique @map("auth_provider_subject")
+  email                       String?
+  status                      UserStatus                @default(ACTIVE)
+  preferredLocale             String                    @default("en") @map("preferred_locale")
+  createdAt                   DateTime                  @default(now()) @map("created_at")
+  updatedAt                   DateTime                  @updatedAt @map("updated_at")
+  roleAssignments             UserRoleAssignment[]
+  guardianProfile             GuardianProfile?
+  coachProfile                CoachProfile?
+  athleteProfile              AthleteProfile?           @relation("AthleteAccount")
+  guardianAthleteLinks        GuardianAthleteLink[]      @relation("GuardianFamilyLinks")
+  createdGuardianAthleteLinks GuardianAthleteLink[]      @relation("CreatedFamilyLinks")
+
+  @@index([status])
+  @@map("users")
+}
+
+model UserRoleAssignment {
+  id        String       @id @default(uuid()) @db.Uuid
+  userId    String       @map("user_id") @db.Uuid
+  role      UserRoleCode
+  createdAt DateTime     @default(now()) @map("created_at")
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@index([role])
+  @@map("user_role_assignments")
+}
+
+model GuardianProfile {
+  userId      String   @id @map("user_id") @db.Uuid
+  displayName String   @map("display_name")
+  phone       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("guardian_profiles")
+}
+
+model CoachProfile {
+  userId      String   @id @map("user_id") @db.Uuid
+  displayName String   @map("display_name")
+  bio         String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("coach_profiles")
+}
+
+model AthleteProfile {
+  id              String                 @id @default(uuid()) @db.Uuid
+  userId          String?                @unique @map("user_id") @db.Uuid
+  displayName     String                 @map("display_name")
+  dateOfBirth     DateTime               @map("date_of_birth") @db.Date
+  preferredLocale String                 @default("en") @map("preferred_locale")
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+  user            User?                  @relation("AthleteAccount", fields: [userId], references: [id], onDelete: SetNull)
+  guardianLinks   GuardianAthleteLink[]
+
+  @@index([dateOfBirth])
+  @@map("athlete_profiles")
+}
+
+model GuardianAthleteLink {
+  id               String                    @id @default(uuid()) @db.Uuid
+  guardianUserId   String                    @map("guardian_user_id") @db.Uuid
+  athleteId        String                    @map("athlete_id") @db.Uuid
+  relationshipType String?                   @map("relationship_type")
+  status           GuardianAthleteLinkStatus @default(PENDING)
+  createdByUserId  String?                   @map("created_by_user_id") @db.Uuid
+  approvedAt       DateTime?                 @map("approved_at")
+  revokedAt        DateTime?                 @map("revoked_at")
+  createdAt        DateTime                  @default(now()) @map("created_at")
+  updatedAt        DateTime                  @updatedAt @map("updated_at")
+  guardian         User                      @relation("GuardianFamilyLinks", fields: [guardianUserId], references: [id], onDelete: Restrict)
+  athlete          AthleteProfile            @relation(fields: [athleteId], references: [id], onDelete: Restrict)
+  createdBy        User?                     @relation("CreatedFamilyLinks", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([guardianUserId, athleteId])
+  @@index([guardianUserId, status])
+  @@index([athleteId, status])
+  @@map("guardian_athlete_links")
+}
