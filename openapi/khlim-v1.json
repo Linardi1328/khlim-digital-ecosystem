@@ -460,6 +460,298 @@
           "admin-identity"
         ]
       }
+    },
+    "/v1/academy/offerings": {
+      "get": {
+        "operationId": "AcademyController_listPublicOfferings",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "List currently available programme offerings and plans",
+        "tags": [
+          "academy"
+        ]
+      }
+    },
+    "/v1/athletes/{athleteId}/memberships": {
+      "get": {
+        "operationId": "AcademyController_listAthleteMemberships",
+        "parameters": [
+          {
+            "name": "athleteId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "tags": [
+          "academy"
+        ]
+      },
+      "post": {
+        "operationId": "AcademyController_createPendingMembership",
+        "parameters": [
+          {
+            "name": "athleteId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePendingMembershipDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "tags": [
+          "academy"
+        ]
+      }
+    },
+    "/v1/admin/academy/sports": {
+      "post": {
+        "operationId": "AcademyAdminController_createSport",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Create a sport definition",
+        "tags": [
+          "admin-academy"
+        ]
+      }
+    },
+    "/v1/admin/academy/venues": {
+      "post": {
+        "operationId": "AcademyAdminController_createVenue",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateVenueDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "tags": [
+          "admin-academy"
+        ]
+      }
+    },
+    "/v1/admin/academy/venues/{venueId}/courts": {
+      "post": {
+        "operationId": "AcademyAdminController_createCourt",
+        "parameters": [
+          {
+            "name": "venueId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCourtDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "tags": [
+          "admin-academy"
+        ]
+      }
+    },
+    "/v1/admin/academy/programmes": {
+      "post": {
+        "operationId": "AcademyAdminController_createProgramme",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProgrammeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "tags": [
+          "admin-academy"
+        ]
+      }
+    },
+    "/v1/admin/academy/offerings": {
+      "post": {
+        "operationId": "AcademyAdminController_createOffering",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProgrammeOfferingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "tags": [
+          "admin-academy"
+        ]
+      }
+    },
+    "/v1/admin/academy/membership-plans": {
+      "post": {
+        "operationId": "AcademyAdminController_createMembershipPlan",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMembershipPlanDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "tags": [
+          "admin-academy"
+        ]
+      }
+    },
+    "/v1/admin/academy/membership-plan-offerings": {
+      "post": {
+        "operationId": "AcademyAdminController_linkPlanToOffering",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkPlanOfferingDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "tags": [
+          "admin-academy"
+        ]
+      }
     }
   },
   "info": {
@@ -636,6 +928,204 @@
         },
         "required": [
           "status"
+        ]
+      },
+      "CreatePendingMembershipDto": {
+        "type": "object",
+        "properties": {
+          "offeringId": {
+            "type": "string"
+          },
+          "planId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "offeringId",
+          "planId"
+        ]
+      },
+      "CreateSportDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "BASKETBALL"
+          },
+          "defaultName": {
+            "type": "string",
+            "example": "Basketball"
+          }
+        },
+        "required": [
+          "code",
+          "defaultName"
+        ]
+      },
+      "CreateVenueDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Taylor's International School Puchong"
+          },
+          "address": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "CreateCourtDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Court 1"
+          },
+          "capacity": {
+            "type": "number",
+            "example": 30
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "CreateProgrammeDto": {
+        "type": "object",
+        "properties": {
+          "sportId": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "example": "U12-ACADEMY"
+          },
+          "name": {
+            "type": "string",
+            "example": "U12 Academy"
+          },
+          "description": {
+            "type": "string"
+          },
+          "minimumAge": {
+            "type": "number"
+          },
+          "maximumAge": {
+            "type": "number"
+          },
+          "level": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sportId",
+          "code",
+          "name"
+        ]
+      },
+      "CreateProgrammeOfferingDto": {
+        "type": "object",
+        "properties": {
+          "programmeId": {
+            "type": "string"
+          },
+          "venueId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "example": "U12 Saturday 10 AM"
+          },
+          "capacity": {
+            "type": "number",
+            "example": 30
+          },
+          "startsOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "endsOn": {
+            "type": "string",
+            "format": "date"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "OPEN",
+              "CLOSED",
+              "INACTIVE"
+            ]
+          }
+        },
+        "required": [
+          "programmeId",
+          "name",
+          "capacity"
+        ]
+      },
+      "CreateMembershipPlanDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "6-Month Plan"
+          },
+          "durationMonths": {
+            "type": "number",
+            "example": 6
+          },
+          "commitmentCycles": {
+            "type": "number",
+            "example": 6
+          },
+          "billingFrequency": {
+            "type": "string",
+            "enum": [
+              "MONTHLY",
+              "UPFRONT"
+            ]
+          },
+          "recurringAmountMinor": {
+            "type": "number",
+            "description": "Minor currency units, e.g. sen"
+          },
+          "upfrontAmountMinor": {
+            "type": "number",
+            "description": "Minor currency units, e.g. sen"
+          },
+          "currency": {
+            "type": "string",
+            "example": "MYR"
+          },
+          "sessionAllowance": {
+            "type": "number"
+          },
+          "benefitsSummary": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "billingFrequency"
+        ]
+      },
+      "LinkPlanOfferingDto": {
+        "type": "object",
+        "properties": {
+          "planId": {
+            "type": "string"
+          },
+          "offeringId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "planId",
+          "offeringId"
         ]
       }
     }
