@@ -25,3 +25,16 @@ export class UpdateAthleteDto {
   @ApiPropertyOptional({ enum: [...KHLIM_SUPPORTED_LOCALES], example: "en" })
   preferredLocale?: string;
 }
+
+export class CreateGuardianInvitationDto {
+  @ApiProperty({ example: "parent@example.com", maxLength: 320 })
+  email!: string;
+
+  @ApiPropertyOptional({ example: "parent", maxLength: 50 })
+  relationshipType?: string;
+}
+
+export class AcceptGuardianInvitationDto {
+  @ApiProperty({ description: "One-time invitation token" })
+  token!: string;
+}

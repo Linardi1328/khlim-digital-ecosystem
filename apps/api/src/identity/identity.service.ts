@@ -1,6 +1,9 @@
 import { ForbiddenException, Injectable } from "@nestjs/common";
 import type { VerifiedSupabaseIdentity } from "../auth/supabase-jwt-verifier";
-import type { AuthenticatedUserContext } from "../auth/authenticated-user";
+import type {
+  AuthenticatedUserContext,
+  AuthenticatorAssuranceLevel,
+} from "../auth/authenticated-user";
 import {
   requireTrimmedString,
   optionalTrimmedString,
@@ -11,6 +14,13 @@ import type {
   UpsertGuardianProfileDto,
 } from "./identity.dto";
 import { requireSupportedLocale } from "./locale-policy";
+
+function resolveAal(
+  identity: VerifiedSupabaseIdentity,
+): AuthenticatorAssuranceLevel {
+  const value = identity.payload.aal;
+  return value === "aal1" || value === "aal2" ? value : null;
+}
 
 @Injectable()
 export class IdentityService {
@@ -25,11 +35,11 @@ export class IdentityService {
       },
       create: {
         authProviderSubject: identity.subject,
-        email: identity.email ?? null,
+        email: identity.email?.trim().toLowerCase() ?? null,
       },
       update: identity.email
         ? {
-            email: identity.email,
+            email: identity.email.trim().toLowerCase(),
           }
         : {},
       include: {
@@ -51,6 +61,7 @@ export class IdentityService {
       email: user.email,
       preferredLocale: user.preferredLocale,
       roles: user.roleAssignments.map((assignment) => assignment.role).sort(),
+      authenticatorAssuranceLevel: resolveAal(identity),
     };
   }
 
