@@ -53,6 +53,8 @@ jobs:
         run: pnpm format:check
 
       - name: Type checks
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/khlim_validation
         run: pnpm typecheck
 
       - name: Prisma schema validation
@@ -66,4 +68,6 @@ jobs:
         run: pnpm openapi:check
 
       - name: Runtime builds
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/khlim_validation
         run: pnpm build
