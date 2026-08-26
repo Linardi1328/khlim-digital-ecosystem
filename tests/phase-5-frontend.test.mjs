@@ -99,9 +99,12 @@ test("Phase 5 recovery includes an actual reset-password page", async () => {
 test("Phase 5 managed-athlete forms collect only fields supported by the family API", async () => {
   const enrol = await read("apps/web/app/enrol/page.tsx");
   const players = await read("apps/web/app/portal/players/page.tsx");
+  const switcher = await read("apps/web/components/portal/child-switcher.tsx");
   const onboarding = await read("apps/web/app/onboarding/guardian/page.tsx");
+
   assert.doesNotMatch(enrol, /newChildGender/);
   assert.doesNotMatch(players, /gender:/);
+  assert.doesNotMatch(switcher, /newChildGender|gender:/);
   assert.doesNotMatch(onboarding, /emergencyContact/);
 });
 
@@ -109,6 +112,18 @@ test("Phase 5 account UI never claims unsupported deactivation was queued", asyn
   const account = await read("apps/web/app/portal/account/page.tsx");
   assert.match(account, /Not yet available/);
   assert.doesNotMatch(account, /queued for administrative review/i);
+});
+
+test("Phase 5 public copy does not hard-code unverified venues or programme tiers", async () => {
+  const footer = await read("apps/web/components/layout/public-footer.tsx");
+  const about = await read("apps/web/app/about/page.tsx");
+  const privacy = await read("apps/web/app/privacy/page.tsx");
+  const terms = await read("apps/web/app/terms/page.tsx");
+
+  assert.doesNotMatch(footer, /Seri Kembangan|Cyberjaya|Advanced Elite/i);
+  assert.doesNotMatch(about, /Founded by passionate basketball coaches/i);
+  assert.match(privacy, /Later capabilities such as attendance or development records require separate implementation/);
+  assert.match(terms, /Detailed session scheduling, cancellations, replacement sessions, attendance, and term-adjustment rules are later operational capabilities/);
 });
 
 test("Phase 5 responsive rules separate desktop and mobile navigation", async () => {
