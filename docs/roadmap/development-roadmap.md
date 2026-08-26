@@ -1,6 +1,6 @@
 # Development Roadmap
 
-**Status:** Accepted current planning baseline  
+**Status:** Accepted current planning baseline
 **Objective:** Launch a reliable KHLIM website/member platform that can acquire families, manage academy memberships, collect recurring revenue, and support club operations on a shared backend that later powers the native Super App and wider KHLIM sports ecosystem.
 
 This roadmap supersedes the earlier player-first/mobile-first delivery order. Basketball still launches first and the core remains sport-aware, but the first production client is now the **website/member portal**, supported by the **admin web application** and shared API.
