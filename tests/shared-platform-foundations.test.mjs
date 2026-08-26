@@ -53,7 +53,7 @@ test("deployment tiers are explicit and templates never contain live credentials
   assert.match(production, /KHLIM_ENV=production/);
   assert.match(staging, /example\.invalid/);
   assert.match(production, /example\.invalid/);
-  assert.match(docs, /Real secrets belong in provider\/CI secret stores/);
+  assert.match(docs, /real secrets belong in provider\/CI secret stores/i);
 });
 
 test("API environment and logging foundations keep deployment identity and secrets separate", async () => {
@@ -62,8 +62,9 @@ test("API environment and logging foundations keep deployment identity and secre
   const main = await read("apps/api/src/main.ts");
 
   assert.match(environment, /KHLIM_ENV/);
-  assert.match(environment, /staging requires NODE_ENV=production/);
-  assert.match(environment, /production requires NODE_ENV=production/);
+  assert.match(environment, /deploymentEnv === "staging"/);
+  assert.match(environment, /deploymentEnv === "production"/);
+  assert.match(environment, /requires NODE_ENV=production/);
   assert.match(logger, /\[redacted\]/);
   assert.match(logger, /authorization\|cookie\|password\|secret\|token/);
   assert.match(logger, /JSON\.stringify/);
