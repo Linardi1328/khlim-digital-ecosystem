@@ -1,95 +1,30 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useI18n } from "../../../lib/i18n-context";
-import { useFamily } from "../../../lib/family-context";
-import { PortalShell } from "../../../components/portal/portal-shell";
-import { Card } from "../../../components/ui/card";
-import { Badge } from "../../../components/ui/badge";
+import React, { useEffect, useState } from "react";
 import { apiService } from "../../../lib/api-service";
+import { useFamily } from "../../../lib/family-context";
+import { useI18n } from "../../../lib/i18n-context";
 import type { AthleteMembershipItem } from "../../../lib/types";
+import { PortalShell } from "../../../components/portal/portal-shell";
+import { Badge } from "../../../components/ui/badge";
+import { Card } from "../../../components/ui/card";
 
 export default function SchedulePage() {
   const { t } = useI18n();
   const { activeChild } = useFamily();
   const [memberships, setMemberships] = useState<AthleteMembershipItem[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!activeChild?.id) {
-      setMemberships([]);
-      setLoading(false);
-      return;
-    }
-
+    if (!activeChild) { setMemberships([]); setLoading(false); return; }
     setLoading(true);
-    apiService
-      .listAthleteMemberships(activeChild.id)
-      .then(setMemberships)
-      .catch((err) => console.warn("Failed to load schedule:", err))
-      .finally(() => setLoading(false));
+    apiService.listAthleteMemberships(activeChild.id).then(setMemberships).catch(() => setMemberships([])).finally(() => setLoading(false));
   }, [activeChild]);
 
   return (
     <PortalShell>
-      <div>
-        <div style={{ marginBottom: "28px" }}>
-          <h1 style={{ fontSize: "2rem", fontWeight: 800, color: "#0F172A", margin: "0 0 6px" }}>
-            {t("portal.schedule.title")}
-          </h1>
-          <p style={{ fontSize: "0.9375rem", color: "#64748B", margin: 0 }}>
-            Training schedule for <strong>{activeChild?.displayName || "Selected Athlete"}</strong>.
-          </p>
-        </div>
-
-        {loading ? (
-          <div style={{ padding: "40px", color: "#64748B" }}>Loading training schedule...</div>
-        ) : memberships.length === 0 ? (
-          <Card style={{ padding: "40px", textAlign: "center", color: "#64748B" }}>
-            <div style={{ fontSize: "2rem", marginBottom: "8px" }}>📅</div>
-            <h3>No Scheduled Training Sessions</h3>
-            <p style={{ maxWidth: "400px", margin: "0 auto" }}>
-              Active training schedules will appear here once your child is enrolled in an open academy offering.
-            </p>
-          </Card>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-            {memberships.map((m) => {
-              const off = m.programmeOffering;
-              return (
-                <Card key={m.id} style={{ padding: "24px", borderRadius: "14px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" }}>
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <h3 style={{ fontSize: "1.125rem", fontWeight: 700, margin: 0, color: "#0F172A" }}>
-                          {off?.name || "Academy Offering"}
-                        </h3>
-                        <Badge variant={m.status === "ACTIVE" ? "success" : "warning"} size="sm">
-                          {m.status}
-                        </Badge>
-                      </div>
-
-                      <div style={{ fontSize: "0.875rem", color: "#334155", marginTop: "6px" }}>
-                        🗓️ Term Start: <strong>{off?.startsOn || "Scheduled"}</strong>
-                      </div>
-
-                      <div style={{ fontSize: "0.8125rem", color: "#64748B", marginTop: "2px" }}>
-                        📍 Venue: {off?.venue?.name || "KHLIM Training Facility"}
-                      </div>
-                    </div>
-
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: "0.8125rem", color: "#64748B" }}>Status</div>
-                      <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "#0F172A" }}>
-                        {m.status === "ACTIVE" ? "Confirmed" : "Pending Activation"}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        )}
+      <div><h1>{t("portal.schedule.title")}</h1><p style={{ color: "#64748b" }}>Detailed Session scheduling is a later platform capability. This page currently shows only authoritative programme-term context already available from memberships.</p>
+        {loading ? <p>Loading programme timing…</p> : memberships.length === 0 ? <Card style={{ padding: 32 }}>No programme term is associated with this athlete.</Card> : memberships.map((membership) => <Card key={membership.id} style={{ marginTop: 16 }}><h2>{membership.programmeOffering.name}</h2><Badge variant={membership.status === "ACTIVE" ? "success" : "warning"}>{membership.status}</Badge><p>Term start: {membership.programmeOffering.startsOn ?? "Not scheduled"}</p><p>Term end: {membership.programmeOffering.endsOn ?? "Not scheduled"}</p><p>Venue: {membership.programmeOffering.venue?.name ?? "Not assigned"}</p><small>No individual training session, court or coach assignment is being inferred here.</small></Card>) }
       </div>
     </PortalShell>
   );

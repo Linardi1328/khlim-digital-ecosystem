@@ -1,219 +1,66 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { useI18n } from "../../../lib/i18n-context";
+import { apiService } from "../../../lib/api-service";
 import { useAuth } from "../../../lib/auth-context";
 import { useFamily } from "../../../lib/family-context";
+import { useI18n } from "../../../lib/i18n-context";
+import { getPlanChargeMinor, type AthleteMembershipItem, type MembershipBillingResponse } from "../../../lib/types";
 import { PortalShell } from "../../../components/portal/portal-shell";
-import { Button } from "../../../components/ui/button";
-import { Card, CardHeader, CardTitle, CardContent } from "../../../components/ui/card";
 import { Badge } from "../../../components/ui/badge";
-import { apiService } from "../../../lib/api-service";
-import type { AthleteMembershipItem, MembershipBillingResponse } from "../../../lib/types";
+import { Button } from "../../../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 
 export default function DashboardPage() {
   const { t, formatCurrency } = useI18n();
   const { guardianProfile } = useAuth();
   const { activeChild, athletes } = useFamily();
-
   const [memberships, setMemberships] = useState<AthleteMembershipItem[]>([]);
   const [billing, setBilling] = useState<MembershipBillingResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadData() {
-      if (!activeChild?.id) {
-        setMemberships([]);
-        setBilling(null);
-        setIsLoading(false);
-        return;
-      }
-
-      setIsLoading(true);
-      try {
-        const memList = await apiService.listAthleteMemberships(activeChild.id);
-        setMemberships(memList);
-        if (memList[0]?.id) {
-          try {
-            const billData = await apiService.getMembershipBilling(
-              activeChild.id,
-              memList[0].id,
-            );
-            setBilling(billData);
-          } catch {
-            // Non-blocking billing load
-          }
-        }
-      } catch (err) {
-        console.warn("Failed to load memberships:", err);
-      } finally {
-        setIsLoading(false);
-      }
+    if (!activeChild) {
+      setMemberships([]);
+      setBilling(null);
+      setLoading(false);
+      return;
     }
-
-    loadData();
+    setLoading(true);
+    apiService
+      .listAthleteMemberships(activeChild.id)
+      .then(async (items) => {
+        setMemberships(items);
+        const current = items.find((item) => item.status === "ACTIVE") ?? items[0];
+        if (!current) {
+          setBilling(null);
+          return;
+        }
+        try {
+          setBilling(await apiService.getMembershipBilling(activeChild.id, current.id));
+        } catch {
+          setBilling(null);
+        }
+      })
+      .catch(() => { setMemberships([]); setBilling(null); })
+      .finally(() => setLoading(false));
   }, [activeChild]);
 
-  const activeMembership = memberships[0];
-  const nextInstallment = billing?.paymentSchedule?.installments?.find(
-    (i) => i.status === "PENDING" || i.status === "SCHEDULED",
-  );
+  const current = memberships.find((item) => item.status === "ACTIVE") ?? memberships[0];
+  const nextInstallment = billing?.paymentSchedule?.installments.find((item) => item.status === "SCHEDULED" || item.status === "PROCESSING");
+  const planAmount = current ? getPlanChargeMinor(current.membershipPlan) : null;
 
   return (
     <PortalShell>
       <div>
-        {/* Welcome Header */}
-        <div style={{ marginBottom: "28px" }}>
-          <h1 style={{ fontSize: "2rem", fontWeight: 800, color: "#0F172A", margin: "0 0 6px" }}>
-            {t("portal.dashboard.welcome", { name: guardianProfile?.displayName || "Guardian" })}
-          </h1>
-          <p style={{ fontSize: "0.9375rem", color: "#64748B", margin: 0 }}>
-            Active Athlete: <strong>{activeChild?.displayName || "None selected"}</strong> • {athletes.length} Managed Athlete(s)
-          </p>
-        </div>
-
-        {/* Primary Status Overview Cards */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-            gap: "20px",
-            marginBottom: "32px",
-          }}
-        >
-          {/* Card 1: Active Membership */}
-          <Card>
-            <CardHeader>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>
-                  {t("portal.dashboard.membershipStatus")}
-                </span>
-                <Badge
-                  variant={activeMembership?.status === "ACTIVE" ? "success" : "warning"}
-                  size="sm"
-                >
-                  {activeMembership?.status || "NO ACTIVE MEMBERSHIP"}
-                </Badge>
-              </div>
-              <CardTitle style={{ marginTop: "6px" }}>
-                {activeMembership?.programmeOffering?.name || "No Enrolled Programme"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {activeMembership ? (
-                <>
-                  <div style={{ fontSize: "0.875rem", color: "#475569", marginBottom: "8px" }}>
-                    Plan: <strong>{activeMembership.membershipPlan?.name || "Standard Plan"}</strong>
-                  </div>
-                  <div style={{ fontSize: "0.8125rem", color: "#64748B", marginBottom: "16px" }}>
-                    Status: {activeMembership.status}
-                  </div>
-                </>
-              ) : (
-                <div style={{ fontSize: "0.875rem", color: "#64748B", marginBottom: "16px" }}>
-                  Enrol your child to begin structured academy training.
-                </div>
-              )}
-              <Link href="/portal/membership" style={{ textDecoration: "none" }}>
-                <Button variant="outline" size="sm" style={{ width: "100%" }}>
-                  Manage Memberships →
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-
-          {/* Card 2: Training Sessions */}
-          <Card>
-            <CardHeader>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>
-                  {t("portal.dashboard.nextTraining")}
-                </span>
-                <Badge variant="neutral" size="sm">
-                  Schedule
-                </Badge>
-              </div>
-              <CardTitle style={{ marginTop: "6px" }}>
-                {activeMembership?.programmeOffering?.startsOn
-                  ? `Term Starts: ${activeMembership.programmeOffering.startsOn}`
-                  : "No Scheduled Sessions"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div style={{ fontSize: "0.875rem", color: "#64748B", marginBottom: "16px" }}>
-                {activeMembership?.programmeOffering?.venue?.name
-                  ? `📍 Venue: ${activeMembership.programmeOffering.venue.name}`
-                  : "Session times will appear here once scheduled by the academy."}
-              </div>
-              <Link href="/portal/schedule" style={{ textDecoration: "none" }}>
-                <Button variant="outline" size="sm" style={{ width: "100%" }}>
-                  View Academy Schedule →
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-
-          {/* Card 3: Next Payment */}
-          <Card>
-            <CardHeader>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>
-                  {t("portal.dashboard.nextPayment")}
-                </span>
-                <Badge variant={nextInstallment ? "warning" : "neutral"} size="sm">
-                  {nextInstallment ? "Scheduled" : "Up to date"}
-                </Badge>
-              </div>
-              <CardTitle style={{ marginTop: "6px" }}>
-                {nextInstallment
-                  ? formatCurrency(nextInstallment.amountMinor / 100)
-                  : activeMembership?.membershipPlan
-                    ? formatCurrency(activeMembership.membershipPlan.recurringAmountMinor / 100)
-                    : "MYR 0"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div style={{ fontSize: "0.875rem", color: "#475569", marginBottom: "16px" }}>
-                {nextInstallment
-                  ? `Due on ${nextInstallment.dueOn}`
-                  : "All payments up to date."}
-              </div>
-              <Link href="/portal/payments" style={{ textDecoration: "none" }}>
-                <Button variant="outline" size="sm" style={{ width: "100%" }}>
-                  Billing & Installments →
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Quick Actions */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "24px" }}>
-          <Card>
-            <CardHeader>
-              <CardTitle style={{ fontSize: "1.125rem" }}>Family Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-                <Link href="/enrol" style={{ textDecoration: "none" }}>
-                  <Button variant="primary" size="md">
-                    + Enrol Player in Programme
-                  </Button>
-                </Link>
-                <Link href="/portal/players" style={{ textDecoration: "none" }}>
-                  <Button variant="outline" size="md">
-                    Manage Player Profiles
-                  </Button>
-                </Link>
-                <Link href="/portal/account" style={{ textDecoration: "none" }}>
-                  <Button variant="ghost" size="md">
-                    Account & Preferences
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
+        <h1>{t("portal.dashboard.welcome", { name: guardianProfile?.displayName ?? "Guardian" })}</h1>
+        <p style={{ color: "#64748b" }}>Selected athlete: <strong>{activeChild?.displayName ?? "None"}</strong> • {athletes.length} managed athlete(s)</p>
+        {loading ? <p>Loading current membership state…</p> : null}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 20, marginTop: 24 }}>
+          <Card><CardHeader><CardTitle>{t("portal.dashboard.membershipStatus")}</CardTitle></CardHeader><CardContent><Badge variant={current?.status === "ACTIVE" ? "success" : "warning"}>{current?.status ?? "NONE"}</Badge><p><strong>{current?.programmeOffering.name ?? "No programme membership"}</strong></p><Link href="/portal/membership"><Button variant="outline" size="sm">View memberships</Button></Link></CardContent></Card>
+          <Card><CardHeader><CardTitle>{t("portal.dashboard.nextTraining")}</CardTitle></CardHeader><CardContent><p>Detailed session scheduling is not available yet.</p><p style={{ color: "#64748b", fontSize: "0.875rem" }}>{current?.programmeOffering.startsOn ? `Programme term starts ${current.programmeOffering.startsOn}.` : "Programme timing will appear when configured."}</p><Link href="/portal/schedule"><Button variant="outline" size="sm">Programme timing</Button></Link></CardContent></Card>
+          <Card><CardHeader><CardTitle>{t("portal.dashboard.nextPayment")}</CardTitle></CardHeader><CardContent>{nextInstallment ? <><strong>{formatCurrency(nextInstallment.amountMinor / 100, nextInstallment.currency)}</strong><p>Due {nextInstallment.dueAt}</p></> : billing?.paymentSchedule ? <p>No scheduled unpaid installment found.</p> : current && planAmount !== null ? <p>Billing schedule not created yet. Plan amount: <strong>{formatCurrency(planAmount / 100, current.membershipPlan.currency)}</strong>.</p> : <p>No billing schedule.</p>}<Link href="/portal/payments"><Button variant="outline" size="sm">Billing details</Button></Link></CardContent></Card>
         </div>
       </div>
     </PortalShell>

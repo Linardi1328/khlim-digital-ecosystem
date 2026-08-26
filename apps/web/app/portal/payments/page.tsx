@@ -1,146 +1,47 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useI18n } from "../../../lib/i18n-context";
-import { useFamily } from "../../../lib/family-context";
-import { PortalShell } from "../../../components/portal/portal-shell";
-import { Card, CardHeader, CardTitle, CardContent } from "../../../components/ui/card";
-import { Badge } from "../../../components/ui/badge";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../../../components/ui/table";
+import React, { useEffect, useState } from "react";
 import { apiService } from "../../../lib/api-service";
-import type { AthleteMembershipItem, MembershipBillingResponse, PaymentInstallmentRecord } from "../../../lib/types";
+import { useFamily } from "../../../lib/family-context";
+import { useI18n } from "../../../lib/i18n-context";
+import type { MembershipBillingResponse, PaymentInstallmentRecord } from "../../../lib/types";
+import { PortalShell } from "../../../components/portal/portal-shell";
+import { Badge } from "../../../components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
 
 export default function PaymentsPage() {
   const { t, formatCurrency } = useI18n();
   const { activeChild } = useFamily();
-
-  const [memberships, setMemberships] = useState<AthleteMembershipItem[]>([]);
-  const [billingList, setBillingList] = useState<MembershipBillingResponse[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [billings, setBillings] = useState<MembershipBillingResponse[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadPayments() {
-      if (!activeChild?.id) {
-        setMemberships([]);
-        setBillingList([]);
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const mems = await apiService.listAthleteMemberships(activeChild.id);
-        setMemberships(mems);
-
-        const billings = await Promise.all(
-          mems.map(async (m) => {
-            try {
-              return await apiService.getMembershipBilling(activeChild.id, m.id);
-            } catch {
-              return null;
-            }
-          }),
-        );
-        setBillingList(billings.filter((b): b is MembershipBillingResponse => b !== null));
-      } catch (err) {
-        console.warn("Failed to load payments:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadPayments();
+    if (!activeChild) { setBillings([]); setLoading(false); return; }
+    setLoading(true);
+    apiService.listAthleteMemberships(activeChild.id).then(async (memberships) => {
+      const values = await Promise.all(memberships.map(async (membership) => {
+        try { return await apiService.getMembershipBilling(activeChild.id, membership.id); } catch { return null; }
+      }));
+      setBillings(values.filter((value): value is MembershipBillingResponse => value !== null));
+    }).catch(() => setBillings([])).finally(() => setLoading(false));
   }, [activeChild]);
 
-  const allInstallments: Array<{
-    membershipId: string;
-    installment: PaymentInstallmentRecord;
-  }> = [];
-
-  billingList.forEach((b) => {
-    b.paymentSchedule?.installments?.forEach((inst) => {
-      allInstallments.push({
-        membershipId: b.id,
-        installment: inst,
-      });
-    });
-  });
+  const installments: Array<{ membershipId: string; installment: PaymentInstallmentRecord }> = [];
+  for (const billing of billings) {
+    for (const installment of billing.paymentSchedule?.installments ?? []) {
+      installments.push({ membershipId: billing.id, installment });
+    }
+  }
 
   return (
     <PortalShell>
-      <div>
-        <div style={{ marginBottom: "28px" }}>
-          <h1 style={{ fontSize: "2rem", fontWeight: 800, color: "#0F172A", margin: "0 0 6px" }}>
-            {t("portal.payments.title")}
-          </h1>
-          <p style={{ fontSize: "0.9375rem", color: "#64748B", margin: 0 }}>
-            {t("portal.payments.subtitle")}
-          </p>
-        </div>
-
-        {/* Installment Schedules */}
-        <Card style={{ marginBottom: "32px" }}>
-          <CardHeader>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <CardTitle style={{ fontSize: "1.25rem" }}>
-                {t("portal.payments.upcoming")}
-              </CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div style={{ padding: "20px", color: "#64748B" }}>Loading payment schedules...</div>
-            ) : allInstallments.length === 0 ? (
-              <div style={{ padding: "20px", color: "#64748B", textAlign: "center" }}>
-                No active payment schedules found for {activeChild?.displayName || "this athlete"}.
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Sequence</TableHead>
-                    <TableHead>Due Date</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Payment Attempts</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {allInstallments.map(({ membershipId, installment }) => (
-                    <TableRow key={installment.id}>
-                      <TableCell style={{ fontWeight: 600 }}>
-                        Installment #{installment.sequenceNumber}
-                      </TableCell>
-                      <TableCell>{installment.dueOn}</TableCell>
-                      <TableCell style={{ fontWeight: 700 }}>
-                        {formatCurrency(installment.amountMinor / 100)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={installment.status === "PAID" ? "success" : "warning"}
-                          size="sm"
-                        >
-                          {installment.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {installment.payments?.length > 0 ? (
-                          <span style={{ fontSize: "0.8125rem", color: "#065F46" }}>
-                            {installment.payments.length} verified payment event(s)
-                          </span>
-                        ) : (
-                          <span style={{ fontSize: "0.8125rem", color: "#64748B" }}>
-                            Scheduled for provider charge
-                          </span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+      <div><h1>{t("portal.payments.title")}</h1><p style={{ color: "#64748b" }}>{t("portal.payments.subtitle")}</p>
+        <Card><CardHeader><CardTitle>{t("portal.payments.upcoming")}</CardTitle></CardHeader><CardContent>
+          {loading ? <p>Loading authoritative billing state…</p> : installments.length === 0 ? <p>No payment schedule is currently recorded for {activeChild?.displayName ?? "this athlete"}.</p> : (
+            <Table><TableHeader><TableRow><TableHead>Installment</TableHead><TableHead>Due</TableHead><TableHead>Amount</TableHead><TableHead>Status</TableHead><TableHead>Attempts</TableHead></TableRow></TableHeader><TableBody>{installments.map(({ membershipId, installment }) => <TableRow key={installment.id}><TableCell>#{installment.sequenceNumber}<br /><small>{membershipId}</small></TableCell><TableCell>{installment.dueAt}</TableCell><TableCell>{formatCurrency(installment.amountMinor / 100, installment.currency)}</TableCell><TableCell><Badge variant={installment.status === "PAID" ? "success" : installment.status === "FAILED" || installment.status === "OVERDUE" ? "danger" : "warning"}>{installment.status}</Badge></TableCell><TableCell>{installment.payments.length}</TableCell></TableRow>)}</TableBody></Table>
+          )}
+        </CardContent></Card>
       </div>
     </PortalShell>
   );

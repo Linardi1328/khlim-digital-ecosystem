@@ -1,116 +1,115 @@
+import type { components } from "@khlim/api-client/schema";
 import type { SupportedLocale } from "@khlim/i18n";
+
+type GeneratedUpsertGuardianProfileDto =
+  components["schemas"]["UpsertGuardianProfileDto"];
+
+export type UpsertGuardianProfileDto = Omit<
+  GeneratedUpsertGuardianProfileDto,
+  "phone"
+> & {
+  phone?: string | null;
+};
+export type UpdatePreferencesDto =
+  components["schemas"]["UpdatePreferencesDto"];
+export type CreateManagedAthleteDto =
+  components["schemas"]["CreateManagedAthleteDto"];
+export type UpdateAthleteDto = components["schemas"]["UpdateAthleteDto"];
+export type CreatePendingMembershipDto =
+  components["schemas"]["CreatePendingMembershipDto"];
+export type PrepareMembershipCheckoutDto =
+  components["schemas"]["PrepareMembershipCheckoutDto"];
 
 export interface MembershipPlanItem {
   id: string;
   name: string;
-  durationMonths: number;
-  commitmentCycles: number;
+  durationMonths: number | null;
+  commitmentCycles: number | null;
   billingFrequency: "MONTHLY" | "UPFRONT";
-  recurringAmountMinor: number;
-  upfrontAmountMinor: number;
+  recurringAmountMinor: number | null;
+  upfrontAmountMinor: number | null;
   currency: string;
   sessionAllowance: number | null;
   benefitsSummary: string | null;
+  active?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface PublicOfferingItem {
   id: string;
   name: string;
   capacity: number;
-  startsOn: string;
+  startsOn: string | null;
   endsOn: string | null;
   programme: {
     id: string;
     code: string;
     name: string;
     description: string | null;
-    minimumAge: number;
-    maximumAge: number;
-    level: string;
-    sport: {
-      code: string;
-      defaultName: string;
-    };
+    minimumAge: number | null;
+    maximumAge: number | null;
+    level: string | null;
+    sport: { code: string; defaultName: string };
   };
-  venue: {
-    id: string;
-    name: string;
-    address: string | null;
-  } | null;
-  planEligibilities: Array<{
-    plan: MembershipPlanItem;
-  }>;
+  venue: { id: string; name: string; address: string | null } | null;
+  planEligibilities: Array<{ plan: MembershipPlanItem }>;
 }
 
 export interface GuardianProfile {
-  id: string;
+  userId?: string;
   displayName: string;
-  phone: string;
-  emergencyContactName: string | null;
-  emergencyContactPhone: string | null;
-  isComplete: boolean;
+  phone: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface AccountMeResponse {
   id: string;
-  email: string;
-  role: string;
-  status: string;
+  email: string | null;
+  status: "ACTIVE" | "SUSPENDED" | "DEACTIVATED";
   preferredLocale: SupportedLocale;
-  guardianProfile: GuardianProfile | null;
-}
-
-export interface UpsertGuardianProfileDto {
-  displayName: string;
-  phone: string;
-  emergencyContactName?: string;
-  emergencyContactPhone?: string;
-}
-
-export interface UpdatePreferencesDto {
-  preferredLocale: SupportedLocale;
+  createdAt: string;
+  updatedAt: string;
+  roles: string[];
+  guardianProfile: { displayName: string; phone: string | null } | null;
+  coachProfile?: { displayName: string; bio: string | null } | null;
+  athleteProfile?: {
+    id: string;
+    displayName: string;
+    dateOfBirth: string;
+    preferredLocale: SupportedLocale;
+  } | null;
 }
 
 export interface ManagedAthlete {
   id: string;
+  userId: string | null;
   displayName: string;
   dateOfBirth: string;
-  gender: string | null;
-  preferredLocale: SupportedLocale;
-}
-
-export interface ManagedAthleteLinkItem {
-  id: string;
-  relationshipType: string;
-  approvedAt: string | null;
-  athlete: ManagedAthlete;
-}
-
-export interface CreateManagedAthleteDto {
-  displayName: string;
-  dateOfBirth: string;
-  gender?: string;
-  preferredLocale?: SupportedLocale;
-  relationshipType?: string;
-}
-
-export interface UpdateAthleteDto {
-  displayName?: string;
-  dateOfBirth?: string;
-  gender?: string;
-  preferredLocale?: SupportedLocale;
-}
-
-export interface AthleteProfileResponse {
-  id: string;
-  displayName: string;
-  dateOfBirth: string;
-  gender: string | null;
   preferredLocale: SupportedLocale;
   createdAt: string;
   updatedAt: string;
 }
 
+export interface ManagedAthleteLinkItem {
+  familyLinkId: string;
+  relationshipType: string | null;
+  approvedAt: string | null;
+  athlete: ManagedAthlete;
+}
+
+export interface CreateManagedAthleteResponse {
+  athlete: ManagedAthlete;
+  familyLink: {
+    id: string;
+    relationshipType: string | null;
+    status: "ACTIVE" | "PENDING" | "REVOKED";
+    approvedAt: string | null;
+  };
+}
+
+export type AthleteProfileResponse = ManagedAthlete;
 export type MembershipStatus =
   | "PENDING"
   | "ACTIVE"
@@ -119,87 +118,111 @@ export type MembershipStatus =
   | "COMPLETED"
   | "EXPIRED";
 
-export interface AthleteMembershipItem {
+export interface MembershipOfferingItem {
   id: string;
-  programmeOfferingId: string;
-  membershipPlanId: string;
-  status: MembershipStatus;
-  validFrom: string | null;
-  validUntil: string | null;
-  programmeOffering?: {
-    id: string;
-    name: string;
-    startsOn: string;
-    endsOn: string | null;
-    programme?: {
-      name: string;
-      level: string;
-    };
-    venue?: {
-      name: string;
-      address: string | null;
-    } | null;
-  };
-  membershipPlan?: MembershipPlanItem;
+  programmeId: string;
+  venueId: string | null;
+  name: string;
+  capacity: number;
+  startsOn: string | null;
+  endsOn: string | null;
+  status: "DRAFT" | "OPEN" | "CLOSED" | "INACTIVE";
+  programme?: { id?: string; code?: string; name: string; level: string | null };
+  venue?: { id?: string; name: string; address: string | null } | null;
 }
 
-export interface CreatePendingMembershipDto {
+export interface AthleteMembershipItem {
+  id: string;
+  athleteId: string;
   programmeOfferingId: string;
   membershipPlanId: string;
-  termsAcceptedVersion: string;
+  purchasedByUserId: string | null;
+  status: MembershipStatus;
+  startsAt: string | null;
+  endsAt: string | null;
+  activatedAt: string | null;
+  suspendedAt: string | null;
+  cancelledAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  membershipPlan: MembershipPlanItem;
+  programmeOffering: MembershipOfferingItem;
 }
 
 export interface PaymentRecord {
   id: string;
-  amountMinor: number;
-  status: string;
+  payerUserId: string;
+  membershipId: string | null;
+  paymentInstallmentId: string | null;
+  provider: string;
   providerPaymentId: string | null;
+  idempotencyKey: string;
+  amountMinor: number;
+  currency: string;
+  status: "PENDING" | "PROCESSING" | "PAID" | "FAILED" | "REFUNDED" | "CANCELLED";
+  attemptNumber: number;
   attemptedAt: string;
+  settledAt: string | null;
+  failedAt: string | null;
+  failureCode: string | null;
+  safeFailureReason: string | null;
 }
 
 export interface PaymentInstallmentRecord {
   id: string;
+  paymentScheduleId: string;
   sequenceNumber: number;
+  dueAt: string;
   amountMinor: number;
   currency: string;
-  dueOn: string;
-  status: string;
+  status:
+    | "SCHEDULED"
+    | "PROCESSING"
+    | "PAID"
+    | "FAILED"
+    | "OVERDUE"
+    | "WAIVED"
+    | "CANCELLED";
+  paidAt: string | null;
   payments: PaymentRecord[];
 }
 
 export interface MembershipBillingResponse {
   id: string;
+  athleteId: string;
   status: MembershipStatus;
-  agreements?: Array<{
+  agreements: Array<{
+    id: string;
     termsVersion: string;
     acceptedAt: string;
+    amountMinorSnapshot: number;
+    currencySnapshot: string;
+    billingFrequencySnapshot: "MONTHLY" | "UPFRONT";
+    installmentCountSnapshot: number;
   }>;
-  paymentSchedule?: {
+  paymentSchedule: {
     id: string;
-    status: string;
+    frequency: "MONTHLY" | "UPFRONT";
+    installmentCount: number;
+    amountPerInstallmentMinor: number;
+    currency: string;
+    startsAt: string;
+    status: "PENDING" | "ACTIVE" | "COMPLETED" | "CANCELLED";
     installments: PaymentInstallmentRecord[];
   } | null;
 }
 
-export interface PrepareMembershipCheckoutDto {
-  acceptTerms: boolean;
-  successUrl?: string;
-  cancelUrl?: string;
-  preferredProvider?: "STRIPE" | "CURLEC";
-}
-
 export interface CheckoutSessionResponse {
+  membershipId: string;
+  paymentScheduleId: string;
+  paymentId: string;
   checkoutUrl: string;
-  providerCheckoutId: string;
-  expiresAt: string;
-  mode: string;
+  termsVersion: string;
 }
 
-export interface NotificationItem {
-  id: string;
-  title: string;
-  message: string;
-  category: "BILLING" | "SCHEDULE" | "ANNOUNCEMENT";
-  isRead: boolean;
-  createdAt: string;
+export function getPlanChargeMinor(plan: MembershipPlanItem): number | null {
+  return plan.billingFrequency === "UPFRONT"
+    ? plan.upfrontAmountMinor
+    : plan.recurringAmountMinor;
 }

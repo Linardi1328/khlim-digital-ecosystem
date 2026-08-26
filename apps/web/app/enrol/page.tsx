@@ -1,26 +1,28 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useI18n } from "../../lib/i18n-context";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../../lib/auth-context";
 import { useFamily } from "../../lib/family-context";
-import { PublicHeader } from "../../components/layout/public-header";
-import { PublicFooter } from "../../components/layout/public-footer";
-import { Button } from "../../components/ui/button";
-import { Input } from "../../components/ui/input";
-import { Select } from "../../components/ui/select";
-import { Checkbox } from "../../components/ui/checkbox";
-import { RadioGroup } from "../../components/ui/radio-group";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "../../components/ui/card";
-import { Badge } from "../../components/ui/badge";
-import { Alert } from "../../components/ui/alert";
-import { StepIndicator } from "../../components/ui/step-indicator";
+import { useI18n } from "../../lib/i18n-context";
 import { apiService } from "../../lib/api-service";
-import type { PublicOfferingItem, MembershipPlanItem } from "../../lib/types";
-
-const CURRENT_TERMS_VERSION = "membership-mvp-v1";
+import {
+  getPlanChargeMinor,
+  type AthleteMembershipItem,
+  type MembershipPlanItem,
+  type PublicOfferingItem,
+} from "../../lib/types";
+import { PublicFooter } from "../../components/layout/public-footer";
+import { PublicHeader } from "../../components/layout/public-header";
+import { Alert } from "../../components/ui/alert";
+import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
+import { Card, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
+import { Checkbox } from "../../components/ui/checkbox";
+import { Input } from "../../components/ui/input";
+import { RadioGroup } from "../../components/ui/radio-group";
+import { StepIndicator } from "../../components/ui/step-indicator";
 
 function EnrolmentWizardContent() {
   const { t, formatCurrency } = useI18n();
@@ -28,66 +30,79 @@ function EnrolmentWizardContent() {
   const searchParams = useSearchParams();
   const { isAuthenticated } = useAuth();
   const { athletes, activeChild, addChild } = useFamily();
-
+  const preAthleteId = searchParams.get("athleteId");
   const preOfferingId = searchParams.get("offeringId");
   const prePlanId = searchParams.get("planId");
 
   const [offerings, setOfferings] = useState<PublicOfferingItem[]>([]);
-  const [offeringsLoading, setOfferingsLoading] = useState<boolean>(true);
-
-  const [currentStep, setCurrentStep] = useState<number>(1);
-  const [selectedChildId, setSelectedChildId] = useState<string>("new");
-
-  // New athlete form
+  const [offeringsLoading, setOfferingsLoading] = useState(true);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [selectedChildId, setSelectedChildId] = useState(preAthleteId ?? "new");
   const [newChildName, setNewChildName] = useState("");
-  const [newChildDob, setNewChildDob] = useState("2016-05-10");
-  const [newChildGender, setNewChildGender] = useState("Male");
-
-  // Selections
-  const [selectedOfferingId, setSelectedOfferingId] = useState<string>(preOfferingId || "");
-  const [selectedPlanId, setSelectedPlanId] = useState<string>(prePlanId || "");
-  const [termsAccepted, setTermsAccepted] = useState<boolean>(false);
-  const [recurringConsent, setRecurringConsent] = useState<boolean>(false);
-
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [error, setError] = useState<string>("");
+  const [newChildDob, setNewChildDob] = useState("");
+  const [selectedOfferingId, setSelectedOfferingId] = useState(preOfferingId ?? "");
+  const [selectedPlanId, setSelectedPlanId] = useState(prePlanId ?? "");
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [recurringConsent, setRecurringConsent] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    async function loadOfferings() {
-      try {
-        const data = await apiService.getPublicOfferings();
+    let cancelled = false;
+    apiService
+      .getPublicOfferings()
+      .then((data) => {
+        if (cancelled) return;
         setOfferings(data);
-        if (data.length > 0 && !selectedOfferingId) {
-          setSelectedOfferingId(data[0]!.id);
-        }
-      } catch (err) {
-        setError("Unable to load live academy offerings from server.");
-      } finally {
-        setOfferingsLoading(false);
-      }
-    }
-    loadOfferings();
-  }, [selectedOfferingId]);
+        setSelectedOfferingId((current) => current || data[0]?.id || "");
+      })
+      .catch(() => {
+        if (!cancelled) setError("Unable to load current academy offerings from the KHLIM API.");
+      })
+      .finally(() => {
+        if (!cancelled) setOfferingsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
-    if (athletes.length > 0 && selectedChildId === "new") {
-      setSelectedChildId(activeChild?.id || athletes[0]!.id);
+    if (preAthleteId && athletes.some((athlete) => athlete.id === preAthleteId)) {
+      setSelectedChildId(preAthleteId);
+      return;
     }
-  }, [athletes, activeChild, selectedChildId]);
+    if (selectedChildId === "new" && athletes.length > 0) {
+      setSelectedChildId(activeChild?.id ?? athletes[0]!.id);
+    }
+  }, [activeChild, athletes, preAthleteId, selectedChildId]);
 
-  const selectedOffering =
-    offerings.find((o) => o.id === selectedOfferingId) || offerings[0];
-  const eligiblePlans = selectedOffering?.planEligibilities?.map((pe) => pe.plan) || [];
-  const selectedPlan: MembershipPlanItem | undefined =
-    eligiblePlans.find((p) => p.id === selectedPlanId) || eligiblePlans[0];
+  const selectedOffering = useMemo(
+    () => offerings.find((offering) => offering.id === selectedOfferingId),
+    [offerings, selectedOfferingId],
+  );
+  const eligiblePlans = useMemo(
+    () => selectedOffering?.planEligibilities.map(({ plan }) => plan) ?? [],
+    [selectedOffering],
+  );
 
   useEffect(() => {
-    if (eligiblePlans.length > 0 && (!selectedPlanId || !eligiblePlans.some((p) => p.id === selectedPlanId))) {
-      setSelectedPlanId(eligiblePlans[0]!.id);
+    if (eligiblePlans.length === 0) {
+      setSelectedPlanId("");
+      return;
     }
-  }, [eligiblePlans, selectedPlanId]);
+    if (!eligiblePlans.some((plan) => plan.id === selectedPlanId)) {
+      const requested = eligiblePlans.find((plan) => plan.id === prePlanId);
+      setSelectedPlanId(requested?.id ?? eligiblePlans[0]!.id);
+    }
+  }, [eligiblePlans, prePlanId, selectedPlanId]);
 
-  const selectedAthlete = athletes.find((a) => a.id === selectedChildId);
+  const selectedPlan: MembershipPlanItem | undefined = eligiblePlans.find(
+    (plan) => plan.id === selectedPlanId,
+  );
+  const selectedAthlete = athletes.find((athlete) => athlete.id === selectedChildId);
+  const chargeMinor = selectedPlan ? getPlanChargeMinor(selectedPlan) : null;
+  const requiresRecurringConsent = selectedPlan?.billingFrequency === "MONTHLY";
 
   const steps = [
     { id: 1, label: t("enrol.steps.player") },
@@ -97,31 +112,50 @@ function EnrolmentWizardContent() {
     { id: 5, label: t("enrol.steps.payment") },
   ];
 
+  const ensurePendingMembership = async (
+    athleteId: string,
+    offering: PublicOfferingItem,
+    plan: MembershipPlanItem,
+  ): Promise<AthleteMembershipItem> => {
+    try {
+      return await apiService.createPendingMembership(athleteId, {
+        offeringId: offering.id,
+        planId: plan.id,
+      });
+    } catch (caught) {
+      const current = await apiService.listAthleteMemberships(athleteId);
+      const existing = current.find(
+        (membership) =>
+          membership.programmeOfferingId === offering.id &&
+          membership.membershipPlanId === plan.id &&
+          membership.status === "PENDING",
+      );
+      if (existing) return existing;
+      throw caught;
+    }
+  };
+
   const handleNext = async () => {
     setError("");
 
     if (currentStep === 1) {
       if (!isAuthenticated) {
-        // Direct unauthenticated users to log in or register before managing athlete contracts
         router.push(`/auth/login?redirect=${encodeURIComponent("/enrol")}`);
         return;
       }
-
       if (selectedChildId === "new") {
         if (!newChildName.trim() || !newChildDob) {
-          setError("Please enter the child's full name and date of birth.");
+          setError("Enter the child's name and date of birth.");
           return;
         }
         try {
           const created = await addChild({
             displayName: newChildName.trim(),
             dateOfBirth: newChildDob,
-            gender: newChildGender,
           });
           setSelectedChildId(created.id);
-        } catch (err: unknown) {
-          const message = err instanceof Error ? err.message : "Failed to create athlete";
-          setError(message);
+        } catch (caught) {
+          setError(caught instanceof Error ? caught.message : "Unable to create the athlete profile.");
           return;
         }
       }
@@ -131,7 +165,7 @@ function EnrolmentWizardContent() {
 
     if (currentStep === 2) {
       if (!selectedOffering) {
-        setError("Please select a training offering.");
+        setError("Select an available programme offering.");
         return;
       }
       setCurrentStep(3);
@@ -139,8 +173,8 @@ function EnrolmentWizardContent() {
     }
 
     if (currentStep === 3) {
-      if (!selectedPlan) {
-        setError("Please select an eligible membership plan.");
+      if (!selectedPlan || chargeMinor === null) {
+        setError("Select a valid membership plan with configured pricing.");
         return;
       }
       setCurrentStep(4);
@@ -148,499 +182,162 @@ function EnrolmentWizardContent() {
     }
 
     if (currentStep === 4) {
-      if (!termsAccepted || !recurringConsent) {
-        setError("You must agree to the Academy Terms and recurring billing consent to continue.");
+      if (!termsAccepted || (requiresRecurringConsent && !recurringConsent)) {
+        setError("Accept the membership terms and any required recurring-billing authorization to continue.");
         return;
       }
       setCurrentStep(5);
       return;
     }
 
-    if (currentStep === 5) {
-      if (!selectedAthlete?.id && selectedChildId === "new") {
-        setError("Athlete identification missing. Please return to step 1.");
-        return;
-      }
+    if (!selectedOffering || !selectedPlan) return;
+    const athleteId = selectedAthlete?.id ?? selectedChildId;
+    if (!athleteId || athleteId === "new") {
+      setError("Select or create an athlete before checkout.");
+      return;
+    }
 
-      const athleteId = selectedAthlete?.id || selectedChildId;
-      setIsProcessing(true);
+    setIsProcessing(true);
+    try {
+      const membership = await ensurePendingMembership(
+        athleteId,
+        selectedOffering,
+        selectedPlan,
+      );
 
       try {
-        // 1. Create server-authoritative pending membership
-        const membership = await apiService.createPendingMembership(athleteId, {
-          programmeOfferingId: selectedOffering.id,
-          membershipPlanId: selectedPlan.id,
-          termsAcceptedVersion: CURRENT_TERMS_VERSION,
-        });
-
-        // 2. Request provider checkout session
-        try {
-          const checkout = await apiService.prepareCheckout(athleteId, membership.id, {
-            acceptTerms: true,
-            successUrl: `${window.location.origin}/enrol/confirmation?athleteId=${athleteId}&membershipId=${membership.id}`,
-            cancelUrl: window.location.href,
-          });
-
-          if (checkout?.checkoutUrl) {
-            window.location.href = checkout.checkoutUrl;
-            return;
-          }
-        } catch (checkoutErr: unknown) {
-          // If payment gateway is not yet wired in backend environment, route to confirmation with pending state
-          console.warn("Payment gateway handoff note:", checkoutErr);
-        }
-
-        router.push(
-          `/enrol/confirmation?athleteId=${athleteId}&membershipId=${membership.id}`,
+        const checkout = await apiService.prepareCheckout(
+          athleteId,
+          membership.id,
+          { acceptTerms: true },
         );
-      } catch (err: unknown) {
-        const message =
-          err instanceof Error ? err.message : "Enrolment creation failed on server";
-        setError(message);
-      } finally {
-        setIsProcessing(false);
+        if (checkout.checkoutUrl) {
+          window.location.assign(checkout.checkoutUrl);
+          return;
+        }
+      } catch {
+        // The pending membership remains authoritative even when a payment provider
+        // is intentionally unavailable in this environment.
       }
-    }
-  };
 
-  const handleBack = () => {
-    if (currentStep > 1) {
-      setError("");
-      setCurrentStep(currentStep - 1);
+      router.push(
+        `/enrol/confirmation?athleteId=${encodeURIComponent(athleteId)}&membershipId=${encodeURIComponent(membership.id)}`,
+      );
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to create the pending membership.");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <PublicHeader />
-
-      <main style={{ flex: 1, maxWidth: "1100px", margin: "0 auto", padding: "32px 20px" }}>
-        <div style={{ textAlign: "center", marginBottom: "24px" }}>
-          <Badge variant="brand" size="md">
-            Academy Enrolment
-          </Badge>
-          <h1 style={{ fontSize: "2.25rem", fontWeight: 900, color: "#18181B", margin: "12px 0 6px" }}>
-            Join KHLIM Basketball Academy
-          </h1>
-          <p style={{ fontSize: "0.9375rem", color: "#71717A" }}>
-            Server-authoritative membership contracts and provider-hosted checkout.
-          </p>
+      <main style={{ flex: 1, width: "100%", maxWidth: 1100, margin: "0 auto", padding: "32px 20px", boxSizing: "border-box" }}>
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <Badge variant="brand" size="md">Academy Enrolment</Badge>
+          <h1 style={{ fontSize: "2.25rem", fontWeight: 900, marginBottom: 8 }}>Join KHLIM Basketball Academy</h1>
+          <p style={{ color: "#71717a" }}>Programme availability and pricing are loaded from the KHLIM backend.</p>
         </div>
-
         <StepIndicator steps={steps} currentStep={currentStep} />
+        {error ? <div style={{ marginBottom: 20 }}><Alert variant="danger">{error}</Alert></div> : null}
 
-        {error && (
-          <div style={{ marginBottom: "24px" }}>
-            <Alert variant="danger">{error}</Alert>
-          </div>
-        )}
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: "32px", alignItems: "flex-start" }}>
-          <Card style={{ padding: "32px", borderRadius: "16px" }}>
-            {/* Step 1: Athlete */}
-            {currentStep === 1 && (
-              <div>
-                <CardHeader>
-                  <CardTitle>{t("enrol.player.selectTitle")}</CardTitle>
-                  <CardDescription>{t("enrol.player.selectSubtitle")}</CardDescription>
-                </CardHeader>
-
+        <div className="enrolment-layout">
+          <Card style={{ padding: 32, borderRadius: 16 }}>
+            {currentStep === 1 ? (
+              <section>
+                <CardHeader><CardTitle>{t("enrol.player.selectTitle")}</CardTitle><CardDescription>{t("enrol.player.selectSubtitle")}</CardDescription></CardHeader>
                 {!isAuthenticated ? (
-                  <div style={{ marginTop: "16px" }}>
-                    <Alert variant="info" title="Guardian Sign In Required">
-                      Please sign in with your guardian account to bind the athlete membership to your family.
-                    </Alert>
-                    <div style={{ marginTop: "16px" }}>
-                      <Link href="/auth/login?redirect=/enrol" style={{ textDecoration: "none" }}>
-                        <Button variant="primary" size="md">
-                          Sign In as Guardian →
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
+                  <Alert variant="info" title="Guardian sign-in required">Sign in before creating or selecting a managed athlete.</Alert>
                 ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginTop: "16px" }}>
-                    {athletes.map((ath) => (
-                      <label
-                        key={ath.id}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "14px",
-                          padding: "16px",
-                          borderRadius: "10px",
-                          border: selectedChildId === ath.id ? "2px solid #F59E0B" : "1px solid #E4E4E7",
-                          backgroundColor: selectedChildId === ath.id ? "#FFFDF5" : "#FFFFFF",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <input
-                          type="radio"
-                          name="childSelection"
-                          checked={selectedChildId === ath.id}
-                          onChange={() => setSelectedChildId(ath.id)}
-                          style={{ accentColor: "#F59E0B", width: "18px", height: "18px" }}
-                        />
-                        <div
-                          style={{
-                            width: "40px",
-                            height: "40px",
-                            borderRadius: "50%",
-                            backgroundColor: "#FEF3C7",
-                            color: "#92400E",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontWeight: 700,
-                          }}
-                        >
-                          {ath.displayName[0]}
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 700, fontSize: "1rem" }}>{ath.displayName}</div>
-                          <div style={{ fontSize: "0.8125rem", color: "#71717A" }}>
-                            Date of Birth: {ath.dateOfBirth}
-                          </div>
-                        </div>
-                        <Badge variant="success" size="sm">
-                          Linked Athlete
-                        </Badge>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16 }}>
+                    {athletes.map((athlete) => (
+                      <label key={athlete.id} style={{ display: "flex", gap: 12, alignItems: "center", padding: 14, border: selectedChildId === athlete.id ? "2px solid #f59e0b" : "1px solid #e4e4e7", borderRadius: 10 }}>
+                        <input type="radio" name="athlete" checked={selectedChildId === athlete.id} onChange={() => setSelectedChildId(athlete.id)} />
+                        <span><strong>{athlete.displayName}</strong><br /><small>Date of birth: {athlete.dateOfBirth}</small></span>
                       </label>
                     ))}
-
-                    <label
-                      style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: "14px",
-                        padding: "16px",
-                        borderRadius: "10px",
-                        border: selectedChildId === "new" ? "2px solid #F59E0B" : "1px solid #E4E4E7",
-                        backgroundColor: selectedChildId === "new" ? "#FFFDF5" : "#FFFFFF",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <input
-                        type="radio"
-                        name="childSelection"
-                        checked={selectedChildId === "new"}
-                        onChange={() => setSelectedChildId("new")}
-                        style={{ accentColor: "#F59E0B", width: "18px", height: "18px", marginTop: "4px" }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 700, fontSize: "1rem", color: "#18181B" }}>
-                          {t("enrol.player.addNew")}
+                    <label style={{ display: "block", padding: 14, border: selectedChildId === "new" ? "2px solid #f59e0b" : "1px solid #e4e4e7", borderRadius: 10 }}>
+                      <div><input type="radio" name="athlete" checked={selectedChildId === "new"} onChange={() => setSelectedChildId("new")} /> <strong>{t("enrol.player.addNew")}</strong></div>
+                      {selectedChildId === "new" ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
+                          <Input label={t("enrol.player.fullName")} required value={newChildName} onChange={(event) => setNewChildName(event.target.value)} />
+                          <Input label={t("enrol.player.dob")} type="date" required value={newChildDob} onChange={(event) => setNewChildDob(event.target.value)} />
                         </div>
-                        <div style={{ fontSize: "0.8125rem", color: "#71717A", marginBottom: "12px" }}>
-                          Register a new child to your guardian account.
-                        </div>
-
-                        {selectedChildId === "new" && (
-                          <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "12px" }}>
-                            <Input
-                              label={t("enrol.player.fullName")}
-                              required
-                              value={newChildName}
-                              onChange={(e) => setNewChildName(e.target.value)}
-                              placeholder="e.g. Lucas Lim"
-                            />
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                              <Input
-                                label={t("enrol.player.dob")}
-                                type="date"
-                                required
-                                value={newChildDob}
-                                onChange={(e) => setNewChildDob(e.target.value)}
-                              />
-                              <Select
-                                label={t("enrol.player.gender")}
-                                value={newChildGender}
-                                onChange={(e) => setNewChildGender(e.target.value)}
-                                options={[
-                                  { label: "Male", value: "Male" },
-                                  { label: "Female", value: "Female" },
-                                ]}
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                      ) : null}
                     </label>
                   </div>
                 )}
-              </div>
-            )}
+              </section>
+            ) : null}
 
-            {/* Step 2: Programme Offering */}
-            {currentStep === 2 && (
-              <div>
-                <CardHeader>
-                  <CardTitle>{t("enrol.programme.selectTitle")}</CardTitle>
-                  <CardDescription>{t("enrol.programme.selectSubtitle")}</CardDescription>
-                </CardHeader>
-
-                {offeringsLoading ? (
-                  <div style={{ padding: "20px", textAlign: "center" }}>Loading offerings...</div>
-                ) : offerings.length === 0 ? (
-                  <Alert variant="warning" title="No Offerings Available">
-                    There are currently no open programme offerings available.
-                  </Alert>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "14px", marginTop: "16px" }}>
-                    <RadioGroup
-                      name="offeringSelection"
-                      value={selectedOfferingId}
-                      onChange={setSelectedOfferingId}
-                      options={offerings.map((off) => ({
-                        value: off.id,
-                        title: `${off.name} (${off.programme?.name})`,
-                        description: `📍 Venue: ${off.venue?.name || "KHLIM Training Centre"} | Starts: ${off.startsOn}`,
-                        badge: (
-                          <Badge variant="brand" size="sm">
-                            Capacity: {off.capacity}
-                          </Badge>
-                        ),
-                      }))}
-                    />
-                  </div>
+            {currentStep === 2 ? (
+              <section>
+                <CardHeader><CardTitle>{t("enrol.programme.selectTitle")}</CardTitle><CardDescription>{t("enrol.programme.selectSubtitle")}</CardDescription></CardHeader>
+                {offeringsLoading ? <p>Loading offerings…</p> : offerings.length === 0 ? <Alert variant="warning">No open programme offerings are currently available.</Alert> : (
+                  <RadioGroup name="offering" value={selectedOfferingId} onChange={setSelectedOfferingId} options={offerings.map((offering) => ({ value: offering.id, title: `${offering.name} — ${offering.programme.name}`, description: `${offering.venue?.name ?? "Venue to be confirmed"}${offering.startsOn ? ` • Starts ${offering.startsOn}` : ""}`, badge: <Badge variant="neutral" size="sm">Capacity {offering.capacity}</Badge> }))} />
                 )}
-              </div>
-            )}
+              </section>
+            ) : null}
 
-            {/* Step 3: Plan */}
-            {currentStep === 3 && (
-              <div>
-                <CardHeader>
-                  <CardTitle>{t("enrol.plan.selectTitle")}</CardTitle>
-                  <CardDescription>{t("enrol.plan.selectSubtitle")}</CardDescription>
-                </CardHeader>
-
-                {eligiblePlans.length === 0 ? (
-                  <Alert variant="warning" title="No Plans Linked">
-                    No active membership plans are eligible for this offering.
-                  </Alert>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginTop: "16px" }}>
-                    <RadioGroup
-                      name="planSelection"
-                      value={selectedPlanId}
-                      onChange={setSelectedPlanId}
-                      options={eligiblePlans.map((plan) => {
-                        const monthlyPrice = plan.recurringAmountMinor / 100;
-                        return {
-                          value: plan.id,
-                          title: plan.name,
-                          description: (
-                            <div>
-                              <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#18181B", margin: "4px 0" }}>
-                                {formatCurrency(monthlyPrice)}
-                                <span style={{ fontSize: "0.875rem", fontWeight: 500, color: "#71717A" }}>
-                                  {" "}
-                                  / {plan.billingFrequency.toLowerCase()}
-                                </span>
-                              </div>
-                              <div style={{ fontSize: "0.8125rem", color: "#52525B" }}>
-                                {plan.commitmentCycles} billing cycle(s) • {plan.durationMonths} months duration
-                              </div>
-                            </div>
-                          ),
-                        };
-                      })}
-                    />
-                  </div>
+            {currentStep === 3 ? (
+              <section>
+                <CardHeader><CardTitle>{t("enrol.plan.selectTitle")}</CardTitle><CardDescription>{t("enrol.plan.selectSubtitle")}</CardDescription></CardHeader>
+                {eligiblePlans.length === 0 ? <Alert variant="warning">No active plans are linked to this offering.</Alert> : (
+                  <RadioGroup name="plan" value={selectedPlanId} onChange={setSelectedPlanId} options={eligiblePlans.map((plan) => {
+                    const amount = getPlanChargeMinor(plan);
+                    const amountLabel = amount === null ? "Pricing unavailable" : formatCurrency(amount / 100, plan.currency);
+                    return { value: plan.id, title: plan.name, description: `${amountLabel} • ${plan.billingFrequency === "UPFRONT" ? "one-time upfront payment" : `${plan.commitmentCycles ?? plan.durationMonths ?? 1} monthly installment(s)`}` };
+                  })} />
                 )}
-              </div>
-            )}
+              </section>
+            ) : null}
 
-            {/* Step 4: Terms & Recurring Consent */}
-            {currentStep === 4 && (
-              <div>
-                <CardHeader>
-                  <CardTitle>{t("enrol.terms.title")}</CardTitle>
-                  <CardDescription>
-                    Review your commercial commitment snapshot before provider payment authorization.
-                  </CardDescription>
-                </CardHeader>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: "20px", marginTop: "16px" }}>
-                  <div
-                    style={{
-                      padding: "16px",
-                      borderRadius: "10px",
-                      backgroundColor: "#F8FAFC",
-                      border: "1px solid #E2E8F0",
-                      fontSize: "0.875rem",
-                      color: "#334155",
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    <div style={{ fontWeight: 700, color: "#0F172A", marginBottom: "6px" }}>
-                      Server Authoritative Commercial Snapshot ({CURRENT_TERMS_VERSION})
-                    </div>
-                    <div>• Athlete: <strong>{selectedAthlete?.displayName || newChildName}</strong></div>
-                    <div>• Offering: <strong>{selectedOffering?.name}</strong></div>
-                    <div>• Plan: <strong>{selectedPlan?.name}</strong></div>
-                    <div>• Frequency: <strong>{selectedPlan?.billingFrequency}</strong></div>
-                    <div>
-                      • Amount:{" "}
-                      <strong>
-                        {selectedPlan
-                          ? formatCurrency(selectedPlan.recurringAmountMinor / 100)
-                          : "MYR 0"}
-                      </strong>
-                    </div>
-                    <div>• Cycles: <strong>{selectedPlan?.commitmentCycles} cycle(s)</strong></div>
-                  </div>
-
-                  <Checkbox
-                    label={
-                      <span>
-                        I authorize the recurring payment of{" "}
-                        <strong>
-                          {selectedPlan
-                            ? formatCurrency(selectedPlan.recurringAmountMinor / 100)
-                            : "MYR 0"}
-                        </strong>{" "}
-                        on the agreed schedule for {selectedPlan?.commitmentCycles} installments.
-                      </span>
-                    }
-                    checked={recurringConsent}
-                    onChange={(e) => setRecurringConsent(e.target.checked)}
-                  />
-
-                  <Checkbox
-                    label={
-                      <span>
-                        I accept the <Link href="/terms" target="_blank" style={{ color: "#F59E0B" }}>KHLIM Academy Terms ({CURRENT_TERMS_VERSION})</Link> and <Link href="/privacy" target="_blank" style={{ color: "#F59E0B" }}>Child Privacy Policy</Link>.
-                      </span>
-                    }
-                    checked={termsAccepted}
-                    onChange={(e) => setTermsAccepted(e.target.checked)}
-                  />
+            {currentStep === 4 ? (
+              <section>
+                <CardHeader><CardTitle>{t("enrol.terms.title")}</CardTitle><CardDescription>Review the server-provided plan before billing authorization.</CardDescription></CardHeader>
+                <div style={{ padding: 16, background: "#f8fafc", borderRadius: 10, marginBottom: 18 }}>
+                  <div>Player: <strong>{selectedAthlete?.displayName ?? newChildName}</strong></div>
+                  <div>Offering: <strong>{selectedOffering?.name}</strong></div>
+                  <div>Plan: <strong>{selectedPlan?.name}</strong></div>
+                  <div>Amount: <strong>{selectedPlan && chargeMinor !== null ? formatCurrency(chargeMinor / 100, selectedPlan.currency) : "Unavailable"}</strong></div>
+                  <div>Billing: <strong>{selectedPlan?.billingFrequency}</strong></div>
                 </div>
-              </div>
-            )}
+                {requiresRecurringConsent ? <Checkbox checked={recurringConsent} onChange={(event) => setRecurringConsent(event.target.checked)} label="I authorize the recurring installment schedule shown above." /> : null}
+                <div style={{ marginTop: 14 }}><Checkbox checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} label={<span>I accept the <Link href="/terms" target="_blank">draft KHLIM membership terms</Link> and <Link href="/privacy" target="_blank">privacy notice</Link>.</span>} /></div>
+              </section>
+            ) : null}
 
-            {/* Step 5: Secure Payment Provider Handoff */}
-            {currentStep === 5 && (
-              <div>
-                <CardHeader>
-                  <CardTitle>{t("enrol.steps.payment")}</CardTitle>
-                  <CardDescription>
-                    Secure payment provider checkout handoff.
-                  </CardDescription>
-                </CardHeader>
+            {currentStep === 5 ? (
+              <section>
+                <CardHeader><CardTitle>{t("enrol.steps.payment")}</CardTitle><CardDescription>Checkout is hosted by the configured payment provider.</CardDescription></CardHeader>
+                <Alert variant="info" title="Secure provider handoff">KHLIM does not render or store card numbers or CVVs. If no provider is configured, your membership remains PENDING and no payment is claimed.</Alert>
+              </section>
+            ) : null}
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "20px", marginTop: "16px" }}>
-                  <Alert variant="info" title="🔒 Provider-Hosted Checkout">
-                    KHLIM uses external PCI-compliant payment gateways. Card details are entered exclusively on the payment provider's secure hosted interface.
-                  </Alert>
-
-                  <div
-                    style={{
-                      padding: "20px",
-                      borderRadius: "12px",
-                      border: "1px solid #E2E8F0",
-                      backgroundColor: "#FAFAFA",
-                      textAlign: "center",
-                    }}
-                  >
-                    <div style={{ fontSize: "2rem", marginBottom: "8px" }}>💳</div>
-                    <div style={{ fontWeight: 700, fontSize: "1rem", color: "#18181B", marginBottom: "4px" }}>
-                      Ready for Payment Authorization
-                    </div>
-                    <p style={{ fontSize: "0.875rem", color: "#64748B", maxWidth: "400px", margin: "0 auto 16px" }}>
-                      Clicking below will create your pending membership contract on the KHLIM backend and hand off to the payment gateway.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Navigation Button Bar */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginTop: "32px",
-                paddingTop: "20px",
-                borderTop: "1px solid #F4F4F5",
-              }}
-            >
-              {currentStep > 1 ? (
-                <Button variant="outline" size="md" onClick={handleBack}>
-                  ← {t("common.back")}
-                </Button>
-              ) : (
-                <div />
-              )}
-
-              <Button
-                variant="primary"
-                size="lg"
-                onClick={handleNext}
-                isLoading={isProcessing}
-              >
-                {currentStep === 5 ? "Complete & Handoff to Payment →" : `${t("common.next")} →`}
-              </Button>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 28, borderTop: "1px solid #e4e4e7", paddingTop: 20 }}>
+              {currentStep > 1 ? <Button variant="outline" onClick={() => { setError(""); setCurrentStep((step) => step - 1); }}>← {t("common.back")}</Button> : <span />}
+              <Button variant="primary" size="lg" onClick={handleNext} isLoading={isProcessing}>{currentStep === 5 ? "Create membership & continue to payment" : t("common.next")}</Button>
             </div>
           </Card>
 
-          {/* Sticky Order Summary Sidebar */}
-          <div style={{ position: "sticky", top: "90px" }}>
-            <Card style={{ backgroundColor: "#FFFFFF", borderRadius: "16px", border: "1px solid #E4E4E7" }}>
-              <h3 style={{ fontSize: "1.125rem", fontWeight: 800, color: "#18181B", margin: "0 0 16px" }}>
-                Enrolment Quote
-              </h3>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "0.875rem" }}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "#71717A" }}>Player</span>
-                  <strong style={{ color: "#18181B" }}>
-                    {selectedAthlete?.displayName || (newChildName || "New Player")}
-                  </strong>
-                </div>
-
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "#71717A" }}>Offering</span>
-                  <strong style={{ color: "#18181B" }}>{selectedOffering?.name || "—"}</strong>
-                </div>
-
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "#71717A" }}>Plan</span>
-                  <strong style={{ color: "#18181B" }}>{selectedPlan?.name || "—"}</strong>
-                </div>
-
-                <div style={{ borderTop: "1px solid #E4E4E7", margin: "8px 0" }} />
-
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontWeight: 700, color: "#18181B" }}>Installment Due:</span>
-                  <span style={{ fontSize: "1.25rem", fontWeight: 900, color: "#18181B" }}>
-                    {selectedPlan
-                      ? formatCurrency(selectedPlan.recurringAmountMinor / 100)
-                      : "—"}
-                  </span>
-                </div>
-
-                <div style={{ fontSize: "0.75rem", color: "#71717A" }}>
-                  Calculated authoritatively by KHLIM backend
-                </div>
-              </div>
+          <aside className="enrolment-summary">
+            <Card>
+              <h3 style={{ marginTop: 0 }}>Enrolment summary</h3>
+              <p>Player: <strong>{selectedAthlete?.displayName ?? newChildName || "Not selected"}</strong></p>
+              <p>Offering: <strong>{selectedOffering?.name ?? "Not selected"}</strong></p>
+              <p>Plan: <strong>{selectedPlan?.name ?? "Not selected"}</strong></p>
+              <p>Amount: <strong>{selectedPlan && chargeMinor !== null ? formatCurrency(chargeMinor / 100, selectedPlan.currency) : "—"}</strong></p>
+              <small style={{ color: "#71717a" }}>Price and eligibility originate from the KHLIM API.</small>
             </Card>
-          </div>
+          </aside>
         </div>
       </main>
-
       <PublicFooter />
     </div>
   );
 }
 
 export default function EnrolmentWizardPage() {
-  return (
-    <Suspense fallback={<div style={{ padding: "40px", textAlign: "center" }}>Loading wizard...</div>}>
-      <EnrolmentWizardContent />
-    </Suspense>
-  );
+  return <Suspense fallback={<div style={{ padding: 40, textAlign: "center" }}>Loading enrolment…</div>}><EnrolmentWizardContent /></Suspense>;
 }

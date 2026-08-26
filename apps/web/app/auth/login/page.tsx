@@ -1,144 +1,91 @@
 "use client";
 
-import React, { useState, Suspense } from "react";
+import React, { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "../../../lib/i18n-context";
 import { useAuth } from "../../../lib/auth-context";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "../../../components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "../../../components/ui/card";
 import { Alert } from "../../../components/ui/alert";
+
+function safeRedirect(value: string | null): string {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) {
+    return "/portal/dashboard";
+  }
+  return value;
+}
 
 function LoginContent() {
   const { t } = useI18n();
   const { login, isLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectPath = searchParams.get("redirect") || "/portal/dashboard";
-
+  const redirectPath = safeRedirect(searchParams.get("redirect"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError("");
-
     if (!email || !password) {
       setError("Please enter both email and password.");
       return;
     }
 
     try {
-      const success = await login(email, password);
-      if (success) {
-        router.push(redirectPath);
-      }
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Invalid credentials. Please verify your email and password.";
-      setError(message);
+      await login(email, password);
+      router.push(redirectPath);
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Sign in failed. Please verify your credentials.",
+      );
     }
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "#F4F4F5",
-        padding: "24px",
-      }}
-    >
-      <div style={{ width: "100%", maxWidth: "440px" }}>
-        {/* Brand Header */}
-        <div style={{ textAlign: "center", marginBottom: "28px" }}>
-          <Link href="/" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "10px" }}>
-            <div
-              style={{
-                width: "40px",
-                height: "40px",
-                borderRadius: "10px",
-                backgroundColor: "#18181B",
-                color: "#F59E0B",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontWeight: 900,
-                fontSize: "1.25rem",
-              }}
-            >
-              K
-            </div>
-            <span style={{ fontSize: "1.5rem", fontWeight: 900, color: "#18181B", letterSpacing: "0.04em" }}>
-              KHLIM
-            </span>
+    <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", backgroundColor: "#f4f4f5", padding: 24 }}>
+      <div style={{ width: "100%", maxWidth: 440 }}>
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <Link href="/" style={{ color: "#18181b", textDecoration: "none", fontSize: "1.5rem", fontWeight: 900 }}>
+            KHLIM
           </Link>
         </div>
-
-        <Card style={{ boxShadow: "0 10px 25px -5px rgba(0,0,0,0.08)", borderRadius: "16px" }}>
+        <Card>
           <CardHeader>
             <CardTitle>{t("auth.login.title")}</CardTitle>
             <CardDescription>{t("auth.login.subtitle")}</CardDescription>
           </CardHeader>
-
           <CardContent>
-            {error && (
-              <div style={{ marginBottom: "16px" }}>
-                <Alert variant="danger">{error}</Alert>
+            {error ? <Alert variant="danger">{error}</Alert> : null}
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: error ? 16 : 0 }}>
+              <Input label={t("auth.login.email")} type="email" required value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" />
+              <Input label={t("auth.login.password")} type="password" required value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" />
+              <div style={{ textAlign: "right" }}>
+                <Link href="/auth/forgot-password" style={{ color: "#b45309", fontSize: "0.8125rem" }}>
+                  {t("auth.login.forgotPassword")}
+                </Link>
               </div>
-            )}
-
-            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              <Input
-                label={t("auth.login.email")}
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="guardian@example.com"
-              />
-
-              <div>
-                <Input
-                  label={t("auth.login.password")}
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                />
-                <div style={{ textAlign: "right", marginTop: "6px" }}>
-                  <Link
-                    href="/auth/forgot-password"
-                    style={{ fontSize: "0.8125rem", color: "#F59E0B", textDecoration: "none", fontWeight: 600 }}
-                  >
-                    {t("auth.login.forgotPassword")}
-                  </Link>
-                </div>
-              </div>
-
               <Button variant="primary" size="lg" type="submit" isLoading={isLoading} style={{ width: "100%" }}>
-                {t("auth.login.submit")} →
+                {t("auth.login.submit")}
               </Button>
             </form>
           </CardContent>
-
-          <CardFooter style={{ justifyContent: "center", flexDirection: "column", gap: "8px" }}>
-            <div style={{ fontSize: "0.875rem", color: "#71717A" }}>
-              {t("auth.login.noAccount")}{" "}
-              <Link href="/auth/register" style={{ color: "#18181B", fontWeight: 700, textDecoration: "none" }}>
-                {t("auth.login.createAccount")}
-              </Link>
-            </div>
-            <Link href="/" style={{ fontSize: "0.8125rem", color: "#A1A1AA", textDecoration: "none" }}>
-              ← Return to KHLIM Home
-            </Link>
+          <CardFooter style={{ justifyContent: "center" }}>
+            <span style={{ fontSize: "0.875rem" }}>
+              {t("auth.login.noAccount")} <Link href="/auth/register">{t("auth.login.createAccount")}</Link>
+            </span>
           </CardFooter>
         </Card>
       </div>
@@ -148,7 +95,7 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div style={{ padding: "40px", textAlign: "center" }}>Loading login...</div>}>
+    <Suspense fallback={<div style={{ padding: 40, textAlign: "center" }}>Loading login…</div>}>
       <LoginContent />
     </Suspense>
   );

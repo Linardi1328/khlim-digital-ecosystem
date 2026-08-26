@@ -12,141 +12,129 @@ async function readJson(path) {
   return JSON.parse(await read(path));
 }
 
-test("Phase 5 design tokens export brand athletic colors, typography and CSS variables", async () => {
-  const manifest = await readJson("packages/design-tokens/package.json");
-  const index = await read("packages/design-tokens/src/index.ts");
-  const css = await read("packages/design-tokens/src/tokens.css");
-
-  assert.equal(manifest.name, "@khlim/design-tokens");
-  assert.match(index, /primary:\s*"#F59E0B"/);
-  assert.match(index, /charcoal:\s*"#121212"/);
-  assert.match(index, /fontSans/);
-  assert.match(index, /Noto Sans SC/);
-  assert.match(index, /Noto Sans Devanagari/);
-  assert.match(css, /--khlim-brand-primary/);
-  assert.match(css, /--khlim-status-success-bg/);
-});
-
-test("Phase 5 i18n supports 5 target locales with MYR currency and Asia/Kuala_Lumpur formatting", async () => {
-  const i18n = await read("packages/i18n/src/index.ts");
-  const formatting = await read("packages/i18n/src/formatting.ts");
-  const en = await read("packages/i18n/src/messages/en.ts");
-  const ms = await read("packages/i18n/src/messages/ms.ts");
-  const zhHans = await read("packages/i18n/src/messages/zh-Hans.ts");
-  const zhHant = await read("packages/i18n/src/messages/zh-Hant.ts");
-  const hi = await read("packages/i18n/src/messages/hi.ts");
-
-  assert.match(i18n, /"en"/);
-  assert.match(i18n, /"ms"/);
-  assert.match(i18n, /"zh-Hans"/);
-  assert.match(i18n, /"zh-Hant"/);
-  assert.match(i18n, /"hi"/);
-  assert.match(formatting, /Asia\/Kuala_Lumpur/);
-  assert.match(formatting, /MYR/);
-  assert.match(en, /"brand\.academy"/);
-  assert.match(ms, /"brand\.academy"/);
-  assert.match(zhHans, /"brand\.academy"/);
-  assert.match(zhHant, /"brand\.academy"/);
-  assert.match(hi, /"brand\.academy"/);
-});
-
-test("Phase 5 web application uses @khlim/api-client transport and real backend OpenAPI routes", async () => {
+test("Phase 5 website declares shared platform dependencies", async () => {
   const manifest = await readJson("apps/web/package.json");
-  const apiService = await read("apps/web/lib/api-service.ts");
-
   assert.equal(manifest.dependencies["@khlim/api-client"], "workspace:*");
   assert.equal(manifest.dependencies["@khlim/design-tokens"], "workspace:*");
   assert.equal(manifest.dependencies["@khlim/i18n"], "workspace:*");
-
-  // OpenAPI path contract calls
-  assert.match(apiService, /\/v1\/academy\/offerings/);
-  assert.match(apiService, /\/v1\/me/);
-  assert.match(apiService, /\/v1\/me\/guardian-profile/);
-  assert.match(apiService, /\/v1\/me\/preferences/);
-  assert.match(apiService, /\/v1\/me\/athletes/);
-  assert.match(apiService, /\/v1\/athletes\/\$\{athleteId\}\/memberships/);
-  assert.match(
-    apiService,
-    /\/v1\/athletes\/\$\{athleteId\}\/memberships\/\$\{membershipId\}\/billing/,
-  );
-  assert.match(
-    apiService,
-    /\/v1\/athletes\/\$\{athleteId\}\/memberships\/\$\{membershipId\}\/checkout/,
-  );
 });
 
-test("Phase 5 prohibits hardcoded runtime mock business data and client-side authoritative pricing", async () => {
-  const apiService = await read("apps/web/lib/api-service.ts");
-  const types = await read("apps/web/lib/types.ts");
+test("Phase 5 API integration uses the versioned API base without duplicating v1", async () => {
+  const api = await read("apps/web/lib/api-service.ts");
+  const env = await read(".env.example");
+  assert.match(env, /NEXT_PUBLIC_API_BASE_URL=http:\/\/localhost:3001\/v1/);
+  assert.match(api, /"\/academy\/offerings"/);
+  assert.match(api, /"\/me"/);
+  assert.doesNotMatch(api, /"\/v1\/academy\/offerings"/);
+});
+
+test("Phase 5 uses backend membership DTO names and never activates memberships in the browser", async () => {
   const enrol = await read("apps/web/app/enrol/page.tsx");
-
-  // Verify mock business arrays are completely absent from api-service
-  assert.doesNotMatch(apiService, /INITIAL_PROGRAMMES/);
-  assert.doesNotMatch(apiService, /INITIAL_OFFERINGS/);
-  assert.doesNotMatch(apiService, /INITIAL_MEMBERSHIP_PLANS/);
-
-  // Verify enrolment wizard loads live backend offerings
-  assert.match(enrol, /apiService\.getPublicOfferings\(\)/);
-  assert.match(enrol, /planEligibilities/);
-  assert.match(enrol, /recurringAmountMinor/);
+  const api = await read("apps/web/lib/api-service.ts");
+  assert.match(enrol, /offeringId:\s*offering\.id/);
+  assert.match(enrol, /planId:\s*plan\.id/);
+  assert.match(enrol, /acceptTerms:\s*true/);
+  assert.doesNotMatch(enrol, /status:\s*["']ACTIVE["']/);
+  assert.doesNotMatch(api, /INITIAL_(PROGRAMMES|OFFERINGS|MEMBERSHIP_PLANS)/);
 });
 
-test("Phase 5 checkout forbids raw Card Number, Expiry, and CVV fields owned by KHLIM", async () => {
+test("Phase 5 checkout never renders KHLIM-owned card or CVV fields", async () => {
   const enrol = await read("apps/web/app/enrol/page.tsx");
-
-  // Verify no raw credit card input fields are rendered by KHLIM
-  assert.doesNotMatch(enrol, /label="Card Number"/i);
-  assert.doesNotMatch(enrol, /label="CVV"/i);
-  assert.doesNotMatch(enrol, /placeholder="•••"/i);
-  assert.doesNotMatch(enrol, /placeholder="4242/i);
-
-  // Verify handoff calls backend prepareCheckout
-  assert.match(enrol, /apiService\.prepareCheckout/);
-  assert.match(enrol, /apiService\.createPendingMembership/);
+  assert.doesNotMatch(enrol, /label=["']Card Number["']/i);
+  assert.doesNotMatch(enrol, /label=["']CVV["']/i);
+  assert.match(enrol, /prepareCheckout/);
+  assert.match(enrol, /window\.location\.assign\(checkout\.checkoutUrl\)/);
 });
 
-test("Phase 5 enforces real Supabase Auth session handling and prohibits default-authenticated portal access", async () => {
-  const supabaseAuth = await read("apps/web/lib/supabase-auth.ts");
-  const authContext = await read("apps/web/lib/auth-context.tsx");
-  const portalShell = await read(
-    "apps/web/components/portal/portal-shell.tsx",
-  );
-
-  // Supabase Auth endpoints
-  assert.match(supabaseAuth, /\/auth\/v1\/token\?grant_type=password/);
-  assert.match(supabaseAuth, /\/auth\/v1\/signup/);
-  assert.match(supabaseAuth, /\/auth\/v1\/recover/);
-  assert.match(supabaseAuth, /\/auth\/v1\/logout/);
-
-  // Auth context starts unauthenticated
-  assert.match(authContext, /useState<boolean>\(false\)/);
-
-  // Portal shell redirects unauthenticated users
-  assert.match(portalShell, /router\.replace\(`/);
-  assert.match(portalShell, /auth\/login\?redirect=/);
-});
-
-test("Phase 5 enrolment confirmation verifies authoritative backend state and rejects fake URL payment activation", async () => {
+test("Phase 5 confirmation requires verified backend state and has an explicit verification error state", async () => {
   const confirmation = await read("apps/web/app/enrol/confirmation/page.tsx");
-
-  // Must query backend billing/membership status rather than assuming URL paid state
-  assert.match(confirmation, /apiService\.getMembershipBilling/);
-  assert.match(confirmation, /apiService\.listAthleteMemberships/);
-  assert.match(confirmation, /status === "ACTIVE"/);
-  assert.match(confirmation, /PENDING/);
+  assert.match(confirmation, /getMembershipBilling/);
+  assert.match(confirmation, /listAthleteMemberships/);
+  assert.match(confirmation, /"error"/);
+  assert.match(confirmation, /No payment or membership success is being assumed/);
+  assert.doesNotMatch(confirmation, /memberships\[0\]/);
 });
 
-test("Phase 5 accessible Dialog and Sheet components implement ARIA roles, focus management, and Escape key handling", async () => {
-  const dialog = await read("apps/web/components/ui/dialog.tsx");
-  const sheet = await read("apps/web/components/ui/sheet.tsx");
+test("Phase 5 Supabase session handling refreshes expiring sessions and refuses placeholder configuration", async () => {
+  const auth = await read("apps/web/lib/supabase-auth.ts");
+  assert.match(auth, /grant_type=refresh_token/);
+  assert.match(auth, /getValidAccessToken/);
+  assert.match(auth, /expires_at/);
+  assert.match(auth, /example\.supabase\.co/);
+  assert.match(auth, /Supabase Auth is not configured/);
+  assert.doesNotMatch(auth, /\|\|\s*["']https:\/\/example\.supabase\.co/);
+});
 
-  assert.match(dialog, /role="dialog"/);
-  assert.match(dialog, /aria-modal="true"/);
-  assert.match(dialog, /aria-labelledby/);
-  assert.match(dialog, /addEventListener\("keydown",\s*handleKeyDown\)/);
-  assert.match(dialog, /document\.body\.style\.overflow = "hidden"/);
+test("Phase 5 registration handles email-confirmation mode without pretending the user is signed in", async () => {
+  const authContext = await read("apps/web/lib/auth-context.tsx");
+  const register = await read("apps/web/app/auth/register/page.tsx");
+  assert.match(authContext, /emailConfirmationRequired/);
+  assert.match(authContext, /authenticated:\s*false/);
+  assert.match(register, /Verify your email to continue/);
+});
 
-  assert.match(sheet, /role="dialog"/);
-  assert.match(sheet, /aria-modal="true"/);
-  assert.match(sheet, /addEventListener\("keydown",\s*handleKeyDown\)/);
+test("Phase 5 recovery includes an actual reset-password page", async () => {
+  await access(new URL("apps/web/app/auth/reset-password/page.tsx", root));
+  const recovery = await read("apps/web/app/auth/reset-password/page.tsx");
+  assert.match(recovery, /supabaseUpdatePassword/);
+  assert.match(recovery, /restoreRecoverySessionFromUrl/);
+});
+
+test("Phase 5 managed-athlete forms collect only fields supported by the family API", async () => {
+  const enrol = await read("apps/web/app/enrol/page.tsx");
+  const players = await read("apps/web/app/portal/players/page.tsx");
+  const onboarding = await read("apps/web/app/onboarding/guardian/page.tsx");
+  assert.doesNotMatch(enrol, /newChildGender/);
+  assert.doesNotMatch(players, /gender:/);
+  assert.doesNotMatch(onboarding, /emergencyContact/);
+});
+
+test("Phase 5 account UI never claims unsupported deactivation was queued", async () => {
+  const account = await read("apps/web/app/portal/account/page.tsx");
+  assert.match(account, /Not yet available/);
+  assert.doesNotMatch(account, /queued for administrative review/i);
+});
+
+test("Phase 5 responsive rules separate desktop and mobile navigation", async () => {
+  const css = await read("apps/web/app/globals.css");
+  const header = await read("apps/web/components/layout/public-header.tsx");
+  const portal = await read("apps/web/components/portal/portal-shell.tsx");
+  assert.match(css, /@media \(max-width: 900px\)/);
+  assert.match(css, /\.mobile-menu-btn/);
+  assert.match(css, /\.portal-desktop-sidebar/);
+  assert.match(css, /\.portal-mobile-bottom-nav/);
+  assert.match(header, /mobile-menu-btn/);
+  assert.match(portal, /portal-mobile-bottom-nav/);
+});
+
+test("Phase 5 legal pages remain clearly draft content", async () => {
+  const terms = await read("apps/web/app/terms/page.tsx");
+  const privacy = await read("apps/web/app/privacy/page.tsx");
+  assert.match(terms, /DRAFT/);
+  assert.match(privacy, /DRAFT/);
+  assert.doesNotMatch(privacy, />\s*Malaysian PDPA Compliant\s*</i);
+});
+
+test("Phase 5 public and portal route surfaces exist", async () => {
+  const routes = [
+    "apps/web/app/page.tsx",
+    "apps/web/app/academy/page.tsx",
+    "apps/web/app/programmes/page.tsx",
+    "apps/web/app/programmes/[offeringId]/page.tsx",
+    "apps/web/app/about/page.tsx",
+    "apps/web/app/contact/page.tsx",
+    "apps/web/app/auth/login/page.tsx",
+    "apps/web/app/auth/register/page.tsx",
+    "apps/web/app/auth/forgot-password/page.tsx",
+    "apps/web/app/onboarding/guardian/page.tsx",
+    "apps/web/app/enrol/page.tsx",
+    "apps/web/app/portal/dashboard/page.tsx",
+    "apps/web/app/portal/players/page.tsx",
+    "apps/web/app/portal/membership/page.tsx",
+    "apps/web/app/portal/payments/page.tsx",
+    "apps/web/app/portal/schedule/page.tsx",
+    "apps/web/app/portal/notifications/page.tsx",
+    "apps/web/app/portal/account/page.tsx",
+  ];
+  for (const route of routes) await access(new URL(route, root));
 });

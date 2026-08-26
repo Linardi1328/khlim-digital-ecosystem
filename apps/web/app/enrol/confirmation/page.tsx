@@ -1,179 +1,103 @@
 "use client";
 
-import React, { Suspense, useState, useEffect } from "react";
+import React, { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useI18n } from "../../../lib/i18n-context";
-import { PublicHeader } from "../../../components/layout/public-header";
+import { apiService } from "../../../lib/api-service";
+import type { AthleteMembershipItem, MembershipBillingResponse } from "../../../lib/types";
 import { PublicFooter } from "../../../components/layout/public-footer";
+import { PublicHeader } from "../../../components/layout/public-header";
+import { Alert } from "../../../components/ui/alert";
+import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
 import { Card } from "../../../components/ui/card";
-import { Badge } from "../../../components/ui/badge";
-import { apiService } from "../../../lib/api-service";
-import type { MembershipBillingResponse, AthleteMembershipItem } from "../../../lib/types";
 
-function EnrolmentConfirmationContent() {
-  const { t, formatCurrency } = useI18n();
+interface VerifiedState {
+  membership: AthleteMembershipItem;
+  billing: MembershipBillingResponse;
+}
+
+function ConfirmationContent() {
   const searchParams = useSearchParams();
-
   const athleteId = searchParams.get("athleteId");
   const membershipId = searchParams.get("membershipId");
+  const [state, setState] = useState<"loading" | "verified" | "error" | "missing">("loading");
+  const [verified, setVerified] = useState<VerifiedState | null>(null);
+  const [error, setError] = useState("");
 
-  const [billing, setBilling] = useState<MembershipBillingResponse | null>(null);
-  const [memberships, setMemberships] = useState<AthleteMembershipItem[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-
-  useEffect(() => {
-    async function loadAuthoritativeState() {
-      if (!athleteId) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        if (membershipId) {
-          const billingData = await apiService.getMembershipBilling(
-            athleteId,
-            membershipId,
-          );
-          setBilling(billingData);
-        }
-        const membershipList = await apiService.listAthleteMemberships(athleteId);
-        setMemberships(membershipList);
-      } catch (err) {
-        console.warn("Unable to load backend billing status:", err);
-      } finally {
-        setLoading(false);
-      }
+  const load = useCallback(async () => {
+    if (!athleteId || !membershipId) {
+      setState("missing");
+      return;
     }
-
-    loadAuthoritativeState();
+    setState("loading");
+    setError("");
+    try {
+      const [billing, memberships] = await Promise.all([
+        apiService.getMembershipBilling(athleteId, membershipId),
+        apiService.listAthleteMemberships(athleteId),
+      ]);
+      const membership = memberships.find((item) => item.id === membershipId);
+      if (!membership || billing.id !== membershipId) {
+        throw new Error("The requested membership could not be verified.");
+      }
+      setVerified({ membership, billing });
+      setState("verified");
+    } catch (caught) {
+      setVerified(null);
+      setError(caught instanceof Error ? caught.message : "Unable to verify enrolment state.");
+      setState("error");
+    }
   }, [athleteId, membershipId]);
 
-  const currentMembership = memberships.find((m) => m.id === membershipId) || memberships[0];
-  const isAuthoritativelyActive =
-    billing?.status === "ACTIVE" || currentMembership?.status === "ACTIVE";
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const status = verified?.billing.status ?? verified?.membership.status;
+  const active = status === "ACTIVE";
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <PublicHeader />
-
-      <main style={{ flex: 1, maxWidth: "700px", margin: "40px auto", padding: "0 20px" }}>
-        <Card style={{ textAlign: "center", padding: "48px 32px", borderRadius: "20px", boxShadow: "0 10px 25px -5px rgba(0,0,0,0.06)" }}>
-          {loading ? (
-            <div style={{ padding: "40px", color: "#71717A" }}>
-              Verifying authoritative membership state from KHLIM backend...
+      <main style={{ flex: 1, width: "100%", maxWidth: 700, margin: "40px auto", padding: "0 20px", boxSizing: "border-box" }}>
+        <Card style={{ padding: "48px 32px", textAlign: "center" }}>
+          {state === "loading" ? <p>Verifying the current membership and billing state with KHLIM…</p> : null}
+          {state === "missing" ? <Alert variant="warning" title="Missing enrolment reference">This page requires an athlete and membership reference. Open the membership from your parent portal.</Alert> : null}
+          {state === "error" ? (
+            <div>
+              <Alert variant="danger" title="Unable to verify enrolment state">{error} No payment or membership success is being assumed.</Alert>
+              <div style={{ marginTop: 20 }}><Button variant="outline" onClick={load}>Retry verification</Button></div>
             </div>
-          ) : (
+          ) : null}
+          {state === "verified" && verified ? (
             <>
-              <div
-                style={{
-                  width: "72px",
-                  height: "72px",
-                  borderRadius: "50%",
-                  backgroundColor: isAuthoritativelyActive ? "#ECFDF5" : "#FFFBEB",
-                  color: isAuthoritativelyActive ? "#10B981" : "#F59E0B",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "2.5rem",
-                  margin: "0 auto 20px",
-                }}
-              >
-                {isAuthoritativelyActive ? "✓" : "⏳"}
-              </div>
-
-              <Badge variant={isAuthoritativelyActive ? "success" : "warning"} size="md">
-                {isAuthoritativelyActive
-                  ? "Membership Active & Confirmed"
-                  : "Membership Created (Pending Payment)"}
-              </Badge>
-
-              <h1 style={{ fontSize: "2.25rem", fontWeight: 900, color: "#18181B", margin: "16px 0 8px" }}>
-                {isAuthoritativelyActive
-                  ? t("enrol.confirmation.title")
-                  : "Enrolment Application Received"}
-              </h1>
-              <p style={{ fontSize: "1rem", color: "#71717A", maxWidth: "520px", margin: "0 auto 32px", lineHeight: 1.5 }}>
-                {isAuthoritativelyActive
-                  ? "Your membership has been verified and activated by our billing authority."
-                  : "Your membership contract is recorded on the KHLIM backend in PENDING status. Once payment provider events are verified, your membership will become ACTIVE."}
+              <Badge variant={active ? "success" : "warning"} size="md">{status}</Badge>
+              <h1 style={{ fontSize: "2rem", marginBottom: 8 }}>{active ? "Membership active" : "Membership recorded — activation pending"}</h1>
+              <p style={{ color: "#71717a", lineHeight: 1.6 }}>
+                {active
+                  ? "KHLIM has verified the backend membership as ACTIVE."
+                  : "The backend currently reports this membership as pending or otherwise not active. Payment is not treated as successful until verified provider processing updates backend state."}
               </p>
-
-              {/* Authoritative State Details Box */}
-              <div
-                style={{
-                  backgroundColor: "#FAFAFA",
-                  borderRadius: "12px",
-                  border: "1px solid #E4E4E7",
-                  padding: "24px",
-                  textAlign: "left",
-                  marginBottom: "32px",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "12px",
-                  fontSize: "0.9375rem",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "#71717A" }}>Contract Reference</span>
-                  <strong style={{ color: "#18181B" }}>
-                    {membershipId || currentMembership?.id || "Pending"}
-                  </strong>
-                </div>
-
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "#71717A" }}>Authoritative Status</span>
-                  <Badge variant={isAuthoritativelyActive ? "success" : "warning"} size="sm">
-                    {billing?.status || currentMembership?.status || "PENDING"}
-                  </Badge>
-                </div>
-
-                {currentMembership?.programmeOffering?.name && (
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "#71717A" }}>Offering</span>
-                    <strong style={{ color: "#18181B" }}>
-                      {currentMembership.programmeOffering.name}
-                    </strong>
-                  </div>
-                )}
-
-                {currentMembership?.membershipPlan && (
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "#71717A" }}>Plan</span>
-                    <strong style={{ color: "#18181B" }}>
-                      {currentMembership.membershipPlan.name}
-                    </strong>
-                  </div>
-                )}
+              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", padding: 20, borderRadius: 12, textAlign: "left", margin: "24px 0" }}>
+                <p>Membership ID: <strong>{verified.membership.id}</strong></p>
+                <p>Offering: <strong>{verified.membership.programmeOffering.name}</strong></p>
+                <p>Plan: <strong>{verified.membership.membershipPlan.name}</strong></p>
+                <p>Backend status: <strong>{status}</strong></p>
               </div>
-
-              <div style={{ display: "flex", justifyContent: "center", gap: "16px", flexWrap: "wrap" }}>
-                <Link href="/portal/dashboard" style={{ textDecoration: "none" }}>
-                  <Button variant="primary" size="lg">
-                    {t("enrol.confirmation.viewDashboard")} →
-                  </Button>
-                </Link>
-                <Link href="/portal/membership" style={{ textDecoration: "none" }}>
-                  <Button variant="outline" size="lg">
-                    View Membership Details
-                  </Button>
-                </Link>
+              <div style={{ display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
+                <Link href="/portal/dashboard"><Button variant="primary">Parent dashboard</Button></Link>
+                <Link href="/portal/membership"><Button variant="outline">Membership details</Button></Link>
               </div>
             </>
-          )}
+          ) : null}
         </Card>
       </main>
-
       <PublicFooter />
     </div>
   );
 }
 
 export default function EnrolmentConfirmationPage() {
-  return (
-    <Suspense fallback={<div style={{ padding: "40px", textAlign: "center" }}>Loading confirmation...</div>}>
-      <EnrolmentConfirmationContent />
-    </Suspense>
-  );
+  return <Suspense fallback={<div style={{ padding: 40, textAlign: "center" }}>Loading confirmation…</div>}><ConfirmationContent /></Suspense>;
 }

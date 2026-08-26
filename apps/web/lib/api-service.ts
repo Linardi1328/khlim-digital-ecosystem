@@ -1,14 +1,16 @@
 "use client";
 
 import { createApiClient, type ApiClient } from "@khlim/api-client";
-import { getStoredAccessToken } from "./supabase-auth";
+import { getValidAccessToken } from "./supabase-auth";
 import type {
   PublicOfferingItem,
   AccountMeResponse,
+  GuardianProfile,
   UpsertGuardianProfileDto,
   UpdatePreferencesDto,
   ManagedAthleteLinkItem,
   CreateManagedAthleteDto,
+  CreateManagedAthleteResponse,
   UpdateAthleteDto,
   AthleteProfileResponse,
   AthleteMembershipItem,
@@ -19,53 +21,49 @@ import type {
 } from "./types";
 
 const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000")
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001/v1"
 ).replace(/\/+$/, "");
 
 export const apiClient: ApiClient = createApiClient({
   baseUrl: API_BASE_URL,
-  getAccessToken: () => getStoredAccessToken(),
+  getAccessToken: getValidAccessToken,
 });
 
 export const apiService = {
-  // Public Academy API
   async getPublicOfferings(): Promise<PublicOfferingItem[]> {
-    return apiClient.get<PublicOfferingItem[]>("/v1/academy/offerings", {
+    return apiClient.get<PublicOfferingItem[]>("/academy/offerings", {
       authenticated: false,
     });
   },
 
-  // Account / Identity APIs
   async getMe(): Promise<AccountMeResponse> {
-    return apiClient.get<AccountMeResponse>("/v1/me");
+    return apiClient.get<AccountMeResponse>("/me");
   },
 
   async upsertGuardianProfile(
     data: UpsertGuardianProfileDto,
-  ): Promise<{ message: string; guardianProfile: unknown }> {
-    return apiClient.put("/v1/me/guardian-profile", data);
+  ): Promise<GuardianProfile> {
+    return apiClient.put<GuardianProfile>("/me/guardian-profile", data);
   },
 
   async updatePreferences(
     data: UpdatePreferencesDto,
-  ): Promise<{ message: string }> {
-    return apiClient.patch("/v1/me/preferences", data);
+  ): Promise<{ id: string; preferredLocale: string; updatedAt: string }> {
+    return apiClient.patch("/me/preferences", data);
   },
 
-  // Family & Managed Athlete APIs
   async listManagedAthletes(): Promise<ManagedAthleteLinkItem[]> {
-    return apiClient.get<ManagedAthleteLinkItem[]>("/v1/me/athletes");
+    return apiClient.get<ManagedAthleteLinkItem[]>("/me/athletes");
   },
 
   async createManagedAthlete(
     data: CreateManagedAthleteDto,
-  ): Promise<ManagedAthleteLinkItem> {
-    return apiClient.post<ManagedAthleteLinkItem>("/v1/me/athletes", data);
+  ): Promise<CreateManagedAthleteResponse> {
+    return apiClient.post<CreateManagedAthleteResponse>("/me/athletes", data);
   },
 
   async getAthlete(athleteId: string): Promise<AthleteProfileResponse> {
-    return apiClient.get<AthleteProfileResponse>(`/v1/athletes/${athleteId}`);
+    return apiClient.get<AthleteProfileResponse>(`/athletes/${athleteId}`);
   },
 
   async updateAthlete(
@@ -73,21 +71,22 @@ export const apiService = {
     data: UpdateAthleteDto,
   ): Promise<AthleteProfileResponse> {
     return apiClient.patch<AthleteProfileResponse>(
-      `/v1/athletes/${athleteId}`,
+      `/athletes/${athleteId}`,
       data,
     );
   },
 
-  async revokeFamilyLink(athleteId: string): Promise<{ message: string }> {
-    return apiClient.delete(`/v1/me/athletes/${athleteId}/link`);
+  async revokeFamilyLink(
+    athleteId: string,
+  ): Promise<{ id: string; status: string; revokedAt: string }> {
+    return apiClient.delete(`/me/athletes/${athleteId}/link`);
   },
 
-  // Membership & Billing APIs
   async listAthleteMemberships(
     athleteId: string,
   ): Promise<AthleteMembershipItem[]> {
     return apiClient.get<AthleteMembershipItem[]>(
-      `/v1/athletes/${athleteId}/memberships`,
+      `/athletes/${athleteId}/memberships`,
     );
   },
 
@@ -96,7 +95,7 @@ export const apiService = {
     data: CreatePendingMembershipDto,
   ): Promise<AthleteMembershipItem> {
     return apiClient.post<AthleteMembershipItem>(
-      `/v1/athletes/${athleteId}/memberships`,
+      `/athletes/${athleteId}/memberships`,
       data,
     );
   },
@@ -106,7 +105,7 @@ export const apiService = {
     membershipId: string,
   ): Promise<MembershipBillingResponse> {
     return apiClient.get<MembershipBillingResponse>(
-      `/v1/athletes/${athleteId}/memberships/${membershipId}/billing`,
+      `/athletes/${athleteId}/memberships/${membershipId}/billing`,
     );
   },
 
@@ -116,7 +115,7 @@ export const apiService = {
     data: PrepareMembershipCheckoutDto,
   ): Promise<CheckoutSessionResponse> {
     return apiClient.post<CheckoutSessionResponse>(
-      `/v1/athletes/${athleteId}/memberships/${membershipId}/checkout`,
+      `/athletes/${athleteId}/memberships/${membershipId}/checkout`,
       data,
     );
   },

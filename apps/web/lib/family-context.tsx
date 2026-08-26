@@ -2,10 +2,10 @@
 
 import React, {
   createContext,
-  useContext,
-  useState,
-  useEffect,
   useCallback,
+  useContext,
+  useEffect,
+  useState,
   type ReactNode,
 } from "react";
 import { useAuth } from "./auth-context";
@@ -32,7 +32,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
   const [athleteLinks, setAthleteLinks] = useState<ManagedAthleteLinkItem[]>([]);
   const [activeChild, setActiveChild] = useState<ManagedAthlete | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const refreshFamily = useCallback(async () => {
     if (!isAuthenticated) {
@@ -45,16 +45,14 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     try {
       const links = await apiService.listManagedAthletes();
       setAthleteLinks(links);
-      const list = links.map((l) => l.athlete);
-      if (list.length > 0) {
-        setActiveChild((prev) => {
-          if (!prev) return list[0] ?? null;
-          const found = list.find((a) => a.id === prev.id);
-          return found ?? list[0] ?? null;
-        });
-      } else {
-        setActiveChild(null);
-      }
+      const athletes = links.map((link) => link.athlete);
+      setActiveChild((current) => {
+        if (current) {
+          const existing = athletes.find((athlete) => athlete.id === current.id);
+          if (existing) return existing;
+        }
+        return athletes[0] ?? null;
+      });
     } catch {
       setAthleteLinks([]);
       setActiveChild(null);
@@ -70,19 +68,17 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   const addChild = async (
     dto: CreateManagedAthleteDto,
   ): Promise<ManagedAthlete> => {
-    const createdLink = await apiService.createManagedAthlete(dto);
+    const created = await apiService.createManagedAthlete(dto);
     await refreshFamily();
-    setActiveChild(createdLink.athlete);
-    return createdLink.athlete;
+    setActiveChild(created.athlete);
+    return created.athlete;
   };
-
-  const athletes = athleteLinks.map((l) => l.athlete);
 
   return (
     <FamilyContext.Provider
       value={{
         athleteLinks,
-        athletes,
+        athletes: athleteLinks.map((link) => link.athlete),
         activeChild,
         isLoading,
         setActiveChild,

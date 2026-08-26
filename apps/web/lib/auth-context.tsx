@@ -2,105 +2,115 @@
 
 import React, {
   createContext,
-  useContext,
-  useState,
-  useEffect,
   useCallback,
+  useContext,
+  useEffect,
+  useState,
   type ReactNode,
 } from "react";
-import type { SupportedLocale } from "@khlim/i18n";
-import {
-  getStoredAccessToken,
-  supabaseSignIn,
-  supabaseSignUp,
-  supabaseRecoverPassword,
-  supabaseSignOut,
-  type SupabaseUser,
-} from "./supabase-auth";
 import { apiService } from "./api-service";
+import {
+  restoreSupabaseSession,
+  supabaseRecoverPassword,
+  supabaseSignIn,
+  supabaseSignOut,
+  supabaseSignUp,
+} from "./supabase-auth";
 import type {
   AccountMeResponse,
   GuardianProfile,
   UpsertGuardianProfileDto,
 } from "./types";
+import type { SupportedLocale } from "@khlim/i18n";
+
+export interface RegistrationResult {
+  authenticated: boolean;
+  emailConfirmationRequired: boolean;
+}
 
 interface AuthContextValue {
-  user: SupabaseUser | null;
+  isAuthenticated: boolean;
   account: AccountMeResponse | null;
   guardianProfile: GuardianProfile | null;
-  isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   register: (
     email: string,
     password: string,
-    displayName: string,
-    locale: SupportedLocale,
-  ) => Promise<boolean>;
+    fullName: string,
+    preferredLocale?: SupportedLocale,
+  ) => Promise<RegistrationResult>;
   logout: () => Promise<void>;
+  refreshAccount: () => Promise<AccountMeResponse | null>;
+  updateGuardianProfile: (
+    profile: UpsertGuardianProfileDto,
+  ) => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
-  updateGuardianProfile: (dto: UpsertGuardianProfileDto) => Promise<void>;
-  refreshAccount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [account, setAccount] = useState<AccountMeResponse | null>(null);
-  const [guardianProfile, setGuardianProfile] = useState<GuardianProfile | null>(
-    null,
-  );
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [guardianProfile, setGuardianProfile] =
+    useState<GuardianProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const refreshAccount = useCallback(async () => {
-    const token = getStoredAccessToken();
-    if (!token) {
-      setUser(null);
-      setAccount(null);
-      setGuardianProfile(null);
-      setIsAuthenticated(false);
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      const me = await apiService.getMe();
-      setAccount(me);
-      setGuardianProfile(me.guardianProfile);
-      setUser({
-        id: me.id,
-        email: me.email,
-        user_metadata: {
-          display_name: me.guardianProfile?.displayName,
-          preferred_locale: me.preferredLocale,
-        },
-      });
-      setIsAuthenticated(true);
-    } catch {
-      // Session invalid / expired
-      await supabaseSignOut();
-      setUser(null);
-      setAccount(null);
-      setGuardianProfile(null);
-      setIsAuthenticated(false);
-    } finally {
-      setIsLoading(false);
-    }
+  const applyAccount = useCallback((value: AccountMeResponse | null) => {
+    setAccount(value);
+    setGuardianProfile(value?.guardianProfile ?? null);
+    setIsAuthenticated(Boolean(value));
   }, []);
 
+  const refreshAccount = useCallback(async () => {
+    try {
+      const value = await apiService.getMe();
+      applyAccount(value);
+      return value;
+    } catch {
+      applyAccount(null);
+      return null;
+    }
+  }, [applyAccount]);
+
   useEffect(() => {
-    refreshAccount();
-  }, [refreshAccount]);
+    let cancelled = false;
+
+    async function bootstrap() {
+      setIsLoading(true);
+      try {
+        const session = await restoreSupabaseSession();
+        if (!session || cancelled) {
+          if (!cancelled) applyAccount(null);
+          return;
+        }
+
+        const value = await apiService.getMe();
+        if (!cancelled) applyAccount(value);
+      } catch {
+        if (!cancelled) applyAccount(null);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+
+    bootstrap();
+    return () => {
+      cancelled = true;
+    };
+  }, [applyAccount]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     try {
-      const session = await supabaseSignIn(email, password);
-      setUser(session.user);
-      await refreshAccount();
+      await supabaseSignIn(email, password);
+      const value = await apiService.getMe();
+      applyAccount(value);
       return true;
+    } catch (error) {
+      applyAccount(null);
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -109,72 +119,69 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (
     email: string,
     password: string,
-    displayName: string,
-    locale: SupportedLocale,
-  ): Promise<boolean> => {
+    fullName: string,
+    preferredLocale: SupportedLocale = "en",
+  ): Promise<RegistrationResult> => {
     setIsLoading(true);
     try {
-      const { session } = await supabaseSignUp(email, password, {
-        full_name: displayName,
-        preferred_locale: locale,
-      });
-
-      if (session) {
-        setUser(session.user);
-        try {
-          await apiService.upsertGuardianProfile({
-            displayName,
-            phone: "",
-          });
-        } catch {
-          // Non-blocking initial profile creation
-        }
-        await refreshAccount();
+      const result = await supabaseSignUp(email, password);
+      if (!result.session) {
+        applyAccount(null);
+        return {
+          authenticated: false,
+          emailConfirmationRequired: result.emailConfirmationRequired,
+        };
       }
-      return true;
+
+      await apiService.upsertGuardianProfile({
+        displayName: fullName.trim(),
+      });
+      await apiService.updatePreferences({ preferredLocale });
+      const value = await apiService.getMe();
+      applyAccount(value);
+      return { authenticated: true, emailConfirmationRequired: false };
+    } catch (error) {
+      applyAccount(null);
+      throw error;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const logout = async (): Promise<void> => {
+  const logout = async () => {
     setIsLoading(true);
     try {
       await supabaseSignOut();
-      setUser(null);
-      setAccount(null);
-      setGuardianProfile(null);
-      setIsAuthenticated(false);
     } finally {
+      applyAccount(null);
       setIsLoading(false);
     }
   };
 
-  const requestPasswordReset = async (email: string): Promise<void> => {
-    await supabaseRecoverPassword(email);
+  const updateGuardianProfile = async (
+    profile: UpsertGuardianProfileDto,
+  ) => {
+    await apiService.upsertGuardianProfile(profile);
+    await refreshAccount();
   };
 
-  const updateGuardianProfile = async (
-    dto: UpsertGuardianProfileDto,
-  ): Promise<void> => {
-    await apiService.upsertGuardianProfile(dto);
-    await refreshAccount();
+  const requestPasswordReset = async (email: string) => {
+    await supabaseRecoverPassword(email);
   };
 
   return (
     <AuthContext.Provider
       value={{
-        user,
+        isAuthenticated,
         account,
         guardianProfile,
-        isAuthenticated,
         isLoading,
         login,
         register,
         logout,
-        requestPasswordReset,
-        updateGuardianProfile,
         refreshAccount,
+        updateGuardianProfile,
+        requestPasswordReset,
       }}
     >
       {children}
