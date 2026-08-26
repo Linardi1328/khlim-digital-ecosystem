@@ -752,6 +752,114 @@
           "admin-academy"
         ]
       }
+    },
+    "/v1/athletes/{athleteId}/memberships/{membershipId}/billing": {
+      "get": {
+        "operationId": "BillingController_getMembershipBilling",
+        "parameters": [
+          {
+            "name": "athleteId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "membershipId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/v1/athletes/{athleteId}/memberships/{membershipId}/checkout": {
+      "post": {
+        "description": "Prices are loaded from server-side plan data. A browser success redirect does not activate membership; verified provider events do.",
+        "operationId": "BillingController_prepareCheckout",
+        "parameters": [
+          {
+            "name": "athleteId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "membershipId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrepareMembershipCheckoutDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Create a provider checkout for the first membership installment",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/v1/payments/webhooks/{provider}": {
+      "post": {
+        "operationId": "BillingController_handleWebhook",
+        "parameters": [
+          {
+            "name": "provider",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Receive a signed payment-provider webhook",
+        "tags": [
+          "billing"
+        ]
+      }
     }
   },
   "info": {
@@ -1126,6 +1234,18 @@
         "required": [
           "planId",
           "offeringId"
+        ]
+      },
+      "PrepareMembershipCheckoutDto": {
+        "type": "object",
+        "properties": {
+          "acceptTerms": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "acceptTerms"
         ]
       }
     }

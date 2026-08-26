@@ -4,10 +4,17 @@ import { SentryGlobalFilter, SentryModule } from "@sentry/nestjs/setup";
 import { AcademyModule } from "./academy/academy.module";
 import { AdminModule } from "./admin/admin.module";
 import { AuthModule } from "./auth/auth.module";
+import { BillingModule } from "./billing/billing.module";
 import { HealthController } from "./health.controller";
 
 @Module({
-  imports: [SentryModule.forRoot(), AuthModule, AdminModule, AcademyModule],
+  imports: [
+    SentryModule.forRoot(),
+    AuthModule,
+    AdminModule,
+    AcademyModule,
+    BillingModule,
+  ],
   controllers: [HealthController],
   providers: [
     {
