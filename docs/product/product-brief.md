@@ -1,7 +1,7 @@
 # Product Brief
 
-**Status:** Accepted current planning baseline  
-**Product:** KHLIM Digital Sports Ecosystem  
+**Status:** Accepted current planning baseline
+**Product:** KHLIM Digital Sports Ecosystem
 **Launch organization:** KHLIM Basketball
 
 ## Problem
