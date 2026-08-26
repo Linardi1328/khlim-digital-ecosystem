@@ -23,7 +23,7 @@ export function StepIndicator({ steps, currentStep }: StepIndicatorProps) {
           position: "relative",
         }}
       >
-        {steps.map((step, index) => {
+        {steps.map((step) => {
           const isCompleted = currentStep > step.id;
           const isCurrent = currentStep === step.id;
 
@@ -72,7 +72,6 @@ export function StepIndicator({ steps, currentStep }: StepIndicatorProps) {
           );
         })}
 
-        {/* Connecting Progress Line */}
         <div
           style={{
             position: "absolute",
