@@ -1,13 +1,20 @@
-export type RuntimeEnvironment = "development" | "test" | "staging" | "production";
+export type NodeEnvironment = "development" | "test" | "production";
+export type DeploymentEnvironment = "development" | "staging" | "production";
 
 export interface ApiRuntimeConfig {
-  nodeEnv: RuntimeEnvironment;
+  nodeEnv: NodeEnvironment;
+  deploymentEnv: DeploymentEnvironment;
   port: number;
 }
 
-const allowedEnvironments = new Set<RuntimeEnvironment>([
+const allowedNodeEnvironments = new Set<NodeEnvironment>([
   "development",
   "test",
+  "production",
+]);
+
+const allowedDeploymentEnvironments = new Set<DeploymentEnvironment>([
+  "development",
   "staging",
   "production",
 ]);
@@ -17,8 +24,23 @@ export function loadApiRuntimeConfig(
 ): ApiRuntimeConfig {
   const nodeEnv = environment.NODE_ENV ?? "development";
 
-  if (!allowedEnvironments.has(nodeEnv as RuntimeEnvironment)) {
+  if (!allowedNodeEnvironments.has(nodeEnv as NodeEnvironment)) {
     throw new Error(`Invalid NODE_ENV: ${nodeEnv}`);
+  }
+
+  const deploymentEnv =
+    environment.KHLIM_ENV ??
+    (nodeEnv === "production" ? "production" : "development");
+
+  if (!allowedDeploymentEnvironments.has(deploymentEnv as DeploymentEnvironment)) {
+    throw new Error(`Invalid KHLIM_ENV: ${deploymentEnv}`);
+  }
+
+  if (
+    (deploymentEnv === "staging" || deploymentEnv === "production") &&
+    nodeEnv !== "production"
+  ) {
+    throw new Error(`${deploymentEnv} requires NODE_ENV=production`);
   }
 
   const port = Number(environment.PORT ?? 3001);
@@ -28,7 +50,8 @@ export function loadApiRuntimeConfig(
   }
 
   return {
-    nodeEnv: nodeEnv as RuntimeEnvironment,
+    nodeEnv: nodeEnv as NodeEnvironment,
+    deploymentEnv: deploymentEnv as DeploymentEnvironment,
     port,
   };
 }
