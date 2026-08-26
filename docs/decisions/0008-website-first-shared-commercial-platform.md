@@ -1,6 +1,6 @@
 # ADR 0008 — Website-first shared commercial platform
 
-**Status:** Accepted  
+**Status:** Accepted
 **Date:** 2026-08-26
 
 ## Context
