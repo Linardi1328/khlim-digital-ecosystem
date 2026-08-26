@@ -1,274 +1,334 @@
 # Module Boundaries
 
-**Status:** Accepted for Phase 1 baseline
+**Status:** Accepted current Phase 1 baseline
 
-The backend begins as a modular monolith. These boundaries exist to prevent unrelated features from becoming tightly coupled as KHLIM grows from a basketball app into a potentially broader sports and competition platform.
+The backend begins as a modular monolith. These boundaries prevent KHLIM's commercial, academy, event, development, and engagement features from collapsing into one tightly coupled codebase as the business grows.
 
 ## Identity
 
 Owns:
-- authentication identity mapping;
-- account lifecycle;
-- sessions/authentication integration;
-- role assignments or role references.
+- authentication-provider identity mapping;
+- account lifecycle/session integration;
+- role assignments/references;
+- account status and preferred locale reference.
 
 Does not own:
-- athlete development;
 - family relationships;
-- sport/team membership;
-- locale translation resources beyond a user's selected locale reference.
+- programme membership;
+- payments;
+- athlete development;
+- sport/team participation.
 
 ## Profiles / Athletes
 
 Owns:
-- user-facing profile information;
-- athlete profile fields common across sports;
+- user-facing athlete profile fields common across sports;
+- guardian profile fields;
 - coach public/professional profile fields.
 
-Does not own:
-- authentication credentials;
-- sport participation truth;
-- official evaluations;
-- KHERO state.
-
-Important rule:
-- basketball-specific attributes should not automatically become universal AthleteProfile fields.
+Does not own authentication credentials, official evaluations, membership billing, team participation, or KHERO state.
 
 ## Family
 
 Owns:
-- parent/guardian-to-athlete relationships;
-- relationship status and approval metadata;
+- Guardian ↔ Athlete relationships;
+- relationship status/approval/revocation metadata;
 - family-link lifecycle.
 
 Publishes examples:
 - `GuardianLinkedToAthlete`
 - `GuardianUnlinkedFromAthlete`
 
-The family link is sport-independent.
+A family link is independent of programme, team, and sport.
 
 ## Sports
 
 Owns:
-- sport definitions and enabled/disabled status;
+- sport definitions/status;
+- athlete sport participation where needed;
 - sport-level configuration references;
-- athlete sport participation where this is modeled as a core sport relationship;
 - coach sport assignments where appropriate.
 
-MVP state:
-- Basketball is enabled.
-- Additional sports are not required for MVP 1.0.
+MVP enables Basketball only. Sports does not own academy pricing, payments, attendance, or evaluations.
+
+## Programmes
+
+Owns:
+- reusable Academy/service programme definitions;
+- Programme Offerings representing a programme at a location/schedule/capacity;
+- programme eligibility/capacity configuration where not owned by Memberships;
+- programme activation/deactivation/history.
+
+Important rule:
+- `Programme` is not `Team`.
+
+Examples:
+- Programme: `U12 Academy`;
+- ProgrammeOffering: `U12 Academy · Serdang · Saturday 10 AM · capacity 30`.
+
+Publishes examples:
+- `ProgrammeOfferingPublished`
+- `ProgrammeOfferingCapacityChanged`
+
+## Memberships
+
+Owns:
+- configurable Membership Plans and commercial terms;
+- athlete membership/enrolment lifecycle;
+- membership start/end/commitment rules;
+- membership status (`PENDING`, `ACTIVE`, `SUSPENDED`, `CANCELLED`, `COMPLETED`, `EXPIRED`);
+- auditable term adjustments/extensions;
+- eligibility to receive membership benefits at the domain-rule level.
 
 Does not own:
-- team attendance;
-- evaluation records;
-- event registrations.
+- payment transaction truth;
+- card/token provider logic;
+- KHERO points;
+- attendance truth.
+
+Consumes Billing facts such as confirmed payment success/overdue state and applies explicit membership policies.
+
+Publishes examples:
+- `MembershipActivated`
+- `MembershipSuspended`
+- `MembershipReactivated`
+- `MembershipCompleted`
+
+## Billing / Payments
+
+Owns:
+- payer/Billing Profile provider references;
+- Payment Method external references/metadata safe to retain;
+- Payment Schedules and Installments;
+- Payment attempts/transactions/status;
+- provider adapter interface;
+- webhook verification/deduplication;
+- idempotency for charge-creating operations;
+- receipts/refund records where introduced;
+- financial audit/reconciliation data.
+
+Critical rules:
+- never store full card numbers/CVV/raw credentials;
+- browser redirects are not final financial truth;
+- final amounts/discounts are calculated server-side;
+- membership status and payment status remain separate;
+- provider-specific SDK logic does not leak through unrelated modules.
+
+Publishes examples:
+- `PaymentSucceeded`
+- `PaymentFailed`
+- `PaymentOverdue`
+- `RefundCompleted`
+
+## Benefits / Entitlements
+
+Owns:
+- generic Benefit definitions;
+- plan-to-benefit relationships/rules;
+- per-athlete/member Entitlements;
+- fulfilment lifecycle such as `ELIGIBLE`, `AWAITING_INPUT`, `ORDERED`, `READY_FOR_COLLECTION`, `COLLECTED`;
+- entitlement audit metadata.
+
+Does not hard-code `jersey + basketball` into Memberships. Future benefits may include discounts, evaluations, coaching credits, priority registration, or merchandise.
+
+## Venues
+
+Owns:
+- Venue definitions;
+- Courts;
+- venue/court operational metadata/status;
+- closures/unavailability windows.
+
+Does not own session attendance or programme membership.
+
+## Scheduling / Training
+
+Owns:
+- recurring schedule/session-series definitions;
+- explicit session occurrences;
+- programme/team session context;
+- venue/court assignment;
+- coach assignment reference;
+- session status/capacity;
+- cancellation/rescheduling/replacement linkage.
+
+Publishes examples:
+- `SessionCreated`
+- `SessionChanged`
+- `SessionCancelled`
+- `SessionRescheduled`
+
+Normal schedule changes are staff operations, not developer changes.
 
 ## Teams / Seasons
 
 Owns:
-- teams/groups;
-- season references and status where used;
+- competitive teams/groups;
+- seasons where used;
 - athlete team membership;
 - coach team assignments.
 
-Does not own:
-- training attendance;
-- competition registration;
-- sport development criteria.
-
-## Training
-
-Owns:
-- training-session definition;
-- recurring schedule rules where implemented;
-- venue, timing, status;
-- assigned team/group and coach references.
-
-Publishes examples:
-- `TrainingSessionCreated`
-- `TrainingSessionChanged`
-- `TrainingSessionCancelled`
-
-Important behavior:
-- normal schedule updates should be admin/coach operations, not developer changes.
+A Team is distinct from an Academy Programme. One athlete can hold programme membership and separately progress into a competitive team.
 
 ## Attendance
 
 Owns:
-- official attendance record and status;
+- official attendance status;
 - coach/staff confirmation state;
-- attendance correction metadata;
-- attendance history.
+- correction metadata/history.
 
-Publishes examples:
+Publishes:
 - `AthleteAttendanceConfirmed`
 - `AthleteAttendanceCorrected`
 
-Does not:
-- directly update reward balances;
-- directly unlock KHERO cosmetics;
-- let future QR/NFC check-in signals silently become official attendance without the approved confirmation rule.
-
-Potential future check-in data may be owned here or by a small Check-In subdomain, but official attendance truth remains explicit.
+Future QR/NFC/kiosk records are check-in signals unless an approved policy explicitly makes them authoritative. Attendance does not directly mutate rewards, memberships, or billing.
 
 ## Development
 
 Owns:
-- sport-specific development frameworks;
-- development criteria;
+- sport-specific Development Frameworks/Criteria;
 - athlete evaluations;
-- strengths and development priorities;
-- shared progress notes;
-- internal coaching notes;
+- strengths/development priorities;
+- shared/internal coaching notes;
 - evaluation history.
 
-Critical boundaries:
-- shared notes and internal notes use distinct authorization rules;
-- criteria belong to a sport/framework rather than being globally hard-coded to basketball;
-- translations of coach notes must never overwrite authoritative original text.
+Original coach text remains authoritative; translated/AI-assisted derivatives never overwrite it.
 
-## Events / Competitions
+## Events
 
-Owns:
-- competitions, trials, camps, personal events, club events, and registration windows;
-- sport reference where applicable;
-- team/individual participation format;
-- deadlines;
-- eligibility/audience references;
-- family/athlete responses or registrations;
-- event lifecycle: draft/published/open/closed/completed/cancelled;
-- future competition-specific extensions such as divisions/results when introduced.
+Owns the generic public/member event lifecycle:
+- title/description/date/venue/publication;
+- sport/audience references;
+- registration window/deadlines;
+- event status;
+- locale variants where enabled;
+- common reminders/update facts.
 
-Publishes examples:
+Publishes:
 - `EventPublished`
 - `EventUpdated`
 - `EventCancelled`
-- `EventRegistrationUpdated`
 
-Important rule:
-- event content and status updates are regular club operations and must not require code deployment.
+Events does not own payment-provider integration.
 
-## Announcements
+## Tournaments
+
+Extends Events with competition-specific concepts such as:
+- divisions/formats;
+- athlete/team registration;
+- membership eligibility/pricing-rule inputs;
+- results/brackets later.
+
+Registration charges use Billing rather than embedding gateway logic.
+
+## Camps
+
+Extends Events with:
+- camp age/category/capacity/coaches;
+- athlete registration;
+- member/non-member pricing inputs;
+- attendance linkage where required.
+
+## Announcements / Content
 
 Owns:
-- announcements;
+- public/member announcements;
 - audience targeting;
-- selection announcements and controlled visibility;
-- dynamic locale variants for admin-authored announcement content where enabled.
+- controlled selection announcements;
+- admin-authored locale variants.
 
-It should not become a general social network in MVP.
+The public website may project approved content from this domain. This module is not a social network.
 
 ## KHERO
 
 Owns:
-- eligible athlete's KHERO profile;
-- selected approved cosmetic state;
-- unlocked cosmetic/achievement references;
-- approved KHERO asset metadata/integration.
+- eligible athlete KHERO profile;
+- selected approved cosmetics;
+- unlock/cosmetic references;
+- official asset metadata integration.
 
-Consumes relevant events from other modules but should not own attendance, points, sport participation, or evaluation truth.
-
-MVP assumption:
-- KHERO is the face of the KHLIM Basketball experience.
-
-Future question:
-- whether KHERO becomes cross-sport or sport-specific remains a product/configuration decision.
+It consumes approved facts from other modules but does not own attendance, payments, or evaluation truth.
 
 ## Rewards
 
 Owns:
-- point transaction ledger;
+- auditable point transaction ledger;
 - point rules;
-- sport-specific vs organization-wide reward scope where configured;
-- reward catalogue;
-- redemption state;
-- auditable adjustments.
+- reward catalogue/redemption;
+- manual point adjustment audit.
 
-Publishes examples:
-- `PointsAwarded`
-- `PointsDeducted`
-- `RewardRedeemed`
-
-Important rule:
-- point balance is derived from or reconciled against auditable transactions, not a context-free mutable number.
+`PointTransaction` is never treated as a financial Payment ledger.
 
 ## Coach Services
 
 Owns:
 - approved coach service offerings;
 - sport/specialization references;
-- availability indicator/status for enquiry purposes;
-- private-training/consultation enquiries;
-- enquiry status.
+- enquiry lifecycle.
 
-MVP boundary:
-- no payments or full scheduling marketplace.
-
-## Localization
-
-Owns platform-level localization concerns such as:
-- supported locale registry;
-- translation-catalogue conventions;
-- fallback strategy;
-- locale-aware formatting helpers;
-- translation key naming/versioning guidance.
-
-Does not own:
-- business entities merely because they have translated content;
-- authoritative coach/admin original text;
-- notification delivery.
-
-Static application UI translations live in version-controlled resources.
-
-Dynamic admin-authored translations belong with the owning domain entity, for example:
-- Event translations remain owned by Events;
-- Announcement translations remain owned by Announcements.
+Full booking/payment marketplace remains later scope; if added, it uses Scheduling and Billing contracts.
 
 ## Notifications
 
 Owns:
-- notification preferences;
-- notification delivery requests/history;
-- push/in-app dispatch logic;
-- provider abstraction;
-- notification templates/categories;
-- selecting/rendering locale-specific system templates where applicable.
+- Notification logical records;
+- Notification Delivery attempts/history;
+- preferences;
+- templates/categories/locales;
+- email/WhatsApp/push/SMS provider abstractions.
 
-Consumes domain events from operational modules instead of operational modules directly calling third-party push providers.
+Operational domains publish facts; they do not directly call channel vendors.
+
+Sensitive financial/athlete communication is not routed through public social-media channels.
+
+## Localization
+
+Owns:
+- supported locale registry/resources/conventions;
+- fallback/formatting helpers;
+- translation-key guidance.
+
+Dynamic translated content stays with the owning domain entity.
 
 ## Audit
 
-Owns:
-- append-oriented records of sensitive administrative or staff actions;
-- actor, target, action type, timestamp, and safe contextual metadata.
+Owns append-oriented records of sensitive actions: actor, target, action, timestamp, and safe contextual metadata.
 
-Audit records should avoid unnecessarily duplicating sensitive data.
+Financial adjustments, membership overrides, family-link changes, attendance corrections, permission changes, and similar actions must be attributable where policy requires.
+
+## Integrations
+
+Owns replaceable external-system adapters that do not naturally belong to one domain, for example:
+- payment-provider adapter implementation infrastructure;
+- email/WhatsApp/SMS provider adapters;
+- KHLIM Assist/public API projection adapters;
+- future social-channel connectors.
+
+Integration modules must not become alternate business-data sources of truth.
+
+## Commerce / Orders — later
+
+When activated, owns:
+- products/variants;
+- pre-orders/orders/order items;
+- fulfilment/collection status.
+
+Payments use Billing and member discounts use shared eligibility/pricing rules. This is not required for the first website MVP.
 
 ## Cross-module rules
 
-1. A module should not write another module's tables directly through ad hoc code.
-2. Cross-module reads should use defined query/application interfaces when practical.
-3. Cross-module side effects should prefer domain events where immediate transactional coupling is unnecessary.
-4. Events should represent completed business facts, not UI clicks.
-5. Event consumers must tolerate duplicate delivery where infrastructure can retry.
-6. Sensitive decisions remain authorization-checked at the point of execution, even when initiated by another internal module.
-7. UI screens may combine data from multiple modules through API orchestration, but that does not transfer data ownership.
-8. Sport-specific rules should remain in the owning sport-aware business domain rather than leaking into Identity, Family, Audit, or infrastructure modules.
-9. Locale is presentation/configuration context; translated labels must not be used as stable business identifiers.
-10. Multi-sport readiness does not justify building unused sport-specific features before a real second sport exists.
-
-## Future modules
-
-Possible later additions include:
-- Payments
-- Commerce
-- Coach Booking
-- Competition Results / Brackets
-- Game Statistics
-- Video Analysis
-- AI Assistance
-- Agent Automation
-- External Organization / Tenant Management
-
-Each must integrate through existing contracts/events rather than bypassing module ownership. Multi-organization tenancy should only be introduced after a validated business requirement because it materially changes authorization, data isolation, billing, and operations.
+1. A module does not ad hoc write another module's tables.
+2. Cross-module reads use explicit query/application contracts where practical.
+3. Side effects prefer domain events when immediate transaction coupling is unnecessary.
+4. Events represent completed business facts, not UI clicks.
+5. Consumers tolerate duplicate delivery where retries are possible.
+6. Authorization is rechecked at the point of sensitive execution.
+7. UI/API orchestration may combine domains without changing ownership.
+8. Clients cannot become authoritative for price, payment state, membership state, or permissions.
+9. Payment-provider details remain behind Billing/Integration abstractions.
+10. Membership and payment states remain independent.
+11. Programme, Team, Event, and Camp/Tournament concepts are not collapsed for convenience.
+12. Locale is presentation context, not authorization or a stable business key.
+13. Historical relationships/statuses are preserved where operationally meaningful.
+14. Multi-sport readiness does not justify speculative second-sport features.
+15. Microservice extraction requires a concrete scaling/security/ownership reason.
