@@ -18,7 +18,11 @@ test("dependency installs are reproducible and supply-chain scripts are explicit
 
   assert.equal(manifest.packageManager, "pnpm@10.15.0");
   assert.deepEqual(manifest.pnpm.onlyBuiltDependencies, ["@prisma/engines", "prisma"]);
-  assert.deepEqual(manifest.pnpm.ignoredBuiltDependencies, ["@scarf/scarf"]);
+  assert.deepEqual(manifest.pnpm.ignoredBuiltDependencies, [
+    "@scarf/scarf",
+    "@sentry/cli",
+    "unrs-resolver",
+  ]);
   assert.match(workflow, /pnpm install --frozen-lockfile/);
   await access(new URL("pnpm-lock.yaml", root));
 });
@@ -27,7 +31,7 @@ test("Phase 1 code quality and generated contract gates are mandatory in CI", as
   const manifest = await readJson("package.json");
   const workflow = await read(".github/workflows/ppo-pr-validation.yml");
 
-  assert.equal(manifest.devDependencies.eslint, "10.9.0");
+  assert.equal(manifest.devDependencies.eslint, "10.9.1");
   assert.equal(manifest.devDependencies.prettier, "3.9.6");
   assert.equal(manifest.devDependencies["openapi-typescript"], "7.13.0");
   assert.match(workflow, /pnpm lint/);
@@ -81,7 +85,10 @@ test("OpenAPI source and generated API types are committed artifacts", async () 
   const apiClient = await readJson("packages/api-client/package.json");
   const exporter = await read("apps/api/src/export-openapi.ts");
 
-  assert.equal(apiManifest.scripts["openapi:export"], "nest build && node dist/export-openapi.js");
+  assert.equal(
+    apiManifest.scripts["openapi:export"],
+    "nest build && node dist/export-openapi.js",
+  );
   assert.equal(apiClient.exports["./schema"], "./src/schema.d.ts");
   assert.match(exporter, /openapi\/khlim-v1\.json/);
   await access(new URL("openapi/khlim-v1.json", root));
