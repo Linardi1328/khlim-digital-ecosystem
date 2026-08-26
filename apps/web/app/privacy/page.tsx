@@ -30,21 +30,21 @@ export default function PrivacyPage() {
               1. Child Data Protection Principles
             </h2>
             <p>
-              KHLIM safeguards minor athletes by modeling them as managed profiles linked to authorized adult guardians. Minor athletes do not require separate authentication identities to participate in academy programmes.
+              KHLIM models minor athletes as managed profiles linked to authorized adult guardians. A child does not need a separate login or email account to be managed by their guardian.
             </p>
 
             <h2 style={{ fontSize: "1.25rem", fontWeight: 800, color: "#18181B" }}>
-              2. Data Collected
+              2. MVP Data Scope
             </h2>
             <p>
-              We collect operational information necessary for academy execution: Guardian contact details, emergency contacts, athlete date of birth for age-category verification, and session attendance records.
+              The current platform foundation supports guardian account details, optional guardian phone information, athlete name and date of birth, language preference, programme and membership records, and payment or billing records returned through the KHLIM backend and configured payment provider. Later capabilities such as attendance or development records require separate implementation and review.
             </p>
 
             <h2 style={{ fontSize: "1.25rem", fontWeight: 800, color: "#18181B" }}>
-              3. Data Access & Rights
+              3. Access, Correction & Requests
             </h2>
             <p>
-              Guardians maintain access to view and update their managed athlete profiles and can request account deactivation through their account settings.
+              Guardians can access the managed athlete profiles linked to their account and update supported profile fields. The final process for privacy requests, deletion or account deactivation will be documented and approved before public launch; the current portal does not claim those unsupported requests have been submitted.
             </p>
           </CardContent>
         </Card>
