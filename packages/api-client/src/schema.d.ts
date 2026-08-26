@@ -20,10 +20,158 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the current KHLIM account */
+        get: operations["IdentityController_getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/guardian-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Create or update the current guardian profile */
+        put: operations["IdentityController_upsertGuardianProfile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update current account preferences */
+        patch: operations["IdentityController_updatePreferences"];
+        trace?: never;
+    };
+    "/v1/me/athletes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List athletes actively managed by the current guardian */
+        get: operations["FamilyController_listManagedAthletes"];
+        put?: never;
+        /** Create a managed athlete for the current guardian */
+        post: operations["FamilyController_createManagedAthlete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/athletes/{athleteId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get an athlete visible to the current account */
+        get: operations["FamilyController_getAthlete"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update an athlete managed by the current account */
+        patch: operations["FamilyController_updateAthlete"];
+        trace?: never;
+    };
+    "/v1/me/athletes/{athleteId}/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke the current guardian's athlete link */
+        delete: operations["FamilyController_revokeOwnFamilyLink"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: never;
+    schemas: {
+        UpsertGuardianProfileDto: {
+            /** @example Alex Tan */
+            displayName: string;
+            /** @example +60123456789 */
+            phone?: Record<string, never> | null;
+        };
+        UpdatePreferencesDto: {
+            /**
+             * @example en
+             * @enum {string}
+             */
+            preferredLocale: "en" | "ms" | "zh-Hans" | "zh-Hant" | "hi";
+        };
+        CreateManagedAthleteDto: {
+            /** @example Jamie Tan */
+            displayName: string;
+            /**
+             * Format: date
+             * @example 2014-06-12
+             */
+            dateOfBirth: string;
+            /**
+             * @example en
+             * @enum {string}
+             */
+            preferredLocale?: "en" | "ms" | "zh-Hans" | "zh-Hant" | "hi";
+            /** @example parent */
+            relationshipType?: string;
+        };
+        UpdateAthleteDto: {
+            /** @example Jamie Tan */
+            displayName?: string;
+            /**
+             * Format: date
+             * @example 2014-06-12
+             */
+            dateOfBirth?: string;
+            /**
+             * @example en
+             * @enum {string}
+             */
+            preferredLocale?: "en" | "ms" | "zh-Hans" | "zh-Hant" | "hi";
+        };
+    };
     responses: never;
     parameters: never;
     requestBodies: never;
@@ -48,6 +196,172 @@ export interface operations {
                 content: {
                     "application/json": unknown;
                 };
+            };
+        };
+    };
+    IdentityController_getMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current account and profile state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IdentityController_upsertGuardianProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpsertGuardianProfileDto"];
+            };
+        };
+        responses: {
+            /** @description Guardian profile saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    IdentityController_updatePreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePreferencesDto"];
+            };
+        };
+        responses: {
+            /** @description Account preferences updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FamilyController_listManagedAthletes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active guardian-athlete relationships */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FamilyController_createManagedAthlete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateManagedAthleteDto"];
+            };
+        };
+        responses: {
+            /** @description Managed athlete and active family link created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FamilyController_getAthlete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                athleteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authorized athlete profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FamilyController_updateAthlete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                athleteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAthleteDto"];
+            };
+        };
+        responses: {
+            /** @description Athlete profile updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    FamilyController_revokeOwnFamilyLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                athleteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Family link revoked */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

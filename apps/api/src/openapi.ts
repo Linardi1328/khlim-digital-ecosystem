@@ -6,6 +6,15 @@ export function createOpenApiDocument(app: INestApplication) {
     .setTitle("KHLIM API")
     .setDescription("Shared API for the KHLIM Digital Sports Ecosystem")
     .setVersion("1.0")
+    .addBearerAuth(
+      {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "JWT",
+        description: "Supabase access token",
+      },
+      "supabase",
+    )
     .build();
 
   return SwaggerModule.createDocument(app, config);
