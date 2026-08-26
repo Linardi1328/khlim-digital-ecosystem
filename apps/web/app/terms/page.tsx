@@ -30,28 +30,28 @@ export default function TermsPage() {
               1. Academy Enrolment & Membership Agreement
             </h2>
             <p>
-              Enrolment of an athlete in KHLIM Basketball Academy enters the guardian into an auditable membership agreement. The selected plan defines the commitment duration, billing frequency, and session entitlements.
+              Enrolment creates a membership record for the selected athlete, programme offering, and membership plan. The final legally approved agreement will define the applicable service period, commitment, billing terms, eligibility, and benefits before public launch.
             </p>
 
             <h2 style={{ fontSize: "1.25rem", fontWeight: 800, color: "#18181B" }}>
               2. Recurring Billing & Payment Authorization
             </h2>
             <p>
-              For plans with recurring installments, the guardian authorizes KHLIM to bill the agreed recurring amount via verified payment provider checkout handoff. KHLIM does not store raw credit card numbers or CVVs.
+              Where a plan uses recurring installments, the guardian must explicitly authorize the billing schedule before KHLIM creates a payment-provider checkout. KHLIM does not render or store raw card numbers or CVVs, and membership activation is based on verified backend payment state rather than the browser redirect alone.
             </p>
 
             <h2 style={{ fontSize: "1.25rem", fontWeight: 800, color: "#18181B" }}>
-              3. Attendance & Schedule Modifications
+              3. Programme Information & Schedule Changes
             </h2>
             <p>
-              Official session attendance is recorded and confirmed by academy coaches. In the event of venue closures, public holidays, or weather cancellations, KHLIM provides auditable term adjustments or replacement sessions.
+              The current MVP can show authoritative programme-offering term dates and venue information supplied by the KHLIM backend. Detailed session scheduling, cancellations, replacement sessions, attendance, and term-adjustment rules are later operational capabilities and are not promised by this draft page.
             </p>
 
             <h2 style={{ fontSize: "1.25rem", fontWeight: 800, color: "#18181B" }}>
-              4. Code of Conduct & Safety
+              4. Conduct, Safety & Final Approval
             </h2>
             <p>
-              Athletes and guardians are expected to maintain sportsmanship, respect coaches and match officials, and follow facility rules.
+              Final academy conduct, safety, cancellation, refund, privacy, and recurring-billing terms require KHLIM management and legal review before the public launch. This draft is present for product-flow testing only and is not represented as the final customer contract.
             </p>
           </CardContent>
         </Card>
