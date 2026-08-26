@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { Providers } from "../components/providers";
 
 export const metadata: Metadata = {
-  title: "KHLIM",
-  description: "KHLIM Digital Sports Ecosystem",
+  title: "KHLIM — Digital Sports Ecosystem",
+  description: "Official KHLIM Basketball Academy public website and member platform.",
 };
 
 export default function RootLayout({
@@ -14,12 +15,15 @@ export default function RootLayout({
       <body
         style={{
           margin: 0,
-          fontFamily: "Arial, sans-serif",
+          fontFamily:
+            'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", "Noto Sans SC", "Noto Sans TC", "Noto Sans Devanagari", sans-serif',
           background: "#fafafa",
-          color: "#151515",
+          color: "#18181b",
+          WebkitFontSmoothing: "antialiased",
+          MozOsxFontSmoothing: "grayscale",
         }}
       >
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
