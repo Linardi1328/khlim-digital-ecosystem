@@ -1,9 +1,12 @@
+import { createHash, randomBytes } from "node:crypto";
 import {
+  BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
-  BadRequestException,
 } from "@nestjs/common";
+import type { AuthenticatedUserContext } from "../auth/authenticated-user";
 import {
   optionalTrimmedString,
   requireIsoDate,
@@ -11,7 +14,12 @@ import {
 } from "../common/input-validation";
 import { PrismaService } from "../database/prisma.service";
 import { requireSupportedLocale } from "../identity/locale-policy";
-import type { CreateManagedAthleteDto, UpdateAthleteDto } from "./family.dto";
+import type {
+  AcceptGuardianInvitationDto,
+  CreateGuardianInvitationDto,
+  CreateManagedAthleteDto,
+  UpdateAthleteDto,
+} from "./family.dto";
 
 const athleteSelect = {
   id: true,
@@ -22,6 +30,18 @@ const athleteSelect = {
   createdAt: true,
   updatedAt: true,
 } as const;
+
+function normalizeEmail(value: unknown): string {
+  const email = requireTrimmedString(value, "email", 320).toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new BadRequestException("email must be a valid address");
+  }
+  return email;
+}
+
+function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
 
 @Injectable()
 export class FamilyService {
@@ -216,6 +236,196 @@ export class FamilyService {
           revokedAt: true,
         },
       });
+    });
+  }
+
+  async createGuardianInvitation(
+    invitedByUserId: string,
+    athleteId: string,
+    body: CreateGuardianInvitationDto,
+  ) {
+    const inviteeEmail = normalizeEmail(body?.email);
+    const relationshipType =
+      optionalTrimmedString(body?.relationshipType, "relationshipType", 50) ??
+      "guardian";
+    const deliveryToken = randomBytes(32).toString("base64url");
+    const tokenHash = hashToken(deliveryToken);
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    const invitation = await this.prisma.client.$transaction(
+      async (transaction) => {
+        await transaction.guardianInvitation.updateMany({
+          where: {
+            athleteId,
+            inviteeEmail,
+            status: "PENDING",
+          },
+          data: {
+            status: "REVOKED",
+            revokedAt: new Date(),
+          },
+        });
+
+        return transaction.guardianInvitation.create({
+          data: {
+            athleteId,
+            invitedByUserId,
+            inviteeEmail,
+            relationshipType,
+            tokenHash,
+            expiresAt,
+          },
+          select: {
+            id: true,
+            athleteId: true,
+            inviteeEmail: true,
+            relationshipType: true,
+            status: true,
+            expiresAt: true,
+            createdAt: true,
+          },
+        });
+      },
+    );
+
+    return {
+      ...invitation,
+      deliveryToken,
+    };
+  }
+
+  async revokeGuardianInvitation(
+    actorUserId: string,
+    athleteId: string,
+    invitationId: string,
+  ) {
+    const invitation = await this.prisma.client.guardianInvitation.findFirst({
+      where: {
+        id: invitationId,
+        athleteId,
+        invitedByUserId: actorUserId,
+        status: "PENDING",
+      },
+      select: { id: true },
+    });
+
+    if (!invitation) {
+      throw new NotFoundException("Pending guardian invitation not found");
+    }
+
+    return this.prisma.client.guardianInvitation.update({
+      where: { id: invitation.id },
+      data: {
+        status: "REVOKED",
+        revokedAt: new Date(),
+      },
+      select: {
+        id: true,
+        status: true,
+        revokedAt: true,
+      },
+    });
+  }
+
+  async acceptGuardianInvitation(
+    user: AuthenticatedUserContext,
+    body: AcceptGuardianInvitationDto,
+  ) {
+    if (!user.email) {
+      throw new ForbiddenException(
+        "An authenticated email address is required to accept an invitation",
+      );
+    }
+
+    const token = requireTrimmedString(body?.token, "token", 512);
+    const tokenHash = hashToken(token);
+    const normalizedUserEmail = user.email.trim().toLowerCase();
+
+    return this.prisma.client.$transaction(async (transaction) => {
+      const invitation = await transaction.guardianInvitation.findUnique({
+        where: { tokenHash },
+        select: {
+          id: true,
+          athleteId: true,
+          inviteeEmail: true,
+          relationshipType: true,
+          status: true,
+          expiresAt: true,
+        },
+      });
+
+      if (!invitation || invitation.status !== "PENDING") {
+        throw new NotFoundException("Active guardian invitation not found");
+      }
+
+      if (invitation.expiresAt.getTime() <= Date.now()) {
+        await transaction.guardianInvitation.update({
+          where: { id: invitation.id },
+          data: { status: "EXPIRED" },
+        });
+        throw new BadRequestException("Guardian invitation has expired");
+      }
+
+      if (invitation.inviteeEmail !== normalizedUserEmail) {
+        throw new ForbiddenException(
+          "Guardian invitation email does not match the authenticated account",
+        );
+      }
+
+      const link = await transaction.guardianAthleteLink.upsert({
+        where: {
+          guardianUserId_athleteId: {
+            guardianUserId: user.id,
+            athleteId: invitation.athleteId,
+          },
+        },
+        create: {
+          guardianUserId: user.id,
+          athleteId: invitation.athleteId,
+          relationshipType: invitation.relationshipType,
+          status: "ACTIVE",
+          createdByUserId: user.id,
+          approvedAt: new Date(),
+        },
+        update: {
+          relationshipType: invitation.relationshipType,
+          status: "ACTIVE",
+          approvedAt: new Date(),
+          revokedAt: null,
+        },
+        select: {
+          id: true,
+          athleteId: true,
+          relationshipType: true,
+          status: true,
+          approvedAt: true,
+        },
+      });
+
+      await transaction.userRoleAssignment.upsert({
+        where: {
+          userId_role: {
+            userId: user.id,
+            role: "GUARDIAN",
+          },
+        },
+        create: {
+          userId: user.id,
+          role: "GUARDIAN",
+        },
+        update: {},
+      });
+
+      await transaction.guardianInvitation.update({
+        where: { id: invitation.id },
+        data: {
+          status: "ACCEPTED",
+          acceptedByUserId: user.id,
+          acceptedAt: new Date(),
+        },
+      });
+
+      return link;
     });
   }
 }

@@ -10,6 +10,7 @@ import { FamilyAccessService } from "../family/family-access.service";
 import {
   ALLOW_AUTHENTICATED_KEY,
   ATHLETE_ACCESS_KEY,
+  MFA_REQUIRED_KEY,
   PUBLIC_ROUTE_KEY,
   REQUIRED_ROLES_KEY,
   type AthleteAccessPolicy,
@@ -47,6 +48,10 @@ export class AuthorizationGuard implements CanActivate {
       ATHLETE_ACCESS_KEY,
       targets,
     );
+    const mfaRequired = this.reflector.getAllAndOverride<boolean>(
+      MFA_REQUIRED_KEY,
+      targets,
+    );
 
     if (!allowAuthenticated && !requiredRoles && !athleteAccess) {
       throw new ForbiddenException("Authorization policy is required");
@@ -57,6 +62,10 @@ export class AuthorizationGuard implements CanActivate {
 
     if (!user) {
       throw new UnauthorizedException("Authenticated user context is required");
+    }
+
+    if (mfaRequired && user.authenticatorAssuranceLevel !== "aal2") {
+      throw new ForbiddenException("MFA assurance level 2 is required");
     }
 
     if (requiredRoles?.length) {

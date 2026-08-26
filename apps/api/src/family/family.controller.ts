@@ -15,11 +15,17 @@ import {
 } from "@nestjs/swagger";
 import type { AuthenticatedUserContext } from "../auth/authenticated-user";
 import {
+  AllowAuthenticated,
   RequireAnyRole,
   RequireAthleteAccess,
 } from "../auth/authorization.decorators";
 import { CurrentUser } from "../auth/current-user.decorator";
-import { CreateManagedAthleteDto, UpdateAthleteDto } from "./family.dto";
+import {
+  AcceptGuardianInvitationDto,
+  CreateGuardianInvitationDto,
+  CreateManagedAthleteDto,
+  UpdateAthleteDto,
+} from "./family.dto";
 import { FamilyService } from "./family.service";
 
 @ApiTags("family")
@@ -81,5 +87,41 @@ export class FamilyController {
     @Param("athleteId") athleteId: string,
   ) {
     return this.family.revokeOwnFamilyLink(user.id, athleteId);
+  }
+
+  @Post("me/athletes/:athleteId/guardian-invitations")
+  @RequireAthleteAccess("manage")
+  @ApiOperation({ summary: "Invite another guardian to manage an athlete" })
+  createGuardianInvitation(
+    @CurrentUser() user: AuthenticatedUserContext,
+    @Param("athleteId") athleteId: string,
+    @Body() body: CreateGuardianInvitationDto,
+  ) {
+    return this.family.createGuardianInvitation(user.id, athleteId, body);
+  }
+
+  @Delete("me/athletes/:athleteId/guardian-invitations/:invitationId")
+  @RequireAthleteAccess("manage")
+  @ApiOperation({ summary: "Revoke a pending guardian invitation" })
+  revokeGuardianInvitation(
+    @CurrentUser() user: AuthenticatedUserContext,
+    @Param("athleteId") athleteId: string,
+    @Param("invitationId") invitationId: string,
+  ) {
+    return this.family.revokeGuardianInvitation(
+      user.id,
+      athleteId,
+      invitationId,
+    );
+  }
+
+  @Post("family-invitations/accept")
+  @AllowAuthenticated()
+  @ApiOperation({ summary: "Accept a guardian invitation" })
+  acceptGuardianInvitation(
+    @CurrentUser() user: AuthenticatedUserContext,
+    @Body() body: AcceptGuardianInvitationDto,
+  ) {
+    return this.family.acceptGuardianInvitation(user, body);
   }
 }

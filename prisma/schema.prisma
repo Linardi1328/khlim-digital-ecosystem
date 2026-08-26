@@ -35,6 +35,13 @@ enum GuardianAthleteLinkStatus {
   REVOKED
 }
 
+enum GuardianInvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
 model User {
   id                          String                    @id @default(uuid()) @db.Uuid
   authProviderSubject         String                    @unique @map("auth_provider_subject")
@@ -49,6 +56,8 @@ model User {
   athleteProfile              AthleteProfile?           @relation("AthleteAccount")
   guardianAthleteLinks        GuardianAthleteLink[]      @relation("GuardianFamilyLinks")
   createdGuardianAthleteLinks GuardianAthleteLink[]      @relation("CreatedFamilyLinks")
+  createdGuardianInvitations  GuardianInvitation[]       @relation("CreatedGuardianInvitations")
+  acceptedGuardianInvitations GuardianInvitation[]       @relation("AcceptedGuardianInvitations")
 
   @@index([status])
   @@map("users")
@@ -89,15 +98,16 @@ model CoachProfile {
 }
 
 model AthleteProfile {
-  id              String                 @id @default(uuid()) @db.Uuid
-  userId          String?                @unique @map("user_id") @db.Uuid
-  displayName     String                 @map("display_name")
-  dateOfBirth     DateTime               @map("date_of_birth") @db.Date
-  preferredLocale String                 @default("en") @map("preferred_locale")
-  createdAt       DateTime               @default(now()) @map("created_at")
-  updatedAt       DateTime               @updatedAt @map("updated_at")
-  user            User?                  @relation("AthleteAccount", fields: [userId], references: [id], onDelete: SetNull)
-  guardianLinks   GuardianAthleteLink[]
+  id                  String                 @id @default(uuid()) @db.Uuid
+  userId              String?                @unique @map("user_id") @db.Uuid
+  displayName         String                 @map("display_name")
+  dateOfBirth         DateTime               @map("date_of_birth") @db.Date
+  preferredLocale     String                 @default("en") @map("preferred_locale")
+  createdAt           DateTime               @default(now()) @map("created_at")
+  updatedAt           DateTime               @updatedAt @map("updated_at")
+  user                User?                  @relation("AthleteAccount", fields: [userId], references: [id], onDelete: SetNull)
+  guardianLinks       GuardianAthleteLink[]
+  guardianInvitations GuardianInvitation[]
 
   @@index([dateOfBirth])
   @@map("athlete_profiles")
@@ -122,4 +132,27 @@ model GuardianAthleteLink {
   @@index([guardianUserId, status])
   @@index([athleteId, status])
   @@map("guardian_athlete_links")
+}
+
+model GuardianInvitation {
+  id               String                   @id @default(uuid()) @db.Uuid
+  athleteId        String                   @map("athlete_id") @db.Uuid
+  invitedByUserId  String                   @map("invited_by_user_id") @db.Uuid
+  inviteeEmail     String                   @map("invitee_email")
+  relationshipType String?                  @map("relationship_type")
+  tokenHash        String                   @unique @map("token_hash")
+  status           GuardianInvitationStatus @default(PENDING)
+  expiresAt        DateTime                 @map("expires_at")
+  acceptedByUserId String?                  @map("accepted_by_user_id") @db.Uuid
+  acceptedAt       DateTime?                @map("accepted_at")
+  revokedAt        DateTime?                @map("revoked_at")
+  createdAt        DateTime                 @default(now()) @map("created_at")
+  updatedAt        DateTime                 @updatedAt @map("updated_at")
+  athlete          AthleteProfile           @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  invitedBy        User                     @relation("CreatedGuardianInvitations", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+  acceptedBy       User?                    @relation("AcceptedGuardianInvitations", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([athleteId, status])
+  @@index([inviteeEmail, status])
+  @@map("guardian_invitations")
 }
