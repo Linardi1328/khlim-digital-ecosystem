@@ -1,200 +1,229 @@
 # Platform Vision
 
-**Status:** Accepted as strategic direction, not MVP scope
+**Status:** Accepted strategic direction, not all immediate scope
 
 ## Vision
 
-KHLIM Super App begins as a production-ready basketball experience and can evolve into a broader KHLIM athlete-development, family, sports, and competition ecosystem.
+KHLIM is building a **Digital Sports Ecosystem**, not a standalone mobile app.
 
-The product should earn the right to expand. Multi-sport architecture is prepared at the core; additional sport features are implemented only when a real KHLIM program needs them.
+The ecosystem begins with a website/member platform for KHLIM Basketball Academy and grows into a shared identity, commercial, operational, athlete-development, event, and engagement platform that can serve multiple channels and future KHLIM services.
+
+The platform should earn the right to expand. Shared architecture is prepared early; additional sport/service features are implemented only when real KHLIM business and user needs justify them.
+
+## Channel model
+
+Different frontends have different responsibilities while sharing the same backend truth.
+
+| Channel | Primary audience | Primary responsibility |
+| --- | --- | --- |
+| Public/member website | public, prospective families, registered families, event participants | discovery, registration, membership/payment, member portal, public events |
+| Admin web | KHLIM staff | configuration, academy operations, finance/admin, scheduling, events, support |
+| Super App | registered athletes/parents/coaches/staff | rich authenticated member/athlete/coach experience after demand justifies native mobile |
+| Social media | public/community | discovery, marketing, community, general enquiries |
+| KHLIM Assist | event participants/members depending channel | approved event-information assistance using shared event truth |
+
+The rule is:
+
+> **Every channel does its job well, while all channels are powered by the same KHLIM platform.**
 
 ## Product horizons
 
-### Horizon 1 — KHLIM Basketball
+### Horizon 1 — Academy commercial foundation
 
-Primary focus:
-- player experience;
-- schedules and attendance;
-- parent oversight;
-- coach development workflows;
-- competitions/events;
-- KHERO;
-- rewards;
-- club administration;
-- multilingual access.
+First priority:
+- public website;
+- one KHLIM family account;
+- Guardian ↔ Athlete identity;
+- configurable Programmes/Offerings;
+- Membership Plans/Memberships;
+- secure upfront and recurring payments;
+- venues/schedules;
+- basic family member portal;
+- basic admin/finance operations;
+- transactional email;
+- production testing/recovery/monitoring.
 
-Success means KHLIM Basketball can operate key recurring workflows through the platform reliably.
+Success means KHLIM can acquire and manage Academy families professionally without fragmented registration/payment spreadsheets becoming the source of truth.
 
-### Horizon 2 — Additional KHLIM sport
+### Horizon 2 — Academy operations automation
 
-A second sport should reuse:
-- accounts and authentication;
+At growing usage:
+- failed-payment/dunning automation;
+- renewal/expiry/suspension/reactivation;
+- WhatsApp notifications;
+- attendance and coach roster;
+- QR-assisted check-in with coach confirmation;
+- Benefits/Entitlements/starter-kit fulfilment;
+- closure/replacement-session automation;
+- richer operational analytics.
+
+### Horizon 3 — Athlete development + connected KHLIM services
+
+- coach evaluations/development history;
+- advanced training and competitive-team pathway;
+- KHLIM 3x3 registration/member pricing;
+- camps and camp payments;
+- richer family dashboard;
+- multi-venue operations;
+- cross-service athlete history.
+
+### Horizon 4 — Native KHLIM Super App
+
+When usage justifies native mobile investment, the Super App reuses the established platform:
+- Home;
+- Academy/Membership;
+- Schedule;
+- Athlete/Development;
+- Payments;
+- 3x3/Camps;
+- KHERO/Rewards;
+- Notifications;
+- Account/family management;
+- coach workflows.
+
+Native mobile does not introduce a second auth/payment/membership/event backend.
+
+### Horizon 5 — Additional KHLIM sports
+
+A second sport reuses:
+- accounts/authentication;
 - Athlete identity;
 - guardian relationships;
-- role/permission fundamentals;
+- Programme/Membership foundations where applicable;
+- payments;
 - notifications;
-- audit;
+- venues/scheduling;
 - events/registrations;
+- audit;
 - attendance infrastructure;
 - rewards infrastructure where appropriate.
 
-It adds/configures:
-- sport definition;
-- sport-specific teams/groups;
-- positions/categories;
-- development framework;
-- coach assignments;
-- competition formats;
-- sport-specific presentation.
+It adds/configures sport-specific teams, development frameworks, coach assignments, competition formats, terminology, and presentation.
 
-Example:
-
-```text
-Athlete: Alex Lim
-
-Basketball
-└── U16 Main Team
-
-Badminton
-└── U17 Singles Development
-```
-
-### Horizon 3 — Cross-sport KHLIM experience
+### Horizon 6 — Advanced competition ecosystem
 
 Potential capabilities:
-- athlete profile containing multiple sports;
-- family calendar across children and sports;
-- cross-sport event discovery;
-- sport filtering and switching;
-- organization-wide achievements;
-- cross-sport or sport-specific rewards;
-- longitudinal athlete history.
-
-### Horizon 4 — Advanced competitions
-
-Potential capabilities:
-- public/private registrations;
-- team and individual competition formats;
-- brackets, draws, heats, or divisions;
+- external/public registrations;
+- team and individual formats;
+- divisions/draws/brackets/results;
 - eligibility rules;
-- results and history;
+- public event pages;
+- participant communication;
 - payments;
-- event staff workflows;
-- public event pages.
+- event staff roles;
+- competition history.
 
-Competition functionality should remain a modular extension of the Events/Competition domain rather than forcing every sport into a single basketball tournament model.
+The same Event domain can power website pages, member views, KHLIM Assist, and future competition portals.
 
-### Horizon 5 — AI and automation
+### Horizon 7 — Commerce and coaching services
 
-AI should consume structured, permissioned platform data after the operational system is trustworthy.
+Potential capabilities:
+- private/small-group coaching booking;
+- coach availability;
+- payment;
+- merchandise/pre-orders;
+- order/collection fulfilment;
+- member pricing/credits/entitlements.
 
-Possible capabilities:
+Commerce uses shared Billing and account infrastructure rather than creating a second checkout/customer system.
+
+### Horizon 8 — AI and automation
+
+AI consumes structured, permissioned KHLIM data after operational truth is reliable.
+
+KHLIM Assist is the first narrow specialization: event-information intelligence across supported social channels, website chatbot, and later authenticated member event chat.
+
+Future capabilities may include:
+- public event assistant;
+- permission-aware member assistant;
 - coach development summaries;
 - parent progress summaries;
-- scheduling/event drafting assistance;
-- registration follow-up automation;
+- admin scheduling/event drafting;
+- registration follow-up;
 - translation assistance;
-- coach-reviewed training/development recommendations;
-- club operations agents.
+- coach-reviewed development recommendations.
 
-AI must not silently become the authority for:
-- official attendance;
-- official evaluations;
-- competition eligibility;
-- family permissions;
-- sensitive child-safety decisions.
+AI must not silently become the authority for official attendance, payment truth, membership eligibility, official evaluations, family permissions, or child-safety decisions.
 
-### Horizon 6 — Optional external organization platform
+### Horizon 9 — Optional external organization platform
 
-If KHLIM later chooses to commercialize the software for other clubs/academies, that is a distinct product/business phase.
+Only if KHLIM deliberately commercializes the software to external clubs:
+- true tenant isolation;
+- organization administrators/permissions;
+- organization branding/configuration;
+- platform billing;
+- migration/export/support tooling;
+- stronger contractual/privacy operations.
 
-It would require deliberate design for:
-- organization/tenant isolation;
-- tenant-specific administrators and permissions;
-- branding/configuration;
-- billing/subscriptions;
-- support and operational tooling;
-- data migration/export;
-- contractual/privacy obligations.
-
-MVP must not pretend this tenancy layer already exists.
+Do not prebuild tenancy into the Academy MVP without a validated business case.
 
 ## Athlete identity principle
 
-The long-term central object is the athlete, not the basketball roster row.
+The long-term durable object is the Athlete identity, not one programme/team row.
 
 ```text
-User Account
-    │
-    ▼
-Athlete Identity
-    │
-    ├── Sport Participation
-    │     ├── Basketball
-    │     └── Future Sport
-    │
-    ├── Team / Group History
-    ├── Training / Attendance
-    ├── Development History
-    ├── Competitions
-    ├── Achievements
-    └── Rewards
+KHLIM Account / Athlete
+  ├── Programme Membership History
+  ├── Sport Participation
+  ├── Team History
+  ├── Training / Attendance
+  ├── Development History
+  ├── Tournaments / Camps
+  ├── Achievements / KHERO
+  └── Future services
 ```
-
-This allows the athlete's history to persist as they move through age groups, seasons, teams, and potentially sports.
 
 ## Family principle
 
-A family relationship belongs to the people, not to one sport.
+A family relationship belongs to people, not one programme or sport.
 
 ```text
 Guardian
-   │
-   └── Athlete
-         ├── Basketball
-         └── Future Sport
+  ├── Athlete A
+  └── Athlete B
 ```
 
-A parent should not need a new relationship link every time the child joins another KHLIM program.
+The same link/account persists as children move through programmes, teams, events, or future sports.
 
-## Sport configuration principle
+## Commercial infrastructure principle
 
-Avoid creating a giant `if sport == ...` codebase.
+Membership/payment infrastructure is reusable across KHLIM services:
 
-Prefer configuration and owned sport-specific extensions for concepts such as:
-- positions/categories;
-- development criteria;
-- team/group labels;
-- event formats;
-- approved reward rules;
-- presentation assets.
+```text
+Membership / Tournament / Camp / Order
+              ↓
+        Billing Service
+              ↓
+       Payment Provider
+```
 
-Not every sport difference can or should be configuration. If a sport needs genuinely different behavior, implement it in a clear sport-aware domain extension rather than leaking special cases throughout the platform.
+Provider details stay behind adapters. KHLIM does not store raw card credentials.
 
-## KHERO principle
+## Information-classification principle
 
-KHERO is the official face of the initial KHLIM Basketball experience.
+### Public
+Suitable for website/social/KHLIM Assist public context:
+- programmes/public pricing where approved;
+- public events;
+- venues/public coach information;
+- FAQs/registration rules.
 
-Future possibilities remain open:
-- KHERO becomes a KHLIM-wide mascot with sport-specific outfits/items;
-- KHERO remains basketball-specific and future sports receive different mascots;
-- a mixed strategy is used.
+### Member
+Authenticated family/athlete/coach context:
+- membership/schedule;
+- member event registration;
+- attendance/development/rewards when implemented.
 
-Do not make irreversible cross-sport mascot assumptions in MVP schema design.
-
-## Expansion trigger
-
-Do not activate full multi-sport UX merely because the architecture can support it.
-
-A second sport should be implemented when:
-- KHLIM has a real program and operational owner;
-- its participant/coach workflows are understood;
-- its development framework is defined;
-- its competition/event needs are known;
-- the basketball platform is sufficiently stable to support expansion.
+### Sensitive
+Strict permission control:
+- payment/account details;
+- internal coach notes;
+- family relationship administration;
+- attendance corrections;
+- privileged admin/audit information.
 
 ## Strategic guardrail
 
 The goal is **future-ready, not future-built**.
 
-Every abstraction must justify itself by making the basketball product cleaner or by avoiding an obvious high-cost future migration. Speculative complexity that slows down KHLIM Basketball without a real requirement should be rejected.
+Every abstraction must either support the current Academy product cleanly or avoid an obvious expensive future migration. Features that do not improve revenue, retention, collections, administration, athlete development, ecosystem integration, useful data, or scalability should be challenged before implementation.

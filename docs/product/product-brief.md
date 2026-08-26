@@ -1,175 +1,162 @@
 # Product Brief
 
-**Status:** Accepted for current planning baseline  
-**Product:** KHLIM Super App  
-**Launch organization:** KHLIM Basketball Club
+**Status:** Accepted current planning baseline
+**Product:** KHLIM Digital Sports Ecosystem
+**Launch organization:** KHLIM Basketball
 
 ## Problem
 
-Youth sports development involves more than training sessions. Athletes need clarity on schedules, progress, competitions, selections, and opportunities. Parents need reliable oversight of their children's commitments and development. Coaches need efficient tools for attendance and evaluations. Club administrators need a consistent way to coordinate all of this without depending on fragmented chats, spreadsheets, posts, and manual follow-ups.
+KHLIM needs digital infrastructure that helps a small academy operate professionally now and can later connect tournaments, camps, competitive teams, private coaching, merchandise, athlete development, additional locations, and future sports without creating separate accounts and disconnected systems.
 
-KHLIM Super App launches by solving these problems for KHLIM Basketball, while avoiding assumptions that would make the core platform impossible to reuse for additional sports later.
+The immediate business need is not a feature-heavy mobile app. Families need a reliable way to discover programmes, register children, select memberships, pay securely, understand schedules, and manage their account. Staff need one place to manage programmes, memberships, payments, venues, schedules, and family records without fragmented spreadsheets and manual follow-up.
 
 ## Purpose
 
-Create one trusted digital hub for the KHLIM athlete journey, connecting club operations with development, family supervision, communication, engagement, and competition participation.
+Create one KHLIM account ecosystem and shared platform that supports the customer and athlete journey from first discovery through recurring academy participation and later KHLIM services.
 
-The first public experience is basketball-specific. The long-term platform is sport-aware.
+The first public product is the **KHLIM website + authenticated family/member portal**, supported by the Admin web application and shared API. The future native Super App is another client of the same platform, not a separate backend.
 
-The app should help KHLIM:
+> **One backend. One database. One authentication system. One payment infrastructure. Multiple frontends.**
 
-1. Improve operational clarity around training, competitions, events, selections, and announcements.
-2. Give athletes a visible record of their development and participation.
-3. Give parents appropriate oversight of schedules, attendance, progress, registrations, and coach communication.
-4. Give coaches fast tools to manage rosters, attendance, evaluations, and development priorities.
-5. Build stronger player engagement through KHERO identity, points, rewards, and achievements.
-6. Create structured data that can support future analytics and human-supervised AI automation.
-7. Reuse the same platform foundation if KHLIM introduces additional sports, competition formats, or athlete programs.
+## Business ecosystem
 
-## Core product loop
+The platform should be capable of connecting, over time:
+- KHLIM Basketball Academy;
+- KHLIM 3x3 tournaments;
+- KHLIM Academy League;
+- camps;
+- private/small-group coaching;
+- advanced training and competitive teams;
+- athlete-development programmes;
+- merchandise/pre-orders;
+- sponsorship-related programmes;
+- future sports and sports-technology services.
 
-> **Attend → Train → Improve → Earn → Participate → Repeat**
+The academy is expected to be the main recurring-revenue foundation.
 
-Training and development are the core. Gamification exists to reinforce participation and engagement rather than distract from sport development.
-
-## Basketball-first, athlete-centered
-
-The MVP user interface can use basketball-native language such as **Player**, **Team**, **Practice**, and basketball-specific development categories.
-
-Internally, the platform should use more durable concepts:
-
-- `Athlete` rather than a basketball-only player entity;
-- `Sport` as a configurable domain concept;
-- `Team` / `Group` associated with a sport and season;
-- `TrainingSession` rather than basketball-only practice records;
-- `Competition` / `Event` with team or individual formats;
-- `DevelopmentFramework` and `DevelopmentCriterion` rather than hard-coded basketball skills.
-
-This is not a requirement to expose multiple sports in MVP 1.0. It is a requirement to avoid unnecessary basketball-only coupling in the core model.
-
-## Primary users
-
-### Player / Athlete
-Wants to know what is next, how they are improving, what they have earned, and what opportunities are available. In the basketball MVP, the UI uses **Player** while the internal platform identity is **Athlete**.
+## Primary early users
 
 ### Parent / Guardian
-Wants to supervise one or more children, understand attendance and progress, respond to events, receive important updates, and contact appropriate coaches. A family account should continue to work even if a child participates in more than one sport later.
+Creates one account, manages one or more linked children, selects programmes/memberships, accepts terms, pays, views membership/payment status and schedules, and later manages tournament/camp opportunities.
+
+### Athlete / Player
+Has a durable KHLIM Athlete identity. Basketball UI may use **Player**. Their historical programme, team, attendance, development, competition, and achievement data can accumulate over time.
 
 ### Coach
-Wants fast access to assigned sessions and athletes, efficient attendance, practical development tracking, and controlled communication with families. Coach access is scoped by sport, team/group, session, and assignment.
+Uses role-scoped tools for assigned sessions, attendance, athlete development, and later coaching enquiries/services. Coaches do not automatically gain access to family financial data.
 
-### Club Administrator
-Wants consistent control over users, sports, teams/groups, schedules, competitions/events, announcements, development frameworks, rewards, permissions, and operational reporting.
+### Club staff / administrators
+Manage configurable programmes, offerings, prices, memberships, payments, venues, schedules, events, entitlements, development, and operational reporting according to role/permission scope.
 
 ## Product principles
 
-- **Development-first:** the product should strengthen athlete development rather than become a generic social app.
-- **Basketball-first UX:** MVP 1.0 should feel purpose-built for KHLIM Basketball.
-- **Sport-agnostic core:** reusable infrastructure must not assume basketball is the only sport the organization can offer.
-- **Family-aware:** parent/guardian functionality is core to the product architecture.
-- **Coach-controlled evaluations:** coaches control official development assessments; athletes cannot self-edit official ratings.
-- **Privacy by design:** information about minors must be minimized, access-controlled, auditable, and protected by default.
-- **Modular architecture:** domains should remain loosely coupled so future capabilities can be added or replaced safely.
-- **Configurable frameworks:** sports, development criteria, event formats, point rules, reward definitions, and similar operational concepts should avoid unnecessary hard-coding.
-- **Multilingual by design:** the UI and system-generated communication must support localization without rewriting screens later.
-- **Operationally realistic:** coach workflows must remain fast enough to use during real training and competition operations.
-- **Progressive complexity:** MVP proves basketball workflows before multi-sport UI, commerce, analytics, video, or AI are introduced.
+1. **Revenue and operations first.** Early features should improve registration, recurring revenue, collections, retention, or administration.
+2. **Website first, Super App later.** Build useful shared infrastructure before investing heavily in native mobile.
+3. **One KHLIM identity.** Families should not create separate accounts for Academy, 3x3, Camps, Teams, or future services.
+4. **Basketball first, sport-aware core.** Only Basketball must be live for MVP, while durable domain concepts remain reusable.
+5. **Configuration over hard-coding.** U9/U12/U15, venues, packages, prices, capacities, benefits, and billing policies are data/configuration where safe.
+6. **Backend-authoritative business rules.** Frontends never become the source of truth for price, eligibility, membership state, payments, or permissions.
+7. **Provider abstraction.** Payment and notification vendors sit behind application interfaces so KHLIM is not unnecessarily locked to one provider.
+8. **Privacy and least privilege.** Children/family/financial data are minimized and server-side access controlled.
+9. **Historical continuity.** Programme/team/membership/development history is retained when athletes progress.
+10. **Multilingual by design.** Localization begins with the first production screens.
+11. **Progressive complexity.** Features are added as business scale and real usage justify them.
+12. **Production reliability before launch.** No public release with unresolved P0/P1 defects; beta, rollback, monitoring, backup/restore, and payment-integrity checks are mandatory.
+
+## Initial customer journey
+
+```text
+Discover KHLIM website
+→ create parent account
+→ add/select child
+→ choose programme offering
+→ choose membership plan
+→ accept membership/recurring terms
+→ secure provider checkout/tokenization
+→ verified payment succeeds
+→ membership activates
+→ family sees dashboard and schedule
+→ staff sees authoritative membership/payment state
+```
 
 ## MVP value proposition
 
-For the first public release, a KHLIM Basketball family should be able to open the app and understand:
+For the first public website MVP, a KHLIM family should be able to:
+- understand available Academy programmes;
+- create one family account and manage multiple children;
+- select a programme/location/package;
+- pay upfront or through an approved recurring arrangement;
+- see membership and payment status;
+- see upcoming academy schedule;
+- receive basic transactional communication.
 
-- what training is coming up;
-- whether the player has been attending;
-- what the player is currently working to improve;
-- what competitions, trials, or club events are approaching;
-- whether the family needs to respond or register;
-- what KHERO points and rewards the player has earned;
-- which coaches are relevant and how to enquire about additional training.
+Staff should be able to:
+- configure programmes/offers/plans without code changes;
+- manage families/athletes;
+- see active/pending/suspended memberships;
+- see payment success/failures and receipts;
+- manage venues/courts/schedules/capacity;
+- perform normal Academy administration without developer intervention.
 
-A coach should be able to manage today's roster and player development without needing a separate attendance or evaluation system.
+## MVP scope boundary
 
-An administrator should be able to publish or change schedules, events, competition deadlines, announcements, and framework configuration without requiring an App Store release.
+The first website MVP deliberately does **not** require:
+- full native Super App functionality;
+- KHERO/reward engagement loop;
+- coach evaluations/player-development analytics;
+- 3x3/camp integration;
+- attendance/QR check-in;
+- merchandise shop;
+- private coaching marketplace;
+- additional live sports;
+- social feed/direct messaging;
+- advanced AI/video/statistics.
 
-## Long-term platform opportunity
+Those features remain compatible with the architecture and are introduced after the commercial/operational foundation proves itself.
 
-Over several years, the product can become an athlete's digital KHLIM identity: sports participated in, teams/groups, training history, competitions, selections, development milestones, achievements, KHERO/reward progression, and coach-reviewed development plans.
-
-Potential expansion path:
+## Growth progression
 
 ```text
-KHLIM Basketball MVP
+0–30 students
+Website + accounts + programmes + memberships + payments + basic admin/schedule
         ↓
-Basketball operations + competitions mature
+30–60
+Billing automation + attendance + WhatsApp + entitlements
         ↓
-Additional KHLIM sport activated
+60–100
+Development + camps + 3x3 + member discounts + richer multi-venue operations
         ↓
-Cross-sport athlete/family experience
-        ↓
-Advanced competition management
-        ↓
-Optional external-club / multi-organization platform
+100+ / demonstrated demand
+Native KHLIM Super App over the same APIs
 ```
 
-Future capabilities may include:
+## Long-term athlete loop
 
-- additional sports and sport-specific development frameworks;
-- team and individual competition formats;
-- private training booking and payments;
-- merchandise and rewards commerce;
-- richer performance analytics;
-- video and game-stat integration;
-- multilingual admin-authored content and assisted translation;
-- parent progress summaries;
-- coach workload automation;
-- club operations agents;
-- coach-approved AI development recommendations;
-- optional external-club SaaS capability if the business deliberately moves in that direction.
+The original athlete-development loop remains valuable after the commercial foundation is established:
+
+> **Attend → Train → Improve → Earn → Participate → Repeat**
+
+KHERO, rewards, evaluations, competitions, and later AI can reinforce that loop without owning financial, attendance, or official coaching truth.
 
 ## Multilingual direction
 
-Internationalization is a foundation requirement even if translations roll out progressively.
-
-Initial target locales:
-
+Initial registered locales:
 - English (`en`)
 - Bahasa Melayu (`ms`)
 - Simplified Chinese (`zh-Hans`)
 - Traditional Chinese (`zh-Hant`)
 - Hindi (`hi`)
 
-A dedicated Cantonese locale such as written Cantonese (`yue-Hant`) may be introduced if validated by KHLIM users. Traditional Chinese must not be treated as synonymous with Cantonese.
-
-Each account stores its own preferred locale. A parent and child may use different languages while interacting with the same underlying club information.
+English is the fallback. A dedicated written Cantonese locale may be introduced later if validated.
 
 ## MVP success signals
 
-The MVP should be considered promising if:
-
-- coaches consistently complete attendance;
-- players regularly check schedules and progress;
-- parents use the app for oversight and event actions;
-- development evaluations are maintained instead of abandoned;
-- important competition communication moves into the platform;
-- KHERO points create measurable engagement;
-- private coaching enquiries can be generated through the product;
-- support burden and communication confusion decrease rather than increase;
-- the architecture can introduce another sport without redesigning identity, family, notification, or event fundamentals.
-
-## Non-goals for MVP 1.0
-
-The MVP is not intended to include:
-
-- a multi-sport end-user selector or additional live sports;
-- external-club / multi-tenant SaaS;
-- a public competition marketplace;
-- a social network or public athlete feed;
-- real-time direct messaging between all users;
-- live match statistics;
-- automated video analysis;
-- wearable tracking;
-- a full e-commerce marketplace;
-- integrated payment processing;
-- complex coach booking calendars;
-- autonomous AI coaching;
-- public leaderboards that rank children against each other.
+The first release is successful if:
+- families can complete registration/payment without staff intervention;
+- membership/payment records reconcile correctly;
+- payment failures are visible and recoverable;
+- staff can operate programme/membership/schedule basics without spreadsheets becoming the primary source of truth;
+- families understand their membership and next training;
+- support burden is manageable;
+- no critical security/payment/data-integrity defects remain;
+- the same backend is ready for later attendance, tournaments, camps, development, KHERO, and mobile clients.

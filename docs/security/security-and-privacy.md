@@ -1,230 +1,269 @@
 # Security and Privacy
 
-**Status:** Accepted as current security baseline
+**Status:** Accepted current security baseline
 
-KHLIM Super App may process information about minors, families, coaches, sports, schedules, attendance, competitions, and development. Security and privacy must therefore be product requirements, not release-week cleanup.
+KHLIM will process information about minors, families, memberships, schedules, payments, and later attendance/development/events. Security and privacy are product requirements from the first website MVP, not launch-week cleanup.
 
 ## Security objectives
 
 Protect:
-- user identities and sessions;
-- parent/guardian-athlete relationships;
-- athlete development information;
-- attendance history;
-- sport/team membership;
-- competition registrations and selections;
-- contact and emergency information;
-- administrative functions;
-- point/reward integrity;
-- private/internal coaching notes;
-- club operational information.
+- user identities/sessions;
+- Guardian ↔ Athlete relationships;
+- programme/membership records;
+- payment/customer/provider references and transaction history;
+- schedules/venues;
+- staff/admin functions;
+- later attendance/development/internal coaching data;
+- event registrations/selections;
+- reward/entitlement integrity.
 
 ## Core principles
 
 ### 1. Deny by default
-A request is rejected unless the server can prove the caller is authorized.
+Protected requests are rejected unless server authorization proves access.
 
-### 2. Relationship- and sport-aware authorization
+### 2. Relationship- and scope-aware authorization
 Role alone is insufficient.
 
 Examples:
-- a parent can access only linked children;
-- a coach can access only assigned/authorized sports, teams, sessions, or athletes;
-- a Basketball coach does not automatically gain access to a future Badminton program;
-- an administrator may require a specific elevated permission for high-risk actions.
+- a guardian accesses only linked athletes;
+- a coach accesses only assigned athletes/sessions and does not automatically gain finance access;
+- finance/admin roles see only data required for their work;
+- event staff do not automatically receive internal Academy/finance data.
 
-### 3. Minimize collected data
-Do not collect information merely because it might be useful someday. Academic, contact, location, identity, family, and sport-profile information should have a clear product purpose and retention policy.
+### 3. Backend-authoritative commercial state
+Frontends cannot become the source of truth for:
+- price/discount;
+- membership status;
+- payment/installment state;
+- entitlement eligibility;
+- role/permission changes.
 
-### 4. Separate shared and internal coaching data
-Family-visible progress and internal staff notes require different data-access paths and tests.
+### 4. Minimize collected data
+Do not collect child/family/payment metadata merely because it might be useful later. Every sensitive field should have a documented purpose and retention expectation.
 
-### 5. Preserve authoritative originals
-If translated variants of coach/admin content are introduced, the original approved text remains authoritative. Machine/AI translation must not silently overwrite official notes or instructions.
-
-### 6. Audit sensitive mutations
+### 5. Audit sensitive mutations
 At minimum consider audit records for:
 - role/permission changes;
 - family-link creation/removal;
-- coach sport/team assignments;
-- attendance corrections;
-- evaluations and internal-note changes/access where justified;
-- point adjustments and reward redemptions;
-- event cancellations/material administrative changes;
-- high-risk admin configuration changes;
+- Membership Plan/commercial configuration changes;
+- membership suspension/cancellation/manual overrides;
+- refunds/manual payment adjustments;
+- venue/session cancellations/material changes;
+- later attendance corrections/evaluations/internal-note changes;
+- point/reward/entitlement manual adjustments;
 - account deletion/export actions.
 
 ## Authentication
 
+- Use proven authentication infrastructure (current Phase 1 direction: Supabase Auth).
+- Server validates sessions/tokens.
+- Logout/revocation/account recovery supported.
+- Admin/staff high-privilege access uses MFA/strong control.
+- Credential-stuffing/rate-abuse protections applied where appropriate.
+- Do not build custom password storage without deliberate security ownership.
+
+KHLIM business authorization stays in application/domain logic rather than relying only on auth metadata.
+
+## Payment security
+
+KHLIM must **never store**:
+- full card number/PAN;
+- CVV/security code;
+- raw card credentials;
+- provider secrets in client bundles/logs/database records.
+
+Preferred flow:
+
+```text
+Browser
+  ↓ secure hosted/provider fields
+Payment Provider tokenizes/authenticates
+  ↓
+KHLIM receives approved customer/payment-method/payment references
+```
+
 Requirements:
-- use a proven authentication provider;
-- secure token/session storage on mobile;
-- server-side token validation;
-- logout and session revocation support;
-- account recovery flow;
-- protection against credential stuffing/rate abuse;
-- MFA or equivalent stronger control for administrators;
-- do not build custom password storage unless the team intentionally accepts that security burden.
+- provider integration behind `PaymentGateway`/Billing abstraction;
+- TLS for checkout/API/webhook traffic;
+- signed webhook verification;
+- provider event ID deduplication;
+- idempotency protection for charge-creating/retryable actions;
+- server-authoritative amount/currency/discount;
+- payment state reconciled from trusted provider events/APIs, not browser redirect alone;
+- test/staging/production provider credentials isolated;
+- logs redact provider tokens/secret material and unnecessary financial metadata;
+- refund/manual-adjustment workflows require explicit authorization/reason/audit;
+- failed webhook/payment processing is observable/alertable;
+- financial records are retained according to applicable legal/business policy.
 
-Supabase Auth is the current Phase 1 authentication infrastructure choice. KHLIM authorization and relationship rules remain in application/domain logic rather than being delegated solely to authentication metadata.
+Provider tokens/references are not raw card data but should still be treated as sensitive operational identifiers.
 
-Future methods such as Apple, Google, phone OTP, or passkeys remain provider/interface concerns rather than leaking throughout business modules.
+## Payment authorization tests
 
-## Authorization tests
+Release-critical examples:
+- changing frontend price does not change authoritative charge amount;
+- Parent A cannot view Parent B payment history;
+- Coach cannot view finance data by default;
+- duplicate webhook does not duplicate payment/membership activation/entitlement;
+- duplicate checkout/charge request is idempotently handled where required;
+- failed payment cannot be marked paid by client payload;
+- production webhook signature failures are rejected;
+- recurring schedule cannot charge beyond configured commitment cycles;
+- membership and payment status transitions remain consistent under retries/out-of-order events.
 
-Permission tests are release-critical.
+## General authorization tests
 
 Examples:
-- Parent A cannot read Parent B's child.
-- Coach A cannot read an unrelated team's internal notes.
-- Coach assigned to one sport cannot automatically access another sport.
-- Athlete cannot edit official evaluation data.
-- Parent cannot award points.
-- Coach cannot perform an admin-only role change.
-- Deleted/unlinked guardian relationships stop granting access.
-- Deactivated accounts lose protected access.
-- Changing locale does not change authorization.
+- Parent A cannot read Parent B's child;
+- revoked GuardianAthleteLink stops access;
+- Coach cannot access unrelated athletes/internal notes;
+- locale changes do not affect permission;
+- deactivated accounts lose protected access;
+- staff privilege scope is enforced server-side.
 
-These should be automated integration tests, not only manual QA cases.
+These should be automated integration tests, not only manual QA.
 
-## API and application security
+## Website/API security
 
-- Validate and normalize server input.
-- Use parameterized database access/ORM protections against injection.
-- Apply rate limits to authentication and abuse-sensitive operations.
-- Prevent mass-assignment of privileged fields.
-- Use pagination and bounded queries.
-- Enforce upload size/type restrictions.
-- Safely process untrusted uploads where relevant.
-- Avoid exposing stack traces or secrets to clients.
-- Use HTTPS/TLS for all production traffic.
-- Use secure headers and CSRF protections where applicable to the web admin app.
-- Treat mobile clients as untrusted; never embed privileged backend secrets.
-- Do not treat direct client access to Supabase/database tables as a substitute for server authorization for normal KHLIM business operations.
+- Validate/normalize server input.
+- ORM/parameterized database access.
+- Rate-limit authentication, checkout, webhook-adjacent public endpoints, and abuse-sensitive operations as appropriate.
+- Prevent mass assignment of privileged fields.
+- Use secure headers/CSRF protections where applicable.
+- Never embed backend/service/payment secrets into browser/mobile clients.
+- Avoid direct client business writes to Supabase/database tables for normal KHLIM operations.
+- Public routes expose only approved public data; protected family/financial data is not cached/publicly rendered accidentally.
 
 ## Data protection
 
-- Prefer managed encryption at rest for production databases and object storage.
-- Encrypt all network traffic in transit.
-- Separate development, staging, and production credentials/data.
-- Never copy production user data into development by default.
-- Use least-privilege database/service credentials.
-- Document backup, retention, and deletion behavior.
-- Test restoration rather than assuming backups work.
+- Managed encryption at rest where supported.
+- TLS in transit.
+- Development/staging/production credentials/data isolated.
+- No production user/payment data copied into development by default.
+- Least-privilege service/database credentials.
+- Automated production backups.
+- Restore procedure tested before public launch.
+- Payment provider can be used as reconciliation source when validating restored transaction state.
 
 ## Secrets
 
-Secrets must not be committed to Git.
-
-Examples:
+Never commit:
 - database credentials;
-- Supabase service-role/server credentials;
+- Supabase service-role credentials;
+- payment gateway secret/API/webhook keys;
+- email/WhatsApp/SMS provider secrets;
 - signing credentials;
-- push notification secrets;
-- API tokens;
-- provider service keys;
-- production environment configuration containing sensitive values.
+- production tokens/configuration secrets.
 
-Use environment/secret-management tooling appropriate to GitHub Actions, Railway, Vercel, Supabase, EAS, and other approved deployment providers.
+Use GitHub/Vercel/Railway/Supabase/provider secret stores and document ownership/recovery.
 
 ## Logging and observability
 
-Logs should help investigate failures without becoming a second sensitive-data database.
-
 Do not log unnecessarily:
-- passwords or authentication tokens;
-- full private notes;
-- unnecessary contact details;
-- sensitive child information;
-- secrets/credentials;
-- complete translated copies of sensitive notes solely for telemetry.
+- passwords/auth tokens;
+- raw card/payment credentials;
+- provider secret keys;
+- full private/internal notes;
+- unnecessary child/contact details.
 
-Prefer identifiers, event types, safe metadata, locale codes where useful, and correlation IDs.
+Prefer stable IDs, safe event metadata, status codes, correlation IDs, provider event IDs where safe, and redacted failure information.
 
-## Parent/guardian and minor considerations
+Production observability must cover:
+- login/auth failures;
+- API error/latency;
+- payment/webhook failures;
+- database health;
+- notification failures;
+- high-severity alerts;
+- cost/usage.
 
-Before launch, KHLIM should confirm applicable legal/privacy requirements for jurisdictions in which the club and users operate. Product implementation should support:
-- verified/authorized guardian relationships;
-- age-aware policy changes if required;
-- clear privacy notices in supported languages where appropriate;
-- consent workflows where legally/operationally required;
+## Minor/family considerations
+
+Before launch, confirm applicable legal/privacy/payment requirements for operating jurisdictions. Engineering should support:
+- authorized guardian relationships;
+- age-aware policies if required;
+- clear privacy notices;
+- membership/recurring-payment terms/consent records;
 - account/data deletion requests;
-- data export/access requests where required;
-- controlled use of athlete images/media;
-- retention periods appropriate to each data purpose.
+- data access/export processes where required;
+- controlled athlete media usage;
+- documented retention periods.
 
-This document is an engineering/security plan, not legal advice.
+This is an engineering/security plan, not legal advice.
 
-## Localization and translation risks
+## Localization risks
 
-Localization can introduce security/privacy mistakes if translated content changes meaning or reveals information to the wrong audience.
+Authorization occurs before rendering/translation. Translation cannot change audience.
 
-Rules:
-- authorization is evaluated before content rendering/translation;
-- translation never changes target audience;
-- selection/private athlete content must not become public because a locale variant was stored incorrectly;
-- original coach/admin text is preserved;
-- AI/machine translations of sensitive content are marked as derivative when introduced;
-- high-impact privacy/consent/payment text should receive human review before production use.
+High-impact privacy, membership, cancellation, recurring-payment, and payment-failure text should receive human review before production use in supported languages.
 
-## Third-party SDK review
+Original coach/admin text remains authoritative when future machine translation is introduced.
 
-Every analytics, crash-reporting, authentication, notification, translation, advertising, AI, or other SDK/service adds data-flow and supply-chain risk.
+## Third-party provider review
 
-Before production use, document:
-- what data it receives;
-- why it is necessary;
-- where data is processed/stored;
-- retention/deletion behavior;
-- whether it is suitable for a product used by minors;
-- required App Store / Play Store disclosures.
+For each payment, auth, analytics, crash-reporting, notification, AI, or other provider document:
+- data received;
+- purpose;
+- processing/storage region where relevant;
+- retention/deletion;
+- suitability for minors/family data;
+- contract/disclosure requirements;
+- outage/failure behavior;
+- credential/ownership/recovery plan.
 
-Avoid adding SDKs solely for convenience if the value does not justify the data exposure.
-
-## Attendance and reward integrity
-
-Official MVP attendance is coach/staff-confirmed.
-
-- QR/NFC/self check-in may later create a draft signal, not automatic official truth by default.
-- Award/deduction operations are server-controlled.
-- Transactions carry reason/source metadata.
-- Duplicate event processing must not award duplicate points.
-- Admin adjustments require actor and reason.
-- Redemptions must be transactional to avoid double-spending.
-
-## Multi-sport security guardrail
-
-Adding a second sport must not accidentally broaden authorization.
-
-New sport activation requires tests covering:
-- coach sport/team scoping;
-- athlete membership visibility;
-- parent visibility through the existing family link;
-- sport-scoped internal notes/evaluations;
-- event audience targeting;
-- admin permissions where administrators are scoped.
-
-A future external multi-organization product would require a separate tenant-isolation security design and is not implied by current sport-awareness.
+Avoid convenience SDKs that add unjustified data exposure.
 
 ## Incident readiness
 
-Before public launch, document:
-1. who owns security incidents;
-2. how credentials can be revoked;
-3. how a compromised account can be disabled;
-4. how releases can be rolled back or patched;
-5. how affected logs/audit events are preserved;
-6. how KHLIM decides whether users/regulators/partners must be notified.
+Before public launch document:
+1. incident owner;
+2. credential/token revocation;
+3. compromised account/staff disable procedure;
+4. rollback/feature-disable/forward-fix process;
+5. payment reconciliation procedure after an incident;
+6. backup restore procedure;
+7. audit/log preservation;
+8. communication/escalation obligations.
 
-## Pre-launch security gate
+Serious incident flow:
 
-Public launch should be blocked if any of the following are unresolved:
-- known authorization bypass;
-- insecure admin access;
+```text
+Detect
+→ contain
+→ stop risky rollout/feature
+→ protect payment/data integrity
+→ rollback/hotfix
+→ verify/reconcile
+→ restore gradually
+→ post-incident review + regression test
+```
+
+## Launch severity gate
+
+### P0 — launch blocker
+- security/privacy breach;
+- data corruption/loss;
+- incorrect/double charging;
+- authentication unavailable for core flows;
+- financial state cannot be reconciled.
+
+### P1 — launch blocker
+- core registration/checkout/membership flow broken;
+- major authorization error;
+- incorrect membership/payment state;
+- critical staff operation unusable.
+
+Public launch is blocked by any unresolved P0/P1.
+
+## Pre-launch security/reliability gate
+
+Also block launch for:
 - untested backup restoration;
-- secrets committed to source control;
-- missing account deletion path;
+- committed/uncontrolled secrets;
+- missing account deletion/request path;
+- unverified payment webhook security;
 - unexplained third-party data collection;
 - critical/high dependency vulnerability without accepted mitigation;
-- inability to identify or audit high-risk administrative changes;
-- translation/localization flow that can bypass audience/permission checks.
+- inability to audit high-risk financial/admin mutations;
+- privacy/payment terms not matching actual data/payment flows.

@@ -1,439 +1,335 @@
 # Core User Workflows
 
-**Status:** Accepted for current MVP planning baseline
+**Status:** Accepted current MVP planning baseline
 
-These workflows define the behavior the basketball MVP must make simple and reliable. Screen designs may change, but the business outcomes should remain stable unless product requirements change.
+These workflows now reflect the **website-first commercial MVP**. The future Super App reuses the same business flows and backend state; it does not create separate membership/payment/schedule rules.
 
-The basketball UI may say **Player** while the platform internally models that user as an **Athlete**.
-
-## Player / Athlete
-
-### 1. Daily/weekly home flow
+## Public visitor → family registration
 
 ```text
-Open app
-→ See next training/event
-→ See current development focus
-→ See KHERO points/reward progress
-→ See important announcements/actions
+Open KHLIM website
+→ view Academy / Programme Offering
+→ select Join / Register
+→ create Guardian account or sign in
+→ add/select Athlete
+→ choose Programme Offering
+→ choose Membership Plan
+→ review price, commitment, terms, recurring agreement
+→ secure payment-provider checkout/tokenization
+→ payment provider processes payment
+→ verified webhook reaches KHLIM
+→ Payment recorded exactly once
+→ Membership activates when policy conditions are satisfied
+→ confirmation email
+→ member dashboard
 ```
 
-Primary questions answered:
-- What is next?
-- How am I doing?
-- What am I currently working on?
-- What have I earned?
-- Is anything important happening soon?
+### UX rules
 
-### 2. Training flow
+- Backend returns authoritative price/eligibility.
+- Checkout must prevent accidental duplicate submission.
+- `processing/pending` must be distinguishable from `paid/active`.
+- Browser success redirect alone must not claim final payment truth if webhook reconciliation is pending.
+- Failed payment should show a safe recovery path without creating a duplicate membership/charge.
+
+## Parent / Guardian member portal
+
+### Dashboard
 
 ```text
-Schedule
-→ Open training session
-→ View time, venue, team, coach, notes/status
-→ Attend session
-→ Coach confirms attendance
-→ Player sees attendance update
-→ Rewards module may award points
+Sign in
+→ see linked children
+→ select child
+→ membership summary
+→ next payment/payment status
+→ next training
+→ important notification/action
 ```
 
-The player does not self-author official attendance in MVP.
+A parent with multiple children uses one account.
 
-### 3. Development flow
-
-```text
-Progress
-→ Basketball development framework
-→ Current development priorities
-→ Strengths
-→ Latest coach-shared notes/evaluation
-→ Evaluation history
-```
-
-The player cannot edit official evaluation content.
-
-### 4. KHERO/reward flow
-
-```text
-KHERO
-→ View mascot/profile
-→ View points balance/history
-→ View unlocked customization
-→ Choose allowed customization
-→ View eligible/upcoming rewards
-→ Submit/complete permitted redemption flow
-```
-
-### 5. Competition/event flow
-
-```text
-Home / Schedule / Competitions
-→ Open eligible event
-→ View date, venue, category, deadline, status
-→ See whether parent action is required
-→ Receive updates if event changes
-```
-
-For a minor athlete, registration may be completed by an authorized guardian rather than the player.
-
-### 6. Language flow
-
-```text
-Profile / Settings
-→ Language
-→ Select preferred locale
-→ UI and system-generated messages render in selected language
-```
-
-A player language choice does not change the linked parent's language.
-
-## Parent / Guardian
-
-### 1. Family dashboard
-
-```text
-Open app
-→ See linked children
-→ See combined upcoming family schedule/actions
-→ Select a child for detailed view
-```
-
-A parent with multiple children should not need separate accounts.
-
-Future multi-sport behavior may combine schedules across a child's sports without changing the guardian relationship.
-
-### 2. Child overview
-
-```text
-Select child
-→ Next training/events
-→ Attendance summary
-→ Current development focus
-→ Relevant announcements
-→ Required event actions
-→ Points/reward summary
-```
-
-### 3. Event response
-
-```text
-Notification/dashboard action
-→ Open event
-→ Review sport, date, venue, eligibility, deadline, notes
-→ Register/interested OR decline
-→ Confirmation
-→ Coach/admin sees response
-```
-
-### 4. Event update flow
-
-```text
-Admin changes venue/time/status/deadline
-→ Event record updated once
-→ Relevant users see updated event
-→ Notification generated for material change
-→ Parent opens event for authoritative latest details
-```
-
-Cancelled events remain visible as cancelled rather than silently disappearing where history/clarity matters.
-
-### 5. Progress supervision
+### Membership/payment view
 
 ```text
 Child
-→ Progress
-→ Relevant sport framework
-→ Latest shared evaluation
-→ Strengths and development priorities
-→ Historical updates
+→ Membership
+→ Programme / Plan
+→ status
+→ start/end dates
+→ next installment where applicable
+→ payment history / receipts
+→ approved support/cancellation/renewal action
 ```
 
-Internal coach notes are never displayed through this flow.
+Guardian cannot directly edit authoritative payment or membership state.
 
-### 6. Coach enquiry
+### Schedule
 
 ```text
-Coach directory / assigned coach
-→ View sport/specialization and service availability
-→ Submit enquiry
-→ Confirmation/status
+Child
+→ Schedule
+→ upcoming session
+→ venue/court/time/status
+→ updated/cancelled/rescheduled state if changed
 ```
 
-MVP does not require instant booking or payment.
+The authoritative schedule comes from backend/Admin operations.
 
-### 7. Family language behavior
+### Language
 
-Each account stores its own locale.
+Each account selects its own locale. Parent and child locale choices do not alter each other's authorization or source data.
 
-Example:
+## Administrator / Academy operations
+
+### Configure Academy offering
 
 ```text
-Child: English
-Mother: Simplified Chinese
-Father: Bahasa Melayu
+Admin
+→ Programme
+→ create/edit U12 Academy
+→ create Programme Offering
+→ select venue/court
+→ capacity
+→ schedule/term
+→ publish/activate
 ```
 
-All three can reference the same underlying training/event data while system UI and templates render separately.
+No developer release is required for normal Programme/Offering changes.
 
-## Coach
-
-### 1. Today's training and attendance
+### Configure Membership Plan
 
 ```text
-Open app
-→ Today's assigned sessions
-→ Open session
-→ Roster
-→ Mark All Present (optional fast action)
-→ Change exceptions to late / absent / excused
-→ Review roster
-→ Confirm attendance
+Admin
+→ Membership Plans
+→ create/edit plan
+→ duration/commitment
+→ billing frequency
+→ recurring/upfront price
+→ session allowance/eligibility
+→ benefits reference
+→ active/inactive
 ```
 
-The coach should be able to complete a normal roster quickly.
+Prices are configuration/data, not hard-coded application constants.
 
-Example:
+### Family/member administration
 
 ```text
-Alex      Present
-Ethan     Present
-Jayden    Late
-Caleb     Absent
-Ryan      Excused
-
-[Confirm Attendance]
+Admin
+→ search family/athlete
+→ view relationship
+→ Programme Offering / Membership
+→ status and relevant payment summary
+→ perform only authorized correction/support action
+→ reason/audit record where required
 ```
 
-After confirmation:
+### Finance/admin view
 
 ```text
-Attendance becomes official
-→ athlete history updates
-→ parent visibility updates
-→ AthleteAttendanceConfirmed event emitted
-→ reward/notification consumers process independently
+Payments
+→ collected / scheduled / failed / overdue
+→ open transaction/installment
+→ view safe provider/reference information
+→ approved retry/payment-link/refund/support action when implemented
+→ audit
 ```
 
-### 2. Attendance correction
+Coaches do not receive this view by default.
+
+### Schedule management
 
 ```text
-Open past/current session
-→ Select athlete
-→ Correct attendance
-→ Enter/choose correction reason where required
-→ Save
-→ Audit metadata retained
-→ downstream correction event processed safely
+Programme Offering / Session Series
+→ maintain recurring schedule
+→ generated Session occurrences
+→ change one occurrence OR record closure
+→ cancel/reschedule/create replacement
+→ save
+→ family schedule updates
+→ Notification event produced for material changes
 ```
 
-### 3. Future QR-assisted check-in
+Historical occurrences should not silently disappear.
 
-Not required for MVP.
+## Payment lifecycle workflows
 
-Possible later flow:
+### Successful initial payment
 
 ```text
-Coach starts temporary check-in
-→ session-specific QR displayed
-→ athlete scans QR
-→ draft check-in appears on coach roster
-→ coach reviews and confirms official attendance
+Checkout initiated
+→ provider tokenizes/authenticates payment method
+→ payment succeeds
+→ provider sends signed webhook
+→ verify signature
+→ deduplicate provider event
+→ mark Payment / Installment paid
+→ evaluate Membership activation
+→ create audit/domain events
+→ Notification confirmation
 ```
 
-QR check-in must not become an unaudited way to award attendance/reward credit automatically.
-
-### 4. Athlete development update
+### Recurring renewal
 
 ```text
-Team / roster
+Installment due
+→ Billing executes/provider processes approved recurring charge
+→ signed provider event
+→ idempotent reconciliation
+→ Installment paid
+→ Membership remains Active
+→ receipt/notification
+```
+
+A finite plan stops creating/charging installments after the configured commitment count.
+
+### Failed renewal — V1 automation
+
+```text
+Charge fails
+→ Payment failed
+→ parent notified
+→ membership remains Active during configured grace policy where applicable
+→ retry/reminder policy
+→ still unpaid after threshold
+→ Installment Overdue
+→ Membership may become Suspended according to policy
+```
+
+### Recovery/reactivation
+
+```text
+Outstanding installment paid
+→ reconcile successful payment
+→ evaluate remaining overdue state
+→ if policy conditions satisfied: Membership Active
+→ confirmation notification
+```
+
+Membership state and payment state remain separate throughout.
+
+## Venue closure / schedule exception
+
+```text
+Admin records Venue/Court closure
+→ affected Session occurrences identified
+→ cancel/reschedule/replacement decision
+→ family-facing schedules updated
+→ material-change notification
+→ if business policy requires membership extension:
+   create auditable MembershipTermAdjustment
+```
+
+Do not silently modify contract history.
+
+## Coach workflows — V1+
+
+### Attendance
+
+```text
+Coach
+→ assigned session
+→ roster
+→ Mark All Present
+→ edit exceptions: late / absent / excused
+→ confirm
+→ Attendance becomes official
+→ AthleteAttendanceConfirmed event
+```
+
+Future QR scan creates a check-in signal; coach confirmation remains authoritative unless a future decision changes policy.
+
+## Athlete development — V2
+
+```text
+Coach
 → Athlete
-→ Development profile
-→ Relevant sport framework
-→ Create/update evaluation
-→ Set strengths/priorities
-→ Add shared note and/or internal note
-→ Save
-```
-
-The UI must make the visibility difference between shared and internal notes unmistakable.
-
-### 5. Schedule
-
-```text
-Schedule
-→ Upcoming assigned sessions/events
-→ Open item for time, venue, team, notes/status
-```
-
-### 6. Private-training enquiries
-
-```text
-Coach services
-→ Enquiries
-→ Open family/athlete enquiry
-→ Review details
-→ Update allowed status / follow approved communication process
-```
-
-## Administrator
-
-### 1. Onboard users and relationships
-
-```text
-Admin web
-→ Create/import users
-→ Assign roles
-→ Create/enable sport (Basketball for MVP)
-→ Create teams/rosters
-→ Link guardians and athletes
-→ Assign coaches to sport/teams
-→ Verify relationships
-```
-
-### 2. Schedule recurring club operations
-
-```text
-Team / Training
-→ Configure normal recurring pattern
-→ Generate/maintain upcoming sessions
-→ Modify individual exceptions as needed
-→ Publish/update
-→ relevant users see authoritative schedule
-```
-
-Examples of normal staff-managed changes:
-- venue moved;
-- training time changed;
-- session cancelled;
-- substitute coach assigned.
-
-These changes must not require developer intervention or an App Store release.
-
-### 3. Publish competition/event
-
-```text
-Events
-→ Create draft
-→ Choose Basketball
-→ Choose team/individual format
-→ Choose audience/eligibility
-→ Add date, venue, registration window, details
-→ Add translations where available
-→ Preview
-→ Publish
-→ eligible users notified
-→ monitor registrations/responses
-```
-
-### 4. Maintain event lifecycle
-
-```text
-Draft
-→ Published / Registration Open
-→ Registration Closed
-→ Event Occurs
-→ Completed
-```
-
-Alternative path:
-
-```text
-Published
-→ Material change
-→ Save update
-→ targeted update notification
-```
-
-or:
-
-```text
-Published
-→ Cancel
-→ record reason
-→ targeted cancellation notification
-→ event retained as Cancelled
-```
-
-### 5. Selection announcement
-
-```text
-Selections/announcements
-→ Define appropriate audience
-→ Enter result/update
-→ Add reviewed translations where needed
-→ Preview visibility
-→ Publish
-```
-
-Selection information must not accidentally become public to unrelated users.
-
-### 6. Development framework administration
-
-```text
-Basketball
 → Development Framework
-→ Add/reorder/deactivate criterion
-→ Publish safe configuration change
-→ coach evaluation UI reflects active framework
+→ evaluation
+→ strengths/priorities
+→ shared note and/or internal note
+→ save
 ```
 
-Historical evaluations should retain meaning even when a future framework version changes.
+Family sees only authorized shared content. Official evaluations remain coach-owned.
 
-### 7. Reward administration
+## Tournament / Camp — V2
 
 ```text
-Rewards
-→ Configure reward/point rule
-OR
-→ Authorized manual point adjustment
-→ Require reason
-→ Save
-→ Audit record created
+Guardian signs in
+→ select existing child
+→ open KHLIM 3x3 / Camp
+→ backend evaluates eligibility/membership pricing
+→ register
+→ reuse shared Billing for payment
+→ registration attaches to existing Athlete identity
 ```
 
-## Cross-role notification flow
+External/public participant flows may use the website without forcing installation of the Super App.
+
+## KHLIM Assist
 
 ```text
-Domain event occurs
-→ determine recipients/audience
-→ Notification module checks preferences + severity
-→ select recipient locale
-→ render approved template/fallback
-→ in-app notification created
-→ push notification sent when appropriate
-→ user opens destination screen
+Website/social/member asks event question
+→ channel supplies available context
+→ KHLIM Assist requests approved event knowledge/API
+→ authorization applied for member-only context
+→ answer from authoritative event data
+→ uncertain/sensitive query escalates safely
 ```
 
-Operational modules should not directly implement third-party push-provider logic.
+KHLIM Assist does not own duplicate Event truth.
 
-## How information stays current
+## Notification flow
 
-The platform uses three update sources:
+```text
+Domain event
+→ Notification Service
+→ recipient + preference + locale
+→ template
+→ channel adapter
+→ email now / WhatsApp later / push with Super App
+→ delivery status recorded
+```
 
-| Update source | Example |
-| --- | --- |
-| Authorized staff/manual operations | Admin publishes competition; coach writes evaluation |
-| User transactions | Parent registers child; coach confirms attendance |
-| Automated system behavior | Registration closes; reminder is scheduled; reward points awarded |
+Failure of one channel should not crash the originating Membership/Payment/Scheduling transaction.
 
-The goal is **enter authoritative information once, then render the appropriate view to every authorized user**.
+## Controlled test drive before public launch
 
-## End-to-end MVP validation journeys
+### Internal alpha
+Developer/KHLIM management/admin/coaches use test accounts/payment sandbox and deliberately test failure cases.
 
-Before launch, automated/manual test plans should cover at least:
+### Closed family beta
+Approximately **5–10 families** use the product with minimal guidance.
 
-1. Admin enables Basketball, creates a team, links athlete/guardian, assigns coach, and schedules training.
-2. Parent and player see the correct session; unrelated family cannot see it.
-3. Coach uses fast roster marking and confirms attendance.
-4. Attendance history updates for player/parent and emits the trusted event.
-5. Attendance event awards configured points exactly once.
-6. Coach writes a shared note and an internal note; player/parent only see the shared note.
-7. Admin publishes an event; eligible family responds; coach/admin sees response.
-8. Admin changes an event venue; affected users receive the updated authoritative details.
-9. Admin cancels an event; it remains visibly cancelled and notifications are delivered.
-10. Guardian link is removed; former guardian immediately loses child access.
-11. Two linked users with different locales see localized UI without changing permissions or source data.
-12. Missing translation falls back safely to English instead of exposing raw translation keys.
-13. Player account deletion/deactivation follows the approved data/account lifecycle.
-14. Admin point adjustment is traceable to actor and reason.
-15. Core identity/family tests do not depend on Basketball-only fields, preserving the future path to another sport.
+### Expanded Academy pilot
+Approximately **15–30 families** exercise real-world programme/payment/schedule behaviour.
+
+### Release candidate
+Feature freeze; focus on bugs, security, payment integrity, performance, backup/restore, monitoring, browsers/devices.
+
+### Limited production
+Small invited cohort first, monitored for 24–72 hours before expansion.
+
+Any unresolved P0/P1 defect means **NO PUBLIC LAUNCH**.
+
+## MVP end-to-end validation journeys
+
+Before launch, test at minimum:
+
+1. Public visitor discovers a Programme Offering and creates a family account.
+2. Guardian links/adds a child and unrelated guardian cannot access that child.
+3. Backend returns correct Membership Plan price; client tampering cannot reduce it.
+4. Initial payment succeeds and verified webhook activates Membership exactly once.
+5. Duplicate webhook does not duplicate payment, membership activation, receipt, or entitlement/event processing.
+6. Browser closes after payment; webhook still reconciles correct account state.
+7. Failed payment does not activate a paid-required Membership incorrectly.
+8. Fixed-cycle recurring plan cannot charge beyond configured installment count.
+9. Admin can change Programme/Offering/Plan configuration without code release.
+10. Parent dashboard shows correct membership/payment/schedule state.
+11. Coach cannot access family finance data.
+12. Venue/session change appears to affected family and produces expected notification.
+13. Account/family-link revocation removes protected access.
+14. Different locales render the same authorized source data safely.
+15. Backup restore is successfully tested and financial records can be reconciled afterward.
+16. Rollback/incident procedure is rehearsed for a severe website/API release defect.

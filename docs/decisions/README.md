@@ -34,11 +34,12 @@ Use sequential filenames:
 - `0005-basketball-first-sport-aware-core.md` — Basketball is the first UX while Sport/Athlete are durable core concepts.
 - `0006-localization-first.md` — localization infrastructure begins with the first production screens.
 - `0007-coach-confirmed-attendance.md` — official attendance is coach/staff-confirmed; assisted check-in can be layered on later.
+- `0008-website-first-shared-commercial-platform.md` — website/member portal and admin launch first on a shared backend; memberships, payments, and configurable academy operations are MVP infrastructure while native mobile is activated later.
 
 ## Next likely ADR topics
 
 Only create these when the implementation decision is actually needed:
-- exact monorepo package boundaries;
+- exact payment gateway/provider selection;
 - API client generation tooling;
 - authorization policy implementation approach;
 - outbox/domain-event processing implementation;

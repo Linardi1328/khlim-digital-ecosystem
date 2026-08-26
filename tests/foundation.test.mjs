@@ -5,9 +5,10 @@ import { test } from "node:test";
 const root = new URL("../", import.meta.url);
 
 const workspaceDirectories = [
-  "apps/mobile",
+  "apps/web",
   "apps/admin",
   "apps/api",
+  "apps/mobile",
   "packages/api-client",
   "packages/design-tokens",
   "packages/i18n",
@@ -126,6 +127,7 @@ test("shared TypeScript configs define strict runtime-specific foundations", asy
 
 test("each application inherits only its matching shared TypeScript config", async () => {
   const consumers = {
+    "apps/web/tsconfig.json": "../../packages/typescript-config/nextjs.json",
     "apps/admin/tsconfig.json": "../../packages/typescript-config/nextjs.json",
     "apps/api/tsconfig.json": "../../packages/typescript-config/node.json",
     "apps/mobile/tsconfig.json": "../../packages/typescript-config/expo.json",
@@ -134,6 +136,16 @@ test("each application inherits only its matching shared TypeScript config", asy
   for (const [path, expectedBase] of Object.entries(consumers)) {
     assert.deepEqual(await readJson(path), { extends: expectedBase });
   }
+});
+
+test("website and admin are the first web clients while mobile remains reserved", async () => {
+  const web = await readJson("apps/web/package.json");
+  const admin = await readJson("apps/admin/package.json");
+  const mobile = await readJson("apps/mobile/package.json");
+
+  assert.equal(web.name, "@khlim/web");
+  assert.equal(admin.name, "@khlim/admin");
+  assert.equal(mobile.name, "@khlim/mobile");
 });
 
 test("the Prisma boundary starts with PostgreSQL and versioned migrations", async () => {

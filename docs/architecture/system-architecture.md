@@ -1,346 +1,320 @@
 # System Architecture
 
-**Status:** Accepted for Phase 1 baseline
+**Status:** Accepted current Phase 1 baseline
 
 ## Architectural style
 
-Start with a **modular monolith** rather than microservices.
+KHLIM starts as a **modular monolith** with strict business-domain boundaries. This remains the preferred architecture for a small team because deployment, transactions, authorization, debugging, and operational ownership stay straightforward without giving up modularity.
 
-This keeps development, deployment, debugging, authorization, and transactions straightforward for a small team while still enforcing clean boundaries between business domains. A module may later be extracted into a separate service only if scale, security, ownership, or operational needs justify it.
+The platform launches with KHLIM Basketball but is both **sport-aware** and **channel-aware**: multiple frontends use the same authoritative backend rather than owning separate copies of business logic.
 
-The product launches as KHLIM Basketball, but the platform core is **sport-aware** rather than basketball-only.
+## Core platform principle
+
+> **One backend. One database. One authentication system. One payment infrastructure. Multiple frontends.**
+
+The first production clients are the public/member website and the staff admin application. The native mobile client remains reserved for later activation.
+
+```text
+┌──────────────────────┐   ┌──────────────────────┐   ┌──────────────────────┐
+│ Next.js Website      │   │ Next.js Admin       │   │ Expo Super App       │
+│ Public + Member      │   │ KHLIM Staff         │   │ Later activation     │
+└──────────┬───────────┘   └──────────┬───────────┘   └──────────┬───────────┘
+           │                          │                          │
+           └──────────────── HTTPS / REST /v1 ─────────────────┘
+                                      │
+                                      ▼
+                         ┌──────────────────────────┐
+                         │ NestJS Modular Monolith  │
+                         ├──────────────────────────┤
+                         │ Identity / Family        │
+                         │ Sports / Profiles        │
+                         │ Programmes               │
+                         │ Memberships              │
+                         │ Billing / Payments       │
+                         │ Benefits / Entitlements  │
+                         │ Venues / Scheduling      │
+                         │ Teams / Attendance       │
+                         │ Development              │
+                         │ Events / Tournaments     │
+                         │ Camps                    │
+                         │ KHERO / Rewards          │
+                         │ Notifications            │
+                         │ Localization / Audit     │
+                         │ Integrations             │
+                         └────────────┬─────────────┘
+                                      │
+                                    Prisma
+                                      │
+                        ┌─────────────┼──────────────┐
+                        ▼             ▼              ▼
+                  PostgreSQL      Storage      External Providers
+                  Supabase        Supabase     Payments / Email /
+                                              WhatsApp / Push / SMS
+```
+
+KHLIM Assist and future public/event channels consume approved APIs or read models from this platform; they do not maintain a second authoritative event database.
 
 ## Finalized Phase 1 technology direction
 
-### Language and workspace
+### Language/workspace
 - TypeScript end-to-end.
 - Node.js 24 LTS.
-- pnpm Workspaces.
-- Turborepo.
+- pnpm Workspaces + Turborepo.
+
+### Website and admin
+- Next.js App Router.
+- `apps/web`: public KHLIM website + authenticated family/member portal.
+- `apps/admin`: staff operations/configuration.
+- Tailwind/shadcn-style component strategy where appropriate.
+- TanStack Query for client-side server state where needed.
+- React Hook Form + Zod for forms/client validation.
 
 ### Mobile
-- React Native with Expo.
-- Expo Router.
-- EAS development/build/submit/update tooling.
-- TanStack Query for API/server state.
-- React Hook Form + Zod where forms are required.
-
-### Admin web
-- Next.js App Router.
-- Tailwind CSS + shadcn/ui for operational/admin interface components.
-- TanStack Query where client-side API state is needed.
+- React Native + Expo + Expo Router.
+- `apps/mobile` is reserved in Phase 1 but is not the first product vertical.
+- EAS becomes materially important when the native client enters active product development.
 
 ### API
 - NestJS modular monolith.
-- REST API with `/v1`-style versioning where appropriate.
-- OpenAPI specification and generated typed clients.
+- REST with `/v1`-style versioning.
+- OpenAPI contracts + generated typed client.
+- Business logic and authorization remain backend-authoritative.
 
-### Data and managed infrastructure
-- PostgreSQL hosted through Supabase.
-- Prisma ORM and Prisma Migrate as application-schema migration authority.
-- Supabase Auth for authentication infrastructure.
-- Supabase Storage for approved media/assets.
+### Data/infrastructure
+- PostgreSQL on Supabase.
+- Prisma ORM + Prisma Migrate as schema migration authority.
+- Supabase Auth and Storage.
 - Singapore-region infrastructure where supported.
 
-### Delivery and operations
-- GitHub Actions for CI/CD.
-- Sentry for initial error/crash monitoring.
-- EAS for mobile build/release pipeline.
-- Railway for NestJS deployment initially.
-- Vercel for Next.js admin deployment initially.
-
-Provider-specific calls must remain behind application/provider abstractions where vendor replacement is plausible.
-
-## High-level system
-
-```text
-┌─────────────────────────┐      ┌─────────────────────────┐
-│ Expo Mobile Application │      │ Next.js Admin Web App   │
-│ Player/Parent/Coach     │      │ KHLIM Staff             │
-└───────────┬─────────────┘      └────────────┬────────────┘
-            │                                 │
-            └──────── HTTPS / REST API ───────┘
-                              │
-                              ▼
-                 ┌────────────────────────┐
-                 │   NestJS Application   │
-                 │    Modular Monolith    │
-                 ├────────────────────────┤
-                 │ Identity               │
-                 │ Profiles / Athletes    │
-                 │ Family                 │
-                 │ Sports                 │
-                 │ Teams / Seasons        │
-                 │ Training               │
-                 │ Attendance             │
-                 │ Development            │
-                 │ Events / Competitions  │
-                 │ Announcements          │
-                 │ KHERO                  │
-                 │ Rewards                │
-                 │ Coach Services         │
-                 │ Localization           │
-                 │ Notifications          │
-                 │ Audit                  │
-                 └──────────┬─────────────┘
-                            │
-                          Prisma
-                            │
-                  ┌─────────┼──────────┐
-                  ▼         ▼          ▼
-             PostgreSQL   Storage   External Providers
-             (Supabase)  (Supabase) push/email/etc.
-```
-
-## Basketball-first / sport-aware boundary
-
-The mobile experience for MVP 1.0 is basketball-specific. The architecture must nevertheless distinguish between:
-
-### Universal platform concepts
-- User
-- Athlete
-- Guardian
-- Coach
-- Sport
-- Team / Group
-- Season
-- TrainingSession
-- Attendance
-- DevelopmentFramework
-- Competition / Event
-- Registration
-- Reward transaction
-- Notification
-
-### Basketball configuration / presentation
-- UI term `Player`.
-- basketball positions.
-- KHLIM Basketball teams and age groups.
-- basketball development criteria.
-- KHERO basketball presentation.
-- basketball-specific event types/labels.
-
-Core identity, family, authorization, notifications, audit, and infrastructure modules must not depend on basketball-specific fields.
+### Delivery/operations
+- GitHub Actions / PPO validation workflow.
+- Sentry + structured logs.
+- Railway for NestJS initially.
+- Vercel for both Next.js deployable applications initially.
+- Payment, notification, and other replaceable providers behind explicit adapters.
 
 ## Client boundaries
 
-### Mobile application
+### Public/member website
 
-One Expo application can serve player, parent/guardian, and coach roles using role-aware navigation and feature access.
+The website is the first customer interface and supports:
+- public programme/service discovery;
+- family account creation/login;
+- linked athlete management;
+- programme/membership selection;
+- secure payment checkout;
+- member dashboard, payments, membership, and schedules.
 
-Role checks in the client improve UX only. Authorization is enforced by the API.
-
-The mobile application must not query application database tables directly for business operations. Normal flow:
+The website must never calculate authoritative membership prices, discounts, eligibility, or payment state solely in client code.
 
 ```text
-Mobile screen
-   ↓
-feature/query layer
-   ↓
-generated REST client
-   ↓
+Website
+  ↓ generated REST client
 NestJS API
-   ↓
-domain/application service
-   ↓
+  ↓ domain/application service
 Prisma
-   ↓
+  ↓
 PostgreSQL
 ```
 
-### Admin web application
+### Admin web
 
-Club administration uses a separate Next.js web interface optimized for bulk data, tables, configuration, imports, event management, and operational workflows.
+Admin is a separate Next.js client optimized for tables, configuration, finance/operations, imports, scheduling, and staff workflows. It uses the same domain APIs and must not bypass authorization/business rules because it is staff-facing.
 
-Routine operational updates such as schedule changes, competition publication, development-framework configuration, announcements, and rewards should happen here without developer involvement.
+### Mobile Super App
 
-## API boundary
+The Expo client later consumes the same APIs and identity/payment/member data. Native development must not create a second membership, payment, schedule, or event source of truth.
 
-REST/OpenAPI is the primary public application contract.
+## Core domain boundaries
 
-Reasons:
-- mobile and admin remain independent of database implementation;
-- future public/event web experiences can consume the same contracts;
-- potential future AI/automation or partner integrations have a conventional API boundary;
-- generated clients provide TypeScript safety without forcing every consumer into a TypeScript-only runtime forever.
+### Universal platform concepts
+- User / role / authorization context;
+- Guardian ↔ Athlete relationships;
+- Sport;
+- Programme / ProgrammeOffering;
+- MembershipPlan / Membership;
+- BillingProfile / PaymentMethod reference / PaymentSchedule / Payment;
+- Benefit / Entitlement;
+- Venue / Court / Session;
+- Team / TeamMembership;
+- Attendance;
+- DevelopmentFramework / Evaluation;
+- Event / Registration;
+- Notification;
+- AuditEvent.
 
-Guidelines:
-- validate every request server-side;
-- never expose raw Prisma/database models as public API contracts by default;
-- return only authorized fields;
-- use stable opaque IDs instead of labels/localized names as keys;
-- support pagination/filtering for growing collections;
-- design critical mutations to tolerate retries/idempotency;
-- version genuinely breaking contracts;
-- include actor/context for sensitive mutations and audit.
+### Basketball presentation/configuration
+- UI term `Player`;
+- KHLIM age groups and basketball programmes;
+- basketball positions/teams;
+- basketball development criteria;
+- KHERO basketball presentation;
+- basketball competition labels/formats.
 
-## Backend module principles
+Basketball-specific fields must not leak unnecessarily into Identity, Family, Billing, Notifications, or Audit.
 
-Each module should:
-- own its domain logic;
-- expose explicit application/query services;
-- avoid ad hoc writes into another module's persistence;
-- own or clearly control writes to its data model;
-- publish domain events for meaningful state changes;
-- consume events through defined handlers;
-- remain testable independently at domain/application level.
+## Programme, membership, and team distinction
 
-## Example: attendance and rewards
-
-Avoid:
-
-```text
-AttendanceService
-  → save attendance
-  → modify points
-  → unlock KHERO
-  → call push provider
-```
-
-Prefer:
+These are separate concepts:
 
 ```text
-Attendance module
-  → coach confirms official attendance
-  → publishes AthleteAttendanceConfirmed
+Programme
+  U12 Academy
+      ↓
+ProgrammeOffering
+  U12 · Serdang · Saturday 10 AM · capacity 30
+      ↓
+Membership
+  Jayden enrolled under 6-Month Plan
 
-Rewards module
-  → consumes event
-  → evaluates reward rule
-  → creates point transaction
-  → publishes PointsAwarded
-
-KHERO module
-  → consumes approved reward/achievement events
-
-Notifications module
-  → consumes relevant events
-  → selects recipient locale/template
-  → dispatches through notification provider
+Team
+  KHLIM U12 Competitive Team
 ```
 
-## Attendance authority
+An athlete may hold academy membership without belonging to a competitive team and may later progress to a team without losing membership history.
 
-For MVP, the coach/staff application is the authoritative attendance entry path.
+## Payment architecture
 
-Supported statuses:
-- present;
-- late;
-- absent;
-- excused.
+Billing is an explicit backend domain.
 
-The UX should support fast bulk marking such as `Mark All Present` plus exceptions.
+```text
+Membership / Registration / Order
+             │
+             ▼
+        Billing Service
+             │
+             ▼
+     PaymentGateway interface
+             │
+             ▼
+      Provider Adapter(s)
+```
 
-Future QR/NFC/kiosk flows may produce a `CheckInRecorded` signal but should not silently bypass the official attendance-confirmation policy.
+Rules:
+- never store raw card number/CVV;
+- use provider tokenization/hosted secure fields;
+- store provider customer/payment-method references only as needed;
+- verify signed webhooks server-side;
+- deduplicate provider event IDs;
+- use idempotency keys for charge-creating/retryable operations;
+- backend calculates authoritative price and discount;
+- payment lifecycle and membership lifecycle remain distinct;
+- financial actions and manual adjustments are auditable;
+- test/staging/production provider environments are isolated.
+
+A browser success redirect is useful UX but is not final financial truth; verified provider events reconcile authoritative state.
+
+## Notification architecture
+
+Operational modules publish business events. Notifications selects channel/template/locale and records delivery attempts.
+
+```text
+Domain Event
+   ↓
+Notification Service
+   ↓
+Email / WhatsApp / Push / optional SMS
+```
+
+A provider outage should degrade that channel without crashing unrelated membership/payment/scheduling modules.
+
+## Scheduling and attendance
+
+Scheduling supports multiple venues/courts and recurring definitions separated from explicit occurrences so exceptions are safe.
+
+```text
+Venue → Court
+ProgrammeOffering / Team
+        ↓
+SessionSeries / ScheduleRule
+        ↓
+Session occurrence
+        ↓
+Attendance
+```
+
+Venue/court closure, cancellation, rescheduling, and replacement sessions must preserve history.
+
+Official attendance remains coach/staff-confirmed. Future QR/NFC check-in is an assisted signal, not automatic authoritative attendance unless a future ADR changes policy.
+
+## Events, tournaments, camps, and KHLIM Assist
+
+`Event` remains the generic publication/schedule foundation. Tournament and Camp capabilities extend it rather than creating unrelated calendar systems.
+
+```text
+Event
+├── Tournament detail/registration
+└── Camp detail/registration
+```
+
+KHLIM Assist may consume approved public event APIs/read models for website/social/member event questions. Sensitive member context must pass through authenticated authorization before retrieval.
 
 ## Data architecture
 
-PostgreSQL is preferred because the product contains strong relational and transactional workflows:
-- users and roles;
-- athletes and guardians;
-- sports and teams/groups;
-- seasons and memberships;
-- coaches and assignments;
-- sessions and attendance;
-- sport-specific development frameworks;
-- events/competitions and registrations;
-- points and rewards.
+PostgreSQL remains appropriate because KHLIM contains relational and transactional workflows across:
+- users/families;
+- programmes/offers/memberships;
+- payments/installments;
+- benefits/entitlements;
+- venues/sessions/attendance;
+- teams/development;
+- tournaments/camps/registrations;
+- rewards/orders later.
 
-Supabase provides managed PostgreSQL/Auth/Storage infrastructure. **Supabase does not become the owner of KHLIM business logic.**
+Supabase supplies managed infrastructure; it does not own KHLIM business rules.
 
-Object storage contains binary/media assets such as:
-- profile images;
-- KHLIM/KHERO approved artwork;
-- cosmetic assets;
-- future event media/documents where approved.
+## API contract guidelines
 
-## Migration ownership
+- validate server-side;
+- expose DTOs, not raw Prisma models by default;
+- enforce authorization at execution;
+- use stable opaque IDs;
+- paginate/filter growing collections;
+- make critical mutations retry-safe/idempotent;
+- version breaking contracts deliberately;
+- include actor/reason context for sensitive admin/financial mutations;
+- support separate public and authenticated projections where the same entity has different audiences.
 
-Prisma Migrate owns application schema changes.
+## Localization
 
-Avoid multiple uncontrolled schema authorities such as:
-- manual production dashboard edits;
-- unrelated migration systems changing the same application tables;
-- undocumented SQL changes.
-
-PostgreSQL-specific SQL may exist inside reviewed Prisma migrations where necessary.
-
-## Localization architecture
-
-Internationalization is part of the foundation, not a later refactor.
-
-Initial registered locales:
-- `en`
-- `ms`
-- `zh-Hans`
-- `zh-Hant`
-- `hi`
-
-English is the fallback.
-
-A future Cantonese locale such as `yue-Hant` may be added if validated.
-
-Principles:
-- users store their own preferred locale;
-- UI code uses translation keys rather than hard-coded English;
-- locale formatting handles dates/times/numbers/plurals;
-- translation labels are never used as stable database keys;
-- system notification templates support locale variants;
-- original coach/admin authored text is preserved even if translated variants are later generated;
-- important translatable text should not be baked into static artwork.
-
-See `docs/architecture/localization.md` for the detailed plan.
-
-## Configuration versus code
-
-Prefer configurable data for business concepts expected to evolve:
-- sports;
-- teams/groups and seasons;
-- sport-specific development frameworks;
-- positions/categories where appropriate;
-- competition/event types;
-- point rules;
-- reward definitions;
-- notification categories/templates;
-- coach specializations.
-
-Keep authorization policy, integrity constraints, secrets, and security-sensitive rules in tested code unless a deliberately designed policy/configuration system exists.
+Localization remains foundational:
+- `en`, `ms`, `zh-Hans`, `zh-Hant`, `hi` registered initially;
+- English fallback;
+- per-account preferred locale;
+- translation keys from first production screens;
+- locale-aware date/number/currency rendering;
+- admin-authored translation variants stay with their owning domain;
+- payment amounts are stored as monetary values/currency, not localized formatted strings.
 
 ## Environment model
 
 ### Development
-Mostly local/isolated resources. Never uses real production family data by default.
+Local/isolated, synthetic/test data, payment-provider sandbox only.
 
 ### Staging
-Production-like environment for integration, QA, migrations, release validation, and beta support.
+Production-like auth/API/database/payment integrations using separate credentials and data. Used for migrations, end-to-end tests, alpha/beta, and release candidates.
 
 ### Production
-Real users and club data. Changes arrive only through controlled releases and migrations.
+Real families and money. Controlled migrations/releases, strong staff access, monitoring, backup/restore, payment reconciliation, and incident procedures.
 
-Environment credentials and data are isolated.
+## Observability and failure containment
 
-## Regional direction
-
-Initial audience is primarily Malaysia. Where supported, choose Singapore infrastructure to reduce unnecessary latency and cross-region traffic.
-
-This is an operational default, not a permanent architecture lock-in.
-
-## Observability
-
-Before public launch, production should provide:
-- structured application logs;
-- request/error correlation identifiers;
-- mobile/web crash reporting;
-- API health/latency information;
-- database health monitoring;
-- notification failure visibility;
-- alerting for high-severity failures;
+Before public launch, production must provide:
+- structured logs + request correlation;
+- web/API error monitoring;
+- payment/webhook failure visibility;
+- database health/backup visibility;
+- notification delivery failures;
+- high-severity alerting;
 - cost/usage monitoring;
-- logs that avoid unnecessary sensitive child/family data.
+- rollback/forward-fix procedure;
+- selective feature-disable controls for risky optional functionality where practical.
+
+A failure in one external integration should not unnecessarily take down the rest of the platform.
 
 ## CI/CD direction
 
-Pull requests should progressively enforce:
+Pull requests progressively enforce:
 
 ```text
 install
@@ -349,37 +323,25 @@ lint
   ↓
 typecheck
   ↓
-unit tests
+unit/integration tests
   ↓
-integration tests
+Prisma/migration validation
   ↓
-Prisma schema/migration validation
+web build
   ↓
 admin build
   ↓
 API build
   ↓
-mobile validation/build where appropriate
+mobile validation when relevant
 ```
 
-Production releases use explicit release controls. A repository merge is not automatically equivalent to publishing a new App Store/Play Store version.
+Production launch is a separate controlled decision from merging to `main`.
 
 ## Future extraction criteria
 
-A module should not become a microservice merely because it is important.
-
-Extraction should be considered only with a concrete reason such as:
-- independent scaling requirements;
-- isolated security boundary;
-- materially different availability needs;
-- separate team ownership;
-- deployment cadence conflict;
-- a technology requirement that cannot reasonably fit the monolith.
-
-Until then, module boundaries inside one deployable API provide most of the maintainability benefit at far lower cost.
+Do not introduce microservices simply because Billing, Events, or Notifications are important. Extract only for a concrete scaling, security, availability, ownership, cadence, or technology requirement.
 
 ## Future platform expansion
 
-The architecture should be capable of activating another KHLIM sport by configuring/extending sport-specific data rather than rewriting universal modules.
-
-A future multi-organization SaaS product is a separate business decision. True tenant isolation, billing, organization-level configuration, and commercial support should be designed only if that direction is validated.
+Additional sports should reuse the same identity, family, programme, membership, scheduling, payment, notification, and event foundations. True external multi-organization tenancy remains a separate future business/architecture decision.
