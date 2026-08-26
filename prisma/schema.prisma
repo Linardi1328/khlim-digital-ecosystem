@@ -42,6 +42,27 @@ enum GuardianInvitationStatus {
   EXPIRED
 }
 
+enum ProgrammeOfferingStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  INACTIVE
+}
+
+enum BillingFrequency {
+  MONTHLY
+  UPFRONT
+}
+
+enum MembershipStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+  COMPLETED
+  EXPIRED
+}
+
 model User {
   id                          String                    @id @default(uuid()) @db.Uuid
   authProviderSubject         String                    @unique @map("auth_provider_subject")
@@ -58,6 +79,7 @@ model User {
   createdGuardianAthleteLinks GuardianAthleteLink[]      @relation("CreatedFamilyLinks")
   createdGuardianInvitations  GuardianInvitation[]       @relation("CreatedGuardianInvitations")
   acceptedGuardianInvitations GuardianInvitation[]       @relation("AcceptedGuardianInvitations")
+  purchasedMemberships        Membership[]               @relation("MembershipPurchaser")
 
   @@index([status])
   @@map("users")
@@ -108,6 +130,7 @@ model AthleteProfile {
   user                User?                  @relation("AthleteAccount", fields: [userId], references: [id], onDelete: SetNull)
   guardianLinks       GuardianAthleteLink[]
   guardianInvitations GuardianInvitation[]
+  memberships         Membership[]
 
   @@index([dateOfBirth])
   @@map("athlete_profiles")
@@ -155,4 +178,149 @@ model GuardianInvitation {
   @@index([athleteId, status])
   @@index([inviteeEmail, status])
   @@map("guardian_invitations")
+}
+
+model Sport {
+  id          String      @id @default(uuid()) @db.Uuid
+  code        String      @unique
+  defaultName String      @map("default_name")
+  active      Boolean     @default(true)
+  sortOrder   Int         @default(0) @map("sort_order")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  programmes  Programme[]
+
+  @@index([active, sortOrder])
+  @@map("sports")
+}
+
+model Venue {
+  id         String              @id @default(uuid()) @db.Uuid
+  name       String
+  address    String?
+  active     Boolean             @default(true)
+  createdAt  DateTime            @default(now()) @map("created_at")
+  updatedAt  DateTime            @updatedAt @map("updated_at")
+  courts     Court[]
+  offerings  ProgrammeOffering[]
+
+  @@index([active])
+  @@map("venues")
+}
+
+model Court {
+  id        String   @id @default(uuid()) @db.Uuid
+  venueId   String   @map("venue_id") @db.Uuid
+  name      String
+  capacity  Int?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  venue     Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([venueId, name])
+  @@index([venueId, active])
+  @@map("courts")
+}
+
+model Programme {
+  id          String              @id @default(uuid()) @db.Uuid
+  sportId     String              @map("sport_id") @db.Uuid
+  code        String              @unique
+  name        String
+  description String?
+  minimumAge  Int?                @map("minimum_age")
+  maximumAge  Int?                @map("maximum_age")
+  level       String?
+  active      Boolean             @default(true)
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+  sport       Sport               @relation(fields: [sportId], references: [id], onDelete: Restrict)
+  offerings   ProgrammeOffering[]
+
+  @@index([sportId, active])
+  @@map("programmes")
+}
+
+model ProgrammeOffering {
+  id                  String                              @id @default(uuid()) @db.Uuid
+  programmeId         String                              @map("programme_id") @db.Uuid
+  venueId             String?                             @map("venue_id") @db.Uuid
+  name                String
+  capacity            Int
+  enrollmentOpensAt   DateTime?                           @map("enrollment_opens_at")
+  enrollmentClosesAt  DateTime?                           @map("enrollment_closes_at")
+  startsOn            DateTime?                           @map("starts_on") @db.Date
+  endsOn              DateTime?                           @map("ends_on") @db.Date
+  status              ProgrammeOfferingStatus             @default(DRAFT)
+  createdAt           DateTime                            @default(now()) @map("created_at")
+  updatedAt           DateTime                            @updatedAt @map("updated_at")
+  programme           Programme                           @relation(fields: [programmeId], references: [id], onDelete: Restrict)
+  venue               Venue?                              @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  planEligibilities   MembershipPlanOfferingEligibility[]
+  memberships         Membership[]
+
+  @@index([programmeId, status])
+  @@index([venueId, status])
+  @@map("programme_offerings")
+}
+
+model MembershipPlan {
+  id                String                              @id @default(uuid()) @db.Uuid
+  name              String
+  durationMonths    Int?                                @map("duration_months")
+  commitmentCycles  Int?                                @map("commitment_cycles")
+  billingFrequency  BillingFrequency                    @map("billing_frequency")
+  recurringAmountMinor Int?                             @map("recurring_amount_minor")
+  upfrontAmountMinor   Int?                             @map("upfront_amount_minor")
+  currency          String                              @default("MYR")
+  sessionAllowance  Int?                                @map("session_allowance")
+  benefitsSummary   String?                             @map("benefits_summary")
+  active            Boolean                             @default(true)
+  createdAt         DateTime                            @default(now()) @map("created_at")
+  updatedAt         DateTime                            @updatedAt @map("updated_at")
+  offeringEligibilities MembershipPlanOfferingEligibility[]
+  memberships       Membership[]
+
+  @@index([active])
+  @@map("membership_plans")
+}
+
+model MembershipPlanOfferingEligibility {
+  id          String            @id @default(uuid()) @db.Uuid
+  planId      String            @map("plan_id") @db.Uuid
+  offeringId  String            @map("offering_id") @db.Uuid
+  createdAt   DateTime          @default(now()) @map("created_at")
+  plan        MembershipPlan    @relation(fields: [planId], references: [id], onDelete: Cascade)
+  offering    ProgrammeOffering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, offeringId])
+  @@index([offeringId])
+  @@map("membership_plan_offering_eligibilities")
+}
+
+model Membership {
+  id                  String            @id @default(uuid()) @db.Uuid
+  athleteId           String            @map("athlete_id") @db.Uuid
+  programmeOfferingId String            @map("programme_offering_id") @db.Uuid
+  membershipPlanId    String            @map("membership_plan_id") @db.Uuid
+  purchasedByUserId   String?           @map("purchased_by_user_id") @db.Uuid
+  status              MembershipStatus  @default(PENDING)
+  startsAt            DateTime?         @map("starts_at")
+  endsAt              DateTime?         @map("ends_at")
+  activatedAt         DateTime?         @map("activated_at")
+  suspendedAt         DateTime?         @map("suspended_at")
+  cancelledAt         DateTime?         @map("cancelled_at")
+  completedAt         DateTime?         @map("completed_at")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+  athlete             AthleteProfile    @relation(fields: [athleteId], references: [id], onDelete: Restrict)
+  programmeOffering   ProgrammeOffering @relation(fields: [programmeOfferingId], references: [id], onDelete: Restrict)
+  membershipPlan      MembershipPlan    @relation(fields: [membershipPlanId], references: [id], onDelete: Restrict)
+  purchasedBy         User?             @relation("MembershipPurchaser", fields: [purchasedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([athleteId, status])
+  @@index([programmeOfferingId, status])
+  @@index([membershipPlanId, status])
+  @@map("memberships")
 }
