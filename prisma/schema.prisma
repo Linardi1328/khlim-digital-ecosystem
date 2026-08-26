@@ -1,10 +1,10 @@
-// The application data model will be introduced through versioned Prisma migrations.
+// Prisma 7 keeps connection URLs in prisma.config.ts rather than the schema.
 
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../apps/api/src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
