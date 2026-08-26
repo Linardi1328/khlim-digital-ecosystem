@@ -1,7 +1,10 @@
 import { ForbiddenException, Injectable } from "@nestjs/common";
 import type { VerifiedSupabaseIdentity } from "../auth/supabase-jwt-verifier";
 import type { AuthenticatedUserContext } from "../auth/authenticated-user";
-import { requireTrimmedString, optionalTrimmedString } from "../common/input-validation";
+import {
+  requireTrimmedString,
+  optionalTrimmedString,
+} from "../common/input-validation";
 import { PrismaService } from "../database/prisma.service";
 import type {
   UpdatePreferencesDto,
@@ -100,7 +103,11 @@ export class IdentityService {
   }
 
   async upsertGuardianProfile(userId: string, body: UpsertGuardianProfileDto) {
-    const displayName = requireTrimmedString(body?.displayName, "displayName", 120);
+    const displayName = requireTrimmedString(
+      body?.displayName,
+      "displayName",
+      120,
+    );
     const phone = optionalTrimmedString(body?.phone, "phone", 40) ?? null;
 
     return this.prisma.client.$transaction(async (transaction) => {

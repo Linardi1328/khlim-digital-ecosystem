@@ -9,10 +9,7 @@ import { AllowAuthenticated } from "../auth/authorization.decorators";
 import { CurrentUser } from "../auth/current-user.decorator";
 import type { AuthenticatedUserContext } from "../auth/authenticated-user";
 import { IdentityService } from "./identity.service";
-import {
-  UpdatePreferencesDto,
-  UpsertGuardianProfileDto,
-} from "./identity.dto";
+import { UpdatePreferencesDto, UpsertGuardianProfileDto } from "./identity.dto";
 
 @ApiTags("account")
 @ApiBearerAuth("supabase")

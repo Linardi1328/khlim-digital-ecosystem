@@ -1,4 +1,12 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from "@nestjs/common";
 import {
   ApiBearerAuth,
   ApiOkResponse,
@@ -22,7 +30,9 @@ export class FamilyController {
 
   @Get("me/athletes")
   @RequireAnyRole("GUARDIAN")
-  @ApiOperation({ summary: "List athletes actively managed by the current guardian" })
+  @ApiOperation({
+    summary: "List athletes actively managed by the current guardian",
+  })
   @ApiOkResponse({ description: "Active guardian-athlete relationships" })
   listManagedAthletes(@CurrentUser() user: AuthenticatedUserContext) {
     return this.family.listManagedAthletes(user.id);
@@ -30,8 +40,12 @@ export class FamilyController {
 
   @Post("me/athletes")
   @RequireAnyRole("GUARDIAN")
-  @ApiOperation({ summary: "Create a managed athlete for the current guardian" })
-  @ApiOkResponse({ description: "Managed athlete and active family link created" })
+  @ApiOperation({
+    summary: "Create a managed athlete for the current guardian",
+  })
+  @ApiOkResponse({
+    description: "Managed athlete and active family link created",
+  })
   createManagedAthlete(
     @CurrentUser() user: AuthenticatedUserContext,
     @Body() body: CreateManagedAthleteDto,

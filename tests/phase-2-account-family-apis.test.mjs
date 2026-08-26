@@ -41,7 +41,9 @@ test("managed athlete creation binds the child to the authenticated guardian", a
 });
 
 test("athlete access is relationship-aware and coaches are not implicitly privileged", async () => {
-  const decorators = await read("apps/api/src/auth/authorization.decorators.ts");
+  const decorators = await read(
+    "apps/api/src/auth/authorization.decorators.ts",
+  );
   const guard = await read("apps/api/src/auth/authorization.guard.ts");
   const access = await read("apps/api/src/family/family-access.service.ts");
   const controller = await read("apps/api/src/family/family.controller.ts");
@@ -54,7 +56,10 @@ test("athlete access is relationship-aware and coaches are not implicitly privil
   assert.match(controller, /@RequireAthleteAccess\("read"\)/);
   assert.match(controller, /@RequireAthleteAccess\("manage"\)/);
 
-  const staffRoleBlock = access.match(/FAMILY_STAFF_ROLES = new Set<KhlimUserRole>\(\[([\s\S]*?)\]\)/)?.[1] ?? "";
+  const staffRoleBlock =
+    access.match(
+      /FAMILY_STAFF_ROLES = new Set<KhlimUserRole>\(\[([\s\S]*?)\]\)/,
+    )?.[1] ?? "";
   assert.doesNotMatch(staffRoleBlock, /"COACH"|"HEAD_COACH"|"FINANCE_ADMIN"/);
 });
 

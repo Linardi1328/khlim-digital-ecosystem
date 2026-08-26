@@ -33,14 +33,15 @@ export class FamilyAccessService {
     }
 
     if (roles.has("GUARDIAN")) {
-      const guardianLink = await this.prisma.client.guardianAthleteLink.findFirst({
-        where: {
-          guardianUserId: user.id,
-          athleteId,
-          status: "ACTIVE",
-        },
-        select: { id: true },
-      });
+      const guardianLink =
+        await this.prisma.client.guardianAthleteLink.findFirst({
+          where: {
+            guardianUserId: user.id,
+            athleteId,
+            status: "ACTIVE",
+          },
+          select: { id: true },
+        });
 
       if (guardianLink) {
         return true;

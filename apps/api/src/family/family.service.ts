@@ -56,7 +56,11 @@ export class FamilyService {
     guardianUserId: string,
     body: CreateManagedAthleteDto,
   ) {
-    const displayName = requireTrimmedString(body?.displayName, "displayName", 120);
+    const displayName = requireTrimmedString(
+      body?.displayName,
+      "displayName",
+      120,
+    );
     const dateOfBirth = requireIsoDate(body?.dateOfBirth, "dateOfBirth");
     const preferredLocale =
       body?.preferredLocale === undefined
@@ -121,7 +125,11 @@ export class FamilyService {
     } = {};
 
     if (body?.displayName !== undefined) {
-      data.displayName = requireTrimmedString(body.displayName, "displayName", 120);
+      data.displayName = requireTrimmedString(
+        body.displayName,
+        "displayName",
+        120,
+      );
     }
 
     if (body?.dateOfBirth !== undefined) {
@@ -133,7 +141,9 @@ export class FamilyService {
     }
 
     if (Object.keys(data).length === 0) {
-      throw new BadRequestException("At least one athlete field must be provided");
+      throw new BadRequestException(
+        "At least one athlete field must be provided",
+      );
     }
 
     try {

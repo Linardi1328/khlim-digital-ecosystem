@@ -24,6 +24,229 @@
           "system"
         ]
       }
+    },
+    "/v1/me": {
+      "get": {
+        "operationId": "IdentityController_getMe",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Current account and profile state"
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Get the current KHLIM account",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/v1/me/guardian-profile": {
+      "put": {
+        "operationId": "IdentityController_upsertGuardianProfile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertGuardianProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Guardian profile saved"
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Create or update the current guardian profile",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/v1/me/preferences": {
+      "patch": {
+        "operationId": "IdentityController_updatePreferences",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePreferencesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Account preferences updated"
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Update current account preferences",
+        "tags": [
+          "account"
+        ]
+      }
+    },
+    "/v1/me/athletes": {
+      "get": {
+        "operationId": "FamilyController_listManagedAthletes",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Active guardian-athlete relationships"
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "List athletes actively managed by the current guardian",
+        "tags": [
+          "family"
+        ]
+      },
+      "post": {
+        "operationId": "FamilyController_createManagedAthlete",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateManagedAthleteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Managed athlete and active family link created"
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Create a managed athlete for the current guardian",
+        "tags": [
+          "family"
+        ]
+      }
+    },
+    "/v1/athletes/{athleteId}": {
+      "get": {
+        "operationId": "FamilyController_getAthlete",
+        "parameters": [
+          {
+            "name": "athleteId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized athlete profile"
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Get an athlete visible to the current account",
+        "tags": [
+          "family"
+        ]
+      },
+      "patch": {
+        "operationId": "FamilyController_updateAthlete",
+        "parameters": [
+          {
+            "name": "athleteId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAthleteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Athlete profile updated"
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Update an athlete managed by the current account",
+        "tags": [
+          "family"
+        ]
+      }
+    },
+    "/v1/me/athletes/{athleteId}/link": {
+      "delete": {
+        "operationId": "FamilyController_revokeOwnFamilyLink",
+        "parameters": [
+          {
+            "name": "athleteId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Family link revoked"
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Revoke the current guardian's athlete link",
+        "tags": [
+          "family"
+        ]
+      }
     }
   },
   "info": {
@@ -35,6 +258,113 @@
   "tags": [],
   "servers": [],
   "components": {
-    "schemas": {}
+    "securitySchemes": {
+      "supabase": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http",
+        "description": "Supabase access token"
+      }
+    },
+    "schemas": {
+      "UpsertGuardianProfileDto": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "example": "Alex Tan",
+            "maxLength": 120
+          },
+          "phone": {
+            "type": "object",
+            "example": "+60123456789",
+            "nullable": true
+          }
+        },
+        "required": [
+          "displayName"
+        ]
+      },
+      "UpdatePreferencesDto": {
+        "type": "object",
+        "properties": {
+          "preferredLocale": {
+            "type": "string",
+            "enum": [
+              "en",
+              "ms",
+              "zh-Hans",
+              "zh-Hant",
+              "hi"
+            ],
+            "example": "en"
+          }
+        },
+        "required": [
+          "preferredLocale"
+        ]
+      },
+      "CreateManagedAthleteDto": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "example": "Jamie Tan",
+            "maxLength": 120
+          },
+          "dateOfBirth": {
+            "type": "string",
+            "example": "2014-06-12",
+            "format": "date"
+          },
+          "preferredLocale": {
+            "type": "string",
+            "enum": [
+              "en",
+              "ms",
+              "zh-Hans",
+              "zh-Hant",
+              "hi"
+            ],
+            "example": "en"
+          },
+          "relationshipType": {
+            "type": "string",
+            "example": "parent",
+            "maxLength": 50
+          }
+        },
+        "required": [
+          "displayName",
+          "dateOfBirth"
+        ]
+      },
+      "UpdateAthleteDto": {
+        "type": "object",
+        "properties": {
+          "displayName": {
+            "type": "string",
+            "example": "Jamie Tan",
+            "maxLength": 120
+          },
+          "dateOfBirth": {
+            "type": "string",
+            "example": "2014-06-12",
+            "format": "date"
+          },
+          "preferredLocale": {
+            "type": "string",
+            "enum": [
+              "en",
+              "ms",
+              "zh-Hans",
+              "zh-Hant",
+              "hi"
+            ],
+            "example": "en"
+          }
+        }
+      }
+    }
   }
 }
