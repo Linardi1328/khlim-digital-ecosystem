@@ -1,494 +1,390 @@
 # Development Roadmap
 
-**Status:** Accepted for current planning baseline  
-**Objective:** Move from a basketball-first player experience to a production-ready KHLIM Super App while preserving a clean path to additional sports, competition formats, and future automation.
+**Status:** Accepted current planning baseline  
+**Objective:** Launch a reliable KHLIM website/member platform that can acquire families, manage academy memberships, collect recurring revenue, and support club operations on a shared backend that later powers the native Super App and wider KHLIM sports ecosystem.
 
-> The sequence is more important than the exact calendar duration. Phase estimates and priorities should be revised from real implementation and beta feedback rather than treated as fixed dates.
+This roadmap supersedes the earlier player-first/mobile-first delivery order. Basketball still launches first and the core remains sport-aware, but the first production client is now the **website/member portal**, supported by the **admin web application** and shared API.
+
+> Sequence and launch gates matter more than fixed dates. No calendar target overrides security, payment integrity, data protection, or unresolved P0/P1 defects.
 
 ## Roadmap principles
 
-1. **Basketball ships first.** No additional sport is required before KHLIM Basketball succeeds.
-2. **Player experience is the first functional vertical.** The first visible app experience is designed around the athlete/player journey.
-3. **Supporting roles make player data trustworthy.** Coaches, parents, and admins are introduced because player schedules, attendance, evaluations, and event information need authoritative sources.
-4. **Sport awareness begins in the foundation, not in the UI.** Core schemas/contracts support `Sport` and `Athlete`; MVP UI remains basketball-specific.
-5. **Configuration beats releases for operational content.** Schedules, events, development criteria, announcements, rewards, and translations should be updateable without requiring an App Store release where practical.
-6. **Multilingual support is foundational.** UI copy and system-generated messages use localization infrastructure from the first production screens.
-7. **Public launch waits for the full operational loop.** A player-only prototype can be tested early, but public MVP 1.0 requires the staff/family workflows needed to keep information current and safe.
+1. **Website/member portal first.** The first public product handles discovery, registration, family accounts, memberships, payments, schedules, and basic member self-service.
+2. **One shared platform.** Website, admin, future Super App, KHLIM Assist, and later KHLIM services consume shared backend/domain services rather than recreating business logic.
+3. **Basketball first, sport-aware core.** Basketball is the only required live sport for MVP, while `Sport` and `Athlete` remain durable platform concepts.
+4. **Revenue and operations before engagement extras.** Registration, recurring billing, membership lifecycle, scheduling, and admin efficiency precede KHERO, advanced analytics, and native mobile polish.
+5. **Configuration over hard-coding.** Programmes, programme offerings, packages, prices, venues, capacities, benefits, billing policies, and schedules are configurable where safe.
+6. **Backend-authoritative rules.** Clients do not become the source of truth for price, eligibility, membership status, payment state, authorization, or entitlements.
+7. **Production readiness is continuous.** Testing, auditability, monitoring, backups, rollback, and recovery are developed throughout the project rather than added at the end.
+8. **Controlled rollout is mandatory.** Internal alpha, closed family beta, academy pilot, release candidate, limited production, and public launch are distinct stages.
+9. **Native mobile is activated by evidence.** The Expo client remains reserved but significant Super App development begins when academy scale or user behaviour justifies it.
 
 ---
 
-## Phase 0 — Product and development documentation
+## Phase 0 — Product and architecture definition
 
 **Status:** Complete
 
-**Goal:** Establish the source of truth before implementation.
+**Goal:** Establish the product, architecture, security, and delivery source of truth.
 
-Completed baseline:
-- Product brief and MVP scope.
-- User-role and permission model.
-- Core user workflows.
-- Initial data model.
-- Modular-monolith architecture direction.
-- Security/privacy principles.
-- Development roadmap.
-- ADR process and initial decisions.
-- KHLIM logo and KHERO design references received.
-
-Follow-up decisions incorporated after Phase 0:
-- basketball-first / sport-agnostic-core strategy;
-- Athlete as the internal identity concept;
-- multilingual architecture requirement;
-- coach-confirmed attendance as the MVP attendance authority;
-- Phase 1 technology stack direction.
+Completed foundation includes:
+- modular-monolith backend direction;
+- TypeScript/Next.js/NestJS/PostgreSQL/Prisma stack;
+- Guardian ↔ Athlete many-to-many model;
+- basketball-first / sport-aware core;
+- localization-first architecture;
+- coach-confirmed attendance authority;
+- website-first shared commercial-platform decision;
+- one account / one backend / one database / shared payment and notification infrastructure principle.
 
 ---
 
 ## Phase 1 — Engineering foundation
 
-**Status:** Next / active planning
+**Status:** Active
 
-**Goal:** Create a maintainable technical platform before feature implementation.
+**Goal:** Create a deterministic, testable engineering platform before business-domain implementation.
 
-### Technology baseline
+### Current/required workspace
 
-- TypeScript end-to-end.
-- Node.js 24 LTS.
-- pnpm Workspaces + Turborepo.
-- Expo / React Native mobile app with Expo Router.
-- Next.js admin application.
-- NestJS modular-monolith API.
-- REST + OpenAPI.
-- PostgreSQL on Supabase.
-- Prisma ORM / Prisma Migrate.
-- Supabase Auth and Storage.
-- TanStack Query.
-- React Hook Form + Zod.
-- GitHub Actions.
-- Sentry.
-- EAS build/release tooling.
-- Singapore-region infrastructure where supported.
+```text
+apps/
+├── web/       # public website + authenticated member portal — FIRST
+├── admin/     # staff operations — FIRST
+├── api/       # NestJS modular monolith — FIRST
+└── mobile/    # reserved Expo Super App client — LATER
+```
 
 ### Deliverables
 
-- Monorepo structure:
-  - `apps/mobile`
-  - `apps/admin`
-  - `apps/api`
-  - shared packages
-  - Prisma schema/migrations
-- Development environment setup.
-- Staging/production strategy.
-- Authentication integration skeleton.
-- REST/OpenAPI contract generation.
-- Shared design tokens based on KHLIM/KHERO branding.
-- Localization package and locale registry.
-- English fallback catalogue with target locales registered.
-- Testing foundation.
-- CI for lint, type checking, unit tests, schema validation, and builds.
-- Secrets-management conventions.
-- Baseline Sentry/structured logging integration.
-
-### Architecture guardrails established here
-
-- `Athlete` is the internal identity; basketball UX may say `Player`.
-- `Sport` is a first-class concept, with Basketball as the only active MVP sport.
-- Clients never directly own database business rules.
-- Prisma migrations are the application-schema migration authority.
-- Translation keys are used from the first production UI components.
+- pnpm Workspaces + Turborepo baseline.
+- Shared strict TypeScript configuration.
+- Real Next.js scaffolds for `web` and `admin`.
+- Real NestJS API scaffold.
+- PostgreSQL/Prisma runtime and versioned migrations.
+- Development/staging/production configuration model.
+- Environment validation and secrets conventions.
+- Supabase Auth integration skeleton.
+- REST `/v1` + OpenAPI contract/generation baseline.
+- `packages/i18n` locale registry and English fallback resources.
+- KHLIM design-token foundation without committing protected brand assets unless repository/IP policy permits it.
+- Structured logging and Sentry baseline.
+- CI covering lint, typecheck, tests, schema validation, and application builds.
+- Local developer bootstrap documentation.
 
 ### Exit criteria
 
-A developer can clone the repository, configure a development environment, run mobile/admin/API/database locally, execute CI-equivalent checks, and deploy a safe staging baseline predictably.
+A developer can clone the repository, configure a safe development environment, run `web`, `admin`, `api`, and database services, execute CI-equivalent checks, and deploy a staging baseline predictably.
 
 ---
 
-## Phase 2 — Identity, athlete, sport, and access foundation
+## Phase 2 — Identity, family, and authorization
 
-**Goal:** Establish trustworthy identities and relationships before sensitive features.
+**Goal:** Establish trustworthy accounts and relationships before financial or child-specific workflows.
 
-Deliverables:
-- Authentication and account lifecycle.
-- Athlete/Player, Parent/Guardian, Coach, and Administrator roles.
-- Multi-role account capability.
-- `Sport` model with Basketball seeded/enabled.
-- Athlete profiles.
-- Preferred locale per user.
-- Parent/guardian-to-athlete links.
-- Coach-to-sport/team assignments.
-- Server-side authorization policies.
-- Admin MFA or equivalent strong control.
-- Permission-focused automated tests.
+### Deliverables
 
-Exit criteria:
-- Accounts only access data allowed by relationship, role, sport/team scope, and explicit permissions.
+- authentication/account lifecycle;
+- `User`, Guardian, Athlete, Coach profile foundation;
+- multiple children per guardian and multiple guardians per athlete;
+- multi-role account capability;
+- preferred locale per account;
+- Basketball seeded as the first active `Sport`;
+- staff roles/permissions foundation;
+- server-side relationship-aware authorization;
+- admin MFA/strong authentication requirement;
+- permission-focused automated tests;
+- account recovery/deactivation foundations.
 
----
+### Exit criteria
 
-## Phase 3 — Player-first mobile experience
-
-**Goal:** Build the first coherent product experience around the KHLIM Basketball player.
-
-This phase intentionally prioritizes what the player sees before building the full operational depth behind every module.
-
-Deliverables:
-- KHLIM/KHERO branded shell and navigation.
-- Player home/dashboard.
-- Player profile.
-- Basketball team membership display.
-- Schedule/calendar read experience using seeded/admin-managed data.
-- Competition/event read experience.
-- KHERO profile shell and approved visual customization foundation.
-- Points/rewards read placeholders or early ledger-backed view if available.
-- Progress/development read UI using development-framework fixtures or controlled seed data.
-- Language selector.
-- English production copy plus initial Bahasa Melayu translation coverage; additional target locales can follow through beta.
-- Responsive localization-safe components.
-
-Exit criteria:
-- A basketball player can use a realistic end-to-end mobile experience with production architecture rather than a throwaway prototype.
-
-Important limitation:
-- Data that must be authoritative (attendance, evaluations, official events) may still be seeded or admin-managed until the corresponding staff phases are complete.
+Protected APIs deny by default and users can access only data allowed by active relationships, assignments, and explicit permissions.
 
 ---
 
-## Phase 4 — Club operations and coach attendance
+## Phase 3 — Programmes, venues, and membership foundation
 
-**Goal:** Make schedules and attendance authoritative instead of demo data.
+**Goal:** Model what KHLIM sells and where it operates without hard-coding current academy categories or locations.
 
-Deliverables:
-- Basketball teams/groups and memberships.
-- Season-aware membership foundation.
-- Training-session creation and recurring schedule workflow.
-- Coach assignments.
-- Coach session/roster screen.
-- `Mark All Present` + exception editing.
-- Present / absent / late / excused statuses.
-- Coach confirmation of official attendance.
-- Attendance history and corrections.
-- `AthleteAttendanceConfirmed` domain event.
-- Admin attendance oversight.
-- Schedule-change notifications.
+### Deliverables
 
-Exit criteria:
-- A real basketball team can run a training week using the platform without a parallel attendance spreadsheet.
+- `Programme` for reusable concepts such as U9/U12/U15/Advanced Training;
+- `ProgrammeOffering` for a specific location/schedule/capacity instance;
+- configurable `MembershipPlan` terms and pricing;
+- athlete `Membership` lifecycle;
+- venue and court model;
+- programme capacity/eligibility foundation;
+- historical programme/membership participation preserved;
+- admin configuration APIs and initial admin workflows.
 
-Future attendance enhancement, not required here:
-- temporary QR/NFC/kiosk check-in may create a draft check-in signal while coach confirmation remains the default official authority.
+### Guardrails
 
----
+`Team` is not `Programme`. Competitive-team membership and academy programme enrolment are separate concepts.
 
-## Phase 5 — Parent / guardian experience
+### Exit criteria
 
-**Goal:** Give families reliable supervision and action workflows around linked children.
-
-Deliverables:
-- Parent dashboard.
-- Multi-child switching.
-- Child schedule/calendar.
-- Attendance visibility.
-- Event/competition visibility.
-- Parent-controlled profile/contact fields.
-- Notification preferences.
-- Preferred locale independent of child locale.
-- Family-safe access tests.
-
-Exit criteria:
-- Parents can reliably understand where their child needs to be, whether they attended, and what upcoming actions matter.
+Staff can configure a new programme offering, capacity, venue, and membership package without source-code changes.
 
 ---
 
-## Phase 6 — Athlete development
+## Phase 4 — Payments and recurring billing
 
-**Goal:** Establish structured, coach-owned basketball development history using a sport-configurable framework.
+**Goal:** Build reliable commercial infrastructure before public registration opens.
 
-Deliverables:
-- `DevelopmentFramework` associated with Basketball.
-- Configurable criteria/categories.
-- Coach evaluations and rating/assessment model.
-- Strengths and development priorities.
-- Shared progress notes.
-- Internal coach notes with distinct authorization.
-- Evaluation history.
-- Player/parent progress views using live data.
-- Evaluation freshness/overdue indicators where useful.
+### Deliverables
 
-Exit criteria:
-- Coaches can maintain useful development information without excessive administration, and player/parent progress screens contain trustworthy coach-owned information.
+- provider-neutral `PaymentGateway` abstraction;
+- provider customer/payment-method references only; no raw card/CVV storage;
+- hosted/provider-secured checkout/tokenization;
+- upfront and recurring billing support;
+- `PaymentSchedule` and `PaymentInstallment` model;
+- payment transaction/attempt records;
+- signed webhook verification;
+- provider-event deduplication;
+- idempotency protection for charge-creating operations;
+- server-authoritative prices/discounts;
+- recurring-payment agreement/terms audit record;
+- receipts/payment history;
+- test and production provider separation;
+- basic failed-payment state ready for later dunning automation.
 
----
+### Exit criteria
 
-## Phase 7 — Competitions, events, selections, and communication
+A test family can complete an initial membership payment, verified webhooks update the authoritative financial state exactly once, and a fixed-cycle recurring agreement cannot accidentally overcharge beyond its configured schedule.
 
-**Goal:** Make the app the source of truth for upcoming basketball opportunities and changes.
+### Schedule checkpoint
 
-Deliverables:
-- Generic event/competition domain with `sport_id`.
-- Team and individual participation formats in the model.
-- Competitions, trials, camps, club events, and registration deadlines.
-- Draft → Published → Registration Open/Closed → Completed/Cancelled lifecycle.
-- Parent registration/response workflow.
-- Selection announcements with controlled visibility.
-- Club/sport/team/athlete-targeted announcements.
-- Event update/cancellation notifications.
-- Automated deadline/reminder jobs.
-- Admin event management that requires no developer intervention.
-- Locale-aware system notifications.
-
-Exit criteria:
-- A real competition can be published, changed, registered for, reminded, completed, and retained as history entirely through the platform.
+Reassess the public-launch target at the end of this phase. Payment reliability takes priority over calendar pressure.
 
 ---
 
-## Phase 8 — KHERO, points, rewards, and engagement
+## Phase 5 — Public website, registration, and member portal
 
-**Goal:** Turn participation into a meaningful KHLIM engagement loop without letting gamification own operational truth.
+**Goal:** Deliver the first coherent customer product.
 
-Deliverables:
-- Official KHERO assets integrated using approved design rules.
-- KHERO customization catalogue.
-- Point transaction ledger.
-- Configurable reward rules.
-- Confirmed attendance as an initial reward-event source.
-- Achievements/unlocks.
-- Reward catalogue and redemption.
-- Player and parent reward visibility.
-- Audit/reconciliation tools.
+### Public website
 
-Exit criteria:
-- KHERO/rewards can evolve independently while every balance change remains explainable and auditable.
+- KHLIM/Academy information;
+- programmes and offerings;
+- public coach/event information where appropriate;
+- join/registration calls to action;
+- contact/support entry points;
+- localization-ready public UI.
 
----
+### Family journey
 
-## Phase 9 — Coach services and operational admin maturity
+```text
+Discover KHLIM
+→ create account
+→ add/select child
+→ choose programme offering
+→ choose membership plan
+→ review/accept terms
+→ pay securely
+→ membership activates
+→ view member dashboard
+```
 
-**Goal:** Complete the club operating toolset needed before broad release.
+### Initial member portal
 
-Deliverables:
-- Coach directory and sport specializations.
-- Private-training/consultation enquiries.
-- Full admin workflows for users, family links, sports, teams, schedules, attendance, development frameworks, events, announcements, rewards, and enquiries.
-- Bulk imports.
-- Audit viewer.
-- Localization-aware admin content entry where required.
+- linked children;
+- programme/membership summary;
+- membership status;
+- next payment and payment history;
+- upcoming schedule;
+- basic notifications/account settings.
 
-Exit criteria:
-- Routine KHLIM Basketball operations do not require developer intervention.
+### Exit criteria
 
----
-
-## Phase 10 — Security, privacy, reliability, and production hardening
-
-**Goal:** Prepare the system for real families, minors' information, and public mobile distribution.
-
-Deliverables:
-- Threat review.
-- Authorization test suite.
-- Rate limiting and abuse controls.
-- Secret-management validation.
-- Backup/restore test.
-- Audit coverage review.
-- Production logging/alerts.
-- Data retention and deletion rules.
-- Account deletion flow.
-- Privacy/terms drafts and data inventory.
-- Dependency / third-party SDK review.
-- Performance testing for expected launch load.
-- Localization completeness/fallback checks.
-- Cost monitoring and spending alerts.
-
-Exit criteria:
-- Critical security, privacy, recovery, observability, localization, and cost-control requirements are verified rather than assumed.
+A family can discover KHLIM, register a child, select a programme/package, pay, activate membership, and view the resulting account state without manual spreadsheet intervention.
 
 ---
 
-## Phase 11 — Internal alpha
+## Phase 6 — Admin operations
 
-**Goal:** Break the product internally before families do.
+**Goal:** Let staff operate the academy without developer intervention.
+
+### Deliverables
+
+- family/athlete account management;
+- programme/offering management;
+- membership-plan management;
+- membership lifecycle oversight;
+- payment/failed-payment visibility;
+- venue/court configuration;
+- capacity overview;
+- basic revenue/payment operational reporting;
+- scoped staff roles such as Super Admin, Management, Finance/Admin, Academy Admin, Head Coach, Coach, Event Staff;
+- audit viewer for sensitive operations.
+
+### Exit criteria
+
+Normal onboarding, membership, payment, programme, and venue administration can be performed through the staff system rather than database edits or developer requests.
+
+---
+
+## Phase 7 — Scheduling and basic notifications
+
+**Goal:** Support week-to-week academy operations for the first public MVP.
+
+### Deliverables
+
+- recurring session-series/schedule rules;
+- generated explicit session occurrences;
+- venue/court assignment;
+- session capacity/status;
+- venue/court closures;
+- holidays, cancellations, rescheduling, and replacement sessions;
+- auditable membership-term adjustments where interruptions require them;
+- email transactional notifications;
+- channel-neutral Notification service and delivery records;
+- payment/registration/schedule confirmation templates;
+- notification preference foundations.
+
+### Exit criteria
+
+Families can see accurate upcoming academy schedules and receive reliable transactional communication for registration, payment, and material schedule changes.
+
+---
+
+## Phase 8 — Hardening, alpha, beta, and academy pilot
+
+**Goal:** Prove the product with real workflows before broad public exposure.
+
+### Stage A — Internal alpha
 
 Participants:
-- Developers.
-- Club management.
-- Small number of coaches/staff.
-- Selected test player accounts.
+- developer(s);
+- KHLIM management;
+- selected admin/finance staff;
+- selected coaches using test accounts.
 
-Representative flow:
+Test normal and failure flows including authentication, family linking, pricing, capacity, successful/failed payments, duplicate/delayed webhooks, cancellations, schedule exceptions, permissions, backups, and rollback.
 
-```text
-Create basketball team
-→ schedule training
-→ player sees schedule
-→ coach confirms attendance
-→ parent sees attendance
-→ rewards event processes
-→ coach adds development update
-→ player/parent see progress
-→ admin publishes competition
-→ family receives localized notification
-```
+### Stage B — Closed family beta
 
-Exit criteria:
-- No unresolved blocker-level failures in core workflows.
+Suggested first cohort: **5–10 trusted families**.
 
----
-
-## Phase 12 — Controlled club beta
-
-**Goal:** Validate the product with a real KHLIM Basketball cohort.
-
-Suggested cohort:
-- 1 age group/team.
-- 2–4 coaches.
-- 20–50 players plus parents/guardians.
-
-Translation rollout target during beta:
-- English.
-- Bahasa Melayu.
-- Simplified Chinese.
-- Expand Traditional Chinese and Hindi coverage before or around public launch based on review capacity.
-
-Measure:
-- activation/login success;
-- schedule usefulness;
-- attendance completion rate;
-- parent usage;
-- evaluation usage;
-- event registration completion;
-- notification reliability;
-- localization issues;
-- crashes/errors;
-- KHERO/reward engagement;
+Observe without hand-holding where possible:
+- signup completion;
+- child/profile creation;
+- programme selection;
+- checkout clarity;
+- dashboard comprehension;
+- email delivery;
+- browser/device compatibility;
 - support burden.
 
-Exit criteria:
-- Core workflows are used consistently and major UX/security/reliability issues are addressed.
+### Stage C — Expanded academy pilot
+
+Suggested cohort: **15–30 families**, using production-like operations and a carefully controlled number of real production-payment verifications when appropriate.
+
+### Release gate
+
+- **P0/P1 open defect = NO LAUNCH**;
+- no known double-charge/data-loss/privacy/auth bypass defects;
+- database backup and restore tested;
+- monitoring/alerts active;
+- rollback/forward-fix documented;
+- high-risk features can be disabled independently where practical;
+- privacy/terms/recurring-payment disclosures ready;
+- key browsers and common mobile screen sizes verified.
+
+### Feature freeze
+
+Reserve approximately the final 1–2 weeks for bug fixing, security, payment reliability, performance, recovery, and release verification rather than new features.
 
 ---
 
-## Phase 13 — Store preparation and release candidate
+## Phase 9 — Website MVP public launch
 
-**Goal:** Produce a compliant, frozen launch build.
+**Goal:** Progressively release the first KHLIM Digital Sports Ecosystem product.
 
-Deliverables:
-- Company-owned Apple/Google developer accounts.
-- Final package identifiers.
-- KHLIM/KHERO app icons and store artwork.
-- Screenshots/descriptions/support resources.
-- Privacy and Data Safety disclosures.
-- Account deletion path.
-- Review credentials/instructions.
-- TestFlight / Play testing tracks.
-- Signing credential ownership documentation.
-- Final language/locale metadata.
-- Production release checklist.
+### Recommended rollout
 
-Feature freeze priorities:
-- security/data-loss issues;
-- crashes/broken core workflows;
-- severe UX/localization issues;
-- launch-blocking compliance defects.
+1. Limited production cohort.
+2. Monitor login, registration, payments, webhook processing, API errors, notification delivery, database health, and support incidents for 24–72 hours.
+3. Expand cohort only while launch gates remain green.
+4. Open public registration broadly.
 
----
+### MVP product at launch
 
-## Phase 14 — KHLIM Basketball public launch
+Customer-facing:
+- public website;
+- family authentication;
+- multiple children;
+- programme discovery/selection;
+- configurable membership package selection;
+- secure upfront/recurring payment;
+- member dashboard;
+- payment history/status;
+- upcoming academy schedule;
+- basic transactional notifications.
 
-**Goal:** Launch progressively with rollback and incident visibility.
+Staff-facing:
+- family/athlete administration;
+- programmes/offerings/plans;
+- memberships/payments;
+- venues/courts/schedules;
+- capacity/basic reporting;
+- audit records and scoped permissions.
 
-Recommended rollout:
-1. Invited / small production cohort.
-2. Expand after crash, API, login, notification, and data-health checks remain stable.
-3. Full KHLIM Basketball availability.
+### Planning target
 
-Post-launch priorities:
-- Reliability and usability first.
-- Support and operational metrics.
-- Structured player/parent/coach/admin feedback.
-- Translation quality feedback.
-- Cost/usage monitoring.
-- Re-prioritize V1.x/V2 from observed behavior.
+Current working target: **approximately 15 February 2027**, subject to the Phase 4 payment checkpoint and the Phase 8 production launch gate.
 
 ---
 
-# Post-launch expansion roadmap
+# Post-MVP growth roadmap
 
-The following phases are **not prerequisites for KHLIM Basketball MVP 1.0**.
+## V1 — approximately 30–60 active academy students
 
-## Expansion A — Basketball maturity
+Prioritize automation that improves collections and reduces admin work:
+- recurring-payment retry/dunning policy;
+- overdue → suspension → reactivation workflows;
+- renewal/expiry automation;
+- WhatsApp notification adapter where approved;
+- coach attendance workflow;
+- optional QR-assisted check-in with coach confirmation;
+- Benefits/Entitlements and starter-kit fulfilment;
+- jersey sizing/collection status;
+- improved operational analytics.
 
-Potential work:
-- QR-assisted check-in with coach confirmation.
-- Payments and registrations.
-- Coach booking.
-- richer competition brackets/results;
-- game statistics;
-- analytics;
-- video workflows;
-- richer KHERO achievements;
-- automated parent summaries.
+## V2 — approximately 60–100 students
 
-## Expansion B — Activate multi-sport capability
+Connect athlete development and additional KHLIM services:
+- coach evaluations/development profiles;
+- development pathway history;
+- KHLIM 3x3 tournament registrations and membership pricing rules;
+- camps and camp payments;
+- competitive-team/advanced-training pathways;
+- richer family portal;
+- stronger multi-venue tooling;
+- richer event/notification workflows.
 
-**Trigger:** KHLIM has a real second sport/program to onboard.
+## Super App — approximately 100+ students or when mobile demand justifies it
 
-Work focuses on validating the abstractions already built rather than redesigning the core:
-- Enable a second `Sport`.
-- Create its development framework.
-- Add sport-specific team/group terminology and configuration.
-- Configure individual/team competition formats.
-- Add coach assignments.
-- Decide KHERO/mascot behavior for the new sport.
-- Add sport switching where one athlete has multiple active sports.
+Activate substantial development of `apps/mobile` over existing APIs:
+- personalized Home;
+- Academy/Membership;
+- Schedule;
+- Athlete/Development;
+- Payments/receipts;
+- 3x3 and Camps;
+- KHERO/Rewards;
+- Notifications;
+- Account/family management;
+- role-aware coach workflows where appropriate.
 
-Example:
+Mobile release follows its own internal testing → TestFlight/Play closed beta → staged store rollout → public release gates.
 
-```text
-Athlete
- ├── Basketball
- │    └── U16 Main Team
- └── Badminton
-      └── U17 Singles Development
-```
+## Later capabilities — build only with evidence
 
-## Expansion C — Cross-sport KHLIM ecosystem
-
-Potential work:
-- Unified athlete history across sports.
-- Family calendar across children and sports.
-- Cross-sport rewards or sport-specific reward wallets/rules.
-- Organization-wide achievements.
-- Multi-sport coach directory.
-- Central KHLIM competition discovery.
-
-## Expansion D — Advanced competition platform
-
-Potential work:
-- External registrations.
-- Draws/brackets/heats.
-- Team and individual results.
-- eligibility checks;
-- payment integration;
-- competition staff roles;
-- public event pages;
-- result history.
-
-## Expansion E — AI and automation
-
-AI is introduced only after structured operational data exists.
-
-Potential agents:
-- Coach assistant for development summaries.
-- Parent progress summaries.
-- Admin scheduling/event assistance.
-- Registration follow-up automation.
-- Translation assistance with human review.
-- Development recommendations requiring coach approval.
-
-AI does not become the authoritative source for attendance, official evaluation, eligibility, or child-safety decisions.
-
-## Expansion F — Optional external organization platform
-
-Only pursue this if KHLIM deliberately wants to commercialize the platform for external academies/clubs.
-
-This would introduce true multi-organization tenancy, organization-specific branding/configuration, billing, stronger tenant isolation, support tooling, and commercial operations.
-
-It should **not** be prebuilt into the basketball MVP without a validated business case.
+- private/small-group coaching booking and payments;
+- merchandise/pre-order commerce;
+- richer competition results/brackets;
+- advanced analytics/video/statistics;
+- cross-channel communications/CRM;
+- additional KHLIM sports;
+- AI/automation using structured authoritative data;
+- external-club/multi-tenant platform only after a validated commercial decision.
