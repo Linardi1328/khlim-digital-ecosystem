@@ -1,5 +1,3 @@
-import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
-import nextTypeScript from "eslint-config-next/typescript";
 import tseslint from "typescript-eslint";
 
 const ignores = {
@@ -15,8 +13,6 @@ const ignores = {
 const khlimConfig = [
   ignores,
   ...tseslint.configs.recommended,
-  ...nextCoreWebVitals,
-  ...nextTypeScript,
   {
     rules: {
       "@typescript-eslint/no-explicit-any": "error",
