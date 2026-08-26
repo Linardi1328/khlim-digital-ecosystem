@@ -1,205 +1,204 @@
 # MVP Scope
 
-**Status:** Accepted for current planning baseline
+**Status:** Accepted current planning baseline
 
 ## Goal
 
-Ship a production-ready first public version for **KHLIM Basketball** that solves the highest-value recurring workflows for players, parents/guardians, coaches, and administrators without implementing speculative multi-sport complexity.
+Ship a production-ready first public version of the **KHLIM website + authenticated family/member portal**, backed by the shared KHLIM API, database, authentication, payment, notification, and admin infrastructure.
 
-The delivery sequence is **player-first**, but public MVP 1.0 is not considered complete until the supporting coach, parent, and admin workflows required to keep player information trustworthy are operational.
+The MVP is designed for KHLIM Basketball Academy while keeping the core sport-aware and reusable for later KHLIM services and the future Super App.
 
-## Scope rule
+The delivery sequence is **commercial/operational first**, not player-first mobile.
 
-MVP 1.0 is basketball-specific in the user experience. The core data and module contracts should nevertheless support a future `Sport` dimension, athlete identity, configurable development frameworks, and generic competition formats.
+## MVP success condition
 
-No additional sport needs to be visible or fully implemented before the basketball product succeeds.
+A family can:
+
+```text
+Discover KHLIM
+→ create one parent/guardian account
+→ add/select a child
+→ choose a Programme Offering
+→ choose a configurable Membership Plan
+→ review/accept terms
+→ pay securely
+→ receive confirmed membership activation
+→ view membership/payment/schedule information
+```
+
+and KHLIM staff can manage the resulting records through the Admin web application without relying on code changes or fragmented spreadsheets.
 
 ## In scope
 
-### 1. Identity and access
+### 1. Shared platform foundation
 
-- Secure account authentication.
-- Roles: Player/Athlete, Parent/Guardian, Coach, Administrator.
-- Server-side authorization for every protected action.
-- Parent/guardian-to-athlete linking supporting multiple guardians and multiple children.
-- Coach access limited to authorized sports, teams/groups, sessions, and athletes.
-- Admin access with stronger authentication requirements.
-- A user may hold more than one role in the future without requiring duplicate accounts.
+- One NestJS modular-monolith API shared by website, admin, and future mobile clients.
+- PostgreSQL/Prisma authoritative relational data model.
+- Supabase Auth/Storage infrastructure.
+- REST/OpenAPI boundary.
+- Environment separation, CI, monitoring, audit, backup/restore foundations.
+- Localization infrastructure from the first production screens.
 
-### 2. Sport-aware foundation
+### 2. Identity, family, and access
 
-- A `Sport` concept exists in the core model from the start.
-- Basketball is the only enabled end-user sport for MVP 1.0.
-- Teams/groups, development frameworks, sessions, and competitions can reference a sport.
-- Internal domain naming prefers `Athlete`; the basketball UI may display `Player`.
-- No multi-sport switcher is required in MVP 1.0.
+- Secure account authentication and recovery basics.
+- Parent/Guardian, Athlete/Player, Coach, and staff role foundations.
+- Multiple children per guardian.
+- Multiple authorized guardians per athlete.
+- Relationship-aware/server-side authorization.
+- Stronger administrative authentication/MFA requirement.
+- One KHLIM account capable of later spanning Academy, tournaments, camps, teams, coaching, and commerce.
 
-### 3. Profiles
+### 3. Sport-aware foundation
 
-#### Player / Athlete
-- Basic athlete profile.
-- Basketball team/age-group membership.
-- Basketball-related profile fields kept outside overly generic identity fields where practical.
-- Minimal academic context where the club has a legitimate use.
-- KHERO profile.
-- Preferred interface locale.
+- Stable `Sport` concept.
+- Basketball is the only required live sport.
+- Internal concept uses `Athlete`; basketball presentation may use `Player`.
+- No multi-sport selector required for MVP.
 
-#### Parent / Guardian
-- Account profile.
-- Linked children.
-- Editable guardian-controlled contact/emergency information where appropriate.
-- Preferred interface locale independent of the child's locale.
+### 4. Programmes and offerings
 
-#### Coach
-- Coach profile.
-- Sport, role, and specialization information.
-- Approved contact/enquiry pathway.
-- Private training / consultation availability indicator.
-- Preferred interface locale.
+- Configurable Programme records such as U9/U12/U15/Advanced Training without hard-coded enum dependence.
+- Programme Offering for location/schedule/capacity-specific enrolment.
+- Programme capacity/status/eligibility basics.
+- Multiple venue support from the data model.
 
-### 4. Teams and training
+### 5. Membership plans and memberships
 
-- Basketball team creation and membership.
-- Season-aware design where historical membership matters.
-- Training session schedule.
-- Assigned coaches.
-- Venue, start/end time, status, and notes.
-- Player, parent, and coach schedule views.
-- Recurring schedule support or an equivalent admin workflow that avoids manually recreating every weekly session.
+- Configurable Membership Plans with duration/commitment/billing frequency/upfront or recurring price/session allowance/eligibility/status.
+- Athlete Membership lifecycle separate from Billing state.
+- Membership statuses such as Pending, Active, Suspended, Cancelled, Completed, Expired.
+- Accepted membership/recurring terms recorded for audit.
+- Historical membership participation retained.
 
-### 5. Attendance
+### 6. Payments and recurring billing
 
-- Coach roster view.
-- Primary MVP method: coach marks attendance in the app.
-- Fast actions such as **Mark All Present** followed by exception editing.
-- Present, absent, late, and excused statuses.
-- Coach confirmation before attendance becomes official.
-- Attendance history.
-- Parent visibility for linked children.
-- Trusted attendance event that other modules can react to.
-- Auditable corrections.
+Integrated payment processing is **required for this MVP**.
 
-Future QR/NFC/kiosk check-in may create a draft check-in signal, but it is **not required for MVP** and must not bypass coach confirmation of official attendance.
+- External payment gateway/provider.
+- Secure provider-hosted/tokenized card/payment entry.
+- No raw full card number/CVV storage by KHLIM.
+- Payment provider abstraction/interface.
+- Upfront one-time payment.
+- Fixed-cycle monthly recurring billing where provider capability supports the approved design.
+- Payment Schedule + Installment records.
+- Payment transaction/attempt records.
+- Signed webhook verification.
+- Provider-event deduplication.
+- Idempotent charge-creating/retryable processing.
+- Server-authoritative pricing/discount totals.
+- Payment status separate from Membership status.
+- Payment history/receipt information.
+- Test vs production payment environment separation.
 
-### 6. Athlete development
+Advanced automated dunning/retry policy may be V1 if the selected provider/manual MVP process can safely cover the first small cohort, but the data model must support failed/overdue states from the start.
 
-- Sport-specific, configurable development framework.
-- Basketball criteria can include shooting, finishing, ball handling, passing, defense, basketball IQ, athleticism, mental/discipline, and future club-defined criteria.
-- Coach-created evaluations.
-- Strengths and current development priorities.
-- Shared progress notes visible to authorized athlete/guardian users.
-- Internal coach notes visible only to authorized staff.
-- Evaluation history.
-- Framework changes should not require a mobile release where safe configuration is sufficient.
+### 7. Venues, courts, and basic scheduling
 
-### 7. KHERO identity
+- Multiple Venue records.
+- Court records where operationally required.
+- Basic recurring schedule/session-series foundation.
+- Explicit upcoming Session occurrences.
+- Session venue/time/status.
+- Basic schedule view for linked families.
+- Admin ability to modify schedule data.
+- Architecture supports closures/cancellations/rescheduling; full automated exception tooling may continue into V1.
 
-- Personal KHERO profile for eligible basketball players.
-- Controlled customization using official KHLIM/KHERO assets.
-- MVP customization may include jersey number, approved jersey variants, backgrounds, and limited accessories/achievement items.
-- KHERO remains a presentation/engagement domain and must not own official attendance or evaluation truth.
-- The long-term relationship between KHERO and future non-basketball sports remains an open product choice.
+### 8. Public website
 
-### 8. Points and rewards
+- Home/about/academy/programme information.
+- Programme discovery and join calls to action.
+- Public coach/event information where approved.
+- Contact/support entry point.
+- Responsive/mobile-browser support.
+- Localization-ready UI.
 
-- Append-only or auditable point transaction ledger.
-- Configurable point-award rules.
-- Confirmed practice attendance as an initial trusted point source.
-- Reward catalogue.
-- Reward redemption workflow with auditable balance changes.
-- Parent visibility into a linked child's balance and reward activity.
-- Architecture must allow future sport-specific or organization-wide reward policies.
+### 9. Parent/family member portal
 
-### 9. Events, competitions, and selections
+Initial portal includes:
+- linked children;
+- programme/membership summary;
+- membership status;
+- next payment/payment history;
+- upcoming training/schedule;
+- basic notifications/account/preferences.
 
-- Generic event/competition model supporting competitions, club events, trials, camps, selections, and related activities.
-- Sport reference.
-- Team or individual participation format where relevant.
-- Event details, venue, dates, deadlines, status, eligibility, and targeting.
-- Parent response: register/interested, decline, or similar MVP action.
-- Selection/team announcements with controlled visibility.
-- Admins can publish, modify, cancel, and complete events without requiring an app release.
-- Important event changes can trigger targeted notifications.
+A full athlete-development dashboard is not required for the first website MVP.
 
-### 10. Announcements and notifications
+### 10. Admin web application
 
-- Club-wide announcements.
-- Team-targeted announcements.
-- Player/family-specific updates where appropriate.
-- In-app notifications.
-- Push notifications for important operational events.
-- User preferences for non-critical notification categories.
-- System-generated notifications rendered using the recipient's preferred locale where translations exist.
+- Family/athlete management.
+- Programme/Programme Offering configuration.
+- Membership Plan configuration.
+- Membership status/overview.
+- Payment/failed-payment visibility.
+- Venue/Court basics.
+- Schedule/session basics.
+- Capacity overview.
+- Scoped staff permissions.
+- Audit visibility for sensitive operations.
+- Basic operational/payment reporting.
 
-### 11. Multilingual foundation
+### 11. Notifications
 
-Architecture and UI must support:
+- Channel-neutral Notification service architecture.
+- Basic transactional email for registration/payment/membership/schedule changes.
+- Notification records/delivery status where appropriate.
+- Locale-aware system templates.
+- WhatsApp/push/SMS adapters can be added later without rewriting domain logic.
 
-- English (`en`)
-- Bahasa Melayu (`ms`)
-- Simplified Chinese (`zh-Hans`)
-- Traditional Chinese (`zh-Hant`)
-- Hindi (`hi`)
+### 12. Production readiness and controlled launch
 
-English is the canonical fallback. Translation rollout may be progressive during alpha/beta, but user-facing text must use localization keys from the first production screens.
+- Development/staging/production separation.
+- Automated tests for critical auth/payment/membership flows.
+- CI validation.
+- Error monitoring/structured logging.
+- Payment/webhook monitoring.
+- Automated database backups.
+- Tested restore procedure before public launch.
+- Rate limiting/abuse basics where applicable.
+- Privacy/terms/recurring-payment disclosure readiness.
+- Account deletion/request path.
+- Documented rollback/forward-fix procedure.
+- Internal alpha.
+- Closed beta with approximately 5–10 families.
+- Expanded academy pilot approximately 15–30 families.
+- Feature freeze/release candidate.
+- No unresolved P0/P1 defects at public launch.
 
-A dedicated Cantonese locale (`yue-Hant`) is a future option if validated. Traditional Chinese is not treated as equivalent to Cantonese.
+## Explicitly out of scope for the first website MVP
 
-### 12. Coach services
+These are intentionally deferred unless business evidence changes priority:
 
-- Coach directory.
-- Sport/specialization details.
-- Private-training or consultation enquiry submission.
-- Admin/coach visibility of enquiries.
-- No integrated scheduling marketplace or payment in MVP.
+- major native Super App feature development;
+- KHERO customization/reward loop;
+- full attendance workflow and QR check-in;
+- athlete evaluations/development analytics;
+- 3x3 tournament integration/member discounts;
+- camps registration;
+- private/small-group coaching booking marketplace;
+- merchandise/pre-order shop;
+- WhatsApp/push/SMS as mandatory channels;
+- additional enabled sports;
+- public competition marketplace;
+- live match statistics;
+- video analysis;
+- wearables;
+- social feed/open direct messaging;
+- autonomous AI coaching/evaluation;
+- external multi-organization SaaS tenancy.
 
-### 13. Admin web application
+## V1 immediately after MVP
 
-- User and relationship management.
-- Sport configuration with Basketball enabled for MVP.
-- Team, roster, season, and schedule management.
-- Attendance oversight.
-- Development framework configuration.
-- Events, competitions, selections, and announcements.
-- Points/rewards administration.
-- Coach-service enquiry oversight.
-- Audit log access for sensitive administrative actions.
-- Bulk import support where practical.
-- Locale-aware content entry where translated club-authored content is supported.
+Likely priorities for approximately 30–60 active students:
+- automated failed-payment retries/reminders/dunning;
+- overdue/suspension/reactivation/renewal automation;
+- WhatsApp notification integration;
+- coach attendance and optional QR-assisted check-in;
+- Benefits/Entitlements/starter-kit fulfilment;
+- stronger closure/rescheduling/replacement-session workflows;
+- improved operational analytics.
 
-### 14. Production readiness
+## Release criterion
 
-- Development, staging, and production environments.
-- Automated tests for critical workflows and permissions.
-- CI/CD.
-- Error/crash reporting.
-- API and infrastructure monitoring.
-- Database backups and documented restore procedure.
-- Secure secrets management.
-- Privacy policy and terms preparation.
-- Account deletion workflow.
-- Data retention rules.
-- Store listing and release preparation.
-
-## Explicitly out of scope for MVP 1.0
-
-- Additional enabled sports in the public app.
-- Cross-sport athlete dashboard.
-- External-club / multi-organization SaaS tenancy.
-- Public competition marketplace.
-- Full merchandise store.
-- Online payments.
-- Complete coach booking calendar.
-- Public athlete-to-athlete social feed.
-- Open direct messaging.
-- Advanced match statistics.
-- Video analysis.
-- Wearables.
-- QR-only attendance or automatic attendance without coach confirmation.
-- AI-generated official performance evaluations.
-- Autonomous development-plan decisions.
-- Public ranking/leaderboard of youth athletes.
-
-## MVP release criterion
-
-MVP 1.0 is ready for public launch only when the basketball workflows for all four user groups are reliable, permission boundaries have been tested, localization foundations are in place, operational monitoring is active, and the club can keep schedules, attendance, development information, competitions/events, and announcements current without developer intervention.
+MVP is public-launch ready only when the end-to-end family registration/payment/membership journey and staff operational workflows are reliable, authorization/payment integrity are tested, monitoring and recovery are active, beta/pilot evidence is satisfactory, and there are no unresolved P0/P1 defects.
