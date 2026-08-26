@@ -1,11 +1,10 @@
+import type { LoggerService } from "@nestjs/common";
 import type { DeploymentEnvironment } from "./environment";
 
-export type LogLevel = "info" | "warn" | "error";
+export type LogLevel = "debug" | "info" | "warn" | "error" | "fatal";
 
-export interface StructuredLogger {
+export interface StructuredLogger extends LoggerService {
   info(message: string, metadata?: Record<string, unknown>): void;
-  warn(message: string, metadata?: Record<string, unknown>): void;
-  error(message: string, metadata?: Record<string, unknown>): void;
 }
 
 const sensitiveKeyPattern =
@@ -45,25 +44,29 @@ export function createStructuredLogger(options: {
 }): StructuredLogger {
   function write(
     level: LogLevel,
-    message: string,
-    metadata: Record<string, unknown> = {},
+    message: unknown,
+    optionalParams: unknown[] = [],
   ): void {
     const entry = JSON.stringify({
       timestamp: new Date().toISOString(),
       level,
       service: options.service,
       environment: options.deploymentEnv,
-      message,
-      metadata: sanitizeMetadata(metadata),
+      message: typeof message === "string" ? message : String(message),
+      metadata: sanitizeMetadata(optionalParams),
     });
 
-    const stream = level === "info" ? process.stdout : process.stderr;
+    const stream = level === "info" || level === "debug" ? process.stdout : process.stderr;
     stream.write(`${entry}\n`);
   }
 
   return {
-    info: (message, metadata) => write("info", message, metadata),
-    warn: (message, metadata) => write("warn", message, metadata),
-    error: (message, metadata) => write("error", message, metadata),
+    log: (message, ...optionalParams) => write("info", message, optionalParams),
+    info: (message, metadata) => write("info", message, metadata ? [metadata] : []),
+    warn: (message, ...optionalParams) => write("warn", message, optionalParams),
+    error: (message, ...optionalParams) => write("error", message, optionalParams),
+    debug: (message, ...optionalParams) => write("debug", message, optionalParams),
+    verbose: (message, ...optionalParams) => write("debug", message, optionalParams),
+    fatal: (message, ...optionalParams) => write("fatal", message, optionalParams),
   };
 }
