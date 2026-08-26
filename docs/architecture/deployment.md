@@ -1,251 +1,273 @@
 # Deployment and Environment Plan
 
-**Status:** Accepted for Phase 1 baseline
+**Status:** Accepted current Phase 1 baseline
 
-The deployment strategy optimizes for reliability, clear environment separation, proximity to the initial Malaysian user base, and low operational burden for a small team.
+The deployment strategy prioritizes reliability, environment separation, low operational burden, Malaysia/Singapore proximity, and a safe path from private testing to public launch.
 
 ## Initial provider map
 
 | Capability | Initial provider / approach |
 | --- | --- |
-| Mobile builds/releases | Expo EAS |
+| Public/member website | Vercel |
 | Admin web | Vercel |
 | NestJS API | Railway |
 | PostgreSQL | Supabase managed PostgreSQL |
 | Authentication | Supabase Auth |
 | Object/media storage | Supabase Storage |
-| Error/crash monitoring | Sentry |
-| CI/CD | GitHub Actions |
-| App distribution | Apple App Store / Google Play |
+| Payment processing | External gateway selected through provider evaluation; adapter behind Billing |
+| Email | Provider behind Notification abstraction |
+| WhatsApp / SMS / push | Later adapters behind Notification abstraction |
+| Error monitoring | Sentry |
+| CI/CD | GitHub Actions / PPO PR validation |
+| Future mobile builds/releases | Expo EAS |
+| Future app distribution | Apple App Store / Google Play |
 
-Where supported and operationally sensible, production compute/data should start in **Singapore** to stay geographically close to the initial Malaysian audience.
+Where supported and operationally sensible, production compute/data should start in **Singapore** near the initial Malaysian audience.
 
-These providers are infrastructure choices, not business-domain dependencies. Application code should use clean provider boundaries where replacement is plausible.
+Infrastructure providers are replaceable dependencies; business domains should depend on interfaces/contracts rather than vendor SDK details throughout the codebase.
 
 ## Environments
 
 ### Development
 
 - Local-first developer environment.
-- Local PostgreSQL/Supabase tooling or isolated development resources where practical.
-- Synthetic/test data only by default.
-- Fast feedback and debugging.
-- Avoid paying for unnecessary always-on production-class development infrastructure.
+- Synthetic/test data by default.
+- Payment-provider sandbox/test mode only.
+- No real production family/payment credentials.
+- Local/isolated PostgreSQL/Supabase tooling or dev resources.
 
 ### Staging
 
-- Production-like API/database/storage/auth configuration.
-- Used for integration testing, migration rehearsal, release candidates, TestFlight/Play testing, and stakeholder QA.
-- Separate data, credentials, and projects from production.
-- May be activated/scaled progressively as beta approaches rather than paying for a full production footprint from day one.
+- Production-like web/admin/API/auth/database configuration.
+- Separate provider credentials and test/staging payment configuration.
+- Used for integration/E2E testing, migration rehearsal, internal alpha, family beta, release candidates, and rollback drills.
+- Separate data from production.
 
 ### Production
 
-- Real KHLIM users and data.
-- Protected credentials and stricter access controls.
+- Real KHLIM users, family data, and money.
+- Strong staff access controls/MFA.
 - Controlled deployments/migrations only.
-- Cost and usage alerts enabled where providers support them.
+- Production payment credentials isolated in secret stores.
+- Backups, monitoring, reconciliation, alerting, and incident procedures enabled.
 
 ## Target topology
 
 ```text
-Expo Mobile
-    │
-    │ HTTPS
-    ▼
-Railway Singapore (NestJS API)
-    │
-    ├── Supabase PostgreSQL (Singapore where selected)
-    ├── Supabase Auth
-    └── Supabase Storage
-
-Next.js Admin
-    │
-Vercel
-    │
-    └── calls the same NestJS API
+Public / Member Website (Next.js)
+          │
+Admin Web (Next.js)
+          │
+Future Expo Super App
+          │
+          └──────── HTTPS / REST /v1 ────────┐
+                                              ▼
+                                  Railway — NestJS API
+                                              │
+             ┌────────────────────────────────┼───────────────────────────┐
+             ▼                                ▼                           ▼
+      Supabase PostgreSQL              Supabase Auth/Storage       External Providers
+                                                                  Payment Gateway
+                                                                  Email
+                                                                  WhatsApp/Push/SMS later
 ```
 
-The admin application should not bypass the API for sensitive KHLIM business operations merely because it is trusted staff software.
+All clients call the same business API for sensitive operations. Admin does not bypass Membership/Billing/Authorization rules.
+
+## Monorepo deployment units
+
+```text
+apps/web       # deploy now/first
+apps/admin     # deploy now/first
+apps/api       # deploy now/first
+apps/mobile    # reserved; deploy/build later when activated
+```
+
+Shared packages are dependencies, not standalone services by default.
 
 ## Delivery pipeline
 
 Target flow:
 
 ```text
-Feature branch
-→ pull request/review
-→ lint + typecheck + tests + schema/build validation
+short-lived branch
+→ pull request
+→ PPO/CI validation
+→ review
 → squash merge to main
-→ automated staging deployment where appropriate
-→ validation
-→ controlled production deployment/release
+→ staging deployment
+→ integration/release verification
+→ controlled production deployment
 ```
 
-Mobile distribution additionally requires versioned EAS builds and App Store / Play Store release workflows.
+A merge to `main` is not automatically equivalent to a production release.
 
-A merge to `main` is not automatically equivalent to publishing a production mobile release.
-
-## Monorepo deployment units
-
-Expected independently deployable applications:
+Public release adds an explicit operational gate:
 
 ```text
-apps/mobile
-apps/admin
-apps/api
+Internal alpha
+→ Closed family beta
+→ Expanded academy pilot
+→ Feature freeze / release candidate
+→ Limited production cohort
+→ Public launch
 ```
-
-Shared packages are build dependencies, not independent production services by default.
 
 ## Database migrations
 
 Prisma Migrate is the application-schema migration authority.
 
 Rules:
-- migrations are version-controlled;
+- migrations are version controlled;
 - staging rehearses production migrations;
-- destructive migrations require an explicit data-preservation plan;
-- prefer expand/migrate/contract for changes that must remain compatible with mobile versions still in circulation;
-- production migration failure stops deployment rather than allowing unnoticed partial rollout;
-- manual production schema edits are emergency-only and must be reconciled into version-controlled migration history.
+- destructive migrations require an explicit preservation/recovery plan;
+- prefer expand/migrate/contract for compatibility-sensitive changes;
+- failed production migration stops rollout;
+- manual production schema edits are emergency-only and must be reconciled into version control;
+- payment/membership historical records must not be casually destroyed by schema cleanup.
 
-## Mobile release considerations
+## Payment deployment and operations
 
-Old mobile versions can remain installed after backend releases.
+Payment integration receives stricter controls than ordinary UI features:
+- development/staging/production provider modes are isolated;
+- provider secrets live only in server/CI/provider secret stores;
+- signed webhooks terminate at controlled API endpoints;
+- webhook event IDs are persisted/deduplicated;
+- idempotency keys protect charge-creating/retryable actions;
+- provider redirects are not authoritative transaction truth;
+- payment reconciliation/failure visibility exists in production;
+- no raw card/CVV credentials appear in logs, telemetry, database, or source code;
+- a provider outage should not unnecessarily take down unrelated public content/account views.
 
-Therefore:
-- APIs tolerate a defined supported-client window;
-- breaking contracts require API versioning or staged migration;
-- backend releases do not assume immediate app updates;
-- deep links/notification payloads remain backward compatible where practical;
-- minimum supported app versions and forced-update policy are defined later;
-- high-risk features can use controlled server configuration/flags where justified.
+Production launch cannot proceed with known double-charge, payment-state corruption, or webhook-integrity defects.
 
-## Expo release channels / profiles
+## Website/admin deployment
 
-Expected profiles/channels:
-- development;
-- staging/preview;
-- production.
+`apps/web` and `apps/admin` may both use Vercel but remain separate deployable applications with independent environment variables and access policies.
 
-Use Expo development builds for serious app development rather than treating Expo Go as the permanent runtime environment.
+The public website must not expose admin routes/data simply because both use Next.js.
 
-OTA updates, if enabled, must only be used for changes compatible with the installed native runtime and must not be treated as a way to bypass normal release safety.
+Where practical:
+- preview deployments are available for PR/review work;
+- staging points to staging API/auth/payment configuration;
+- production points only to production API/auth/provider configuration;
+- sensitive server environment values are not shipped into browser bundles.
+
+## Future mobile release considerations
+
+When `apps/mobile` becomes active:
+- development/staging/production EAS profiles/channels;
+- TestFlight/Play closed testing before public store release;
+- API backward-compatibility window for installed older versions;
+- server-side feature/config disable where appropriate;
+- staged store rollout;
+- package/signing/store accounts company-owned where possible.
+
+The native client must reuse existing API/auth/payment/member domains instead of introducing a second backend.
 
 ## Configuration and secrets
 
-- Environment-specific configuration is separated from source code.
-- Secrets are stored in provider/CI secret stores, not Git.
+- Environment-specific config is separated from source.
+- Secrets live in provider/CI secret stores.
 - Production keys are accessible only to required services/people.
-- Mobile-safe public configuration is distinguished from server secrets.
-- Signing credentials and store ownership belong to the company, with recovery/ownership documentation.
-- Production service accounts should follow least privilege.
+- Browser/mobile-safe public config is clearly separated from server secrets.
+- Service accounts follow least privilege.
+- Key ownership/recovery documentation exists for production providers.
 
 ## CI minimum checks
 
 Before merge, CI should progressively run:
-- formatting/lint checks;
-- TypeScript/static type checks;
-- unit tests;
-- authorization/integration tests where feasible;
-- Prisma validation and migration checks;
-- translation catalogue checks where practical;
-- admin build;
-- API build;
-- mobile validation/build checks appropriate to change scope;
+- formatting/lint;
+- TypeScript/static checks;
+- unit/integration tests;
+- authorization tests where applicable;
+- payment-domain/webhook/idempotency tests as introduced;
+- Prisma/schema/migration validation;
+- localization catalogue checks;
+- `apps/web` build;
+- `apps/admin` build;
+- `apps/api` build;
+- mobile validation only when relevant to changed/active mobile work;
 - dependency/security checks appropriate to the stack.
 
-Production deployments should require successful checks on the exact revision being released.
+Production releases should use the exact tested revision.
 
 ## Observability
 
-Production should expose:
-- mobile crash/error reporting;
-- admin web error reporting;
-- backend structured logs;
-- API latency/error information;
+Before public launch, production should expose:
+- website/admin/API errors;
+- structured backend logs and request correlation IDs;
+- authentication failures/health signals;
+- API latency/error rates;
 - database health;
-- external provider failures such as push notification errors;
+- payment/webhook processing failures;
+- notification delivery failures;
 - high-severity alerts;
 - cost/usage visibility.
 
-Do not place sensitive athlete/guardian content into telemetry unnecessarily.
+Telemetry must avoid unnecessary minor/family/payment-sensitive content.
 
 ## Backups and recovery
 
-Before beta:
-- automated database backups enabled at the selected production plan level;
-- object-storage durability/recovery understood;
-- restoration process documented;
-- restoration tested into a safe non-production environment;
-- recovery ownership defined.
+Before family beta/public launch:
+- automated production database backups enabled;
+- storage recovery/durability understood;
+- restore procedure documented;
+- restore tested into isolated non-production environment;
+- recovery ownership defined;
+- payment-provider records can be reconciled against KHLIM transaction state after recovery.
 
-Before public launch, define expected recovery-point and recovery-time targets instead of relying on vague assumptions.
+Define Recovery Time Objective (RTO) and Recovery Point Objective (RPO) appropriate to membership/payment criticality before broad launch.
 
-## Rollback / forward-fix
+## Rollback, containment, and graceful degradation
 
-Web/backend releases should support rapid rollback or a documented forward-fix process. Database changes must be designed with rollback limitations in mind; a code rollback is not sufficient if a destructive migration already removed data.
+Web/API releases should support rapid rollback or documented forward-fix.
 
-For mobile releases, remediation may require:
-- server-side feature/config disable;
-- compatible backend fallback;
-- staged rollout halt;
-- EAS-compatible safe update;
-- expedited App Store/Play Store update.
+A serious production incident follows:
 
-## Feature flags/configuration
+```text
+Detect
+→ contain / disable affected feature
+→ protect data/payments
+→ rollback or hotfix
+→ verify integrity
+→ restore service gradually
+→ incident review + regression test
+```
 
-Use selectively for:
-- controlled beta rollout;
-- disabling risky integrations without a store release;
-- progressive feature activation;
-- future sport activation when a feature is complete.
+Optional external integrations should degrade independently where possible. For example, WhatsApp failure should not crash Memberships/Payments; a tournament module should be disable-able without taking down the Academy website.
 
-Feature flags must not replace authorization or become permanent undocumented branches.
+Use feature flags selectively for controlled rollout/disable, not as a replacement for authorization.
+
+## Public launch gate
+
+The release date is a target, not permission to bypass safety.
+
+No public launch with unresolved:
+- **P0:** security/privacy breach, data loss/corruption, double/incorrect charging, authentication outage;
+- **P1:** broken core registration/payment/membership workflow, major authorization failure, unusable critical admin operation.
+
+Final 1–2 weeks should prioritize feature freeze, bug fixing, payment/security/recovery/performance verification.
+
+Recommended production rollout:
+1. invited/small cohort;
+2. 24–72 hour monitoring window;
+3. expand only while health indicators remain stable;
+4. broad public availability.
 
 ## Cost-control strategy
 
-The objective is to keep early development inexpensive and production costs proportional to real usage.
+Keep early development inexpensive and scale with actual usage:
+- local/free resources where practical;
+- paid staging only when useful;
+- provider spend alerts/limits;
+- monthly usage review after beta;
+- no Kubernetes/message brokers/search clusters without demonstrated need.
 
-Planning guidance:
-- use free/local development resources where practical;
-- do not pay for three fully provisioned environments before staging is needed;
-- establish provider spend alerts/limits where available;
-- review storage/egress/build usage monthly after beta begins;
-- avoid infrastructure such as Kubernetes, message brokers, or dedicated search clusters until there is a demonstrated requirement.
+Existing planning targets such as roughly under RM500/month baseline core infrastructure and RM6,000–RM8,000 first-year technical reserve are budgeting guides, not guaranteed provider prices. Recheck pricing before purchase/launch.
 
-Initial launch planning has used a rough target of **under approximately RM500/month for baseline core infrastructure before material usage overages**, with a broader **RM6,000–RM8,000 first-year technical operating reserve** as a safer planning allowance.
+Payment gateway fees, SMS/WhatsApp volume, external professional services, marketing, devices, legal/privacy work, translations, and later AI/commerce may sit outside that reserve.
 
-These are budgeting targets, **not guaranteed provider prices**. Provider pricing and currency conversion must be rechecked before contracts/plans are purchased and again before public launch.
+## Multi-sport / ecosystem implication
 
-Costs excluded from that technical reserve may include:
-- external developers/designers;
-- professional translation review;
-- legal/privacy consultation;
-- testing devices;
-- SMS/paid email volume;
-- payment gateway fees;
-- marketing;
-- future commerce/AI services.
-
-## Store ownership
-
-Before public submission:
-- Apple/Google developer accounts should be company-owned where appropriate;
-- package/bundle identifiers are finalized;
-- signing ownership/recovery is documented;
-- privacy and data-safety disclosures are reviewed against actual SDK/data flows;
-- account deletion flow is available;
-- support/privacy URLs are live;
-- review/test credentials are prepared;
-- production backend is ready before reviewers access the build;
-- store metadata includes supported locales where appropriate.
-
-Exact Apple/Google requirements and fees must be re-verified near submission because platform rules change.
-
-## Multi-sport deployment implication
-
-Enabling another KHLIM sport should normally be a product/configuration release, not an infrastructure redesign.
-
-A true external multi-organization SaaS expansion is different: it may require stronger tenant isolation, organization-aware operations, billing, and possibly infrastructure topology changes. That decision is explicitly deferred until there is a validated business case.
+Adding another KHLIM sport or service should normally reuse the platform topology rather than require infrastructure redesign. True external multi-organization SaaS remains a separate future decision with stronger tenancy/isolation requirements.
