@@ -10,5 +10,6 @@ export interface AuthenticatedRequest {
   headers: {
     authorization?: string | string[];
   };
+  params?: Record<string, string | undefined>;
   authenticatedUser?: AuthenticatedUserContext;
 }
