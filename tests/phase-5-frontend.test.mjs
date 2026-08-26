@@ -12,11 +12,27 @@ async function readJson(path) {
   return JSON.parse(await read(path));
 }
 
-test("Phase 5 website declares shared platform dependencies", async () => {
+test("Phase 5 website resolves shared platform sources without lockfile drift", async () => {
   const manifest = await readJson("apps/web/package.json");
-  assert.equal(manifest.dependencies["@khlim/api-client"], "workspace:*");
-  assert.equal(manifest.dependencies["@khlim/design-tokens"], "workspace:*");
-  assert.equal(manifest.dependencies["@khlim/i18n"], "workspace:*");
+  const tsconfig = await readJson("apps/web/tsconfig.json");
+  const layout = await read("apps/web/app/layout.tsx");
+
+  assert.equal(manifest.dependencies["@khlim/api-client"], undefined);
+  assert.equal(manifest.dependencies["@khlim/design-tokens"], undefined);
+  assert.equal(manifest.dependencies["@khlim/i18n"], undefined);
+  assert.equal(
+    tsconfig.compilerOptions.paths["@khlim/api-client"][0],
+    "../../packages/api-client/src/index.ts",
+  );
+  assert.equal(
+    tsconfig.compilerOptions.paths["@khlim/api-client/schema"][0],
+    "../../packages/api-client/src/schema.d.ts",
+  );
+  assert.equal(
+    tsconfig.compilerOptions.paths["@khlim/i18n"][0],
+    "../../packages/i18n/src/index.ts",
+  );
+  assert.match(layout, /packages\/design-tokens\/src\/tokens\.css/);
 });
 
 test("Phase 5 API integration uses the versioned API base without duplicating v1", async () => {
