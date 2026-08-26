@@ -11,7 +11,7 @@ async function bootstrap() {
   const runtime = loadApiRuntimeConfig();
   const logger = createStructuredLogger({
     service: "khlim-api",
-    environment: runtime.deploymentEnv,
+    deploymentEnv: runtime.deploymentEnv,
   });
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
@@ -25,7 +25,7 @@ async function bootstrap() {
   SwaggerModule.setup("docs", app, document);
 
   await app.listen(runtime.port, "0.0.0.0");
-  logger.log("api.started", {
+  logger.info("api.started", {
     port: runtime.port,
     nodeEnv: runtime.nodeEnv,
   });
