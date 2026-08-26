@@ -17,7 +17,10 @@ test("dependency installs are reproducible and supply-chain scripts are explicit
   const workflow = await read(".github/workflows/ppo-pr-validation.yml");
 
   assert.equal(manifest.packageManager, "pnpm@10.15.0");
-  assert.deepEqual(manifest.pnpm.onlyBuiltDependencies, ["@prisma/engines", "prisma"]);
+  assert.deepEqual(manifest.pnpm.onlyBuiltDependencies, [
+    "@prisma/engines",
+    "prisma",
+  ]);
   assert.deepEqual(manifest.pnpm.ignoredBuiltDependencies, [
     "@scarf/scarf",
     "@sentry/cli",

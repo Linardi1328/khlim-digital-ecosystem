@@ -23,8 +23,16 @@ export class ApiError extends Error {
 export interface ApiClient {
   request<T>(path: string, options?: ApiRequestOptions): Promise<T>;
   get<T>(path: string, options?: ApiRequestOptions): Promise<T>;
-  post<T>(path: string, body?: unknown, options?: ApiRequestOptions): Promise<T>;
-  patch<T>(path: string, body?: unknown, options?: ApiRequestOptions): Promise<T>;
+  post<T>(
+    path: string,
+    body?: unknown,
+    options?: ApiRequestOptions,
+  ): Promise<T>;
+  patch<T>(
+    path: string,
+    body?: unknown,
+    options?: ApiRequestOptions,
+  ): Promise<T>;
   delete<T>(path: string, options?: ApiRequestOptions): Promise<T>;
 }
 

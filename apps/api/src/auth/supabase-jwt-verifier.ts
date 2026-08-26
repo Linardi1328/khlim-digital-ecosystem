@@ -24,9 +24,7 @@ export function createSupabaseJwtVerifier(options: SupabaseJwtVerifierOptions) {
     throw new Error("Supabase JWT issuer must use HTTPS outside localhost");
   }
 
-  const jwks = createRemoteJWKSet(
-    new URL(`${issuer}/.well-known/jwks.json`),
-  );
+  const jwks = createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`));
   const audience = options.audience ?? "authenticated";
 
   return async function verifySupabaseJwt(

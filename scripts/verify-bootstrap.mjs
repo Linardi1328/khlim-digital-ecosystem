@@ -11,7 +11,9 @@ function fail(message) {
 
 const nodeMajor = Number(process.versions.node.split(".")[0]);
 if (nodeMajor !== expectedNodeMajor) {
-  fail(`Node ${expectedNodeMajor}.x is required; found ${process.versions.node}`);
+  fail(
+    `Node ${expectedNodeMajor}.x is required; found ${process.versions.node}`,
+  );
 }
 
 const pnpmVersion = execFileSync("pnpm", ["--version"], {
@@ -34,7 +36,10 @@ for (const path of requiredFiles) {
   await access(new URL(path, root));
 }
 
-const developmentTemplate = await readFile(new URL(".env.example", root), "utf8");
+const developmentTemplate = await readFile(
+  new URL(".env.example", root),
+  "utf8",
+);
 for (const key of [
   "KHLIM_ENV=development",
   "NEXT_PUBLIC_API_BASE_URL=",

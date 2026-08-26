@@ -56,17 +56,24 @@ export function createStructuredLogger(options: {
       metadata: sanitizeMetadata(optionalParams),
     });
 
-    const stream = level === "info" || level === "debug" ? process.stdout : process.stderr;
+    const stream =
+      level === "info" || level === "debug" ? process.stdout : process.stderr;
     stream.write(`${entry}\n`);
   }
 
   return {
     log: (message, ...optionalParams) => write("info", message, optionalParams),
-    info: (message, metadata) => write("info", message, metadata ? [metadata] : []),
-    warn: (message, ...optionalParams) => write("warn", message, optionalParams),
-    error: (message, ...optionalParams) => write("error", message, optionalParams),
-    debug: (message, ...optionalParams) => write("debug", message, optionalParams),
-    verbose: (message, ...optionalParams) => write("debug", message, optionalParams),
-    fatal: (message, ...optionalParams) => write("fatal", message, optionalParams),
+    info: (message, metadata) =>
+      write("info", message, metadata ? [metadata] : []),
+    warn: (message, ...optionalParams) =>
+      write("warn", message, optionalParams),
+    error: (message, ...optionalParams) =>
+      write("error", message, optionalParams),
+    debug: (message, ...optionalParams) =>
+      write("debug", message, optionalParams),
+    verbose: (message, ...optionalParams) =>
+      write("debug", message, optionalParams),
+    fatal: (message, ...optionalParams) =>
+      write("fatal", message, optionalParams),
   };
 }

@@ -32,7 +32,9 @@ export function loadApiRuntimeConfig(
     environment.KHLIM_ENV ??
     (nodeEnv === "production" ? "production" : "development");
 
-  if (!allowedDeploymentEnvironments.has(deploymentEnv as DeploymentEnvironment)) {
+  if (
+    !allowedDeploymentEnvironments.has(deploymentEnv as DeploymentEnvironment)
+  ) {
     throw new Error(`Invalid KHLIM_ENV: ${deploymentEnv}`);
   }
 

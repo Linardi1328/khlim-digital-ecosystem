@@ -37,7 +37,10 @@ test("root tooling is pinned to the Phase 1 baseline", async () => {
 });
 
 test("pnpm includes only the planned workspace boundaries", async () => {
-  const workspace = await readFile(new URL("pnpm-workspace.yaml", root), "utf8");
+  const workspace = await readFile(
+    new URL("pnpm-workspace.yaml", root),
+    "utf8",
+  );
   assert.equal(workspace, 'packages:\n  - "apps/*"\n  - "packages/*"\n');
 
   const names = new Set();
@@ -45,7 +48,11 @@ test("pnpm includes only the planned workspace boundaries", async () => {
     const manifest = await readJson(`${directory}/package.json`);
     assert.equal(manifest.private, true, `${directory} must remain private`);
     assert.match(manifest.name, /^@khlim\/[a-z0-9-]+$/);
-    assert.equal(names.has(manifest.name), false, `${manifest.name} must be unique`);
+    assert.equal(
+      names.has(manifest.name),
+      false,
+      `${manifest.name} must be unique`,
+    );
     names.add(manifest.name);
   }
 });
@@ -175,7 +182,10 @@ test("Prisma 7 owns PostgreSQL schema and connection configuration", async () =>
 
   assert.match(schema, /provider\s+=\s+"postgresql"/);
   assert.match(schema, /provider\s+=\s+"prisma-client"/);
-  assert.match(schema, /output\s+=\s+"\.\.\/apps\/api\/src\/generated\/prisma"/);
+  assert.match(
+    schema,
+    /output\s+=\s+"\.\.\/apps\/api\/src\/generated\/prisma"/,
+  );
   assert.doesNotMatch(schema, /url\s+=\s+env\("DATABASE_URL"\)/);
   assert.match(config, /url: env\("DATABASE_URL"\)/);
   assert.match(config, /path: "prisma\/migrations"/);
