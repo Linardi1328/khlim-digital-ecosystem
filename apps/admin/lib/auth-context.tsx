@@ -6,23 +6,25 @@ import React, {
   useState,
   type ReactNode,
 } from "react";
+import { ADMIN_DEMO_MODE } from "./demo-mode";
 import type { AdminUser, StaffRole } from "./types";
 
 interface AuthContextValue {
   user: AdminUser | null;
-  role: StaffRole;
+  role: StaffRole | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isDemoMode: boolean;
   setRole: (role: StaffRole) => void;
   hasRole: (roles: StaffRole | StaffRole[]) => boolean;
   canAccessFinance: () => boolean;
   logout: () => void;
 }
 
-const DEFAULT_ADMIN_USER: AdminUser = {
-  id: "usr-admin-lead",
-  email: "admin@khlim.com",
-  displayName: "Admin Operations Lead",
+const DEMO_ADMIN_USER: AdminUser = {
+  id: "demo-admin-user",
+  email: "demo-admin@example.invalid",
+  displayName: "Demo Operations Admin",
   role: "SUPER_ADMIN",
   roles: ["SUPER_ADMIN", "MANAGEMENT"],
   mfaEnabled: true,
@@ -31,30 +33,33 @@ const DEFAULT_ADMIN_USER: AdminUser = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AdminUser | null>(DEFAULT_ADMIN_USER);
-  const [role, setActiveRole] = useState<StaffRole>("SUPER_ADMIN");
-  const [isLoading] = useState<boolean>(false);
+  const [user, setUser] = useState<AdminUser | null>(
+    ADMIN_DEMO_MODE ? DEMO_ADMIN_USER : null,
+  );
+  const [role, setActiveRole] = useState<StaffRole | null>(
+    ADMIN_DEMO_MODE ? "SUPER_ADMIN" : null,
+  );
+  const [isLoading] = useState(false);
 
   const hasRole = (targetRoles: StaffRole | StaffRole[]): boolean => {
-    if (!user) return false;
-    const array = Array.isArray(targetRoles) ? targetRoles : [targetRoles];
+    if (!user || !role) return false;
+    const roles = Array.isArray(targetRoles) ? targetRoles : [targetRoles];
     if (role === "SUPER_ADMIN") return true;
-    return array.includes(role);
+    return roles.includes(role);
   };
 
-  const canAccessFinance = (): boolean => {
-    return hasRole(["SUPER_ADMIN", "MANAGEMENT", "FINANCE"]);
-  };
+  const canAccessFinance = (): boolean =>
+    hasRole(["SUPER_ADMIN", "MANAGEMENT", "FINANCE"]);
 
   const logout = () => {
     setUser(null);
+    setActiveRole(null);
   };
 
   const setRole = (newRole: StaffRole) => {
+    if (!ADMIN_DEMO_MODE || !user) return;
     setActiveRole(newRole);
-    if (user) {
-      setUser({ ...user, role: newRole });
-    }
+    setUser({ ...user, role: newRole });
   };
 
   return (
@@ -62,8 +67,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         role,
-        isAuthenticated: !!user,
+        isAuthenticated: Boolean(user),
         isLoading,
+        isDemoMode: ADMIN_DEMO_MODE,
         setRole,
         hasRole,
         canAccessFinance,
