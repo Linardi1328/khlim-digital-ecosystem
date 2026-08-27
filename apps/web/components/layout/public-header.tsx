@@ -137,7 +137,10 @@ export function PublicHeader() {
 
           <div className="public-header-auth-actions">
             {isAuthenticated ? (
-              <Link href="/portal/dashboard" style={{ textDecoration: "none" }}>
+              <Link
+                href="/portal/dashboard"
+                style={{ textDecoration: "none" }}
+              >
                 <Button variant="secondary" size="sm">
                   🏀 {t("nav.portal")}
                 </Button>
@@ -184,7 +187,9 @@ export function PublicHeader() {
         title="KHLIM Navigation"
         position="right"
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        <div
+          style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+        >
           <div className="public-mobile-locale">
             <LocaleSwitcher />
           </div>
@@ -241,7 +246,11 @@ export function PublicHeader() {
               </Link>
             )}
             <Link href="/enrol" onClick={() => setMobileMenuOpen(false)}>
-              <Button variant="primary" size="md" style={{ width: "100%" }}>
+              <Button
+                variant="primary"
+                size="md"
+                style={{ width: "100%" }}
+              >
                 {t("hero.cta.join")}
               </Button>
             </Link>
