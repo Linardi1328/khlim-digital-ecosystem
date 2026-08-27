@@ -24,7 +24,10 @@ test("website and admin have executable Next.js runtime scaffolds", async () => 
     assert.equal(manifest.dependencies["react-dom"], "19.2.8");
     assert.equal(manifest.scripts.build, "next build");
     assert.equal(manifest.scripts.typecheck, "tsc --noEmit");
-    assert.match(nextConfig, /output: "standalone"/);
+    assert.match(
+      nextConfig,
+      /output: process\.env\.VERCEL \? undefined : "standalone"/,
+    );
     assert.match(layout, /<html lang="en">/);
     assert.match(page, /KHLIM/);
   }

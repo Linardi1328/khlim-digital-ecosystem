@@ -43,7 +43,6 @@ export function PublicHeader() {
           justifyContent: "space-between",
         }}
       >
-        {/* Brand Logo */}
         <Link
           href="/"
           style={{
@@ -51,6 +50,7 @@ export function PublicHeader() {
             alignItems: "center",
             gap: "10px",
             textDecoration: "none",
+            minWidth: 0,
           }}
         >
           <div
@@ -66,6 +66,7 @@ export function PublicHeader() {
               fontWeight: 900,
               fontSize: "1.25rem",
               boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+              flexShrink: 0,
             }}
           >
             K
@@ -96,7 +97,6 @@ export function PublicHeader() {
           </div>
         </Link>
 
-        {/* Desktop Nav */}
         <nav
           style={{
             display: "flex",
@@ -122,38 +122,42 @@ export function PublicHeader() {
           ))}
         </nav>
 
-        {/* Header Actions */}
         <div
+          className="public-header-actions"
           style={{
             display: "flex",
             alignItems: "center",
             gap: "14px",
+            flexShrink: 0,
           }}
         >
-          <LocaleSwitcher />
+          <div className="public-header-locale">
+            <LocaleSwitcher />
+          </div>
 
-          {isAuthenticated ? (
-            <Link href="/portal/dashboard" style={{ textDecoration: "none" }}>
-              <Button variant="secondary" size="sm">
-                🏀 {t("nav.portal")}
-              </Button>
-            </Link>
-          ) : (
-            <div style={{ display: "flex", gap: "8px" }}>
-              <Link href="/auth/login" style={{ textDecoration: "none" }}>
-                <Button variant="outline" size="sm">
-                  {t("nav.login")}
+          <div className="public-header-auth-actions">
+            {isAuthenticated ? (
+              <Link href="/portal/dashboard" style={{ textDecoration: "none" }}>
+                <Button variant="secondary" size="sm">
+                  🏀 {t("nav.portal")}
                 </Button>
               </Link>
-              <Link href="/enrol" style={{ textDecoration: "none" }}>
-                <Button variant="primary" size="sm">
-                  {t("nav.register")}
-                </Button>
-              </Link>
-            </div>
-          )}
+            ) : (
+              <div style={{ display: "flex", gap: "8px" }}>
+                <Link href="/auth/login" style={{ textDecoration: "none" }}>
+                  <Button variant="outline" size="sm">
+                    {t("nav.login")}
+                  </Button>
+                </Link>
+                <Link href="/enrol" style={{ textDecoration: "none" }}>
+                  <Button variant="primary" size="sm">
+                    {t("nav.register")}
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </div>
 
-          {/* Mobile Menu Button */}
           <button
             onClick={() => setMobileMenuOpen(true)}
             aria-label="Open Mobile Menu"
@@ -165,6 +169,7 @@ export function PublicHeader() {
               padding: "6px 10px",
               fontSize: "1.25rem",
               cursor: "pointer",
+              flexShrink: 0,
             }}
             className="mobile-menu-btn"
           >
@@ -173,7 +178,6 @@ export function PublicHeader() {
         </div>
       </div>
 
-      {/* Mobile Drawer Sheet */}
       <Sheet
         isOpen={mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}
@@ -181,6 +185,9 @@ export function PublicHeader() {
         position="right"
       >
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div className="public-mobile-locale">
+            <LocaleSwitcher />
+          </div>
           {navLinks.map((link) => (
             <Link
               key={link.href}
@@ -206,14 +213,22 @@ export function PublicHeader() {
               gap: "10px",
             }}
           >
-            <Link
-              href="/portal/dashboard"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              <Button variant="secondary" size="md" style={{ width: "100%" }}>
-                🏀 {t("nav.portal")}
-              </Button>
-            </Link>
+            {isAuthenticated ? (
+              <Link
+                href="/portal/dashboard"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <Button variant="secondary" size="md" style={{ width: "100%" }}>
+                  🏀 {t("nav.portal")}
+                </Button>
+              </Link>
+            ) : (
+              <Link href="/auth/login" onClick={() => setMobileMenuOpen(false)}>
+                <Button variant="outline" size="md" style={{ width: "100%" }}>
+                  {t("nav.login")}
+                </Button>
+              </Link>
+            )}
             <Link href="/enrol" onClick={() => setMobileMenuOpen(false)}>
               <Button variant="primary" size="md" style={{ width: "100%" }}>
                 {t("hero.cta.join")}
