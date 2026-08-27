@@ -30,11 +30,8 @@ jobs:
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install Playwright test runner
-        run: npm install --no-save --package-lock=false --workspaces=false @playwright/test@1.55.0
-
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Build web exact commit
         env:
@@ -58,7 +55,7 @@ jobs:
           exit 1
 
       - name: Run browser tests
-        run: npx playwright test --config=playwright.preview.config.mjs
+        run: pnpm exec playwright test --config=playwright.preview.config.mjs
 
       - name: Upload browser QA artifacts
         if: always()
