@@ -1,4 +1,4 @@
-name: Phase 5 formatting artifact
+name: Phase 5 formatting helper
 
 on:
   pull_request:
@@ -6,14 +6,17 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  format-snapshot:
+  format-and-commit:
     if: github.head_ref == 'feat/phase-5-website-parent-portal'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -30,15 +33,14 @@ jobs:
       - name: Format repository sources
         run: pnpm format
 
-      - name: Package formatted source snapshot
+      - name: Commit formatter output
         run: |
-          mkdir -p /tmp/phase5-format
-          git diff --name-only --diff-filter=ACMRT > /tmp/phase5-format/files.txt
-          tar -czf /tmp/phase5-format/formatted-files.tar.gz --files-from=/tmp/phase5-format/files.txt
-          git diff > /tmp/phase5-format/prettier.patch
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: phase5-prettier-output
-          path: /tmp/phase5-format/
-          if-no-files-found: error
+          if git diff --quiet; then
+            echo "No formatting changes required."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps packages tests scripts '*.json' '*.mjs' .github/workflows
+          git commit -m "style: format Phase 5 frontend"
+          git push origin HEAD:${{ github.head_ref }}
