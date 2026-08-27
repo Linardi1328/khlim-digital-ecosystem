@@ -17,6 +17,7 @@ export interface CreateGatewayCheckoutInput {
   amountMinor: number;
   currency: string;
   idempotencyKey: string;
+  providerPaymentId?: string;
 }
 
 export interface CreateGatewayCheckoutResult {
