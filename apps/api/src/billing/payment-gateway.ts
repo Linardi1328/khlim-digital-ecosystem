@@ -12,6 +12,7 @@ export interface CreateGatewayCustomerResult {
 
 export interface CreateGatewayCheckoutInput {
   providerCustomerId: string;
+  payerEmail?: string | null;
   membershipId: string;
   installmentId: string;
   amountMinor: number;
