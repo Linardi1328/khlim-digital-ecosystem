@@ -2,8 +2,17 @@
 
 import React, { type HTMLAttributes, type ReactNode } from "react";
 
-export interface AlertProps extends HTMLAttributes<HTMLDivElement> {
-  variant?: "info" | "success" | "warning" | "danger";
+type AlertVariant = "info" | "success" | "warning" | "danger";
+
+type AlertVariantStyle = {
+  bg: string;
+  border: string;
+  text: string;
+  titleColor: string;
+};
+
+export interface AlertProps extends Omit<HTMLAttributes<HTMLDivElement>, "title"> {
+  variant?: AlertVariant;
   title?: ReactNode;
   icon?: ReactNode;
 }
@@ -16,10 +25,7 @@ export function Alert({
   style,
   ...props
 }: AlertProps) {
-  const variantStyles: Record<
-    string,
-    { bg: string; border: string; text: string; titleColor: string }
-  > = {
+  const variantStyles: Record<AlertVariant, AlertVariantStyle> = {
     info: {
       bg: "#EFF6FF",
       border: "#BFDBFE",
@@ -46,7 +52,7 @@ export function Alert({
     },
   };
 
-  const currentVariant = variantStyles[variant] ?? variantStyles.info;
+  const currentVariant = variantStyles[variant];
 
   return (
     <div
