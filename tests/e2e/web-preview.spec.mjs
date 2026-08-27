@@ -54,6 +54,10 @@ async function openMobileMenu(page) {
   await expect(page.getByText("KHLIM Navigation")).toBeVisible();
 }
 
+function visibleLocaleSwitcher(page) {
+  return page.locator('select[aria-label="Select Language"]:visible');
+}
+
 for (const path of publicRoutes) {
   test(`public route ${path} renders without a fatal browser error`, async ({
     page,
@@ -90,10 +94,7 @@ test("language choice persists after reload", async ({ page, viewport }) => {
     await openMobileMenu(page);
   }
 
-  const locale = page
-    .getByRole("combobox", { name: "Select Language" })
-    .filter({ visible: true });
-  await locale.selectOption("ms");
+  await visibleLocaleSwitcher(page).selectOption("ms");
 
   await expect
     .poll(() => page.evaluate(() => document.documentElement.lang))
@@ -108,11 +109,7 @@ test("language choice persists after reload", async ({ page, viewport }) => {
     await openMobileMenu(page);
   }
 
-  await expect(
-    page
-      .getByRole("combobox", { name: "Select Language" })
-      .filter({ visible: true }),
-  ).toHaveValue("ms");
+  await expect(visibleLocaleSwitcher(page)).toHaveValue("ms");
 });
 
 test("desktop header navigation reaches core public pages", async ({
