@@ -1,0 +1,42 @@
+name: Pre-Alpha Billplz Sandbox Adapter
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  billplz-sandbox:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.0 --activate
+          pnpm --version
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Billplz FPX and DuitNow sandbox adapter tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/khlim_billplz_compile_test
+          PAYMENT_PROVIDER: billplz
+          BILLPLZ_SECRET_KEY: pre-alpha-placeholder
+          BILLPLZ_COLLECTION_ID: khlim-sandbox-collection
+          BILLPLZ_X_SIGNATURE_KEY: billplz-sandbox-x-signature
+          BILLPLZ_SANDBOX: "1"
+          BILLPLZ_CALLBACK_URL: https://api.example.test/v1/payments/webhooks/billplz
+          BILLPLZ_REDIRECT_URL: https://portal.example.test/payment/confirmation
+          KHLIM_BILLPLZ_LIVE_TEST: "0"
+        run: pnpm test:pre-alpha:billplz

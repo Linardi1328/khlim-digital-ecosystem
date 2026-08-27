@@ -18,6 +18,7 @@
     "test:pre-alpha:persistence": "pnpm prisma:generate && pnpm exec prisma migrate deploy && pnpm --filter @khlim/api build && node --test tests/integration/pre-alpha-persistence-integrity.test.mjs",
     "test:pre-alpha:admin": "pnpm prisma:generate && pnpm exec prisma migrate deploy && pnpm --filter @khlim/api build && node --test tests/integration/pre-alpha-admin-http-integration.test.mjs",
     "test:pre-alpha:payments": "pnpm prisma:generate && pnpm exec prisma migrate deploy && pnpm --filter @khlim/api build && node --test tests/integration/pre-alpha-payment-webhook-integration.test.mjs",
+    "test:pre-alpha:billplz": "pnpm prisma:generate && pnpm --filter @khlim/api build && node --test tests/integration/pre-alpha-billplz-sandbox.test.mjs",
     "typecheck": "pnpm prisma:generate && turbo run typecheck",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",

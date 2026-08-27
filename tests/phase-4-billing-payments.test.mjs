@@ -54,3 +54,13 @@ test("payment idempotency and provider-event deduplication are explicit", async 
   assert.match(service, /membership:\$\{membershipId\}:installment:1/);
   assert.match(service, /isUniqueConstraintError/);
 });
+
+test("checkout retries can resume a persisted provider payment instead of duplicating it", async () => {
+  const gateway = await read("apps/api/src/billing/payment-gateway.ts");
+  const service = await read("apps/api/src/billing/billing.service.ts");
+  assert.match(gateway, /providerPaymentId\?: string/);
+  assert.match(
+    service,
+    /providerPaymentId:\s*payment\.providerPaymentId\s*\?\?\s*undefined/,
+  );
+});

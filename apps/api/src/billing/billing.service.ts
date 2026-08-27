@@ -203,11 +203,13 @@ export class BillingService {
 
     const checkout = await gateway.createCheckout({
       providerCustomerId: billingProfile.providerCustomerId,
+      payerEmail: membership.purchasedBy?.email ?? null,
       membershipId,
       installmentId: firstInstallment.id,
       amountMinor,
       currency: plan.currency,
       idempotencyKey,
+      providerPaymentId: payment.providerPaymentId ?? undefined,
     });
 
     await this.prisma.client.$transaction([

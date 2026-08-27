@@ -12,11 +12,13 @@ export interface CreateGatewayCustomerResult {
 
 export interface CreateGatewayCheckoutInput {
   providerCustomerId: string;
+  payerEmail?: string | null;
   membershipId: string;
   installmentId: string;
   amountMinor: number;
   currency: string;
   idempotencyKey: string;
+  providerPaymentId?: string;
 }
 
 export interface CreateGatewayCheckoutResult {
@@ -31,6 +33,8 @@ export interface NormalizedGatewayEvent {
   eventType: NormalizedGatewayEventType;
   idempotencyKey: string;
   providerPaymentId?: string;
+  amountMinor?: number;
+  currency?: string;
   failureCode?: string;
   safeFailureReason?: string;
 }
