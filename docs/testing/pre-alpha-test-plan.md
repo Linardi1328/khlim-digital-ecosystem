@@ -1,6 +1,7 @@
 # Pre-Alpha Integration and Test Plan
 
-**Status:** Proposed active validation plan after Phase 6  
+**Status:** Proposed active validation plan after Phase 6
+
 **Purpose:** Prove that the existing KHLIM website, API, database, billing foundation and Admin console behave safely under realistic integration and failure conditions before external families enter a beta.
 
 This stage is deliberately **not** a broad feature-building phase. The goal is to expose integration gaps, authorization mistakes, payment-state bugs, recovery weaknesses and operational friction while the test population is still internal.
