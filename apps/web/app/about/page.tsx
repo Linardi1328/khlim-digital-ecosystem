@@ -18,9 +18,12 @@ export default function AboutPage() {
       <main
         style={{
           flex: 1,
+          width: "100%",
           maxWidth: "900px",
+          minWidth: 0,
           margin: "0 auto",
           padding: "48px 20px",
+          boxSizing: "border-box",
         }}
       >
         <div style={{ textAlign: "center", marginBottom: "48px" }}>
@@ -51,6 +54,7 @@ export default function AboutPage() {
             display: "flex",
             flexDirection: "column",
             gap: "32px",
+            minWidth: 0,
             fontSize: "1rem",
             color: "#3F3F46",
             lineHeight: 1.7,
