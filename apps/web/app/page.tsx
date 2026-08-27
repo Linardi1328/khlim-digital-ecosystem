@@ -5,7 +5,10 @@ import Link from "next/link";
 import { apiService } from "../lib/api-service";
 import { useI18n } from "../lib/i18n-context";
 import type { PublicOfferingItem } from "../lib/types";
-import { HeroCarousel, type HeroCarouselSlide } from "../components/home/hero-carousel";
+import {
+  HeroCarousel,
+  type HeroCarouselSlide,
+} from "../components/home/hero-carousel";
 import {
   PhotoGallery,
   PhotoStorySection,
@@ -130,7 +133,9 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+    <div
+      style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
+    >
       <PublicHeader />
       <main style={{ flex: 1 }}>
         <HeroCarousel
@@ -149,7 +154,9 @@ export default function HomePage() {
             <p>{t("programmes.subtitle")}</p>
           </div>
           {loading ? (
-            <p style={{ textAlign: "center" }}>Loading current academy offerings…</p>
+            <p style={{ textAlign: "center" }}>
+              Loading current academy offerings…
+            </p>
           ) : offerings.length === 0 ? (
             <Card style={{ padding: 32, textAlign: "center" }}>
               No open programme offerings are currently published.
@@ -164,7 +171,8 @@ export default function HomePage() {
                     </Badge>
                     <CardTitle>{offering.name}</CardTitle>
                     <CardDescription>
-                      {offering.programme.description ?? offering.programme.name}
+                      {offering.programme.description ??
+                        offering.programme.name}
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -172,7 +180,10 @@ export default function HomePage() {
                     <p>Term start: {offering.startsOn ?? "To be confirmed"}</p>
                   </CardContent>
                   <CardFooter>
-                    <Link href={`/programmes/${offering.id}`} style={{ width: "100%" }}>
+                    <Link
+                      href={`/programmes/${offering.id}`}
+                      style={{ width: "100%" }}
+                    >
                       <Button variant="outline" style={{ width: "100%" }}>
                         {t("programmes.viewDetails")}
                       </Button>
@@ -195,8 +206,8 @@ export default function HomePage() {
             <span>Ready when you are</span>
             <h2>Find the right KHLIM programme.</h2>
             <p>
-              Browse currently published offerings first, then continue into the secure
-              enrolment flow when your family is ready.
+              Browse currently published offerings first, then continue into the
+              secure enrolment flow when your family is ready.
             </p>
           </div>
           <div className="home-join-cta-actions">

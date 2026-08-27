@@ -42,13 +42,16 @@ export function PhotoStorySection({ item }: { item: PhotoStoryItem }) {
 
 export function PhotoGallery({ items }: { items: PhotoGalleryItem[] }) {
   return (
-    <section className="home-gallery-section" aria-labelledby="home-gallery-title">
+    <section
+      className="home-gallery-section"
+      aria-labelledby="home-gallery-title"
+    >
       <div className="home-gallery-heading">
         <span>Gallery</span>
         <h2 id="home-gallery-title">Inside KHLIM</h2>
         <p>
-          Approved academy photography can be dropped into these slots without changing
-          the page structure.
+          Approved academy photography can be dropped into these slots without
+          changing the page structure.
         </p>
       </div>
       <div className="home-gallery-grid">
@@ -62,10 +65,16 @@ export function PhotoGallery({ items }: { items: PhotoGalleryItem[] }) {
               className={`home-gallery-tile home-gallery-tile-${(index % 6) + 1}`}
               style={{ backgroundImage }}
               role="img"
-              aria-label={item.imageUrl ? item.photoLabel : `Future photo slot: ${item.photoLabel}`}
+              aria-label={
+                item.imageUrl
+                  ? item.photoLabel
+                  : `Future photo slot: ${item.photoLabel}`
+              }
             >
               {!item.imageUrl && (
-                <div className="home-gallery-placeholder">Photo slot · {item.photoLabel}</div>
+                <div className="home-gallery-placeholder">
+                  Photo slot · {item.photoLabel}
+                </div>
               )}
             </div>
           );

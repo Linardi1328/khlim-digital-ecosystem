@@ -32,7 +32,7 @@ export function HeroCarousel({
   primaryCtaLabel,
   secondaryCtaLabel,
 }: HeroCarouselProps) {
-  const safeSlides = useMemo(() => slides.length > 0 ? slides : [], [slides]);
+  const safeSlides = useMemo(() => (slides.length > 0 ? slides : []), [slides]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
@@ -147,7 +147,11 @@ export function HeroCarousel({
           >
             ›
           </button>
-          <div className="home-carousel-dots" role="group" aria-label="Choose academy photo">
+          <div
+            className="home-carousel-dots"
+            role="group"
+            aria-label="Choose academy photo"
+          >
             {safeSlides.map((slide, index) => (
               <button
                 key={slide.id}

@@ -38,7 +38,9 @@ test("homepage keeps live programme discovery between photo-led sections", async
   const page = await read("apps/web/app/page.tsx");
 
   const heroPosition = page.indexOf("<HeroCarousel");
-  const programmesPosition = page.indexOf('className="home-programmes-section"');
+  const programmesPosition = page.indexOf(
+    'className="home-programmes-section"',
+  );
   const storyPosition = page.indexOf("<PhotoStorySection");
   const galleryPosition = page.indexOf("<PhotoGallery");
 
