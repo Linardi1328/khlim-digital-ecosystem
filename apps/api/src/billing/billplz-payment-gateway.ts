@@ -94,7 +94,10 @@ export class BillplzPaymentGatewayAdapter implements PaymentGatewayAdapter {
       redirect_url: this.options.redirectUrl,
       description: `KHLIM membership ${input.membershipId}`,
       reference_2_label: "KHLIM Payment",
-      reference_2: input.idempotencyKey,
+      reference_2: this.buildPaymentReference(
+        input.idempotencyKey,
+        input.amountMinor,
+      ),
     });
 
     if (this.options.directGatewayCode) {
@@ -149,7 +152,7 @@ export class BillplzPaymentGatewayAdapter implements PaymentGatewayAdapter {
 
     const billId = params.get("id");
     const collectionId = params.get("collection_id");
-    const idempotencyKey = params.get("reference_2");
+    const paymentReference = params.get("reference_2");
     const paid = params.get("paid");
     const state = params.get("state") ?? "unknown";
     const paidAt = params.get("paid_at") ?? "";
@@ -159,7 +162,7 @@ export class BillplzPaymentGatewayAdapter implements PaymentGatewayAdapter {
     if (
       !billId ||
       collectionId !== this.options.collectionId ||
-      !idempotencyKey ||
+      !paymentReference ||
       (paid !== "true" && paid !== "false") ||
       !Number.isInteger(amountMinor) ||
       amountMinor <= 0 ||
@@ -168,6 +171,13 @@ export class BillplzPaymentGatewayAdapter implements PaymentGatewayAdapter {
     ) {
       throw new BadRequestException(
         "Billplz webhook is missing required KHLIM payment metadata",
+      );
+    }
+
+    const reference = this.parsePaymentReference(paymentReference);
+    if (reference.amountMinor !== amountMinor || reference.currency !== "MYR") {
+      throw new BadRequestException(
+        "Billplz callback amount does not match the KHLIM payment reference",
       );
     }
 
@@ -180,7 +190,7 @@ export class BillplzPaymentGatewayAdapter implements PaymentGatewayAdapter {
     return {
       providerEventId: `bill:${billId}:${state}:${paid}:${paidAt}`,
       eventType: paid === "true" ? "PAYMENT_SUCCEEDED" : "PAYMENT_FAILED",
-      idempotencyKey,
+      idempotencyKey: reference.idempotencyKey,
       providerPaymentId: billId,
       amountMinor,
       currency: "MYR",
@@ -212,6 +222,37 @@ export class BillplzPaymentGatewayAdapter implements PaymentGatewayAdapter {
     return createHmac("sha256", this.options.xSignatureKey)
       .update(source)
       .digest("hex");
+  }
+
+  private buildPaymentReference(
+    idempotencyKey: string,
+    amountMinor: number,
+  ): string {
+    return `${idempotencyKey}|${amountMinor}|MYR`;
+  }
+
+  private parsePaymentReference(value: string): {
+    idempotencyKey: string;
+    amountMinor: number;
+    currency: string;
+  } {
+    const [idempotencyKey, amountValue, currency, ...extra] = value.split("|");
+    const amountMinor = Number(amountValue);
+    if (
+      !idempotencyKey ||
+      extra.length > 0 ||
+      !Number.isInteger(amountMinor) ||
+      amountMinor <= 0 ||
+      !currency
+    ) {
+      throw new BadRequestException("Billplz KHLIM payment reference is invalid");
+    }
+
+    return {
+      idempotencyKey,
+      amountMinor,
+      currency: currency.toUpperCase(),
+    };
   }
 
   private checkoutUrlForBill(providerPaymentId: string): string {
