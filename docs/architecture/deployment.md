@@ -1,6 +1,6 @@
 # Deployment and Environment Plan
 
-**Status:** Accepted current Phase 1 baseline
+**Status:** Accepted post-Phase 6 baseline; staging/pre-alpha integration is the current priority
 
 The deployment strategy prioritizes reliability, environment separation, low operational burden, Malaysia/Singapore proximity, and a safe path from private testing to public launch.
 
@@ -18,13 +18,31 @@ The deployment strategy prioritizes reliability, environment separation, low ope
 | Email | Provider behind Notification abstraction |
 | WhatsApp / SMS / push | Later adapters behind Notification abstraction |
 | Error monitoring | Sentry |
-| CI/CD | GitHub Actions / PPO PR validation |
+| CI/CD | GitHub Actions / PPO PR validation + exact-commit Playwright QA |
 | Future mobile builds/releases | Expo EAS |
 | Future app distribution | Apple App Store / Google Play |
 
 Where supported and operationally sensible, production compute/data should start in **Singapore** near the initial Malaysian audience.
 
 Infrastructure providers are replaceable dependencies; business domains should depend on interfaces/contracts rather than vendor SDK details throughout the codebase.
+
+## Current environment priority
+
+The next development milestone depends on a production-shaped **staging environment**. The project already has application/deployment foundations and browser CI; staging must now become the place where the real auth, Admin, payment-provider, migration, recovery and end-to-end workflows are proven before external family beta.
+
+The immediate staging checklist is:
+
+- dedicated staging Supabase database/auth project;
+- staging API deployment with validated server secrets;
+- staging web/admin deployments pointing only to staging services;
+- real Admin staff authentication integration;
+- sandbox payment-provider adapter and signed webhook secret;
+- synthetic family/athlete/programme/membership/payment fixtures;
+- transactional email test provider/configuration;
+- Sentry/structured logging enabled;
+- backup/restore and rollback rehearsal.
+
+See `docs/testing/pre-alpha-test-plan.md` for the validation matrix.
 
 ## Environments
 
@@ -40,8 +58,10 @@ Infrastructure providers are replaceable dependencies; business domains should d
 
 - Production-like web/admin/API/auth/database configuration.
 - Separate provider credentials and test/staging payment configuration.
-- Used for integration/E2E testing, migration rehearsal, internal alpha, family beta, release candidates, and rollback drills.
+- Main environment for integration/E2E testing, migration rehearsal, internal alpha, family beta, release candidates, backup/restore and rollback drills.
 - Separate data from production.
+- Synthetic or deliberately approved test data only by default.
+- Demo-only Admin behavior is not considered proof of real operational integration.
 
 ### Production
 
@@ -50,6 +70,7 @@ Infrastructure providers are replaceable dependencies; business domains should d
 - Controlled deployments/migrations only.
 - Production payment credentials isolated in secret stores.
 - Backups, monitoring, reconciliation, alerting, and incident procedures enabled.
+- No simulated payment success or preview/demo persistence.
 
 ## Target topology
 
@@ -77,9 +98,9 @@ All clients call the same business API for sensitive operations. Admin does not 
 ## Monorepo deployment units
 
 ```text
-apps/web       # deploy now/first
-apps/admin     # deploy now/first
-apps/api       # deploy now/first
+apps/web       # public website + member portal
+apps/admin     # staff operations console
+apps/api       # shared NestJS backend
 apps/mobile    # reserved; deploy/build later when activated
 ```
 
@@ -87,25 +108,28 @@ Shared packages are dependencies, not standalone services by default.
 
 ## Delivery pipeline
 
-Target flow:
+Current target flow:
 
 ```text
 short-lived branch
 → pull request
 → PPO/CI validation
+→ exact-commit web/admin browser QA when relevant
 → review
 → squash merge to main
 → staging deployment
-→ integration/release verification
-→ controlled production deployment
+→ pre-alpha integration verification
+→ controlled release gate
+→ production deployment
 ```
 
 A merge to `main` is not automatically equivalent to a production release.
 
-Public release adds an explicit operational gate:
+The product release sequence is:
 
 ```text
-Internal alpha
+Pre-alpha integration / test hardening
+→ Internal alpha
 → Closed family beta
 → Expanded academy pilot
 → Feature freeze / release candidate
@@ -118,17 +142,20 @@ Internal alpha
 Prisma Migrate is the application-schema migration authority.
 
 Rules:
+
 - migrations are version controlled;
 - staging rehearses production migrations;
 - destructive migrations require an explicit preservation/recovery plan;
 - prefer expand/migrate/contract for compatibility-sensitive changes;
 - failed production migration stops rollout;
 - manual production schema edits are emergency-only and must be reconciled into version control;
-- payment/membership historical records must not be casually destroyed by schema cleanup.
+- payment/membership historical records must not be casually destroyed by schema cleanup;
+- pre-alpha must include applying all migrations both to an empty database and production-shaped seeded staging data.
 
 ## Payment deployment and operations
 
 Payment integration receives stricter controls than ordinary UI features:
+
 - development/staging/production provider modes are isolated;
 - provider secrets live only in server/CI/provider secret stores;
 - signed webhooks terminate at controlled API endpoints;
@@ -137,9 +164,10 @@ Payment integration receives stricter controls than ordinary UI features:
 - provider redirects are not authoritative transaction truth;
 - payment reconciliation/failure visibility exists in production;
 - no raw card/CVV credentials appear in logs, telemetry, database, or source code;
-- a provider outage should not unnecessarily take down unrelated public content/account views.
+- a provider outage should not unnecessarily take down unrelated public content/account views;
+- if no real provider adapter is configured, production payment behavior fails closed instead of simulating success.
 
-Production launch cannot proceed with known double-charge, payment-state corruption, or webhook-integrity defects.
+Before internal alpha, the sandbox provider must be tested for successful, failed, delayed, duplicated and retried webhook events. Production launch cannot proceed with known double-charge, payment-state corruption or webhook-integrity defects.
 
 ## Website/admin deployment
 
@@ -148,14 +176,17 @@ Production launch cannot proceed with known double-charge, payment-state corrupt
 The public website must not expose admin routes/data simply because both use Next.js.
 
 Where practical:
+
 - preview deployments are available for PR/review work;
 - staging points to staging API/auth/payment configuration;
 - production points only to production API/auth/provider configuration;
-- sensitive server environment values are not shipped into browser bundles.
+- sensitive server environment values are not shipped into browser bundles;
+- Admin demo mode is preview-only and must not be enabled as a substitute for real production staff integration.
 
 ## Future mobile release considerations
 
 When `apps/mobile` becomes active:
+
 - development/staging/production EAS profiles/channels;
 - TestFlight/Play closed testing before public store release;
 - API backward-compatibility window for installed older versions;
@@ -173,28 +204,30 @@ The native client must reuse existing API/auth/payment/member domains instead of
 - Browser/mobile-safe public config is clearly separated from server secrets.
 - Service accounts follow least privilege.
 - Key ownership/recovery documentation exists for production providers.
+- `NEXT_PUBLIC_*` variables are treated as public configuration and never contain secrets.
 
 ## CI minimum checks
 
-Before merge, CI should progressively run:
-- formatting/lint;
-- TypeScript/static checks;
-- unit/integration tests;
-- authorization tests where applicable;
-- payment-domain/webhook/idempotency tests as introduced;
-- Prisma/schema/migration validation;
-- localization catalogue checks;
-- `apps/web` build;
-- `apps/admin` build;
-- `apps/api` build;
-- mobile validation only when relevant to changed/active mobile work;
-- dependency/security checks appropriate to the stack.
+The current repository validation baseline includes:
 
-Production releases should use the exact tested revision.
+- developer bootstrap contract verification;
+- Node/shell syntax checks where configured;
+- full Node regression suite;
+- diff whitespace checks;
+- ESLint;
+- Prettier formatting checks;
+- TypeScript checks;
+- Prisma schema validation;
+- generated OpenAPI contract drift checks;
+- runtime builds for active applications;
+- exact-commit Playwright suites for `apps/web` and `apps/admin`.
+
+Payment/provider integration work should add runtime integration tests beyond static/structural assertions. Production releases should use the exact revision that passed the release gates.
 
 ## Observability
 
-Before public launch, production should expose:
+Before external beta, staging and then production should expose:
+
 - website/admin/API errors;
 - structured backend logs and request correlation IDs;
 - authentication failures/health signals;
@@ -209,15 +242,16 @@ Telemetry must avoid unnecessary minor/family/payment-sensitive content.
 
 ## Backups and recovery
 
-Before family beta/public launch:
-- automated production database backups enabled;
+Before closed family beta/public launch:
+
+- automated production database backups enabled or provider recovery guarantees explicitly understood;
 - storage recovery/durability understood;
 - restore procedure documented;
-- restore tested into isolated non-production environment;
+- restore tested into an isolated non-production environment;
 - recovery ownership defined;
 - payment-provider records can be reconciled against KHLIM transaction state after recovery.
 
-Define Recovery Time Objective (RTO) and Recovery Point Objective (RPO) appropriate to membership/payment criticality before broad launch.
+A configured backup is not enough: pre-alpha/internal alpha should include an actual restore exercise. Define Recovery Time Objective (RTO) and Recovery Point Objective (RPO) appropriate to membership/payment criticality before broad launch.
 
 ## Rollback, containment, and graceful degradation
 
@@ -244,12 +278,14 @@ Use feature flags selectively for controlled rollout/disable, not as a replaceme
 The release date is a target, not permission to bypass safety.
 
 No public launch with unresolved:
+
 - **P0:** security/privacy breach, data loss/corruption, double/incorrect charging, authentication outage;
-- **P1:** broken core registration/payment/membership workflow, major authorization failure, unusable critical admin operation.
+- **P1:** broken core registration/payment/membership workflow, major authorization failure, unusable critical admin operation or materially incorrect family schedule.
 
 Final 1–2 weeks should prioritize feature freeze, bug fixing, payment/security/recovery/performance verification.
 
 Recommended production rollout:
+
 1. invited/small cohort;
 2. 24–72 hour monitoring window;
 3. expand only while health indicators remain stable;
@@ -258,6 +294,7 @@ Recommended production rollout:
 ## Cost-control strategy
 
 Keep early development inexpensive and scale with actual usage:
+
 - local/free resources where practical;
 - paid staging only when useful;
 - provider spend alerts/limits;
