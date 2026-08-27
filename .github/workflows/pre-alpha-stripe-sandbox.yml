@@ -1,0 +1,39 @@
+name: Pre-Alpha Stripe Sandbox Adapter
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  stripe-sandbox:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.0 --activate
+          pnpm --version
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Stripe-native sandbox adapter tests
+        env:
+          PAYMENT_PROVIDER: stripe
+          STRIPE_SECRET_KEY: sk_test_pre_alpha_placeholder
+          STRIPE_WEBHOOK_SECRET: whsec_pre_alpha_stripe_native_signature
+          STRIPE_CHECKOUT_SUCCESS_URL: https://portal.example.test/payment/success
+          STRIPE_CHECKOUT_CANCEL_URL: https://portal.example.test/payment/cancel
+          KHLIM_STRIPE_LIVE_TEST: "0"
+        run: pnpm test:pre-alpha:stripe
