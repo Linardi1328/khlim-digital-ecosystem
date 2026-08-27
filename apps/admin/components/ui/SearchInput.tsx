@@ -40,7 +40,10 @@ export function SearchInput({
         position: "relative",
         display: "flex",
         alignItems: "center",
-        minWidth: "240px",
+        width: "100%",
+        maxWidth: "320px",
+        minWidth: 0,
+        flex: "1 1 240px",
       }}
     >
       <span
@@ -63,6 +66,7 @@ export function SearchInput({
         aria-label={placeholder}
         style={{
           width: "100%",
+          minWidth: 0,
           padding: "8px 32px 8px 34px",
           fontSize: "0.875rem",
           backgroundColor: "#FFFFFF",
