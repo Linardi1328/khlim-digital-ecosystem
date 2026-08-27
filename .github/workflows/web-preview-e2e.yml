@@ -11,9 +11,10 @@ permissions:
 jobs:
   playwright:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     env:
-      PLAYWRIGHT_BASE_URL: https://khlim-web-qa.vercel.app
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:3001/v1
     steps:
       - uses: actions/checkout@v4
 
@@ -21,14 +22,40 @@ jobs:
         with:
           node-version: "24"
 
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.0 --activate
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Install Playwright test runner
         run: npm install --no-save --package-lock=false @playwright/test@1.55.0
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Verify preview is reachable
-        run: curl --fail --silent --show-error --retry 5 --retry-delay 3 "$PLAYWRIGHT_BASE_URL/" --output /dev/null
+      - name: Build web exact commit
+        env:
+          VERCEL: "1"
+        run: pnpm --filter @khlim/web build
+
+      - name: Start web server
+        run: |
+          pnpm --filter @khlim/web start > /tmp/khlim-web.log 2>&1 &
+          echo $! > /tmp/khlim-web.pid
+
+      - name: Wait for web server
+        run: |
+          for attempt in {1..30}; do
+            if curl --fail --silent "$PLAYWRIGHT_BASE_URL/" --output /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/khlim-web.log
+          exit 1
 
       - name: Run browser tests
         run: npx playwright test --config=playwright.preview.config.mjs
@@ -41,5 +68,13 @@ jobs:
           path: |
             playwright-report/
             test-results/
+            /tmp/khlim-web.log
           if-no-files-found: ignore
           retention-days: 7
+
+  remote-preview-reachable:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify shared Vercel QA alias is reachable
+        run: curl --fail --silent --show-error --retry 5 --retry-delay 3 https://khlim-web-qa.vercel.app/ --output /dev/null
