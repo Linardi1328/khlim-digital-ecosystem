@@ -148,14 +148,32 @@ export class BillplzPaymentGatewayAdapter implements PaymentGatewayAdapter {
     }
 
     const billId = params.get("id");
+    const collectionId = params.get("collection_id");
     const idempotencyKey = params.get("reference_2");
     const paid = params.get("paid");
     const state = params.get("state") ?? "unknown";
     const paidAt = params.get("paid_at") ?? "";
+    const amountMinor = Number(params.get("amount"));
+    const paidAmountMinor = Number(params.get("paid_amount"));
 
-    if (!billId || !idempotencyKey || (paid !== "true" && paid !== "false")) {
+    if (
+      !billId ||
+      collectionId !== this.options.collectionId ||
+      !idempotencyKey ||
+      (paid !== "true" && paid !== "false") ||
+      !Number.isInteger(amountMinor) ||
+      amountMinor <= 0 ||
+      !Number.isInteger(paidAmountMinor) ||
+      paidAmountMinor < 0
+    ) {
       throw new BadRequestException(
         "Billplz webhook is missing required KHLIM payment metadata",
+      );
+    }
+
+    if (paid === "true" && paidAmountMinor !== amountMinor) {
+      throw new BadRequestException(
+        "Billplz paid callback amount does not match the Bill amount",
       );
     }
 
@@ -164,6 +182,8 @@ export class BillplzPaymentGatewayAdapter implements PaymentGatewayAdapter {
       eventType: paid === "true" ? "PAYMENT_SUCCEEDED" : "PAYMENT_FAILED",
       idempotencyKey,
       providerPaymentId: billId,
+      amountMinor,
+      currency: "MYR",
       failureCode: paid === "false" ? state : undefined,
       safeFailureReason:
         paid === "false" ? "Billplz payment was not completed" : undefined,
@@ -180,9 +200,13 @@ export class BillplzPaymentGatewayAdapter implements PaymentGatewayAdapter {
     const source = [...params.entries()]
       .filter(([key]) => key !== "x_signature")
       .map(([key, value]) => `${key}${value}`)
-      .sort((left, right) =>
-        left.localeCompare(right, "en", { sensitivity: "base" }),
-      )
+      .sort((left, right) => {
+        const normalizedLeft = left.toLowerCase();
+        const normalizedRight = right.toLowerCase();
+        if (normalizedLeft < normalizedRight) return -1;
+        if (normalizedLeft > normalizedRight) return 1;
+        return 0;
+      })
       .join("|");
 
     return createHmac("sha256", this.options.xSignatureKey)
