@@ -1,6 +1,6 @@
 # Pre-Alpha Integration and Test Plan
 
-**Status:** Proposed active validation plan after Phase 6
+**Status:** Active — pre-alpha testing in progress
 
 **Purpose:** Prove that the existing KHLIM website, API, database, billing foundation and Admin console behave safely under realistic integration and failure conditions before external families enter a beta.
 
@@ -61,6 +61,8 @@ Create repeatable synthetic fixtures covering at least:
 
 Fixtures must never contain real child/payment credentials.
 
+The first shared synthetic fixture module lives in `packages/testing/src/pre-alpha-fixtures.mjs`. It provides deterministic non-production identities and lightweight doubles for the runtime authorization tests. Expand this package rather than scattering sensitive-looking fixtures across feature tests.
+
 ## Gate 1 — Repository and build health
 
 The branch/commit under test should pass:
@@ -68,6 +70,7 @@ The branch/commit under test should pass:
 ```bash
 pnpm bootstrap:verify
 pnpm test
+pnpm test:pre-alpha
 pnpm lint
 pnpm format:check
 pnpm typecheck
@@ -77,6 +80,8 @@ pnpm build
 ```
 
 Also require successful exact-commit browser jobs for both the public web application and Admin application.
+
+`pnpm test:pre-alpha` builds the API and executes runtime boundary tests against compiled application code. The initial automated tranche covers fail-closed payment-provider selection, Guardian/Athlete relationship rules, athlete self-access, missing authorization policies, MFA enforcement, staff role checks and route-level athlete-access delegation. The dedicated **Pre-Alpha Runtime Boundaries** GitHub Actions workflow keeps this visible as a separate PR gate.
 
 ### Failure rule
 
