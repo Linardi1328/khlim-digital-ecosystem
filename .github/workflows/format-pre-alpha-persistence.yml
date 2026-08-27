@@ -1,0 +1,43 @@
+name: Format Pre-Alpha Persistence Test
+
+on:
+  push:
+    branches:
+      - test/pre-alpha-persistence-integrity
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: test/pre-alpha-persistence-integrity
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.0 --activate
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Format persistence test
+        run: pnpm exec prettier --write tests/integration/pre-alpha-persistence-integrity.test.mjs
+
+      - name: Commit formatting
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/integration/pre-alpha-persistence-integrity.test.mjs
+          git commit -m "style(test): format pre-alpha persistence suite"
+          git push origin HEAD:test/pre-alpha-persistence-integrity
