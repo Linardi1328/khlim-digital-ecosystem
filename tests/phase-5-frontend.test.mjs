@@ -127,11 +127,11 @@ test("Phase 5 public copy does not hard-code unverified venues or programme tier
   assert.doesNotMatch(about, /Founded by passionate basketball coaches/i);
   assert.match(
     privacy,
-    /Later capabilities such as attendance or development records require separate implementation/,
+    /Later capabilities such as attendance\s+or development records require separate implementation/,
   );
   assert.match(
     terms,
-    /Detailed session scheduling, cancellations, replacement sessions, attendance, and term-adjustment rules are later operational capabilities/,
+    /Detailed session scheduling, cancellations, replacement sessions,\s+attendance, and term-adjustment rules are later operational\s+capabilities/,
   );
 });
 
