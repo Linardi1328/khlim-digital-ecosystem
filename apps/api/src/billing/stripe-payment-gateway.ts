@@ -58,9 +58,9 @@ export class StripePaymentGatewayAdapter implements PaymentGatewayAdapter {
   isConfigured(): boolean {
     return Boolean(
       configuredValue("STRIPE_SECRET_KEY") &&
-        configuredValue("STRIPE_WEBHOOK_SECRET") &&
-        configuredValue("STRIPE_CHECKOUT_SUCCESS_URL") &&
-        configuredValue("STRIPE_CHECKOUT_CANCEL_URL"),
+      configuredValue("STRIPE_WEBHOOK_SECRET") &&
+      configuredValue("STRIPE_CHECKOUT_SUCCESS_URL") &&
+      configuredValue("STRIPE_CHECKOUT_CANCEL_URL"),
     );
   }
 

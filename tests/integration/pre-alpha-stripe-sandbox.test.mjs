@@ -37,7 +37,9 @@ const TEST_CONFIG = Object.freeze({
 });
 
 function snapshotEnvironment() {
-  return Object.fromEntries(CONFIG_NAMES.map((name) => [name, process.env[name]]));
+  return Object.fromEntries(
+    CONFIG_NAMES.map((name) => [name, process.env[name]]),
+  );
 }
 
 function restoreEnvironment(snapshot) {
@@ -108,7 +110,10 @@ test("Stripe adapter registers only with complete explicit configuration", () =>
     new BillingModule(missingRegistry, missingAdapter);
     assert.throws(
       () => missingRegistry.requireConfigured("stripe"),
-      expectHttpError(503, /No production payment provider adapter is configured/),
+      expectHttpError(
+        503,
+        /No production payment provider adapter is configured/,
+      ),
     );
 
     installTestConfiguration();
