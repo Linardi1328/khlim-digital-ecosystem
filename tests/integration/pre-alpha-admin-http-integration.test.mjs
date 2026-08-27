@@ -40,7 +40,9 @@ function databaseTestsEnabled() {
 
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
-    throw new Error("DATABASE_URL is required for Admin HTTP integration tests");
+    throw new Error(
+      "DATABASE_URL is required for Admin HTTP integration tests",
+    );
   }
 
   const databaseName = new URL(databaseUrl).pathname.replace(/^\//, "");
@@ -118,11 +120,7 @@ function installJwtDouble(jwt) {
     ],
     [
       "target-aal2",
-      makeIdentity(
-        SUBJECTS.target,
-        "target.admin-http@example.test",
-        "aal2",
-      ),
+      makeIdentity(SUBJECTS.target, "target.admin-http@example.test", "aal2"),
     ],
   ]);
 
@@ -196,7 +194,8 @@ async function seed(client) {
 async function jsonRequest(baseUrl, path, options = {}) {
   const headers = new Headers(options.headers);
   if (options.token) headers.set("authorization", `Bearer ${options.token}`);
-  if (options.body !== undefined) headers.set("content-type", "application/json");
+  if (options.body !== undefined)
+    headers.set("content-type", "application/json");
 
   const response = await fetch(`${baseUrl}${path}`, {
     method: options.method ?? "GET",
@@ -243,216 +242,244 @@ test(
     const baseUrl = `http://127.0.0.1:${address.port}`;
 
     try {
-      await t.test("identity administration requires bearer authentication", async () => {
-        const missing = await jsonRequest(
-          baseUrl,
-          `/v1/admin/users/${IDS.target}`,
-        );
-        assertError(missing, 401, /Bearer access token is required/);
+      await t.test(
+        "identity administration requires bearer authentication",
+        async () => {
+          const missing = await jsonRequest(
+            baseUrl,
+            `/v1/admin/users/${IDS.target}`,
+          );
+          assertError(missing, 401, /Bearer access token is required/);
 
-        const invalid = await jsonRequest(
-          baseUrl,
-          `/v1/admin/users/${IDS.target}`,
-          { token: "unknown-token" },
-        );
-        assertError(invalid, 401, /Invalid or expired access token/);
-      });
+          const invalid = await jsonRequest(
+            baseUrl,
+            `/v1/admin/users/${IDS.target}`,
+            { token: "unknown-token" },
+          );
+          assertError(invalid, 401, /Invalid or expired access token/);
+        },
+      );
 
-      await t.test("identity administration enforces both MFA and scoped roles", async () => {
-        const lowAssurance = await jsonRequest(
-          baseUrl,
-          `/v1/admin/users/${IDS.target}`,
-          { token: "management-aal1" },
-        );
-        assertError(lowAssurance, 403, /MFA assurance level 2 is required/);
+      await t.test(
+        "identity administration enforces both MFA and scoped roles",
+        async () => {
+          const lowAssurance = await jsonRequest(
+            baseUrl,
+            `/v1/admin/users/${IDS.target}`,
+            { token: "management-aal1" },
+          );
+          assertError(lowAssurance, 403, /MFA assurance level 2 is required/);
 
-        const guardian = await jsonRequest(
-          baseUrl,
-          `/v1/admin/users/${IDS.target}`,
-          { token: "guardian-aal2" },
-        );
-        assertError(guardian, 403, /Insufficient permissions/);
+          const guardian = await jsonRequest(
+            baseUrl,
+            `/v1/admin/users/${IDS.target}`,
+            { token: "guardian-aal2" },
+          );
+          assertError(guardian, 403, /Insufficient permissions/);
 
-        const finance = await jsonRequest(
-          baseUrl,
-          `/v1/admin/users/${IDS.target}`,
-          { token: "finance-aal2" },
-        );
-        assertError(finance, 403, /Insufficient permissions/);
+          const finance = await jsonRequest(
+            baseUrl,
+            `/v1/admin/users/${IDS.target}`,
+            { token: "finance-aal2" },
+          );
+          assertError(finance, 403, /Insufficient permissions/);
 
-        const management = await jsonRequest(
-          baseUrl,
-          `/v1/admin/users/${IDS.target}`,
-          { token: "management-aal2" },
-        );
-        assert.equal(management.response.status, 200);
-        assert.equal(management.body.id, IDS.target);
-      });
+          const management = await jsonRequest(
+            baseUrl,
+            `/v1/admin/users/${IDS.target}`,
+            { token: "management-aal2" },
+          );
+          assert.equal(management.response.status, 200);
+          assert.equal(management.body.id, IDS.target);
+        },
+      );
 
-      await t.test("staff role replacement preserves family roles", async () => {
-        const updated = await jsonRequest(
-          baseUrl,
-          `/v1/admin/users/${IDS.target}/staff-roles`,
-          {
-            method: "PUT",
-            token: "management-aal2",
-            body: { roles: ["ACADEMY_ADMIN"] },
-          },
-        );
-
-        assert.equal(updated.response.status, 200);
-        assert.deepEqual(
-          updated.body.map((assignment) => assignment.role).sort(),
-          ["ACADEMY_ADMIN", "GUARDIAN"],
-        );
-
-        const persistedRoles = await client.userRoleAssignment.findMany({
-          where: { userId: IDS.target },
-          select: { role: true },
-          orderBy: { role: "asc" },
-        });
-        assert.deepEqual(
-          persistedRoles.map((assignment) => assignment.role).sort(),
-          ["ACADEMY_ADMIN", "GUARDIAN"],
-        );
-      });
-
-      await t.test("management cannot assign or modify Super Admin authority", async () => {
-        const assign = await jsonRequest(
-          baseUrl,
-          `/v1/admin/users/${IDS.target}/staff-roles`,
-          {
-            method: "PUT",
-            token: "management-aal2",
-            body: { roles: ["SUPER_ADMIN"] },
-          },
-        );
-        assertError(assign, 403, /Only a Super Admin can assign Super Admin/);
-
-        const modify = await jsonRequest(
-          baseUrl,
-          `/v1/admin/users/${IDS.superAdminTarget}/status`,
-          {
-            method: "PATCH",
-            token: "management-aal2",
-            body: { status: "SUSPENDED" },
-          },
-        );
-        assertError(modify, 403, /Only a Super Admin can modify a Super Admin/);
-      });
-
-      await t.test("staff cannot change their own roles or account state", async () => {
-        const roles = await jsonRequest(
-          baseUrl,
-          `/v1/admin/users/${IDS.management}/staff-roles`,
-          {
-            method: "PUT",
-            token: "management-aal2",
-            body: { roles: ["MANAGEMENT"] },
-          },
-        );
-        assertError(roles, 403, /Staff cannot change their own roles/);
-
-        const status = await jsonRequest(
-          baseUrl,
-          `/v1/admin/users/${IDS.management}/status`,
-          {
-            method: "PATCH",
-            token: "management-aal2",
-            body: { status: "SUSPENDED" },
-          },
-        );
-        assertError(
-          status,
-          403,
-          /Staff cannot change their own account status/,
-        );
-      });
-
-      await t.test("academy writes require the academy role plus MFA", async () => {
-        const lowAssurance = await jsonRequest(
-          baseUrl,
-          "/v1/admin/academy/venues",
-          {
-            method: "POST",
-            token: "academy-aal1",
-            body: { name: "Pre-Alpha Admin HTTP Low AAL Venue" },
-          },
-        );
-        assertError(lowAssurance, 403, /MFA assurance level 2 is required/);
-
-        const finance = await jsonRequest(
-          baseUrl,
-          "/v1/admin/academy/venues",
-          {
-            method: "POST",
-            token: "finance-aal2",
-            body: { name: "Pre-Alpha Admin HTTP Finance Venue" },
-          },
-        );
-        assertError(finance, 403, /Insufficient permissions/);
-
-        const academy = await jsonRequest(
-          baseUrl,
-          "/v1/admin/academy/venues",
-          {
-            method: "POST",
-            token: "academy-aal2",
-            body: {
-              name: "Pre-Alpha Admin HTTP Academy Venue",
-              address: "Synthetic integration test venue",
+      await t.test(
+        "staff role replacement preserves family roles",
+        async () => {
+          const updated = await jsonRequest(
+            baseUrl,
+            `/v1/admin/users/${IDS.target}/staff-roles`,
+            {
+              method: "PUT",
+              token: "management-aal2",
+              body: { roles: ["ACADEMY_ADMIN"] },
             },
-          },
-        );
-        assert.equal(academy.response.status, 201);
-        assert.equal(academy.body.name, "Pre-Alpha Admin HTTP Academy Venue");
-      });
+          );
 
-      await t.test("newly persisted staff roles take effect on the next request", async () => {
-        const result = await jsonRequest(
-          baseUrl,
-          "/v1/admin/academy/venues",
-          {
-            method: "POST",
-            token: "target-aal2",
-            body: { name: "Pre-Alpha Admin HTTP Promoted Venue" },
-          },
-        );
+          assert.equal(updated.response.status, 200);
+          assert.deepEqual(
+            updated.body.map((assignment) => assignment.role).sort(),
+            ["ACADEMY_ADMIN", "GUARDIAN"],
+          );
 
-        assert.equal(result.response.status, 201);
-      });
+          const persistedRoles = await client.userRoleAssignment.findMany({
+            where: { userId: IDS.target },
+            select: { role: true },
+            orderBy: { role: "asc" },
+          });
+          assert.deepEqual(
+            persistedRoles.map((assignment) => assignment.role).sort(),
+            ["ACADEMY_ADMIN", "GUARDIAN"],
+          );
+        },
+      );
 
-      await t.test("suspended staff tokens stop authorizing immediately", async () => {
-        const suspended = await jsonRequest(
-          baseUrl,
-          `/v1/admin/users/${IDS.target}/status`,
-          {
-            method: "PATCH",
-            token: "management-aal2",
-            body: { status: "SUSPENDED" },
-          },
-        );
-        assert.equal(suspended.response.status, 200);
-        assert.equal(suspended.body.status, "SUSPENDED");
+      await t.test(
+        "management cannot assign or modify Super Admin authority",
+        async () => {
+          const assign = await jsonRequest(
+            baseUrl,
+            `/v1/admin/users/${IDS.target}/staff-roles`,
+            {
+              method: "PUT",
+              token: "management-aal2",
+              body: { roles: ["SUPER_ADMIN"] },
+            },
+          );
+          assertError(assign, 403, /Only a Super Admin can assign Super Admin/);
 
-        const staleSession = await jsonRequest(
-          baseUrl,
-          "/v1/admin/academy/venues",
-          {
-            method: "POST",
-            token: "target-aal2",
-            body: { name: "Pre-Alpha Admin HTTP Suspended Venue" },
-          },
-        );
-        assertError(staleSession, 403, /KHLIM account is not active/);
+          const modify = await jsonRequest(
+            baseUrl,
+            `/v1/admin/users/${IDS.superAdminTarget}/status`,
+            {
+              method: "PATCH",
+              token: "management-aal2",
+              body: { status: "SUSPENDED" },
+            },
+          );
+          assertError(
+            modify,
+            403,
+            /Only a Super Admin can modify a Super Admin/,
+          );
+        },
+      );
 
-        assert.equal(
-          await client.venue.count({
-            where: { name: "Pre-Alpha Admin HTTP Suspended Venue" },
-          }),
-          0,
-        );
-      });
+      await t.test(
+        "staff cannot change their own roles or account state",
+        async () => {
+          const roles = await jsonRequest(
+            baseUrl,
+            `/v1/admin/users/${IDS.management}/staff-roles`,
+            {
+              method: "PUT",
+              token: "management-aal2",
+              body: { roles: ["MANAGEMENT"] },
+            },
+          );
+          assertError(roles, 403, /Staff cannot change their own roles/);
+
+          const status = await jsonRequest(
+            baseUrl,
+            `/v1/admin/users/${IDS.management}/status`,
+            {
+              method: "PATCH",
+              token: "management-aal2",
+              body: { status: "SUSPENDED" },
+            },
+          );
+          assertError(
+            status,
+            403,
+            /Staff cannot change their own account status/,
+          );
+        },
+      );
+
+      await t.test(
+        "academy writes require the academy role plus MFA",
+        async () => {
+          const lowAssurance = await jsonRequest(
+            baseUrl,
+            "/v1/admin/academy/venues",
+            {
+              method: "POST",
+              token: "academy-aal1",
+              body: { name: "Pre-Alpha Admin HTTP Low AAL Venue" },
+            },
+          );
+          assertError(lowAssurance, 403, /MFA assurance level 2 is required/);
+
+          const finance = await jsonRequest(
+            baseUrl,
+            "/v1/admin/academy/venues",
+            {
+              method: "POST",
+              token: "finance-aal2",
+              body: { name: "Pre-Alpha Admin HTTP Finance Venue" },
+            },
+          );
+          assertError(finance, 403, /Insufficient permissions/);
+
+          const academy = await jsonRequest(
+            baseUrl,
+            "/v1/admin/academy/venues",
+            {
+              method: "POST",
+              token: "academy-aal2",
+              body: {
+                name: "Pre-Alpha Admin HTTP Academy Venue",
+                address: "Synthetic integration test venue",
+              },
+            },
+          );
+          assert.equal(academy.response.status, 201);
+          assert.equal(academy.body.name, "Pre-Alpha Admin HTTP Academy Venue");
+        },
+      );
+
+      await t.test(
+        "newly persisted staff roles take effect on the next request",
+        async () => {
+          const result = await jsonRequest(
+            baseUrl,
+            "/v1/admin/academy/venues",
+            {
+              method: "POST",
+              token: "target-aal2",
+              body: { name: "Pre-Alpha Admin HTTP Promoted Venue" },
+            },
+          );
+
+          assert.equal(result.response.status, 201);
+        },
+      );
+
+      await t.test(
+        "suspended staff tokens stop authorizing immediately",
+        async () => {
+          const suspended = await jsonRequest(
+            baseUrl,
+            `/v1/admin/users/${IDS.target}/status`,
+            {
+              method: "PATCH",
+              token: "management-aal2",
+              body: { status: "SUSPENDED" },
+            },
+          );
+          assert.equal(suspended.response.status, 200);
+          assert.equal(suspended.body.status, "SUSPENDED");
+
+          const staleSession = await jsonRequest(
+            baseUrl,
+            "/v1/admin/academy/venues",
+            {
+              method: "POST",
+              token: "target-aal2",
+              body: { name: "Pre-Alpha Admin HTTP Suspended Venue" },
+            },
+          );
+          assertError(staleSession, 403, /KHLIM account is not active/);
+
+          assert.equal(
+            await client.venue.count({
+              where: { name: "Pre-Alpha Admin HTTP Suspended Venue" },
+            }),
+            0,
+          );
+        },
+      );
     } finally {
       await cleanup(client);
       await app.close();
