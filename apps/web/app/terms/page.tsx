@@ -16,13 +16,25 @@ export default function TermsPage() {
       <main
         style={{
           flex: 1,
+          width: "100%",
           maxWidth: "860px",
+          minWidth: 0,
           margin: "0 auto",
           padding: "48px 20px",
+          boxSizing: "border-box",
         }}
       >
-        <div style={{ marginBottom: "32px" }}>
-          <Badge variant="warning" size="sm">
+        <div style={{ marginBottom: "32px", minWidth: 0 }}>
+          <Badge
+            variant="warning"
+            size="sm"
+            style={{
+              maxWidth: "100%",
+              whiteSpace: "normal",
+              textAlign: "center",
+              boxSizing: "border-box",
+            }}
+          >
             [DRAFT — Subject to Final Owner & Legal Approval]
           </Badge>
           <h1
