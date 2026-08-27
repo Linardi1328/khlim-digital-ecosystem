@@ -11,6 +11,11 @@ body {
   display: none !important;
 }
 
+.public-header-auth-actions {
+  display: flex;
+  align-items: center;
+}
+
 .enrolment-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
@@ -337,7 +342,8 @@ body {
 }
 
 @media (max-width: 900px) {
-  .desktop-nav {
+  .desktop-nav,
+  .public-header-auth-actions {
     display: none !important;
   }
 
@@ -405,6 +411,14 @@ body {
 }
 
 @media (max-width: 640px) {
+  .public-header-locale {
+    display: none !important;
+  }
+
+  .public-header-actions {
+    gap: 8px !important;
+  }
+
   .two-column-form {
     grid-template-columns: 1fr;
   }
