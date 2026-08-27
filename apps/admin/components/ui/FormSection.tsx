@@ -27,11 +27,24 @@ export function FormSection({
       }}
     >
       <div style={{ marginBottom: "20px" }}>
-        <h3 style={{ margin: 0, fontSize: "1.125rem", fontWeight: 700, color: "#0F172A" }}>
+        <h3
+          style={{
+            margin: 0,
+            fontSize: "1.125rem",
+            fontWeight: 700,
+            color: "#0F172A",
+          }}
+        >
           {title}
         </h3>
         {description && (
-          <p style={{ margin: "4px 0 0", fontSize: "0.8125rem", color: "#64748B" }}>
+          <p
+            style={{
+              margin: "4px 0 0",
+              fontSize: "0.8125rem",
+              color: "#64748B",
+            }}
+          >
             {description}
           </p>
         )}

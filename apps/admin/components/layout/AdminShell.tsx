@@ -14,7 +14,13 @@ export function AdminShell({ children }: AdminShellProps) {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", backgroundColor: "#F8FAFC" }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        backgroundColor: "#F8FAFC",
+      }}
+    >
       {/* Desktop Sidebar */}
       <div className="admin-desktop-sidebar">
         <AdminSidebar
@@ -34,7 +40,14 @@ export function AdminShell({ children }: AdminShellProps) {
       </Drawer>
 
       {/* Main Content Layout */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minWidth: 0,
+        }}
+      >
         <AdminHeader
           onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           onOpenMobileNav={() => setIsMobileNavOpen(true)}

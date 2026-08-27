@@ -47,19 +47,38 @@ export function MetricCard({
         transition: "box-shadow 0.15s ease",
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+        }}
+      >
+        <span
+          style={{
+            fontSize: "0.8125rem",
+            fontWeight: 600,
+            color: "#64748B",
+            textTransform: "uppercase",
+            letterSpacing: "0.04em",
+          }}
+        >
           {title}
         </span>
         {icon && (
-          <div style={{ fontSize: "1.25rem", color: "#64748B" }}>
-            {icon}
-          </div>
+          <div style={{ fontSize: "1.25rem", color: "#64748B" }}>{icon}</div>
         )}
       </div>
 
       <div style={{ display: "flex", alignItems: "baseline", gap: "10px" }}>
-        <div style={{ fontSize: "1.875rem", fontWeight: 800, color: "#0F172A", lineHeight: 1.1 }}>
+        <div
+          style={{
+            fontSize: "1.875rem",
+            fontWeight: 800,
+            color: "#0F172A",
+            lineHeight: 1.1,
+          }}
+        >
           {value}
         </div>
         {trend && (
@@ -79,9 +98,7 @@ export function MetricCard({
       </div>
 
       {subtitle && (
-        <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
-          {subtitle}
-        </div>
+        <div style={{ fontSize: "0.75rem", color: "#64748B" }}>{subtitle}</div>
       )}
     </div>
   );

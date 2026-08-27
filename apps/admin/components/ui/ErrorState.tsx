@@ -32,10 +32,24 @@ export function ErrorState({
       }}
     >
       <div style={{ fontSize: "2rem" }}>⚠️</div>
-      <h3 style={{ fontSize: "1.125rem", fontWeight: 700, margin: 0, color: "#7F1D1D" }}>
+      <h3
+        style={{
+          fontSize: "1.125rem",
+          fontWeight: 700,
+          margin: 0,
+          color: "#7F1D1D",
+        }}
+      >
         {title}
       </h3>
-      <p style={{ fontSize: "0.875rem", margin: 0, maxWidth: "460px", color: "#991B1B" }}>
+      <p
+        style={{
+          fontSize: "0.875rem",
+          margin: 0,
+          maxWidth: "460px",
+          color: "#991B1B",
+        }}
+      >
         {message}
       </p>
       <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>

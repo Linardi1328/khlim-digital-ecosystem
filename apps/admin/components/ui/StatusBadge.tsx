@@ -8,7 +8,11 @@ export interface StatusBadgeProps {
   className?: string;
 }
 
-export function StatusBadge({ status, size = "md", className = "" }: StatusBadgeProps) {
+export function StatusBadge({
+  status,
+  size = "md",
+  className = "",
+}: StatusBadgeProps) {
   const normalized = (status || "").toUpperCase();
 
   let bg = "#F1F5F9";
@@ -21,12 +25,23 @@ export function StatusBadge({ status, size = "md", className = "" }: StatusBadge
     text = "#065F46";
     border = "#A7F3D0";
     icon = "✓";
-  } else if (["PENDING", "PROCESSING", "SCHEDULED", "DRAFT"].includes(normalized)) {
+  } else if (
+    ["PENDING", "PROCESSING", "SCHEDULED", "DRAFT"].includes(normalized)
+  ) {
     bg = "#FFFBEB";
     text = "#92400E";
     border = "#FDE68A";
     icon = "⏳";
-  } else if (["FAILED", "SUSPENDED", "CANCELLED", "OVERDUE", "CLOSED", "DEACTIVATED"].includes(normalized)) {
+  } else if (
+    [
+      "FAILED",
+      "SUSPENDED",
+      "CANCELLED",
+      "OVERDUE",
+      "CLOSED",
+      "DEACTIVATED",
+    ].includes(normalized)
+  ) {
     bg = "#FEF2F2";
     text = "#991B1B";
     border = "#FECACA";
@@ -59,7 +74,10 @@ export function StatusBadge({ status, size = "md", className = "" }: StatusBadge
         lineHeight: 1.2,
       }}
     >
-      <span aria-hidden="true" style={{ fontSize: isSmall ? "0.625rem" : "0.75rem" }}>
+      <span
+        aria-hidden="true"
+        style={{ fontSize: isSmall ? "0.625rem" : "0.75rem" }}
+      >
         {icon}
       </span>
       <span>{normalized}</span>

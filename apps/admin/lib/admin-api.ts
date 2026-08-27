@@ -18,7 +18,9 @@ import type {
 
 const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_BASE_URL ||
-  (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000")
+  (typeof window !== "undefined"
+    ? window.location.origin
+    : "http://localhost:3000")
 ).replace(/\/+$/, "");
 
 export function getAdminAccessToken(): string | null {
@@ -40,7 +42,8 @@ const SAMPLE_PROGRAMMES: ProgrammeItem[] = [
     id: "prg-u9-grassroots",
     code: "BB-U9-DEV",
     name: "U9 Grassroots Basketball Fundamentals",
-    description: "Foundational ball-handling, hand-eye coordination, footwork, and basic game rules.",
+    description:
+      "Foundational ball-handling, hand-eye coordination, footwork, and basic game rules.",
     sportCode: "BASKETBALL",
     sportName: "Basketball",
     minimumAge: 6,
@@ -53,7 +56,8 @@ const SAMPLE_PROGRAMMES: ProgrammeItem[] = [
     id: "prg-u12-junior",
     code: "BB-U12-ACAD",
     name: "U12 Junior Academy & Team Concepts",
-    description: "Intermediate technical shooting mechanics, spacing, defensive balance, and team play.",
+    description:
+      "Intermediate technical shooting mechanics, spacing, defensive balance, and team play.",
     sportCode: "BASKETBALL",
     sportName: "Basketball",
     minimumAge: 10,
@@ -66,7 +70,8 @@ const SAMPLE_PROGRAMMES: ProgrammeItem[] = [
     id: "prg-u15-youth",
     code: "BB-U15-COMP",
     name: "U15 Youth Academy & Competitive Play",
-    description: "High-tempo offensive reads, screen-and-roll execution, full-court transition drills.",
+    description:
+      "High-tempo offensive reads, screen-and-roll execution, full-court transition drills.",
     sportCode: "BASKETBALL",
     sportName: "Basketball",
     minimumAge: 13,
@@ -79,7 +84,8 @@ const SAMPLE_PROGRAMMES: ProgrammeItem[] = [
     id: "prg-u18-elite",
     code: "BB-U18-ELITE",
     name: "Advanced Elite Training & League Prep",
-    description: "Elite physical conditioning, situational strategy, state tournament preparation.",
+    description:
+      "Elite physical conditioning, situational strategy, state tournament preparation.",
     sportCode: "BASKETBALL",
     sportName: "Basketball",
     minimumAge: 16,
@@ -179,7 +185,8 @@ const SAMPLE_PLANS: MembershipPlanItem[] = [
     upfrontAmountMinor: 22000,
     currency: "MYR",
     sessionAllowance: 4,
-    benefitsSummary: "4 structured training sessions per month, jersey kit, portal access.",
+    benefitsSummary:
+      "4 structured training sessions per month, jersey kit, portal access.",
     active: true,
   },
   {
@@ -192,7 +199,8 @@ const SAMPLE_PLANS: MembershipPlanItem[] = [
     upfrontAmountMinor: 58500,
     currency: "MYR",
     sessionAllowance: 12,
-    benefitsSummary: "12 sessions across term, official match jersey, quarterly evaluation report.",
+    benefitsSummary:
+      "12 sessions across term, official match jersey, quarterly evaluation report.",
     active: true,
   },
   {
@@ -205,7 +213,8 @@ const SAMPLE_PLANS: MembershipPlanItem[] = [
     upfrontAmountMinor: 105000,
     currency: "MYR",
     sessionAllowance: 24,
-    benefitsSummary: "24 sessions, full uniform kit, tournament priority, video breakdown.",
+    benefitsSummary:
+      "24 sessions, full uniform kit, tournament priority, video breakdown.",
     active: true,
   },
   {
@@ -218,7 +227,8 @@ const SAMPLE_PLANS: MembershipPlanItem[] = [
     upfrontAmountMinor: 6000,
     currency: "MYR",
     sessionAllowance: 1,
-    benefitsSummary: "One-off 90-minute trial session with head coach assessment.",
+    benefitsSummary:
+      "One-off 90-minute trial session with head coach assessment.",
     active: true,
   },
 ];
@@ -335,7 +345,13 @@ const SAMPLE_ATHLETES: AthleteItem[] = [
     gender: "Male",
     preferredLocale: "en",
     guardians: [
-      { id: "lnk-1", guardianId: "usr-richie-lim", guardianName: "Richie Lim", relationshipType: "Father", phone: "+60 12-345 6789" },
+      {
+        id: "lnk-1",
+        guardianId: "usr-richie-lim",
+        guardianName: "Richie Lim",
+        relationshipType: "Father",
+        phone: "+60 12-345 6789",
+      },
     ],
     membershipsCount: 1,
     activeMembershipsCount: 1,
@@ -349,7 +365,13 @@ const SAMPLE_ATHLETES: AthleteItem[] = [
     gender: "Female",
     preferredLocale: "en",
     guardians: [
-      { id: "lnk-2", guardianId: "usr-richie-lim", guardianName: "Richie Lim", relationshipType: "Father", phone: "+60 12-345 6789" },
+      {
+        id: "lnk-2",
+        guardianId: "usr-richie-lim",
+        guardianName: "Richie Lim",
+        relationshipType: "Father",
+        phone: "+60 12-345 6789",
+      },
     ],
     membershipsCount: 1,
     activeMembershipsCount: 1,
@@ -363,7 +385,13 @@ const SAMPLE_ATHLETES: AthleteItem[] = [
     gender: "Male",
     preferredLocale: "en",
     guardians: [
-      { id: "lnk-3", guardianId: "usr-sarah-tan", guardianName: "Sarah Tan", relationshipType: "Mother", phone: "+60 19-876 5432" },
+      {
+        id: "lnk-3",
+        guardianId: "usr-sarah-tan",
+        guardianName: "Sarah Tan",
+        relationshipType: "Mother",
+        phone: "+60 19-876 5432",
+      },
     ],
     membershipsCount: 1,
     activeMembershipsCount: 0,
@@ -377,7 +405,13 @@ const SAMPLE_ATHLETES: AthleteItem[] = [
     gender: "Male",
     preferredLocale: "zh-Hans",
     guardians: [
-      { id: "lnk-4", guardianId: "usr-david-wong", guardianName: "David Wong", relationshipType: "Guardian", phone: "+60 16-222 3344" },
+      {
+        id: "lnk-4",
+        guardianId: "usr-david-wong",
+        guardianName: "David Wong",
+        relationshipType: "Guardian",
+        phone: "+60 16-222 3344",
+      },
     ],
     membershipsCount: 2,
     activeMembershipsCount: 1,
@@ -391,7 +425,13 @@ const SAMPLE_ATHLETES: AthleteItem[] = [
     gender: "Female",
     preferredLocale: "en",
     guardians: [
-      { id: "lnk-5", guardianId: "usr-karen-lee", guardianName: "Karen Lee", relationshipType: "Mother", phone: "+60 13-999 8877" },
+      {
+        id: "lnk-5",
+        guardianId: "usr-karen-lee",
+        guardianName: "Karen Lee",
+        relationshipType: "Mother",
+        phone: "+60 13-999 8877",
+      },
     ],
     membershipsCount: 1,
     activeMembershipsCount: 0,
@@ -408,8 +448,18 @@ const SAMPLE_GUARDIANS: GuardianItem[] = [
     emergencyContactName: "Sarah Tan",
     emergencyContactPhone: "+60 19-876 5432",
     managedAthletes: [
-      { id: "ath-lucas-lim", displayName: "Lucas Lim", dateOfBirth: "2018-04-12", relationshipType: "Father" },
-      { id: "ath-maya-lim", displayName: "Maya Lim", dateOfBirth: "2015-08-22", relationshipType: "Father" },
+      {
+        id: "ath-lucas-lim",
+        displayName: "Lucas Lim",
+        dateOfBirth: "2018-04-12",
+        relationshipType: "Father",
+      },
+      {
+        id: "ath-maya-lim",
+        displayName: "Maya Lim",
+        dateOfBirth: "2015-08-22",
+        relationshipType: "Father",
+      },
     ],
     accountStatus: "ACTIVE",
     createdAt: "2026-08-01",
@@ -422,7 +472,12 @@ const SAMPLE_GUARDIANS: GuardianItem[] = [
     emergencyContactName: "Michael Tan",
     emergencyContactPhone: "+60 12-111 2233",
     managedAthletes: [
-      { id: "ath-ethan-tan", displayName: "Ethan Tan", dateOfBirth: "2012-01-15", relationshipType: "Mother" },
+      {
+        id: "ath-ethan-tan",
+        displayName: "Ethan Tan",
+        dateOfBirth: "2012-01-15",
+        relationshipType: "Mother",
+      },
     ],
     accountStatus: "ACTIVE",
     createdAt: "2026-08-10",
@@ -435,7 +490,12 @@ const SAMPLE_GUARDIANS: GuardianItem[] = [
     emergencyContactName: "Jenny Wong",
     emergencyContactPhone: "+60 16-222 3345",
     managedAthletes: [
-      { id: "ath-ryan-wong", displayName: "Ryan Wong", dateOfBirth: "2014-11-03", relationshipType: "Guardian" },
+      {
+        id: "ath-ryan-wong",
+        displayName: "Ryan Wong",
+        dateOfBirth: "2014-11-03",
+        relationshipType: "Guardian",
+      },
     ],
     accountStatus: "ACTIVE",
     createdAt: "2026-08-15",
@@ -494,7 +554,8 @@ const SAMPLE_PAYMENTS: PaymentItem[] = [
     status: "FAILED",
     attemptNumber: 2,
     settledAt: null,
-    failureReason: "Insufficient funds / mandate authorization declined by issuing bank",
+    failureReason:
+      "Insufficient funds / mandate authorization declined by issuing bank",
     createdAt: "2026-08-27 09:15",
   },
   {
@@ -523,14 +584,34 @@ const SAMPLE_VENUES: VenueItem[] = [
     name: "KHLIM Arena Serdang",
     address: "Jalan Kasturi 3, 43300 Seri Kembangan, Selangor, Malaysia",
     courts: [
-      { id: "crt-1", venueId: "ven-serdang-arena", name: "Court 1 (Hardwood East)", capacity: 25 },
-      { id: "crt-2", venueId: "ven-serdang-arena", name: "Court 2 (Hardwood West)", capacity: 25 },
-      { id: "crt-3", venueId: "ven-serdang-arena", name: "Main Arena Championship Court", capacity: 40 },
+      {
+        id: "crt-1",
+        venueId: "ven-serdang-arena",
+        name: "Court 1 (Hardwood East)",
+        capacity: 25,
+      },
+      {
+        id: "crt-2",
+        venueId: "ven-serdang-arena",
+        name: "Court 2 (Hardwood West)",
+        capacity: 25,
+      },
+      {
+        id: "crt-3",
+        venueId: "ven-serdang-arena",
+        name: "Main Arena Championship Court",
+        capacity: 40,
+      },
     ],
     activeOfferingsCount: 4,
     upcomingSessionsCount: 16,
     closurePeriods: [
-      { id: "cl-1", startsOn: "2026-12-24", endsOn: "2026-12-26", reason: "Christmas Public Holiday Closure" },
+      {
+        id: "cl-1",
+        startsOn: "2026-12-24",
+        endsOn: "2026-12-26",
+        reason: "Christmas Public Holiday Closure",
+      },
     ],
   },
   {
@@ -538,8 +619,18 @@ const SAMPLE_VENUES: VenueItem[] = [
     name: "Cyberjaya Sports Complex",
     address: "Persiaran Multimedia, 63000 Cyberjaya, Selangor, Malaysia",
     courts: [
-      { id: "crt-4", venueId: "ven-cyberjaya-sports", name: "Main Court A", capacity: 20 },
-      { id: "crt-5", venueId: "ven-cyberjaya-sports", name: "Training Court B", capacity: 20 },
+      {
+        id: "crt-4",
+        venueId: "ven-cyberjaya-sports",
+        name: "Main Court A",
+        capacity: 20,
+      },
+      {
+        id: "crt-5",
+        venueId: "ven-cyberjaya-sports",
+        name: "Training Court B",
+        capacity: 20,
+      },
     ],
     activeOfferingsCount: 2,
     upcomingSessionsCount: 8,
@@ -647,7 +738,8 @@ const SAMPLE_AUDIT_LOGS: AuditLogItem[] = [
     action: "MEMBERSHIP_ACTIVATED",
     entityType: "MEMBERSHIP",
     entityId: "mem-2026-002",
-    summary: "Activated membership upon verified Stripe payment event (pi_3Nxyz8899112244).",
+    summary:
+      "Activated membership upon verified Stripe payment event (pi_3Nxyz8899112244).",
   },
   {
     id: "aud-9003",
@@ -657,7 +749,8 @@ const SAMPLE_AUDIT_LOGS: AuditLogItem[] = [
     action: "PAYMENT_FAILED",
     entityType: "PAYMENT_INSTALLMENT",
     entityId: "pay-tx-1003",
-    summary: "Recorded failed Curlec installment debit attempt (Declined by issuer).",
+    summary:
+      "Recorded failed Curlec installment debit attempt (Declined by issuer).",
   },
   {
     id: "aud-9004",
@@ -667,7 +760,8 @@ const SAMPLE_AUDIT_LOGS: AuditLogItem[] = [
     action: "MEMBERSHIP_PLAN_CREATED",
     entityType: "MEMBERSHIP_PLAN",
     entityId: "plan-term-3mo",
-    summary: "Created 3-Month Term plan with server-authoritative pricing MYR 195.00/mo.",
+    summary:
+      "Created 3-Month Term plan with server-authoritative pricing MYR 195.00/mo.",
   },
 ];
 
@@ -692,7 +786,22 @@ export const adminApi = {
   async listProgrammes(): Promise<ProgrammeItem[]> {
     try {
       // In development or when backend offerings are returned, we attempt real call
-      const offerings = await adminApiClient.get<any[]>("/v1/academy/offerings", { authenticated: false });
+      const offerings = await adminApiClient.get<
+        Array<{
+          id: string;
+          name: string;
+          programme?: {
+            id: string;
+            code?: string;
+            name: string;
+            description: string | null;
+            minimumAge: number;
+            maximumAge: number;
+            level: string;
+            sport?: { code?: string; defaultName?: string };
+          };
+        }>
+      >("/v1/academy/offerings", { authenticated: false });
       if (Array.isArray(offerings) && offerings.length > 0) {
         // Extract distinct programmes from backend offerings
         const map = new Map<string, ProgrammeItem>();
@@ -732,14 +841,24 @@ export const adminApi = {
     minimumAge: number;
     maximumAge: number;
     level: string;
-  }): Promise<any> {
+  }): Promise<unknown> {
     return adminApiClient.post("/v1/admin/academy/programmes", dto);
   },
 
   // Offerings
   async listOfferings(): Promise<OfferingItem[]> {
     try {
-      const backendOfferings = await adminApiClient.get<any[]>("/v1/academy/offerings", { authenticated: false });
+      const backendOfferings = await adminApiClient.get<
+        Array<{
+          id: string;
+          name: string;
+          capacity: number;
+          startsOn: string;
+          endsOn: string | null;
+          programme?: { id: string; name: string };
+          venue?: { id: string; name: string };
+        }>
+      >("/v1/academy/offerings", { authenticated: false });
       if (Array.isArray(backendOfferings) && backendOfferings.length > 0) {
         return backendOfferings.map((o) => ({
           id: o.id,
@@ -750,7 +869,10 @@ export const adminApi = {
           name: o.name,
           capacity: o.capacity,
           enrolledCount: Math.round(o.capacity * 0.75),
-          availablePlaces: Math.max(0, o.capacity - Math.round(o.capacity * 0.75)),
+          availablePlaces: Math.max(
+            0,
+            o.capacity - Math.round(o.capacity * 0.75),
+          ),
           startsOn: o.startsOn,
           endsOn: o.endsOn,
           status: "OPEN",
@@ -769,7 +891,7 @@ export const adminApi = {
     capacity: number;
     startsOn: string;
     endsOn?: string;
-  }): Promise<any> {
+  }): Promise<unknown> {
     return adminApiClient.post("/v1/admin/academy/offerings", dto);
   },
 
@@ -788,7 +910,7 @@ export const adminApi = {
     currency: string;
     sessionAllowance?: number;
     benefitsSummary?: string;
-  }): Promise<any> {
+  }): Promise<unknown> {
     return adminApiClient.post("/v1/admin/academy/membership-plans", dto);
   },
 
@@ -817,12 +939,18 @@ export const adminApi = {
     return SAMPLE_VENUES;
   },
 
-  async createVenue(dto: { name: string; address?: string }): Promise<any> {
+  async createVenue(dto: { name: string; address?: string }): Promise<unknown> {
     return adminApiClient.post("/v1/admin/academy/venues", dto);
   },
 
-  async createCourt(venueId: string, dto: { name: string; capacity?: number }): Promise<any> {
-    return adminApiClient.post(`/v1/admin/academy/venues/${venueId}/courts`, dto);
+  async createCourt(
+    venueId: string,
+    dto: { name: string; capacity?: number },
+  ): Promise<unknown> {
+    return adminApiClient.post(
+      `/v1/admin/academy/venues/${venueId}/courts`,
+      dto,
+    );
   },
 
   // Scheduling
@@ -835,12 +963,21 @@ export const adminApi = {
     return SAMPLE_STAFF;
   },
 
-  async updateStaffRoles(userId: string, roles: string[]): Promise<any> {
-    return adminApiClient.put(`/v1/admin/users/${userId}/staff-roles`, { roles });
+  async updateStaffRoles(userId: string, roles: string[]): Promise<unknown> {
+    return adminApiClient.put(`/v1/admin/users/${userId}/staff-roles`, {
+      roles,
+    });
   },
 
-  async updateAccountStatus(userId: string, status: "ACTIVE" | "SUSPENDED" | "DEACTIVATED", reason?: string): Promise<any> {
-    return adminApiClient.patch(`/v1/admin/users/${userId}/status`, { status, reason });
+  async updateAccountStatus(
+    userId: string,
+    status: "ACTIVE" | "SUSPENDED" | "DEACTIVATED",
+    reason?: string,
+  ): Promise<unknown> {
+    return adminApiClient.patch(`/v1/admin/users/${userId}/status`, {
+      status,
+      reason,
+    });
   },
 
   // Audit Logs

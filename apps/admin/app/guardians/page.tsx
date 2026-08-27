@@ -24,7 +24,9 @@ export default function GuardiansPage() {
   const [pageSize, setPageSize] = useState(10);
 
   // Detail Drawer
-  const [selectedGuardian, setSelectedGuardian] = useState<GuardianItem | null>(null);
+  const [selectedGuardian, setSelectedGuardian] = useState<GuardianItem | null>(
+    null,
+  );
   const [detailTab, setDetailTab] = useState("profile");
 
   useEffect(() => {
@@ -46,7 +48,9 @@ export default function GuardiansPage() {
       g.displayName.toLowerCase().includes(search.toLowerCase()) ||
       g.email.toLowerCase().includes(search.toLowerCase()) ||
       (g.phone && g.phone.toLowerCase().includes(search.toLowerCase())) ||
-      g.managedAthletes.some((a) => a.displayName.toLowerCase().includes(search.toLowerCase()))
+      g.managedAthletes.some((a) =>
+        a.displayName.toLowerCase().includes(search.toLowerCase()),
+      )
     );
   });
 
@@ -59,8 +63,12 @@ export default function GuardiansPage() {
       header: "Guardian Name",
       render: (g) => (
         <div>
-          <div style={{ fontWeight: 700, color: "#0F172A" }}>{g.displayName}</div>
-          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>ID: {g.id}</div>
+          <div style={{ fontWeight: 700, color: "#0F172A" }}>
+            {g.displayName}
+          </div>
+          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+            ID: {g.id}
+          </div>
         </div>
       ),
     },
@@ -70,7 +78,9 @@ export default function GuardiansPage() {
       render: (g) => (
         <div>
           <div style={{ fontWeight: 600, color: "#334155" }}>{g.email}</div>
-          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>{g.phone || "No phone added"}</div>
+          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+            {g.phone || "No phone added"}
+          </div>
         </div>
       ),
     },
@@ -179,7 +189,11 @@ export default function GuardiansPage() {
           subtitle={`Verified Supabase Account: ${selectedGuardian?.email}`}
           width="560px"
           footer={
-            <Button variant="outline" size="sm" onClick={() => setSelectedGuardian(null)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedGuardian(null)}
+            >
               Close
             </Button>
           }
@@ -189,7 +203,11 @@ export default function GuardiansPage() {
               <Tabs
                 tabs={[
                   { id: "profile", label: "Profile" },
-                  { id: "children", label: "Linked Children", count: selectedGuardian.managedAthletes.length },
+                  {
+                    id: "children",
+                    label: "Linked Children",
+                    count: selectedGuardian.managedAthletes.length,
+                  },
                   { id: "emergency", label: "Emergency Contact" },
                 ]}
                 activeTab={detailTab}
@@ -197,7 +215,13 @@ export default function GuardiansPage() {
               />
 
               {detailTab === "profile" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "16px",
+                  }}
+                >
                   <div
                     style={{
                       display: "grid",
@@ -210,26 +234,80 @@ export default function GuardiansPage() {
                     }}
                   >
                     <div>
-                      <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>ACCOUNT ID</div>
-                      <div style={{ fontWeight: 600, color: "#0F172A", fontSize: "0.8125rem", marginTop: "2px" }}>
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#64748B",
+                          fontWeight: 700,
+                        }}
+                      >
+                        ACCOUNT ID
+                      </div>
+                      <div
+                        style={{
+                          fontWeight: 600,
+                          color: "#0F172A",
+                          fontSize: "0.8125rem",
+                          marginTop: "2px",
+                        }}
+                      >
                         {selectedGuardian.id}
                       </div>
                     </div>
                     <div>
-                      <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>ACCOUNT STATUS</div>
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#64748B",
+                          fontWeight: 700,
+                        }}
+                      >
+                        ACCOUNT STATUS
+                      </div>
                       <div style={{ marginTop: "4px" }}>
-                        <StatusBadge status={selectedGuardian.accountStatus} size="sm" />
+                        <StatusBadge
+                          status={selectedGuardian.accountStatus}
+                          size="sm"
+                        />
                       </div>
                     </div>
                     <div>
-                      <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>EMAIL</div>
-                      <div style={{ fontWeight: 600, color: "#0F172A", marginTop: "2px" }}>
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#64748B",
+                          fontWeight: 700,
+                        }}
+                      >
+                        EMAIL
+                      </div>
+                      <div
+                        style={{
+                          fontWeight: 600,
+                          color: "#0F172A",
+                          marginTop: "2px",
+                        }}
+                      >
                         {selectedGuardian.email}
                       </div>
                     </div>
                     <div>
-                      <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>PHONE</div>
-                      <div style={{ fontWeight: 600, color: "#0F172A", marginTop: "2px" }}>
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#64748B",
+                          fontWeight: 700,
+                        }}
+                      >
+                        PHONE
+                      </div>
+                      <div
+                        style={{
+                          fontWeight: 600,
+                          color: "#0F172A",
+                          marginTop: "2px",
+                        }}
+                      >
                         {selectedGuardian.phone || "—"}
                       </div>
                     </div>
@@ -245,13 +323,22 @@ export default function GuardiansPage() {
                       color: "#92400E",
                     }}
                   >
-                    <strong>Authorization Rule:</strong> Guardian role alone does not grant access to unrelated athletes. Only athletes linked through explicit family relationship records can be accessed.
+                    <strong>Authorization Rule:</strong> Guardian role alone
+                    does not grant access to unrelated athletes. Only athletes
+                    linked through explicit family relationship records can be
+                    accessed.
                   </div>
                 </div>
               )}
 
               {detailTab === "children" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
+                  }}
+                >
                   {selectedGuardian.managedAthletes.map((a) => (
                     <div
                       key={a.id}
@@ -262,9 +349,18 @@ export default function GuardiansPage() {
                         border: "1px solid #E2E8F0",
                       }}
                     >
-                      <div style={{ fontWeight: 700, fontSize: "0.9375rem" }}>{a.displayName}</div>
-                      <div style={{ fontSize: "0.8125rem", color: "#64748B", marginTop: "2px" }}>
-                        Relationship: <strong>{a.relationshipType}</strong> • DOB: {a.dateOfBirth}
+                      <div style={{ fontWeight: 700, fontSize: "0.9375rem" }}>
+                        {a.displayName}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "0.8125rem",
+                          color: "#64748B",
+                          marginTop: "2px",
+                        }}
+                      >
+                        Relationship: <strong>{a.relationshipType}</strong> •
+                        DOB: {a.dateOfBirth}
                       </div>
                     </div>
                   ))}
@@ -272,11 +368,25 @@ export default function GuardiansPage() {
               )}
 
               {detailTab === "emergency" && (
-                <div style={{ padding: "16px", backgroundColor: "#F8FAFC", borderRadius: "8px", border: "1px solid #E2E8F0" }}>
+                <div
+                  style={{
+                    padding: "16px",
+                    backgroundColor: "#F8FAFC",
+                    borderRadius: "8px",
+                    border: "1px solid #E2E8F0",
+                  }}
+                >
                   <div style={{ fontWeight: 700, fontSize: "0.9375rem" }}>
-                    {selectedGuardian.emergencyContactName || "No Emergency Contact Listed"}
+                    {selectedGuardian.emergencyContactName ||
+                      "No Emergency Contact Listed"}
                   </div>
-                  <div style={{ fontSize: "0.8125rem", color: "#64748B", marginTop: "4px" }}>
+                  <div
+                    style={{
+                      fontSize: "0.8125rem",
+                      color: "#64748B",
+                      marginTop: "4px",
+                    }}
+                  >
                     Phone: {selectedGuardian.emergencyContactPhone || "—"}
                   </div>
                 </div>

@@ -11,16 +11,17 @@ export interface AdminHeaderProps {
 }
 
 export function AdminHeader({
-  onToggleSidebar,
+  onToggleSidebar: _onToggleSidebar,
   onOpenMobileNav,
 }: AdminHeaderProps) {
   const pathname = usePathname();
-  const { user, role, setRole, logout } = useAdminAuth();
+  const { user, role, setRole } = useAdminAuth();
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
   const getSectionTitle = () => {
-    if (pathname === "/" || pathname === "/dashboard") return "Operations Dashboard";
+    if (pathname === "/" || pathname === "/dashboard")
+      return "Operations Dashboard";
     if (pathname.startsWith("/programmes")) return "Programmes Catalogue";
     if (pathname.startsWith("/offerings")) return "Programme Offerings";
     if (pathname.startsWith("/plans")) return "Membership Plans";
@@ -129,7 +130,9 @@ export function AdminHeader({
             cursor: "pointer",
           }}
           onClick={() => {
-            const searchInput = document.querySelector('input[type="search"]') as HTMLElement | null;
+            const searchInput = document.querySelector(
+              'input[type="search"]',
+            ) as HTMLElement | null;
             searchInput?.focus();
           }}
         >
@@ -192,14 +195,43 @@ export function AdminHeader({
                 zIndex: 50,
               }}
             >
-              <div style={{ fontWeight: 700, fontSize: "0.875rem", marginBottom: "8px", color: "#0F172A" }}>
+              <div
+                style={{
+                  fontWeight: 700,
+                  fontSize: "0.875rem",
+                  marginBottom: "8px",
+                  color: "#0F172A",
+                }}
+              >
                 Operational Alerts
               </div>
-              <div style={{ fontSize: "0.8125rem", color: "#64748B", display: "flex", flexDirection: "column", gap: "8px" }}>
-                <div style={{ padding: "8px", backgroundColor: "#FFFBEB", borderRadius: "6px", border: "1px solid #FDE68A" }}>
+              <div
+                style={{
+                  fontSize: "0.8125rem",
+                  color: "#64748B",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "8px",
+                }}
+              >
+                <div
+                  style={{
+                    padding: "8px",
+                    backgroundColor: "#FFFBEB",
+                    borderRadius: "6px",
+                    border: "1px solid #FDE68A",
+                  }}
+                >
                   ⚠️ 1 failed installment requiring review
                 </div>
-                <div style={{ padding: "8px", backgroundColor: "#F8FAFC", borderRadius: "6px", border: "1px solid #E2E8F0" }}>
+                <div
+                  style={{
+                    padding: "8px",
+                    backgroundColor: "#F8FAFC",
+                    borderRadius: "6px",
+                    border: "1px solid #E2E8F0",
+                  }}
+                >
                   ℹ️ 6 pending memberships awaiting webhook
                 </div>
               </div>
@@ -246,7 +278,15 @@ export function AdminHeader({
                 zIndex: 50,
               }}
             >
-              <div style={{ fontSize: "0.6875rem", fontWeight: 700, color: "#64748B", textTransform: "uppercase", padding: "6px 8px" }}>
+              <div
+                style={{
+                  fontSize: "0.6875rem",
+                  fontWeight: 700,
+                  color: "#64748B",
+                  textTransform: "uppercase",
+                  padding: "6px 8px",
+                }}
+              >
                 Switch Active Role Context
               </div>
               {roles.map((r) => (

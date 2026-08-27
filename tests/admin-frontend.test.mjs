@@ -33,7 +33,9 @@ test("Admin console implements all required reusable UI components", async () =>
   const emptyState = await read("apps/admin/components/ui/EmptyState.tsx");
   const loadingState = await read("apps/admin/components/ui/LoadingState.tsx");
   const errorState = await read("apps/admin/components/ui/ErrorState.tsx");
-  const confirmDialog = await read("apps/admin/components/ui/ConfirmDialog.tsx");
+  const confirmDialog = await read(
+    "apps/admin/components/ui/ConfirmDialog.tsx",
+  );
   const drawer = await read("apps/admin/components/ui/Drawer.tsx");
   const tabs = await read("apps/admin/components/ui/Tabs.tsx");
   const pagination = await read("apps/admin/components/ui/Pagination.tsx");
@@ -101,19 +103,34 @@ test("Admin operations console preserves strict domain rules", async () => {
   const payments = await read("apps/admin/app/payments/page.tsx");
 
   // Programme != Offering separation
-  assert.match(programmes, /Programme and Programme Offering are separate entities/);
+  assert.match(
+    programmes,
+    /Programme\s+and\s+Programme\s+Offering\s+are\s+separate\s+entities/,
+  );
 
   // Membership != Payment separation
-  assert.match(memberships, /Membership state and payment state are separate/);
+  assert.match(
+    memberships,
+    /Membership\s+state\s+and\s+payment\s+state\s+are\s+separate/,
+  );
 
   // User != Athlete
-  assert.match(athletes, /Athletes are managed profiles linked to adult guardians/);
+  assert.match(
+    athletes,
+    /Athletes\s+are\s+managed\s+profiles\s+linked\s+to\s+adult\s+guardians/,
+  );
 
   // Guardian relationship authorization
-  assert.match(guardians, /Guardian role alone does not grant access to unrelated athletes/);
+  assert.match(
+    guardians,
+    /Guardian\s+role\s+alone\s+does\s+not\s+grant\s+access\s+to\s+unrelated\s+athletes/,
+  );
 
   // Payments forbid raw card storage
-  assert.match(payments, /Raw credit card numbers and CVVs are strictly forbidden/);
+  assert.match(
+    payments,
+    /Raw\s+credit\s+card\s+numbers\s+and\s+CVVs\s+are\s+strictly\s+forbidden/,
+  );
 });
 
 test("Admin role context prevents unauthorized financial data visibility to coach roles", async () => {

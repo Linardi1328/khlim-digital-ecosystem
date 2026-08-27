@@ -80,7 +80,14 @@ export default function VenuesPage() {
         id: `ven-${Date.now()}`,
         name: venueName.trim(),
         address: venueAddress.trim() || null,
-        courts: [{ id: `crt-${Date.now()}`, venueId: `ven-${Date.now()}`, name: "Main Court 1", capacity: 25 }],
+        courts: [
+          {
+            id: `crt-${Date.now()}`,
+            venueId: `ven-${Date.now()}`,
+            name: "Main Court 1",
+            capacity: 25,
+          },
+        ],
         activeOfferingsCount: 0,
         upcomingSessionsCount: 0,
         closurePeriods: [],
@@ -99,7 +106,9 @@ export default function VenuesPage() {
       render: (v) => (
         <div>
           <div style={{ fontWeight: 700, color: "#0F172A" }}>📍 {v.name}</div>
-          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>ID: {v.id}</div>
+          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+            ID: {v.id}
+          </div>
         </div>
       ),
     },
@@ -168,7 +177,11 @@ export default function VenuesPage() {
             { label: "Venues" },
           ]}
           actions={
-            <Button variant="primary" size="md" onClick={() => setIsCreateOpen(true)}>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => setIsCreateOpen(true)}
+            >
               + Add Venue Facility
             </Button>
           }
@@ -216,7 +229,11 @@ export default function VenuesPage() {
           subtitle={`Courts: ${selectedVenue?.courts.length} • Active Cohorts: ${selectedVenue?.activeOfferingsCount}`}
           width="560px"
           footer={
-            <Button variant="outline" size="sm" onClick={() => setSelectedVenue(null)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedVenue(null)}
+            >
               Close
             </Button>
           }
@@ -226,26 +243,69 @@ export default function VenuesPage() {
               <Tabs
                 tabs={[
                   { id: "overview", label: "Courts & Info" },
-                  { id: "closures", label: "Closure Periods", count: selectedVenue.closurePeriods.length },
+                  {
+                    id: "closures",
+                    label: "Closure Periods",
+                    count: selectedVenue.closurePeriods.length,
+                  },
                 ]}
                 activeTab={detailTab}
                 onChange={setDetailTab}
               />
 
               {detailTab === "overview" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                  <div style={{ padding: "14px", backgroundColor: "#F8FAFC", borderRadius: "8px", border: "1px solid #E2E8F0" }}>
-                    <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>PHYSICAL ADDRESS</div>
-                    <div style={{ fontSize: "0.875rem", color: "#0F172A", marginTop: "4px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "16px",
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "14px",
+                      backgroundColor: "#F8FAFC",
+                      borderRadius: "8px",
+                      border: "1px solid #E2E8F0",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "0.75rem",
+                        color: "#64748B",
+                        fontWeight: 700,
+                      }}
+                    >
+                      PHYSICAL ADDRESS
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "0.875rem",
+                        color: "#0F172A",
+                        marginTop: "4px",
+                      }}
+                    >
                       {selectedVenue.address || "No address specified"}
                     </div>
                   </div>
 
                   <div>
-                    <h4 style={{ margin: "0 0 10px", fontSize: "0.9375rem", fontWeight: 700 }}>
+                    <h4
+                      style={{
+                        margin: "0 0 10px",
+                        fontSize: "0.9375rem",
+                        fontWeight: 700,
+                      }}
+                    >
                       Configured Courts
                     </h4>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                      }}
+                    >
                       {selectedVenue.courts.map((court) => (
                         <div
                           key={court.id}
@@ -259,8 +319,12 @@ export default function VenuesPage() {
                             alignItems: "center",
                           }}
                         >
-                          <div style={{ fontWeight: 600, color: "#0F172A" }}>{court.name}</div>
-                          <span style={{ fontSize: "0.75rem", color: "#64748B" }}>
+                          <div style={{ fontWeight: 600, color: "#0F172A" }}>
+                            {court.name}
+                          </div>
+                          <span
+                            style={{ fontSize: "0.75rem", color: "#64748B" }}
+                          >
                             Max Capacity: {court.capacity}
                           </span>
                         </div>
@@ -273,11 +337,24 @@ export default function VenuesPage() {
               {detailTab === "closures" && (
                 <div>
                   {selectedVenue.closurePeriods.length === 0 ? (
-                    <div style={{ padding: "20px", textAlign: "center", color: "#64748B", fontSize: "0.875rem" }}>
+                    <div
+                      style={{
+                        padding: "20px",
+                        textAlign: "center",
+                        color: "#64748B",
+                        fontSize: "0.875rem",
+                      }}
+                    >
                       No active closure periods for this facility.
                     </div>
                   ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "10px",
+                      }}
+                    >
                       {selectedVenue.closurePeriods.map((cl) => (
                         <div
                           key={cl.id}
@@ -288,10 +365,22 @@ export default function VenuesPage() {
                             border: "1px solid #FDE68A",
                           }}
                         >
-                          <div style={{ fontWeight: 700, fontSize: "0.875rem", color: "#92400E" }}>
+                          <div
+                            style={{
+                              fontWeight: 700,
+                              fontSize: "0.875rem",
+                              color: "#92400E",
+                            }}
+                          >
                             {cl.reason}
                           </div>
-                          <div style={{ fontSize: "0.75rem", color: "#64748B", marginTop: "2px" }}>
+                          <div
+                            style={{
+                              fontSize: "0.75rem",
+                              color: "#64748B",
+                              marginTop: "2px",
+                            }}
+                          >
                             {cl.startsOn} to {cl.endsOn}
                           </div>
                         </div>
@@ -333,11 +422,28 @@ export default function VenuesPage() {
               />
             </FormSection>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "20px" }}>
-              <Button variant="outline" size="md" type="button" onClick={() => setIsCreateOpen(false)}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "10px",
+                marginTop: "20px",
+              }}
+            >
+              <Button
+                variant="outline"
+                size="md"
+                type="button"
+                onClick={() => setIsCreateOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button variant="primary" size="md" type="submit" isLoading={isSaving}>
+              <Button
+                variant="primary"
+                size="md"
+                type="submit"
+                isLoading={isSaving}
+              >
                 Save Venue to Backend
               </Button>
             </div>

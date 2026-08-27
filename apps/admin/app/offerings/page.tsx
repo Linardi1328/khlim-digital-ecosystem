@@ -31,7 +31,9 @@ export default function OfferingsPage() {
   const [pageSize, setPageSize] = useState(10);
 
   // Drawer / Selection
-  const [selectedOffering, setSelectedOffering] = useState<OfferingItem | null>(null);
+  const [selectedOffering, setSelectedOffering] = useState<OfferingItem | null>(
+    null,
+  );
 
   // Create Offering Drawer
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -75,9 +77,11 @@ export default function OfferingsPage() {
     const matchesSearch =
       off.name.toLowerCase().includes(search.toLowerCase()) ||
       off.programmeName.toLowerCase().includes(search.toLowerCase()) ||
-      (off.venueName && off.venueName.toLowerCase().includes(search.toLowerCase()));
+      (off.venueName &&
+        off.venueName.toLowerCase().includes(search.toLowerCase()));
     const matchesStatus = statusFilter === "ALL" || off.status === statusFilter;
-    const matchesProg = programmeFilter === "ALL" || off.programmeId === programmeFilter;
+    const matchesProg =
+      programmeFilter === "ALL" || off.programmeId === programmeFilter;
     return matchesSearch && matchesStatus && matchesProg;
   });
 
@@ -134,7 +138,9 @@ export default function OfferingsPage() {
     const { offering, targetStatus } = stateChangeOffering;
 
     setOfferings((prev) =>
-      prev.map((o) => (o.id === offering.id ? { ...o, status: targetStatus } : o)),
+      prev.map((o) =>
+        o.id === offering.id ? { ...o, status: targetStatus } : o,
+      ),
     );
     setStateChangeOffering(null);
   };
@@ -161,7 +167,9 @@ export default function OfferingsPage() {
             📍 {off.venueName || "KHLIM Centre"}
           </div>
           {off.courtName && (
-            <div style={{ fontSize: "0.75rem", color: "#64748B" }}>{off.courtName}</div>
+            <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+              {off.courtName}
+            </div>
           )}
         </div>
       ),
@@ -173,7 +181,12 @@ export default function OfferingsPage() {
         const percent = Math.round((off.enrolledCount / off.capacity) * 100);
         return (
           <div>
-            <div style={{ fontWeight: 700, color: off.availablePlaces === 0 ? "#DC2626" : "#0F172A" }}>
+            <div
+              style={{
+                fontWeight: 700,
+                color: off.availablePlaces === 0 ? "#DC2626" : "#0F172A",
+              }}
+            >
               {off.enrolledCount} / {off.capacity} ({off.availablePlaces} left)
             </div>
             <div
@@ -190,7 +203,8 @@ export default function OfferingsPage() {
                 style={{
                   height: "100%",
                   width: `${percent}%`,
-                  backgroundColor: off.availablePlaces === 0 ? "#EF4444" : "#10B981",
+                  backgroundColor:
+                    off.availablePlaces === 0 ? "#EF4444" : "#10B981",
                 }}
               />
             </div>
@@ -220,7 +234,9 @@ export default function OfferingsPage() {
       header: "Actions",
       align: "right",
       render: (off) => (
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}>
+        <div
+          style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}
+        >
           <Button
             variant="outline"
             size="sm"
@@ -239,7 +255,10 @@ export default function OfferingsPage() {
               style={{ borderColor: "#FCA5A5", color: "#DC2626" }}
               onClick={(e) => {
                 e.stopPropagation();
-                setStateChangeOffering({ offering: off, targetStatus: "CLOSED" });
+                setStateChangeOffering({
+                  offering: off,
+                  targetStatus: "CLOSED",
+                });
               }}
             >
               Close
@@ -273,7 +292,11 @@ export default function OfferingsPage() {
             { label: "Offerings" },
           ]}
           actions={
-            <Button variant="primary" size="md" onClick={() => setIsCreateOpen(true)}>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => setIsCreateOpen(true)}
+            >
               + Create Offering
             </Button>
           }
@@ -281,7 +304,9 @@ export default function OfferingsPage() {
 
         {/* Filter Controls */}
         <FilterBar
-          hasActiveFilters={search !== "" || statusFilter !== "ALL" || programmeFilter !== "ALL"}
+          hasActiveFilters={
+            search !== "" || statusFilter !== "ALL" || programmeFilter !== "ALL"
+          }
           onReset={() => {
             setSearch("");
             setStatusFilter("ALL");
@@ -295,7 +320,10 @@ export default function OfferingsPage() {
           />
 
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <label htmlFor="status-select" style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}>
+            <label
+              htmlFor="status-select"
+              style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}
+            >
               Status:
             </label>
             <select
@@ -320,7 +348,10 @@ export default function OfferingsPage() {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <label htmlFor="prog-select" style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}>
+            <label
+              htmlFor="prog-select"
+              style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}
+            >
               Programme:
             </label>
             <select
@@ -386,7 +417,11 @@ export default function OfferingsPage() {
                 ? "Confirm & Open Offering"
                 : "Confirm & Close Enrolment"
             }
-            variant={stateChangeOffering.targetStatus === "OPEN" ? "primary" : "warning"}
+            variant={
+              stateChangeOffering.targetStatus === "OPEN"
+                ? "primary"
+                : "warning"
+            }
           />
         )}
 
@@ -398,13 +433,19 @@ export default function OfferingsPage() {
           subtitle={`Status: ${selectedOffering?.status} • ${selectedOffering?.programmeName}`}
           width="540px"
           footer={
-            <Button variant="outline" size="sm" onClick={() => setSelectedOffering(null)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedOffering(null)}
+            >
               Close
             </Button>
           }
         >
           {selectedOffering && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "20px" }}
+            >
               <div
                 style={{
                   display: "grid",
@@ -417,47 +458,139 @@ export default function OfferingsPage() {
                 }}
               >
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>VENUE</div>
-                  <div style={{ fontWeight: 700, color: "#0F172A", marginTop: "2px" }}>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#64748B",
+                      fontWeight: 700,
+                    }}
+                  >
+                    VENUE
+                  </div>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      color: "#0F172A",
+                      marginTop: "2px",
+                    }}
+                  >
                     {selectedOffering.venueName || "KHLIM Centre"}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>COURT</div>
-                  <div style={{ fontWeight: 700, color: "#0F172A", marginTop: "2px" }}>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#64748B",
+                      fontWeight: 700,
+                    }}
+                  >
+                    COURT
+                  </div>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      color: "#0F172A",
+                      marginTop: "2px",
+                    }}
+                  >
                     {selectedOffering.courtName || "Assigned Court"}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>STARTS ON</div>
-                  <div style={{ fontWeight: 700, color: "#0F172A", marginTop: "2px" }}>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#64748B",
+                      fontWeight: 700,
+                    }}
+                  >
+                    STARTS ON
+                  </div>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      color: "#0F172A",
+                      marginTop: "2px",
+                    }}
+                  >
                     {selectedOffering.startsOn}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>ENDS ON</div>
-                  <div style={{ fontWeight: 700, color: "#0F172A", marginTop: "2px" }}>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#64748B",
+                      fontWeight: 700,
+                    }}
+                  >
+                    ENDS ON
+                  </div>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      color: "#0F172A",
+                      marginTop: "2px",
+                    }}
+                  >
                     {selectedOffering.endsOn || "Ongoing"}
                   </div>
                 </div>
               </div>
 
               <div>
-                <h4 style={{ margin: "0 0 8px", fontSize: "0.9375rem", fontWeight: 700 }}>
+                <h4
+                  style={{
+                    margin: "0 0 8px",
+                    fontSize: "0.9375rem",
+                    fontWeight: 700,
+                  }}
+                >
                   Enrolment & Capacity Breakdown
                 </h4>
-                <div style={{ padding: "16px", backgroundColor: "#FFFFFF", borderRadius: "8px", border: "1px solid #E2E8F0" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                <div
+                  style={{
+                    padding: "16px",
+                    backgroundColor: "#FFFFFF",
+                    borderRadius: "8px",
+                    border: "1px solid #E2E8F0",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginBottom: "8px",
+                    }}
+                  >
                     <span style={{ color: "#64748B" }}>Total Capacity:</span>
                     <strong>{selectedOffering.capacity} slots</strong>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginBottom: "8px",
+                    }}
+                  >
                     <span style={{ color: "#64748B" }}>Enrolled Players:</span>
-                    <strong style={{ color: "#065F46" }}>{selectedOffering.enrolledCount} active</strong>
+                    <strong style={{ color: "#065F46" }}>
+                      {selectedOffering.enrolledCount} active
+                    </strong>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <div
+                    style={{ display: "flex", justifyContent: "space-between" }}
+                  >
                     <span style={{ color: "#64748B" }}>Available Places:</span>
-                    <strong style={{ color: selectedOffering.availablePlaces === 0 ? "#DC2626" : "#D97706" }}>
+                    <strong
+                      style={{
+                        color:
+                          selectedOffering.availablePlaces === 0
+                            ? "#DC2626"
+                            : "#D97706",
+                      }}
+                    >
                       {selectedOffering.availablePlaces} remaining
                     </strong>
                   </div>
@@ -485,7 +618,10 @@ export default function OfferingsPage() {
                 required
                 value={formProgId}
                 onChange={(e) => setFormProgId(e.target.value)}
-                options={programmes.map((p) => ({ label: p.name, value: p.id }))}
+                options={programmes.map((p) => ({
+                  label: p.name,
+                  value: p.id,
+                }))}
               />
 
               <Input
@@ -512,7 +648,13 @@ export default function OfferingsPage() {
                 onChange={(e) => setFormCapacity(e.target.value)}
               />
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "12px",
+                }}
+              >
                 <Input
                   label="Start Date"
                   type="date"
@@ -529,11 +671,28 @@ export default function OfferingsPage() {
               </div>
             </FormSection>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "20px" }}>
-              <Button variant="outline" size="md" type="button" onClick={() => setIsCreateOpen(false)}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "10px",
+                marginTop: "20px",
+              }}
+            >
+              <Button
+                variant="outline"
+                size="md"
+                type="button"
+                onClick={() => setIsCreateOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button variant="primary" size="md" type="submit" isLoading={isSaving}>
+              <Button
+                variant="primary"
+                size="md"
+                type="submit"
+                isLoading={isSaving}
+              >
                 Save Offering to Backend
               </Button>
             </div>

@@ -15,9 +15,12 @@ import { Tabs } from "../../components/ui/Tabs";
 import { FormSection } from "../../components/ui/FormSection";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
-import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { adminApi } from "../../lib/admin-api";
-import type { ProgrammeItem, OfferingItem, MembershipPlanItem } from "../../lib/types";
+import type {
+  ProgrammeItem,
+  OfferingItem,
+  MembershipPlanItem,
+} from "../../lib/types";
 
 export default function ProgrammesPage() {
   const [programmes, setProgrammes] = useState<ProgrammeItem[]>([]);
@@ -32,7 +35,8 @@ export default function ProgrammesPage() {
   const [pageSize, setPageSize] = useState(10);
 
   // Drawer / Selection
-  const [selectedProgramme, setSelectedProgramme] = useState<ProgrammeItem | null>(null);
+  const [selectedProgramme, setSelectedProgramme] =
+    useState<ProgrammeItem | null>(null);
   const [detailTab, setDetailTab] = useState("overview");
 
   // Create Modal
@@ -133,7 +137,9 @@ export default function ProgrammesPage() {
       render: (prg) => (
         <div>
           <div style={{ fontWeight: 700, color: "#0F172A" }}>{prg.name}</div>
-          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>Code: {prg.code}</div>
+          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+            Code: {prg.code}
+          </div>
         </div>
       ),
     },
@@ -181,14 +187,18 @@ export default function ProgrammesPage() {
     {
       key: "status",
       header: "Status",
-      render: (prg) => <StatusBadge status={prg.active ? "ACTIVE" : "INACTIVE"} size="sm" />,
+      render: (prg) => (
+        <StatusBadge status={prg.active ? "ACTIVE" : "INACTIVE"} size="sm" />
+      ),
     },
     {
       key: "actions",
       header: "Actions",
       align: "right",
       render: (prg) => (
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}>
+        <div
+          style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}
+        >
           <Button
             variant="outline"
             size="sm"
@@ -216,7 +226,9 @@ export default function ProgrammesPage() {
 
   const levels = Array.from(new Set(programmes.map((p) => p.level)));
   const programmeOfferings = offerings.filter(
-    (o) => o.programmeId === selectedProgramme?.id || o.programmeName === selectedProgramme?.name,
+    (o) =>
+      o.programmeId === selectedProgramme?.id ||
+      o.programmeName === selectedProgramme?.name,
   );
 
   return (
@@ -230,7 +242,11 @@ export default function ProgrammesPage() {
             { label: "Programmes" },
           ]}
           actions={
-            <Button variant="primary" size="md" onClick={() => setIsCreateOpen(true)}>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => setIsCreateOpen(true)}
+            >
               + Create Programme
             </Button>
           }
@@ -268,7 +284,10 @@ export default function ProgrammesPage() {
           />
 
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <label htmlFor="level-select" style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}>
+            <label
+              htmlFor="level-select"
+              style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}
+            >
               Level:
             </label>
             <select
@@ -325,7 +344,11 @@ export default function ProgrammesPage() {
           width="600px"
           footer={
             <div style={{ display: "flex", gap: "10px" }}>
-              <Button variant="outline" size="sm" onClick={() => setSelectedProgramme(null)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedProgramme(null)}
+              >
                 Close
               </Button>
               <Link href={`/offerings?programmeId=${selectedProgramme?.id}`}>
@@ -341,7 +364,11 @@ export default function ProgrammesPage() {
               <Tabs
                 tabs={[
                   { id: "overview", label: "Overview" },
-                  { id: "offerings", label: "Offerings", count: programmeOfferings.length },
+                  {
+                    id: "offerings",
+                    label: "Offerings",
+                    count: programmeOfferings.length,
+                  },
                   { id: "plans", label: "Eligible Plans" },
                   { id: "scheduling", label: "Scheduling" },
                 ]}
@@ -350,27 +377,94 @@ export default function ProgrammesPage() {
               />
 
               {detailTab === "overview" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                  <div style={{ backgroundColor: "#F8FAFC", padding: "16px", borderRadius: "8px", border: "1px solid #E2E8F0" }}>
-                    <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748B", textTransform: "uppercase" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "16px",
+                  }}
+                >
+                  <div
+                    style={{
+                      backgroundColor: "#F8FAFC",
+                      padding: "16px",
+                      borderRadius: "8px",
+                      border: "1px solid #E2E8F0",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "0.75rem",
+                        fontWeight: 700,
+                        color: "#64748B",
+                        textTransform: "uppercase",
+                      }}
+                    >
                       Curriculum Description
                     </div>
-                    <p style={{ fontSize: "0.875rem", color: "#334155", lineHeight: 1.6, margin: "6px 0 0" }}>
-                      {selectedProgramme.description || "Foundational skill training with verified coach assessment."}
+                    <p
+                      style={{
+                        fontSize: "0.875rem",
+                        color: "#334155",
+                        lineHeight: 1.6,
+                        margin: "6px 0 0",
+                      }}
+                    >
+                      {selectedProgramme.description ||
+                        "Foundational skill training with verified coach assessment."}
                     </p>
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                    <div style={{ padding: "12px", backgroundColor: "#FFFFFF", borderRadius: "8px", border: "1px solid #E2E8F0" }}>
-                      <div style={{ fontSize: "0.75rem", color: "#64748B" }}>Sport Discipline</div>
-                      <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "#0F172A", marginTop: "2px" }}>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: "12px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        padding: "12px",
+                        backgroundColor: "#FFFFFF",
+                        borderRadius: "8px",
+                        border: "1px solid #E2E8F0",
+                      }}
+                    >
+                      <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+                        Sport Discipline
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "0.9375rem",
+                          fontWeight: 700,
+                          color: "#0F172A",
+                          marginTop: "2px",
+                        }}
+                      >
                         {selectedProgramme.sportName}
                       </div>
                     </div>
-                    <div style={{ padding: "12px", backgroundColor: "#FFFFFF", borderRadius: "8px", border: "1px solid #E2E8F0" }}>
-                      <div style={{ fontSize: "0.75rem", color: "#64748B" }}>Age Bracket</div>
-                      <div style={{ fontSize: "0.9375rem", fontWeight: 700, color: "#0F172A", marginTop: "2px" }}>
-                        {selectedProgramme.minimumAge} – {selectedProgramme.maximumAge} Years
+                    <div
+                      style={{
+                        padding: "12px",
+                        backgroundColor: "#FFFFFF",
+                        borderRadius: "8px",
+                        border: "1px solid #E2E8F0",
+                      }}
+                    >
+                      <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+                        Age Bracket
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "0.9375rem",
+                          fontWeight: 700,
+                          color: "#0F172A",
+                          marginTop: "2px",
+                        }}
+                      >
+                        {selectedProgramme.minimumAge} –{" "}
+                        {selectedProgramme.maximumAge} Years
                       </div>
                     </div>
                   </div>
@@ -385,25 +479,54 @@ export default function ProgrammesPage() {
                       color: "#92400E",
                     }}
                   >
-                    <strong>Domain Rule:</strong> Programme and Programme Offering are separate entities. A Programme defines the curriculum, while Offerings define the physical court, venue, term dates, and capacity.
+                    <strong>Domain Rule:</strong> Programme and Programme
+                    Offering are separate entities. A Programme defines the
+                    curriculum, while Offerings define the physical court,
+                    venue, term dates, and capacity.
                   </div>
                 </div>
               )}
 
               {detailTab === "offerings" && (
                 <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                    <h4 style={{ margin: 0, fontSize: "0.9375rem", fontWeight: 700 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "12px",
+                    }}
+                  >
+                    <h4
+                      style={{
+                        margin: 0,
+                        fontSize: "0.9375rem",
+                        fontWeight: 700,
+                      }}
+                    >
                       Active Term Offerings
                     </h4>
                   </div>
 
                   {programmeOfferings.length === 0 ? (
-                    <div style={{ padding: "24px", textAlign: "center", color: "#64748B", fontSize: "0.875rem" }}>
+                    <div
+                      style={{
+                        padding: "24px",
+                        textAlign: "center",
+                        color: "#64748B",
+                        fontSize: "0.875rem",
+                      }}
+                    >
                       No active offerings scheduled for this programme.
                     </div>
                   ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "10px",
+                      }}
+                    >
                       {programmeOfferings.map((off) => (
                         <div
                           key={off.id}
@@ -414,14 +537,33 @@ export default function ProgrammesPage() {
                             border: "1px solid #E2E8F0",
                           }}
                         >
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <div style={{ fontWeight: 700, fontSize: "0.875rem", color: "#0F172A" }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                            }}
+                          >
+                            <div
+                              style={{
+                                fontWeight: 700,
+                                fontSize: "0.875rem",
+                                color: "#0F172A",
+                              }}
+                            >
                               {off.name}
                             </div>
                             <StatusBadge status={off.status} size="sm" />
                           </div>
-                          <div style={{ fontSize: "0.75rem", color: "#64748B", marginTop: "4px" }}>
-                            📍 {off.venueName} • Enrolled: {off.enrolledCount} / {off.capacity}
+                          <div
+                            style={{
+                              fontSize: "0.75rem",
+                              color: "#64748B",
+                              marginTop: "4px",
+                            }}
+                          >
+                            📍 {off.venueName} • Enrolled: {off.enrolledCount} /{" "}
+                            {off.capacity}
                           </div>
                         </div>
                       ))}
@@ -432,10 +574,22 @@ export default function ProgrammesPage() {
 
               {detailTab === "plans" && (
                 <div>
-                  <h4 style={{ margin: "0 0 12px", fontSize: "0.9375rem", fontWeight: 700 }}>
+                  <h4
+                    style={{
+                      margin: "0 0 12px",
+                      fontSize: "0.9375rem",
+                      fontWeight: 700,
+                    }}
+                  >
                     Eligible Membership Plans
                   </h4>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "10px",
+                    }}
+                  >
                     {plans.map((p) => (
                       <div
                         key={p.id}
@@ -446,14 +600,31 @@ export default function ProgrammesPage() {
                           border: "1px solid #E2E8F0",
                         }}
                       >
-                        <div style={{ display: "flex", justifyContent: "space-between" }}>
-                          <div style={{ fontWeight: 700, fontSize: "0.875rem" }}>{p.name}</div>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          <div
+                            style={{ fontWeight: 700, fontSize: "0.875rem" }}
+                          >
+                            {p.name}
+                          </div>
                           <div style={{ fontWeight: 800, color: "#0F172A" }}>
-                            MYR {(p.recurringAmountMinor / 100).toFixed(2)} / {p.billingFrequency.toLowerCase()}
+                            MYR {(p.recurringAmountMinor / 100).toFixed(2)} /{" "}
+                            {p.billingFrequency.toLowerCase()}
                           </div>
                         </div>
-                        <div style={{ fontSize: "0.75rem", color: "#64748B", marginTop: "4px" }}>
-                          {p.commitmentCycles} billing cycle(s) • {p.benefitsSummary}
+                        <div
+                          style={{
+                            fontSize: "0.75rem",
+                            color: "#64748B",
+                            marginTop: "4px",
+                          }}
+                        >
+                          {p.commitmentCycles} billing cycle(s) •{" "}
+                          {p.benefitsSummary}
                         </div>
                       </div>
                     ))}
@@ -462,8 +633,16 @@ export default function ProgrammesPage() {
               )}
 
               {detailTab === "scheduling" && (
-                <div style={{ padding: "20px", textAlign: "center", color: "#64748B", fontSize: "0.875rem" }}>
-                  📅 Training schedule series are generated on individual Programme Offerings.
+                <div
+                  style={{
+                    padding: "20px",
+                    textAlign: "center",
+                    color: "#64748B",
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  📅 Training schedule series are generated on individual
+                  Programme Offerings.
                 </div>
               )}
             </div>
@@ -500,7 +679,13 @@ export default function ProgrammesPage() {
                 placeholder="e.g. U10 Grassroots Basketball Fundamentals"
               />
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "12px",
+                }}
+              >
                 <Input
                   label="Minimum Age"
                   type="number"
@@ -522,15 +707,26 @@ export default function ProgrammesPage() {
                 value={newLevel}
                 onChange={(e) => setNewLevel(e.target.value)}
                 options={[
-                  { label: "Grassroots Development", value: "Grassroots Development" },
+                  {
+                    label: "Grassroots Development",
+                    value: "Grassroots Development",
+                  },
                   { label: "Junior Academy", value: "Junior Academy" },
                   { label: "Youth Competitive", value: "Youth Competitive" },
                   { label: "Elite Performance", value: "Elite Performance" },
                 ]}
               />
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                <label style={{ fontSize: "0.8125rem", fontWeight: 600, color: "#334155" }}>
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: "6px" }}
+              >
+                <label
+                  style={{
+                    fontSize: "0.8125rem",
+                    fontWeight: 600,
+                    color: "#334155",
+                  }}
+                >
                   Curriculum Description
                 </label>
                 <textarea
@@ -550,11 +746,28 @@ export default function ProgrammesPage() {
               </div>
             </FormSection>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "20px" }}>
-              <Button variant="outline" size="md" type="button" onClick={() => setIsCreateOpen(false)}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "10px",
+                marginTop: "20px",
+              }}
+            >
+              <Button
+                variant="outline"
+                size="md"
+                type="button"
+                onClick={() => setIsCreateOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button variant="primary" size="md" type="submit" isLoading={isSaving}>
+              <Button
+                variant="primary"
+                size="md"
+                type="submit"
+                isLoading={isSaving}
+              >
                 Save Programme to Backend
               </Button>
             </div>

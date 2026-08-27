@@ -32,11 +32,25 @@ export function EmptyState({
       }}
     >
       <div style={{ fontSize: "2.5rem", lineHeight: 1 }}>{icon}</div>
-      <h3 style={{ fontSize: "1.125rem", fontWeight: 700, color: "#0F172A", margin: 0 }}>
+      <h3
+        style={{
+          fontSize: "1.125rem",
+          fontWeight: 700,
+          color: "#0F172A",
+          margin: 0,
+        }}
+      >
         {title}
       </h3>
       {description && (
-        <p style={{ fontSize: "0.875rem", color: "#64748B", margin: 0, maxWidth: "420px" }}>
+        <p
+          style={{
+            fontSize: "0.875rem",
+            color: "#64748B",
+            margin: 0,
+            maxWidth: "420px",
+          }}
+        >
           {description}
         </p>
       )}

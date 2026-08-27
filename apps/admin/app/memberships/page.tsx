@@ -13,7 +13,7 @@ import { Drawer } from "../../components/ui/Drawer";
 import { Tabs } from "../../components/ui/Tabs";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { adminApi } from "../../lib/admin-api";
-import type { MembershipItem, MembershipStatus } from "../../lib/types";
+import type { MembershipItem } from "../../lib/types";
 
 export default function MembershipsPage() {
   const [memberships, setMemberships] = useState<MembershipItem[]>([]);
@@ -26,11 +26,14 @@ export default function MembershipsPage() {
   const [pageSize, setPageSize] = useState(10);
 
   // Detail Drawer
-  const [selectedMembership, setSelectedMembership] = useState<MembershipItem | null>(null);
+  const [selectedMembership, setSelectedMembership] =
+    useState<MembershipItem | null>(null);
   const [detailTab, setDetailTab] = useState("contract");
 
   // State Change Confirm
-  const [suspendTarget, setSuspendTarget] = useState<MembershipItem | null>(null);
+  const [suspendTarget, setSuspendTarget] = useState<MembershipItem | null>(
+    null,
+  );
 
   useEffect(() => {
     async function load() {
@@ -49,7 +52,8 @@ export default function MembershipsPage() {
   const filtered = memberships.filter((m) => {
     const matchesSearch =
       m.athleteName.toLowerCase().includes(search.toLowerCase()) ||
-      (m.guardianName && m.guardianName.toLowerCase().includes(search.toLowerCase())) ||
+      (m.guardianName &&
+        m.guardianName.toLowerCase().includes(search.toLowerCase())) ||
       m.offeringName.toLowerCase().includes(search.toLowerCase()) ||
       m.planName.toLowerCase().includes(search.toLowerCase()) ||
       m.id.toLowerCase().includes(search.toLowerCase());
@@ -63,7 +67,9 @@ export default function MembershipsPage() {
   const handleConfirmSuspend = () => {
     if (!suspendTarget) return;
     setMemberships((prev) =>
-      prev.map((m) => (m.id === suspendTarget.id ? { ...m, status: "SUSPENDED" } : m)),
+      prev.map((m) =>
+        m.id === suspendTarget.id ? { ...m, status: "SUSPENDED" } : m,
+      ),
     );
     setSuspendTarget(null);
   };
@@ -74,8 +80,12 @@ export default function MembershipsPage() {
       header: "Athlete",
       render: (m) => (
         <div>
-          <div style={{ fontWeight: 700, color: "#0F172A" }}>{m.athleteName}</div>
-          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>Contract: {m.id}</div>
+          <div style={{ fontWeight: 700, color: "#0F172A" }}>
+            {m.athleteName}
+          </div>
+          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+            Contract: {m.id}
+          </div>
         </div>
       ),
     },
@@ -84,8 +94,12 @@ export default function MembershipsPage() {
       header: "Programme Offering",
       render: (m) => (
         <div>
-          <div style={{ fontWeight: 600, color: "#334155" }}>{m.offeringName}</div>
-          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>{m.programmeName}</div>
+          <div style={{ fontWeight: 600, color: "#334155" }}>
+            {m.offeringName}
+          </div>
+          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+            {m.programmeName}
+          </div>
         </div>
       ),
     },
@@ -101,8 +115,12 @@ export default function MembershipsPage() {
       header: "Guardian / Purchaser",
       render: (m) => (
         <div>
-          <div style={{ fontWeight: 600, color: "#0F172A" }}>{m.guardianName || "—"}</div>
-          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>{m.guardianEmail || ""}</div>
+          <div style={{ fontWeight: 600, color: "#0F172A" }}>
+            {m.guardianName || "—"}
+          </div>
+          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+            {m.guardianEmail || ""}
+          </div>
         </div>
       ),
     },
@@ -133,7 +151,9 @@ export default function MembershipsPage() {
       header: "Actions",
       align: "right",
       render: (m) => (
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}>
+        <div
+          style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}
+        >
           <Button
             variant="outline"
             size="sm"
@@ -190,7 +210,10 @@ export default function MembershipsPage() {
           />
 
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <label htmlFor="mem-status-select" style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}>
+            <label
+              htmlFor="mem-status-select"
+              style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}
+            >
               Status:
             </label>
             <select
@@ -260,7 +283,11 @@ export default function MembershipsPage() {
           subtitle={`${selectedMembership?.athleteName} • ${selectedMembership?.offeringName}`}
           width="600px"
           footer={
-            <Button variant="outline" size="sm" onClick={() => setSelectedMembership(null)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedMembership(null)}
+            >
               Close
             </Button>
           }
@@ -278,7 +305,13 @@ export default function MembershipsPage() {
               />
 
               {detailTab === "contract" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "16px",
+                  }}
+                >
                   <div
                     style={{
                       display: "grid",
@@ -291,40 +324,124 @@ export default function MembershipsPage() {
                     }}
                   >
                     <div>
-                      <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>CONTRACT STATUS</div>
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#64748B",
+                          fontWeight: 700,
+                        }}
+                      >
+                        CONTRACT STATUS
+                      </div>
                       <div style={{ marginTop: "4px" }}>
-                        <StatusBadge status={selectedMembership.status} size="sm" />
+                        <StatusBadge
+                          status={selectedMembership.status}
+                          size="sm"
+                        />
                       </div>
                     </div>
                     <div>
-                      <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>PAYMENT STATUS</div>
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#64748B",
+                          fontWeight: 700,
+                        }}
+                      >
+                        PAYMENT STATUS
+                      </div>
                       <div style={{ marginTop: "4px" }}>
-                        <StatusBadge status={selectedMembership.paymentIndicator} size="sm" />
+                        <StatusBadge
+                          status={selectedMembership.paymentIndicator}
+                          size="sm"
+                        />
                       </div>
                     </div>
                     <div>
-                      <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>ATHLETE</div>
-                      <div style={{ fontWeight: 700, color: "#0F172A", marginTop: "2px" }}>
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#64748B",
+                          fontWeight: 700,
+                        }}
+                      >
+                        ATHLETE
+                      </div>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          color: "#0F172A",
+                          marginTop: "2px",
+                        }}
+                      >
                         {selectedMembership.athleteName}
                       </div>
                     </div>
                     <div>
-                      <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>GUARDIAN / PAYER</div>
-                      <div style={{ fontWeight: 700, color: "#0F172A", marginTop: "2px" }}>
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#64748B",
+                          fontWeight: 700,
+                        }}
+                      >
+                        GUARDIAN / PAYER
+                      </div>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          color: "#0F172A",
+                          marginTop: "2px",
+                        }}
+                      >
                         {selectedMembership.guardianName || "Direct Guardian"}
                       </div>
                     </div>
                   </div>
 
                   <div>
-                    <h4 style={{ margin: "0 0 8px", fontSize: "0.9375rem", fontWeight: 700 }}>
+                    <h4
+                      style={{
+                        margin: "0 0 8px",
+                        fontSize: "0.9375rem",
+                        fontWeight: 700,
+                      }}
+                    >
                       Enrolment Agreement Snapshot
                     </h4>
-                    <div style={{ padding: "14px", backgroundColor: "#FFFFFF", borderRadius: "8px", border: "1px solid #E2E8F0", fontSize: "0.875rem", color: "#334155" }}>
-                      <div>• Terms Accepted Version: <strong>{selectedMembership.termsAcceptedVersion}</strong></div>
-                      <div style={{ marginTop: "4px" }}>• Enrolled Offering: <strong>{selectedMembership.offeringName}</strong></div>
-                      <div style={{ marginTop: "4px" }}>• Plan Package: <strong>{selectedMembership.planName}</strong></div>
-                      <div style={{ marginTop: "4px" }}>• Price Rate: <strong>{selectedMembership.currency} {(selectedMembership.recurringAmountMinor / 100).toFixed(2)}</strong></div>
+                    <div
+                      style={{
+                        padding: "14px",
+                        backgroundColor: "#FFFFFF",
+                        borderRadius: "8px",
+                        border: "1px solid #E2E8F0",
+                        fontSize: "0.875rem",
+                        color: "#334155",
+                      }}
+                    >
+                      <div>
+                        • Terms Accepted Version:{" "}
+                        <strong>
+                          {selectedMembership.termsAcceptedVersion}
+                        </strong>
+                      </div>
+                      <div style={{ marginTop: "4px" }}>
+                        • Enrolled Offering:{" "}
+                        <strong>{selectedMembership.offeringName}</strong>
+                      </div>
+                      <div style={{ marginTop: "4px" }}>
+                        • Plan Package:{" "}
+                        <strong>{selectedMembership.planName}</strong>
+                      </div>
+                      <div style={{ marginTop: "4px" }}>
+                        • Price Rate:{" "}
+                        <strong>
+                          {selectedMembership.currency}{" "}
+                          {(
+                            selectedMembership.recurringAmountMinor / 100
+                          ).toFixed(2)}
+                        </strong>
+                      </div>
                     </div>
                   </div>
 
@@ -338,22 +455,51 @@ export default function MembershipsPage() {
                       color: "#92400E",
                     }}
                   >
-                    <strong>Domain Rule:</strong> Membership state and payment state are separate. A failed payment installment does not automatically cancel the underlying legal membership contract without administrative review.
+                    <strong>Domain Rule:</strong> Membership state and payment
+                    state are separate. A failed payment installment does not
+                    automatically cancel the underlying legal membership
+                    contract without administrative review.
                   </div>
                 </div>
               )}
 
               {detailTab === "schedule" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                  <div style={{ padding: "14px", backgroundColor: "#F8FAFC", borderRadius: "8px", border: "1px solid #E2E8F0" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "12px",
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "14px",
+                      backgroundColor: "#F8FAFC",
+                      borderRadius: "8px",
+                      border: "1px solid #E2E8F0",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: "0.875rem" }}>Installment #1</div>
-                        <div style={{ fontSize: "0.75rem", color: "#64748B" }}>Due: {selectedMembership.startsOn}</div>
+                        <div style={{ fontWeight: 700, fontSize: "0.875rem" }}>
+                          Installment #1
+                        </div>
+                        <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+                          Due: {selectedMembership.startsOn}
+                        </div>
                       </div>
                       <div style={{ textAlign: "right" }}>
                         <div style={{ fontWeight: 800, color: "#0F172A" }}>
-                          {selectedMembership.currency} {(selectedMembership.recurringAmountMinor / 100).toFixed(2)}
+                          {selectedMembership.currency}{" "}
+                          {(
+                            selectedMembership.recurringAmountMinor / 100
+                          ).toFixed(2)}
                         </div>
                         <StatusBadge status="PAID" size="sm" />
                       </div>
@@ -363,8 +509,15 @@ export default function MembershipsPage() {
               )}
 
               {detailTab === "audit" && (
-                <div style={{ fontSize: "0.8125rem", color: "#64748B", padding: "12px" }}>
-                  📜 Created on backend with terms version <code>{selectedMembership.termsAcceptedVersion}</code>.
+                <div
+                  style={{
+                    fontSize: "0.8125rem",
+                    color: "#64748B",
+                    padding: "12px",
+                  }}
+                >
+                  📜 Created on backend with terms version{" "}
+                  <code>{selectedMembership.termsAcceptedVersion}</code>.
                 </div>
               )}
             </div>

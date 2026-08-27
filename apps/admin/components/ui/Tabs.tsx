@@ -16,12 +16,7 @@ export interface TabsProps {
   className?: string;
 }
 
-export function Tabs({
-  tabs,
-  activeTab,
-  onChange,
-  className = "",
-}: TabsProps) {
+export function Tabs({ tabs, activeTab, onChange, className = "" }: TabsProps) {
   return (
     <div
       role="tablist"
@@ -53,7 +48,9 @@ export function Tabs({
               color: isActive ? "#0F172A" : "#64748B",
               backgroundColor: "transparent",
               border: "none",
-              borderBottom: isActive ? "2px solid #F59E0B" : "2px solid transparent",
+              borderBottom: isActive
+                ? "2px solid #F59E0B"
+                : "2px solid transparent",
               cursor: "pointer",
               display: "inline-flex",
               alignItems: "center",

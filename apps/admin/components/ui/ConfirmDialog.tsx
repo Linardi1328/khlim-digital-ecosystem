@@ -38,7 +38,8 @@ export function ConfirmDialog({
     };
 
     if (isOpen) {
-      previousActiveElement.current = document.activeElement as HTMLElement | null;
+      previousActiveElement.current =
+        document.activeElement as HTMLElement | null;
       document.body.style.overflow = "hidden";
       window.addEventListener("keydown", handleKeyDown);
       setTimeout(() => {
@@ -96,14 +97,32 @@ export function ConfirmDialog({
           outline: "none",
         }}
       >
-        <h3 id={titleId} style={{ margin: "0 0 8px", fontSize: "1.25rem", fontWeight: 700, color: "#0F172A" }}>
+        <h3
+          id={titleId}
+          style={{
+            margin: "0 0 8px",
+            fontSize: "1.25rem",
+            fontWeight: 700,
+            color: "#0F172A",
+          }}
+        >
           {title}
         </h3>
-        <div id={descId} style={{ fontSize: "0.875rem", color: "#64748B", lineHeight: 1.5, marginBottom: "24px" }}>
+        <div
+          id={descId}
+          style={{
+            fontSize: "0.875rem",
+            color: "#64748B",
+            lineHeight: 1.5,
+            marginBottom: "24px",
+          }}
+        >
           {description}
         </div>
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+        <div
+          style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}
+        >
           <button
             type="button"
             onClick={onClose}

@@ -25,7 +25,9 @@ export default function AthletesPage() {
   const [pageSize, setPageSize] = useState(10);
 
   // Drawer / Selection
-  const [selectedAthlete, setSelectedAthlete] = useState<AthleteItem | null>(null);
+  const [selectedAthlete, setSelectedAthlete] = useState<AthleteItem | null>(
+    null,
+  );
   const [detailTab, setDetailTab] = useState("profile");
 
   useEffect(() => {
@@ -45,7 +47,9 @@ export default function AthletesPage() {
   const filtered = athletes.filter((ath) => {
     const matchesSearch =
       ath.displayName.toLowerCase().includes(search.toLowerCase()) ||
-      ath.guardians.some((g) => g.guardianName.toLowerCase().includes(search.toLowerCase()));
+      ath.guardians.some((g) =>
+        g.guardianName.toLowerCase().includes(search.toLowerCase()),
+      );
     const matchesStatus = statusFilter === "ALL" || ath.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -76,8 +80,12 @@ export default function AthletesPage() {
             {ath.displayName[0]}
           </div>
           <div>
-            <div style={{ fontWeight: 700, color: "#0F172A" }}>{ath.displayName}</div>
-            <div style={{ fontSize: "0.75rem", color: "#64748B" }}>ID: {ath.id}</div>
+            <div style={{ fontWeight: 700, color: "#0F172A" }}>
+              {ath.displayName}
+            </div>
+            <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+              ID: {ath.id}
+            </div>
           </div>
         </div>
       ),
@@ -88,7 +96,9 @@ export default function AthletesPage() {
       render: (ath) => (
         <div>
           <div style={{ fontWeight: 600 }}>{ath.dateOfBirth}</div>
-          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>{ath.gender || "Youth"}</div>
+          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+            {ath.gender || "Youth"}
+          </div>
         </div>
       ),
     },
@@ -128,7 +138,12 @@ export default function AthletesPage() {
       key: "memberships",
       header: "Active Memberships",
       render: (ath) => (
-        <span style={{ fontWeight: 700, color: ath.activeMembershipsCount > 0 ? "#065F46" : "#64748B" }}>
+        <span
+          style={{
+            fontWeight: 700,
+            color: ath.activeMembershipsCount > 0 ? "#065F46" : "#64748B",
+          }}
+        >
           {ath.activeMembershipsCount} Active ({ath.membershipsCount} Total)
         </span>
       ),
@@ -185,7 +200,10 @@ export default function AthletesPage() {
           />
 
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <label htmlFor="ath-status" style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}>
+            <label
+              htmlFor="ath-status"
+              style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}
+            >
               Status:
             </label>
             <select
@@ -238,7 +256,11 @@ export default function AthletesPage() {
           subtitle={`Age ${selectedAthlete?.age} • DOB: ${selectedAthlete?.dateOfBirth}`}
           width="560px"
           footer={
-            <Button variant="outline" size="sm" onClick={() => setSelectedAthlete(null)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedAthlete(null)}
+            >
               Close
             </Button>
           }
@@ -256,7 +278,13 @@ export default function AthletesPage() {
               />
 
               {detailTab === "profile" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "16px",
+                  }}
+                >
                   <div
                     style={{
                       display: "grid",
@@ -269,26 +297,82 @@ export default function AthletesPage() {
                     }}
                   >
                     <div>
-                      <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>DATE OF BIRTH</div>
-                      <div style={{ fontWeight: 700, color: "#0F172A", marginTop: "2px" }}>
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#64748B",
+                          fontWeight: 700,
+                        }}
+                      >
+                        DATE OF BIRTH
+                      </div>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          color: "#0F172A",
+                          marginTop: "2px",
+                        }}
+                      >
                         {selectedAthlete.dateOfBirth}
                       </div>
                     </div>
                     <div>
-                      <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>GENDER</div>
-                      <div style={{ fontWeight: 700, color: "#0F172A", marginTop: "2px" }}>
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#64748B",
+                          fontWeight: 700,
+                        }}
+                      >
+                        GENDER
+                      </div>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          color: "#0F172A",
+                          marginTop: "2px",
+                        }}
+                      >
                         {selectedAthlete.gender || "Youth Athlete"}
                       </div>
                     </div>
                     <div>
-                      <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>ACTIVE ENROLMENTS</div>
-                      <div style={{ fontWeight: 700, color: "#065F46", marginTop: "2px" }}>
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#64748B",
+                          fontWeight: 700,
+                        }}
+                      >
+                        ACTIVE ENROLMENTS
+                      </div>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          color: "#065F46",
+                          marginTop: "2px",
+                        }}
+                      >
                         {selectedAthlete.activeMembershipsCount} Active
                       </div>
                     </div>
                     <div>
-                      <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>LOCALE</div>
-                      <div style={{ fontWeight: 700, color: "#0F172A", marginTop: "2px" }}>
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#64748B",
+                          fontWeight: 700,
+                        }}
+                      >
+                        LOCALE
+                      </div>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          color: "#0F172A",
+                          marginTop: "2px",
+                        }}
+                      >
                         {selectedAthlete.preferredLocale.toUpperCase()}
                       </div>
                     </div>
@@ -304,13 +388,21 @@ export default function AthletesPage() {
                       color: "#92400E",
                     }}
                   >
-                    <strong>Domain Architecture:</strong> Athletes are managed profiles linked to adult guardians and do not require direct credentials or Supabase user IDs.
+                    <strong>Domain Architecture:</strong> Athletes are managed
+                    profiles linked to adult guardians and do not require direct
+                    credentials or Supabase user IDs.
                   </div>
                 </div>
               )}
 
               {detailTab === "guardians" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
+                  }}
+                >
                   {selectedAthlete.guardians.map((g) => (
                     <div
                       key={g.id}
@@ -321,12 +413,26 @@ export default function AthletesPage() {
                         border: "1px solid #E2E8F0",
                       }}
                     >
-                      <div style={{ fontWeight: 700, fontSize: "0.9375rem" }}>{g.guardianName}</div>
-                      <div style={{ fontSize: "0.8125rem", color: "#64748B", marginTop: "2px" }}>
+                      <div style={{ fontWeight: 700, fontSize: "0.9375rem" }}>
+                        {g.guardianName}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "0.8125rem",
+                          color: "#64748B",
+                          marginTop: "2px",
+                        }}
+                      >
                         Relationship: <strong>{g.relationshipType}</strong>
                       </div>
                       {g.phone && (
-                        <div style={{ fontSize: "0.75rem", color: "#64748B", marginTop: "2px" }}>
+                        <div
+                          style={{
+                            fontSize: "0.75rem",
+                            color: "#64748B",
+                            marginTop: "2px",
+                          }}
+                        >
                           Phone: {g.phone}
                         </div>
                       )}
@@ -336,8 +442,16 @@ export default function AthletesPage() {
               )}
 
               {detailTab === "attendance" && (
-                <div style={{ padding: "24px", textAlign: "center", color: "#64748B", fontSize: "0.875rem" }}>
-                  📋 Attendance records are logged by academy coaches during training sessions.
+                <div
+                  style={{
+                    padding: "24px",
+                    textAlign: "center",
+                    color: "#64748B",
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  📋 Attendance records are logged by academy coaches during
+                  training sessions.
                 </div>
               )}
             </div>

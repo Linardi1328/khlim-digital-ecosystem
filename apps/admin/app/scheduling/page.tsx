@@ -10,10 +10,9 @@ import { FilterBar } from "../../components/ui/FilterBar";
 import { Pagination } from "../../components/ui/Pagination";
 import { Button } from "../../components/ui/Button";
 import { Drawer } from "../../components/ui/Drawer";
-import { Tabs } from "../../components/ui/Tabs";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { adminApi } from "../../lib/admin-api";
-import type { SessionItem, SessionStatus } from "../../lib/types";
+import type { SessionItem } from "../../lib/types";
 
 export default function SchedulingPage() {
   const [sessions, setSessions] = useState<SessionItem[]>([]);
@@ -29,7 +28,9 @@ export default function SchedulingPage() {
   const [pageSize, setPageSize] = useState(10);
 
   // Selected Session / Drawer
-  const [selectedSession, setSelectedSession] = useState<SessionItem | null>(null);
+  const [selectedSession, setSelectedSession] = useState<SessionItem | null>(
+    null,
+  );
 
   // Cancel Session Confirm Dialog
   const [cancelTarget, setCancelTarget] = useState<SessionItem | null>(null);
@@ -64,7 +65,9 @@ export default function SchedulingPage() {
   const handleConfirmCancel = () => {
     if (!cancelTarget) return;
     setSessions((prev) =>
-      prev.map((s) => (s.id === cancelTarget.id ? { ...s, status: "CANCELLED" } : s)),
+      prev.map((s) =>
+        s.id === cancelTarget.id ? { ...s, status: "CANCELLED" } : s,
+      ),
     );
     setCancelTarget(null);
   };
@@ -75,7 +78,9 @@ export default function SchedulingPage() {
       header: "Date & Time",
       render: (s) => (
         <div>
-          <div style={{ fontWeight: 700, color: "#0F172A" }}>🗓️ {s.sessionDate}</div>
+          <div style={{ fontWeight: 700, color: "#0F172A" }}>
+            🗓️ {s.sessionDate}
+          </div>
           <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
             ⏰ {s.startTime} – {s.endTime}
           </div>
@@ -87,8 +92,12 @@ export default function SchedulingPage() {
       header: "Cohort / Programme",
       render: (s) => (
         <div>
-          <div style={{ fontWeight: 600, color: "#334155" }}>{s.offeringName}</div>
-          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>{s.programmeName}</div>
+          <div style={{ fontWeight: 600, color: "#334155" }}>
+            {s.offeringName}
+          </div>
+          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+            {s.programmeName}
+          </div>
         </div>
       ),
     },
@@ -97,8 +106,12 @@ export default function SchedulingPage() {
       header: "Court Location",
       render: (s) => (
         <div>
-          <div style={{ fontWeight: 600, color: "#0F172A" }}>📍 {s.venueName}</div>
-          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>{s.courtName}</div>
+          <div style={{ fontWeight: 600, color: "#0F172A" }}>
+            📍 {s.venueName}
+          </div>
+          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+            {s.courtName}
+          </div>
         </div>
       ),
     },
@@ -121,7 +134,9 @@ export default function SchedulingPage() {
       header: "Actions",
       align: "right",
       render: (s) => (
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}>
+        <div
+          style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}
+        >
           <Button
             variant="outline"
             size="sm"
@@ -195,7 +210,10 @@ export default function SchedulingPage() {
           />
 
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <label htmlFor="sess-status" style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}>
+            <label
+              htmlFor="sess-status"
+              style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}
+            >
               Status:
             </label>
             <select
@@ -249,7 +267,14 @@ export default function SchedulingPage() {
               padding: "24px",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "20px",
+              }}
+            >
               <h3 style={{ margin: 0, fontSize: "1.125rem", fontWeight: 800 }}>
                 September 2026 Training Timetable
               </h3>
@@ -278,19 +303,45 @@ export default function SchedulingPage() {
                     transition: "border-color 0.15s ease",
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                    <span style={{ fontWeight: 800, color: "#0F172A", fontSize: "0.875rem" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "6px",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontWeight: 800,
+                        color: "#0F172A",
+                        fontSize: "0.875rem",
+                      }}
+                    >
                       🗓️ {s.sessionDate}
                     </span>
                     <StatusBadge status={s.status} size="sm" />
                   </div>
-                  <div style={{ fontWeight: 700, fontSize: "0.9375rem", color: "#0F172A", margin: "4px 0" }}>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      fontSize: "0.9375rem",
+                      color: "#0F172A",
+                      margin: "4px 0",
+                    }}
+                  >
                     {s.offeringName}
                   </div>
                   <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
                     ⏰ {s.startTime} – {s.endTime} • 📍 {s.courtName}
                   </div>
-                  <div style={{ fontSize: "0.75rem", color: "#334155", marginTop: "4px" }}>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#334155",
+                      marginTop: "4px",
+                    }}
+                  >
                     Coach: <strong>{s.coachName}</strong>
                   </div>
                 </div>
@@ -320,13 +371,19 @@ export default function SchedulingPage() {
           subtitle={`${selectedSession?.offeringName} (${selectedSession?.startTime}–${selectedSession?.endTime})`}
           width="540px"
           footer={
-            <Button variant="outline" size="sm" onClick={() => setSelectedSession(null)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedSession(null)}
+            >
               Close
             </Button>
           }
         >
           {selectedSession && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+            >
               <div
                 style={{
                   display: "grid",
@@ -339,37 +396,104 @@ export default function SchedulingPage() {
                 }}
               >
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>STATUS</div>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#64748B",
+                      fontWeight: 700,
+                    }}
+                  >
+                    STATUS
+                  </div>
                   <div style={{ marginTop: "4px" }}>
                     <StatusBadge status={selectedSession.status} size="sm" />
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>ASSIGNED COACH</div>
-                  <div style={{ fontWeight: 700, color: "#0F172A", marginTop: "2px" }}>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#64748B",
+                      fontWeight: 700,
+                    }}
+                  >
+                    ASSIGNED COACH
+                  </div>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      color: "#0F172A",
+                      marginTop: "2px",
+                    }}
+                  >
                     {selectedSession.coachName}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>FACILITY</div>
-                  <div style={{ fontWeight: 700, color: "#0F172A", marginTop: "2px" }}>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#64748B",
+                      fontWeight: 700,
+                    }}
+                  >
+                    FACILITY
+                  </div>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      color: "#0F172A",
+                      marginTop: "2px",
+                    }}
+                  >
                     {selectedSession.venueName}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>COURT</div>
-                  <div style={{ fontWeight: 700, color: "#0F172A", marginTop: "2px" }}>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#64748B",
+                      fontWeight: 700,
+                    }}
+                  >
+                    COURT
+                  </div>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      color: "#0F172A",
+                      marginTop: "2px",
+                    }}
+                  >
                     {selectedSession.courtName}
                   </div>
                 </div>
               </div>
 
               <div>
-                <h4 style={{ margin: "0 0 6px", fontSize: "0.9375rem", fontWeight: 700 }}>
+                <h4
+                  style={{
+                    margin: "0 0 6px",
+                    fontSize: "0.9375rem",
+                    fontWeight: 700,
+                  }}
+                >
                   Attendance Roll
                 </h4>
-                <div style={{ padding: "16px", backgroundColor: "#FFFFFF", borderRadius: "8px", border: "1px solid #E2E8F0", textAlign: "center", color: "#64748B", fontSize: "0.875rem" }}>
-                  📋 Player attendance check-in is logged by coaches on mobile court devices.
+                <div
+                  style={{
+                    padding: "16px",
+                    backgroundColor: "#FFFFFF",
+                    borderRadius: "8px",
+                    border: "1px solid #E2E8F0",
+                    textAlign: "center",
+                    color: "#64748B",
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  📋 Player attendance check-in is logged by coaches on mobile
+                  court devices.
                 </div>
               </div>
             </div>

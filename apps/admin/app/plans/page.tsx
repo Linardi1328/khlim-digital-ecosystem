@@ -27,14 +27,17 @@ export default function MembershipPlansPage() {
   const [pageSize, setPageSize] = useState(10);
 
   // Drawer / Selection
-  const [selectedPlan, setSelectedPlan] = useState<MembershipPlanItem | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<MembershipPlanItem | null>(
+    null,
+  );
 
   // Create Plan Drawer
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [formName, setFormName] = useState("");
   const [formDurationMonths, setFormDurationMonths] = useState("3");
   const [formCommitmentCycles, setFormCommitmentCycles] = useState("3");
-  const [formFrequency, setFormFrequency] = useState<BillingFrequency>("MONTHLY");
+  const [formFrequency, setFormFrequency] =
+    useState<BillingFrequency>("MONTHLY");
   const [formRecurringAmount, setFormRecurringAmount] = useState("195.00");
   const [formUpfrontAmount, setFormUpfrontAmount] = useState("585.00");
   const [formSessionAllowance, setFormSessionAllowance] = useState("12");
@@ -58,8 +61,10 @@ export default function MembershipPlansPage() {
   const filtered = plans.filter((plan) => {
     const matchesSearch =
       plan.name.toLowerCase().includes(search.toLowerCase()) ||
-      (plan.benefitsSummary && plan.benefitsSummary.toLowerCase().includes(search.toLowerCase()));
-    const matchesFreq = freqFilter === "ALL" || plan.billingFrequency === freqFilter;
+      (plan.benefitsSummary &&
+        plan.benefitsSummary.toLowerCase().includes(search.toLowerCase()));
+    const matchesFreq =
+      freqFilter === "ALL" || plan.billingFrequency === freqFilter;
     return matchesSearch && matchesFreq;
   });
 
@@ -71,7 +76,9 @@ export default function MembershipPlansPage() {
     if (!formName.trim()) return;
 
     setIsSaving(true);
-    const recurringMinor = Math.round(parseFloat(formRecurringAmount || "0") * 100);
+    const recurringMinor = Math.round(
+      parseFloat(formRecurringAmount || "0") * 100,
+    );
     const upfrontMinor = Math.round(parseFloat(formUpfrontAmount || "0") * 100);
 
     try {
@@ -83,7 +90,9 @@ export default function MembershipPlansPage() {
         recurringAmountMinor: recurringMinor,
         upfrontAmountMinor: upfrontMinor,
         currency: "MYR",
-        sessionAllowance: formSessionAllowance ? Number(formSessionAllowance) : undefined,
+        sessionAllowance: formSessionAllowance
+          ? Number(formSessionAllowance)
+          : undefined,
         benefitsSummary: formBenefits.trim() || undefined,
       });
 
@@ -102,7 +111,9 @@ export default function MembershipPlansPage() {
         recurringAmountMinor: recurringMinor,
         upfrontAmountMinor: upfrontMinor,
         currency: "MYR",
-        sessionAllowance: formSessionAllowance ? Number(formSessionAllowance) : null,
+        sessionAllowance: formSessionAllowance
+          ? Number(formSessionAllowance)
+          : null,
         benefitsSummary: formBenefits.trim() || null,
         active: true,
       };
@@ -121,7 +132,8 @@ export default function MembershipPlansPage() {
         <div>
           <div style={{ fontWeight: 700, color: "#0F172A" }}>{plan.name}</div>
           <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
-            Duration: {plan.durationMonths} month(s) • {plan.commitmentCycles} billing cycle(s)
+            Duration: {plan.durationMonths} month(s) • {plan.commitmentCycles}{" "}
+            billing cycle(s)
           </div>
         </div>
       ),
@@ -136,7 +148,8 @@ export default function MembershipPlansPage() {
             fontWeight: 700,
             padding: "2px 8px",
             borderRadius: "4px",
-            backgroundColor: plan.billingFrequency === "MONTHLY" ? "#EFF6FF" : "#FEF3C7",
+            backgroundColor:
+              plan.billingFrequency === "MONTHLY" ? "#EFF6FF" : "#FEF3C7",
             color: plan.billingFrequency === "MONTHLY" ? "#1E40AF" : "#92400E",
           }}
         >
@@ -151,15 +164,20 @@ export default function MembershipPlansPage() {
         <div>
           <div style={{ fontWeight: 800, color: "#0F172A" }}>
             {plan.currency} {(plan.recurringAmountMinor / 100).toFixed(2)}
-            <span style={{ fontSize: "0.75rem", fontWeight: 500, color: "#64748B" }}>
-              {" "}/ {plan.billingFrequency.toLowerCase()}
+            <span
+              style={{ fontSize: "0.75rem", fontWeight: 500, color: "#64748B" }}
+            >
+              {" "}
+              / {plan.billingFrequency.toLowerCase()}
             </span>
           </div>
-          {plan.upfrontAmountMinor > 0 && plan.upfrontAmountMinor !== plan.recurringAmountMinor && (
-            <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
-              Total upfront: {plan.currency} {(plan.upfrontAmountMinor / 100).toFixed(2)}
-            </div>
-          )}
+          {plan.upfrontAmountMinor > 0 &&
+            plan.upfrontAmountMinor !== plan.recurringAmountMinor && (
+              <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+                Total upfront: {plan.currency}{" "}
+                {(plan.upfrontAmountMinor / 100).toFixed(2)}
+              </div>
+            )}
         </div>
       ),
     },
@@ -168,14 +186,18 @@ export default function MembershipPlansPage() {
       header: "Allowance",
       render: (plan) => (
         <span style={{ fontWeight: 600 }}>
-          {plan.sessionAllowance ? `${plan.sessionAllowance} Sessions` : "Unlimited"}
+          {plan.sessionAllowance
+            ? `${plan.sessionAllowance} Sessions`
+            : "Unlimited"}
         </span>
       ),
     },
     {
       key: "status",
       header: "Status",
-      render: (plan) => <StatusBadge status={plan.active ? "ACTIVE" : "INACTIVE"} size="sm" />,
+      render: (plan) => (
+        <StatusBadge status={plan.active ? "ACTIVE" : "INACTIVE"} size="sm" />
+      ),
     },
     {
       key: "actions",
@@ -207,7 +229,11 @@ export default function MembershipPlansPage() {
             { label: "Membership Plans" },
           ]}
           actions={
-            <Button variant="primary" size="md" onClick={() => setIsCreateOpen(true)}>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => setIsCreateOpen(true)}
+            >
               + Create Membership Plan
             </Button>
           }
@@ -228,7 +254,10 @@ export default function MembershipPlansPage() {
           />
 
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <label htmlFor="freq-select" style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}>
+            <label
+              htmlFor="freq-select"
+              style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}
+            >
               Billing Frequency:
             </label>
             <select
@@ -278,13 +307,19 @@ export default function MembershipPlansPage() {
           subtitle={`Billing: ${selectedPlan?.billingFrequency} • ${selectedPlan?.currency} ${(selectedPlan ? selectedPlan.recurringAmountMinor / 100 : 0).toFixed(2)}`}
           width="540px"
           footer={
-            <Button variant="outline" size="sm" onClick={() => setSelectedPlan(null)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedPlan(null)}
+            >
               Close
             </Button>
           }
         >
           {selectedPlan && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "20px" }}
+            >
               <div
                 style={{
                   display: "grid",
@@ -297,37 +332,113 @@ export default function MembershipPlansPage() {
                 }}
               >
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>RECURRING PRICE</div>
-                  <div style={{ fontWeight: 800, fontSize: "1.125rem", color: "#0F172A", marginTop: "2px" }}>
-                    {selectedPlan.currency} {(selectedPlan.recurringAmountMinor / 100).toFixed(2)}
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#64748B",
+                      fontWeight: 700,
+                    }}
+                  >
+                    RECURRING PRICE
+                  </div>
+                  <div
+                    style={{
+                      fontWeight: 800,
+                      fontSize: "1.125rem",
+                      color: "#0F172A",
+                      marginTop: "2px",
+                    }}
+                  >
+                    {selectedPlan.currency}{" "}
+                    {(selectedPlan.recurringAmountMinor / 100).toFixed(2)}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>TOTAL TERM UPFRONT</div>
-                  <div style={{ fontWeight: 800, fontSize: "1.125rem", color: "#0F172A", marginTop: "2px" }}>
-                    {selectedPlan.currency} {(selectedPlan.upfrontAmountMinor / 100).toFixed(2)}
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#64748B",
+                      fontWeight: 700,
+                    }}
+                  >
+                    TOTAL TERM UPFRONT
+                  </div>
+                  <div
+                    style={{
+                      fontWeight: 800,
+                      fontSize: "1.125rem",
+                      color: "#0F172A",
+                      marginTop: "2px",
+                    }}
+                  >
+                    {selectedPlan.currency}{" "}
+                    {(selectedPlan.upfrontAmountMinor / 100).toFixed(2)}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>DURATION</div>
-                  <div style={{ fontWeight: 700, color: "#0F172A", marginTop: "2px" }}>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#64748B",
+                      fontWeight: 700,
+                    }}
+                  >
+                    DURATION
+                  </div>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      color: "#0F172A",
+                      marginTop: "2px",
+                    }}
+                  >
                     {selectedPlan.durationMonths} Month(s)
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>COMMITMENT CYCLES</div>
-                  <div style={{ fontWeight: 700, color: "#0F172A", marginTop: "2px" }}>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#64748B",
+                      fontWeight: 700,
+                    }}
+                  >
+                    COMMITMENT CYCLES
+                  </div>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      color: "#0F172A",
+                      marginTop: "2px",
+                    }}
+                  >
                     {selectedPlan.commitmentCycles} Cycle(s)
                   </div>
                 </div>
               </div>
 
               <div>
-                <h4 style={{ margin: "0 0 6px", fontSize: "0.9375rem", fontWeight: 700 }}>
+                <h4
+                  style={{
+                    margin: "0 0 6px",
+                    fontSize: "0.9375rem",
+                    fontWeight: 700,
+                  }}
+                >
                   Benefits & Entitlements Summary
                 </h4>
-                <div style={{ padding: "12px", backgroundColor: "#FFFFFF", borderRadius: "8px", border: "1px solid #E2E8F0", fontSize: "0.875rem", color: "#334155" }}>
-                  {selectedPlan.benefitsSummary || "Standard academy training access and uniform kit."}
+                <div
+                  style={{
+                    padding: "12px",
+                    backgroundColor: "#FFFFFF",
+                    borderRadius: "8px",
+                    border: "1px solid #E2E8F0",
+                    fontSize: "0.875rem",
+                    color: "#334155",
+                  }}
+                >
+                  {selectedPlan.benefitsSummary ||
+                    "Standard academy training access and uniform kit."}
                 </div>
               </div>
 
@@ -341,7 +452,9 @@ export default function MembershipPlansPage() {
                   color: "#92400E",
                 }}
               >
-                <strong>Server Authority Notice:</strong> Membership plan prices and commitment cycles are stored in database records and strictly enforced on payment calculation.
+                <strong>Server Authority Notice:</strong> Membership plan prices
+                and commitment cycles are stored in database records and
+                strictly enforced on payment calculation.
               </div>
             </div>
           )}
@@ -368,11 +481,19 @@ export default function MembershipPlansPage() {
                 placeholder="e.g. 3-Month Term Commitment"
               />
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "12px",
+                }}
+              >
                 <Select
                   label="Billing Frequency"
                   value={formFrequency}
-                  onChange={(e) => setFormFrequency(e.target.value as BillingFrequency)}
+                  onChange={(e) =>
+                    setFormFrequency(e.target.value as BillingFrequency)
+                  }
                   options={[
                     { label: "MONTHLY", value: "MONTHLY" },
                     { label: "UPFRONT", value: "UPFRONT" },
@@ -387,7 +508,13 @@ export default function MembershipPlansPage() {
                 />
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "12px",
+                }}
+              >
                 <Input
                   label="Recurring Price (MYR)"
                   type="number"
@@ -406,7 +533,13 @@ export default function MembershipPlansPage() {
                 />
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "12px",
+                }}
+              >
                 <Input
                   label="Commitment Cycles"
                   type="number"
@@ -423,8 +556,16 @@ export default function MembershipPlansPage() {
                 />
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                <label style={{ fontSize: "0.8125rem", fontWeight: 600, color: "#334155" }}>
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: "6px" }}
+              >
+                <label
+                  style={{
+                    fontSize: "0.8125rem",
+                    fontWeight: 600,
+                    color: "#334155",
+                  }}
+                >
                   Benefits Summary
                 </label>
                 <textarea
@@ -444,11 +585,28 @@ export default function MembershipPlansPage() {
               </div>
             </FormSection>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "20px" }}>
-              <Button variant="outline" size="md" type="button" onClick={() => setIsCreateOpen(false)}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "10px",
+                marginTop: "20px",
+              }}
+            >
+              <Button
+                variant="outline"
+                size="md"
+                type="button"
+                onClick={() => setIsCreateOpen(false)}
+              >
                 Cancel
               </Button>
-              <Button variant="primary" size="md" type="submit" isLoading={isSaving}>
+              <Button
+                variant="primary"
+                size="md"
+                type="submit"
+                isLoading={isSaving}
+              >
                 Save Plan to Backend
               </Button>
             </div>

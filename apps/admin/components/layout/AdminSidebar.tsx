@@ -187,17 +187,29 @@ export function AdminSidebar({
                 fontWeight: active ? 700 : 500,
                 color: active ? "#FFFFFF" : "#A1A1AA",
                 backgroundColor: active ? "#27272A" : "transparent",
-                borderLeft: active ? "3px solid #F59E0B" : "3px solid transparent",
+                borderLeft: active
+                  ? "3px solid #F59E0B"
+                  : "3px solid transparent",
                 textDecoration: "none",
                 transition: "all 0.12s ease",
               }}
             >
-              <span style={{ fontSize: "1.125rem", lineHeight: 1 }} aria-hidden="true">
+              <span
+                style={{ fontSize: "1.125rem", lineHeight: 1 }}
+                aria-hidden="true"
+              >
                 {item.icon}
               </span>
 
               {!isCollapsed && (
-                <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span
+                  style={{
+                    flex: 1,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
                   {item.label}
                 </span>
               )}
@@ -230,10 +242,24 @@ export function AdminSidebar({
             backgroundColor: "#121212",
           }}
         >
-          <div style={{ fontSize: "0.75rem", color: "#71717A", textTransform: "uppercase", fontWeight: 700 }}>
+          <div
+            style={{
+              fontSize: "0.75rem",
+              color: "#71717A",
+              textTransform: "uppercase",
+              fontWeight: 700,
+            }}
+          >
             Active Staff Role
           </div>
-          <div style={{ fontSize: "0.8125rem", fontWeight: 700, color: "#F59E0B", marginTop: "2px" }}>
+          <div
+            style={{
+              fontSize: "0.8125rem",
+              fontWeight: 700,
+              color: "#F59E0B",
+              marginTop: "2px",
+            }}
+          >
             {role.replace("_", " ")}
           </div>
         </div>

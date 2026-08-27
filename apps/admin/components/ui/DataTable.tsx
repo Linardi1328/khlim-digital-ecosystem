@@ -60,7 +60,9 @@ export function DataTable<T>({
           }}
         >
           <div style={{ fontSize: "2rem", marginBottom: "8px" }}>📋</div>
-          <div style={{ fontWeight: 600, color: "#0F172A" }}>No records found</div>
+          <div style={{ fontWeight: 600, color: "#0F172A" }}>
+            No records found
+          </div>
           <div style={{ fontSize: "0.875rem", marginTop: "4px" }}>
             Try adjusting your search criteria or filters.
           </div>
@@ -89,7 +91,12 @@ export function DataTable<T>({
         }}
       >
         <thead>
-          <tr style={{ backgroundColor: "#F8FAFC", borderBottom: "1px solid #E2E8F0" }}>
+          <tr
+            style={{
+              backgroundColor: "#F8FAFC",
+              borderBottom: "1px solid #E2E8F0",
+            }}
+          >
             {columns.map((col) => (
               <th
                 key={col.key}
@@ -115,16 +122,19 @@ export function DataTable<T>({
               key={keyExtractor(item)}
               onClick={() => onRowClick && onRowClick(item)}
               style={{
-                borderBottom: rowIdx === data.length - 1 ? "none" : "1px solid #F1F5F9",
+                borderBottom:
+                  rowIdx === data.length - 1 ? "none" : "1px solid #F1F5F9",
                 cursor: onRowClick ? "pointer" : "default",
                 backgroundColor: "#FFFFFF",
                 transition: "background-color 0.12s ease",
               }}
               onMouseEnter={(e) => {
-                if (onRowClick) e.currentTarget.style.backgroundColor = "#F8FAFC";
+                if (onRowClick)
+                  e.currentTarget.style.backgroundColor = "#F8FAFC";
               }}
               onMouseLeave={(e) => {
-                if (onRowClick) e.currentTarget.style.backgroundColor = "#FFFFFF";
+                if (onRowClick)
+                  e.currentTarget.style.backgroundColor = "#FFFFFF";
               }}
             >
               {columns.map((col) => (
@@ -140,7 +150,9 @@ export function DataTable<T>({
                 >
                   {col.render
                     ? col.render(item)
-                    : (item as Record<string, any>)[col.key] ?? "—"}
+                    : (((item as Record<string, unknown>)[
+                        col.key
+                      ] as ReactNode) ?? "—")}
                 </td>
               ))}
             </tr>

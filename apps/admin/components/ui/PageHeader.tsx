@@ -50,7 +50,12 @@ export function PageHeader({
                     {crumb.label}
                   </Link>
                 ) : (
-                  <span style={{ color: isLast ? "#0F172A" : "#64748B", fontWeight: isLast ? 600 : 400 }}>
+                  <span
+                    style={{
+                      color: isLast ? "#0F172A" : "#64748B",
+                      fontWeight: isLast ? 600 : 400,
+                    }}
+                  >
                     {crumb.label}
                   </span>
                 )}
@@ -70,7 +75,14 @@ export function PageHeader({
         }}
       >
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              flexWrap: "wrap",
+            }}
+          >
             <h1
               style={{
                 fontSize: "1.875rem",
@@ -85,14 +97,27 @@ export function PageHeader({
             {badge}
           </div>
           {subtitle && (
-            <p style={{ fontSize: "0.9375rem", color: "#64748B", margin: "6px 0 0" }}>
+            <p
+              style={{
+                fontSize: "0.9375rem",
+                color: "#64748B",
+                margin: "6px 0 0",
+              }}
+            >
               {subtitle}
             </p>
           )}
         </div>
 
         {actions && (
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              flexWrap: "wrap",
+            }}
+          >
             {actions}
           </div>
         )}

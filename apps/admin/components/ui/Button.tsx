@@ -25,25 +25,20 @@ export function Button({
   let bg = "#F59E0B";
   let color = "#18181B";
   let border = "1px solid transparent";
-  let hoverBg = "#D97706";
 
   if (variant === "secondary") {
     bg = "#18181B";
     color = "#FFFFFF";
-    hoverBg = "#27272A";
   } else if (variant === "outline") {
     bg = "#FFFFFF";
     color = "#0F172A";
     border = "1px solid #CBD5E1";
-    hoverBg = "#F8FAFC";
   } else if (variant === "danger") {
     bg = "#DC2626";
     color = "#FFFFFF";
-    hoverBg = "#B91C1C";
   } else if (variant === "ghost") {
     bg = "transparent";
     color = "#475569";
-    hoverBg = "#F1F5F9";
   }
 
   const sizeStyles = {

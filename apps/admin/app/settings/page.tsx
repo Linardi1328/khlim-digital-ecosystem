@@ -4,13 +4,10 @@ import React, { useState } from "react";
 import { AdminShell } from "../../components/layout/AdminShell";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { FormSection } from "../../components/ui/FormSection";
-import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
 import { Button } from "../../components/ui/Button";
-import { useAdminAuth } from "../../lib/auth-context";
 
 export default function SettingsPage() {
-  const { user, role } = useAdminAuth();
   const [currency, setCurrency] = useState("MYR");
   const [timezone, setTimezone] = useState("Asia/Kuala_Lumpur");
   const [saved, setSaved] = useState(false);
@@ -55,7 +52,13 @@ export default function SettingsPage() {
             title="Academy Locale & Currency Standards"
             description="Authoritative regional defaults for pricing and scheduling."
           >
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "12px",
+              }}
+            >
               <Select
                 label="Authoritative Currency"
                 value={currency}
@@ -72,7 +75,10 @@ export default function SettingsPage() {
                 value={timezone}
                 onChange={(e) => setTimezone(e.target.value)}
                 options={[
-                  { label: "Asia/Kuala_Lumpur (UTC+8)", value: "Asia/Kuala_Lumpur" },
+                  {
+                    label: "Asia/Kuala_Lumpur (UTC+8)",
+                    value: "Asia/Kuala_Lumpur",
+                  },
                   { label: "Asia/Singapore (UTC+8)", value: "Asia/Singapore" },
                   { label: "UTC (Coordinated Universal Time)", value: "UTC" },
                 ]}
@@ -91,21 +97,66 @@ export default function SettingsPage() {
                 gap: "12px",
               }}
             >
-              <div style={{ padding: "12px", backgroundColor: "#F8FAFC", borderRadius: "8px", border: "1px solid #E2E8F0" }}>
-                <div style={{ fontSize: "0.75rem", color: "#64748B" }}>API GATEWAY</div>
-                <div style={{ fontWeight: 700, color: "#065F46", marginTop: "2px" }}>
+              <div
+                style={{
+                  padding: "12px",
+                  backgroundColor: "#F8FAFC",
+                  borderRadius: "8px",
+                  border: "1px solid #E2E8F0",
+                }}
+              >
+                <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+                  API GATEWAY
+                </div>
+                <div
+                  style={{
+                    fontWeight: 700,
+                    color: "#065F46",
+                    marginTop: "2px",
+                  }}
+                >
                   ● Healthy (v1.0.0)
                 </div>
               </div>
-              <div style={{ padding: "12px", backgroundColor: "#F8FAFC", borderRadius: "8px", border: "1px solid #E2E8F0" }}>
-                <div style={{ fontSize: "0.75rem", color: "#64748B" }}>SUPABASE AUTH</div>
-                <div style={{ fontWeight: 700, color: "#065F46", marginTop: "2px" }}>
+              <div
+                style={{
+                  padding: "12px",
+                  backgroundColor: "#F8FAFC",
+                  borderRadius: "8px",
+                  border: "1px solid #E2E8F0",
+                }}
+              >
+                <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+                  SUPABASE AUTH
+                </div>
+                <div
+                  style={{
+                    fontWeight: 700,
+                    color: "#065F46",
+                    marginTop: "2px",
+                  }}
+                >
                   ● Active (JWKS)
                 </div>
               </div>
-              <div style={{ padding: "12px", backgroundColor: "#F8FAFC", borderRadius: "8px", border: "1px solid #E2E8F0" }}>
-                <div style={{ fontSize: "0.75rem", color: "#64748B" }}>POSTGRESQL DB</div>
-                <div style={{ fontWeight: 700, color: "#065F46", marginTop: "2px" }}>
+              <div
+                style={{
+                  padding: "12px",
+                  backgroundColor: "#F8FAFC",
+                  borderRadius: "8px",
+                  border: "1px solid #E2E8F0",
+                }}
+              >
+                <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+                  POSTGRESQL DB
+                </div>
+                <div
+                  style={{
+                    fontWeight: 700,
+                    color: "#065F46",
+                    marginTop: "2px",
+                  }}
+                >
                   ● Connected (Prisma 7)
                 </div>
               </div>

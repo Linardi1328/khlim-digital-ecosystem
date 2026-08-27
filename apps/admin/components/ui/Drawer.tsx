@@ -34,7 +34,8 @@ export function Drawer({
     };
 
     if (isOpen) {
-      previousActiveElement.current = document.activeElement as HTMLElement | null;
+      previousActiveElement.current =
+        document.activeElement as HTMLElement | null;
       document.body.style.overflow = "hidden";
       window.addEventListener("keydown", handleKeyDown);
       setTimeout(() => {
@@ -107,11 +108,26 @@ export function Drawer({
           }}
         >
           <div>
-            <h2 id={titleId} style={{ margin: 0, fontSize: "1.25rem", fontWeight: 800, color: "#0F172A" }}>
+            <h2
+              id={titleId}
+              style={{
+                margin: 0,
+                fontSize: "1.25rem",
+                fontWeight: 800,
+                color: "#0F172A",
+              }}
+            >
               {title}
             </h2>
             {subtitle && (
-              <div id={descId} style={{ fontSize: "0.8125rem", color: "#64748B", marginTop: "4px" }}>
+              <div
+                id={descId}
+                style={{
+                  fontSize: "0.8125rem",
+                  color: "#64748B",
+                  marginTop: "4px",
+                }}
+              >
                 {subtitle}
               </div>
             )}

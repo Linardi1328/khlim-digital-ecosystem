@@ -4,7 +4,6 @@ import React, {
   createContext,
   useContext,
   useState,
-  useEffect,
   type ReactNode,
 } from "react";
 import type { AdminUser, StaffRole } from "./types";
@@ -34,7 +33,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AdminUser | null>(DEFAULT_ADMIN_USER);
   const [role, setActiveRole] = useState<StaffRole>("SUPER_ADMIN");
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading] = useState<boolean>(false);
 
   const hasRole = (targetRoles: StaffRole | StaffRole[]): boolean => {
     if (!user) return false;

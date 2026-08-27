@@ -28,7 +28,14 @@ export function Select({
   const selectId = id || generatedId;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "6px", width: "100%" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "6px",
+        width: "100%",
+      }}
+    >
       {label && (
         <label
           htmlFor={selectId}
@@ -70,7 +77,9 @@ export function Select({
       </select>
 
       {error && (
-        <span style={{ fontSize: "0.75rem", color: "#DC2626", fontWeight: 500 }}>
+        <span
+          style={{ fontSize: "0.75rem", color: "#DC2626", fontWeight: 500 }}
+        >
           {error}
         </span>
       )}

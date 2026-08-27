@@ -22,7 +22,7 @@ export default function AdminDashboardPage() {
   const [memberships, setMemberships] = useState<MembershipItem[]>([]);
   const [payments, setPayments] = useState<PaymentItem[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [_loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
@@ -137,7 +137,11 @@ export default function AdminDashboardPage() {
             title="Payments Requiring Action"
             value={metrics?.paymentsAttentionCount ?? "—"}
             subtitle="Declined / Processing"
-            variant={metrics && metrics.paymentsAttentionCount > 0 ? "danger" : "default"}
+            variant={
+              metrics && metrics.paymentsAttentionCount > 0
+                ? "danger"
+                : "default"
+            }
             icon="⚠️"
           />
         </div>
@@ -161,31 +165,67 @@ export default function AdminDashboardPage() {
               boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "16px",
+              }}
+            >
               <div>
-                <h3 style={{ margin: 0, fontSize: "1.125rem", fontWeight: 800, color: "#0F172A" }}>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: "1.125rem",
+                    fontWeight: 800,
+                    color: "#0F172A",
+                  }}
+                >
                   Programme Offering Capacity
                 </h3>
                 <div style={{ fontSize: "0.8125rem", color: "#64748B" }}>
                   Enrolled headcount vs max court quota
                 </div>
               </div>
-              <Link href="/offerings" style={{ fontSize: "0.8125rem", color: "#D97706", fontWeight: 600 }}>
+              <Link
+                href="/offerings"
+                style={{
+                  fontSize: "0.8125rem",
+                  color: "#D97706",
+                  fontWeight: 600,
+                }}
+              >
                 View All →
               </Link>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+            >
               {offerings.slice(0, 4).map((off) => {
-                const percent = Math.min(100, Math.round((off.enrolledCount / off.capacity) * 100));
+                const percent = Math.min(
+                  100,
+                  Math.round((off.enrolledCount / off.capacity) * 100),
+                );
                 const isFull = off.enrolledCount >= off.capacity;
 
                 return (
                   <div key={off.id}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8125rem", marginBottom: "6px" }}>
-                      <span style={{ fontWeight: 600, color: "#0F172A" }}>{off.name}</span>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        fontSize: "0.8125rem",
+                        marginBottom: "6px",
+                      }}
+                    >
+                      <span style={{ fontWeight: 600, color: "#0F172A" }}>
+                        {off.name}
+                      </span>
                       <span style={{ color: "#64748B" }}>
-                        <strong>{off.enrolledCount}</strong> / {off.capacity} ({percent}%)
+                        <strong>{off.enrolledCount}</strong> / {off.capacity} (
+                        {percent}%)
                       </span>
                     </div>
                     <div
@@ -200,7 +240,11 @@ export default function AdminDashboardPage() {
                         style={{
                           height: "100%",
                           width: `${percent}%`,
-                          backgroundColor: isFull ? "#EF4444" : percent > 80 ? "#F59E0B" : "#10B981",
+                          backgroundColor: isFull
+                            ? "#EF4444"
+                            : percent > 80
+                              ? "#F59E0B"
+                              : "#10B981",
                           borderRadius: "4px",
                         }}
                       />
@@ -221,21 +265,44 @@ export default function AdminDashboardPage() {
               boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "16px",
+              }}
+            >
               <div>
-                <h3 style={{ margin: 0, fontSize: "1.125rem", fontWeight: 800, color: "#0F172A" }}>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: "1.125rem",
+                    fontWeight: 800,
+                    color: "#0F172A",
+                  }}
+                >
                   Recent Membership Enrolments
                 </h3>
                 <div style={{ fontSize: "0.8125rem", color: "#64748B" }}>
                   Server-authoritative membership contracts
                 </div>
               </div>
-              <Link href="/memberships" style={{ fontSize: "0.8125rem", color: "#D97706", fontWeight: 600 }}>
+              <Link
+                href="/memberships"
+                style={{
+                  fontSize: "0.8125rem",
+                  color: "#D97706",
+                  fontWeight: 600,
+                }}
+              >
                 View All →
               </Link>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "10px" }}
+            >
               {memberships.slice(0, 4).map((m) => (
                 <div
                   key={m.id}
@@ -250,14 +317,27 @@ export default function AdminDashboardPage() {
                   }}
                 >
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: "0.875rem", color: "#0F172A" }}>
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: "0.875rem",
+                        color: "#0F172A",
+                      }}
+                    >
                       {m.athleteName}
                     </div>
                     <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
                       {m.programmeName} • {m.planName}
                     </div>
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "flex-end",
+                      gap: "4px",
+                    }}
+                  >
                     <StatusBadge status={m.status} size="sm" />
                     <span style={{ fontSize: "0.6875rem", color: "#64748B" }}>
                       Pay: {m.paymentIndicator}
@@ -287,39 +367,89 @@ export default function AdminDashboardPage() {
               boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "16px",
+              }}
+            >
               <div>
-                <h3 style={{ margin: 0, fontSize: "1.125rem", fontWeight: 800, color: "#0F172A" }}>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: "1.125rem",
+                    fontWeight: 800,
+                    color: "#0F172A",
+                  }}
+                >
                   Payment Attention Queue
                 </h3>
                 <div style={{ fontSize: "0.8125rem", color: "#64748B" }}>
                   Declined mandates & unconfirmed charges
                 </div>
               </div>
-              <Link href="/payments" style={{ fontSize: "0.8125rem", color: "#D97706", fontWeight: 600 }}>
+              <Link
+                href="/payments"
+                style={{
+                  fontSize: "0.8125rem",
+                  color: "#D97706",
+                  fontWeight: 600,
+                }}
+              >
                 Manage Payments →
               </Link>
             </div>
 
             {attentionPayments.length === 0 ? (
-              <div style={{ padding: "20px", textAlign: "center", color: "#64748B", fontSize: "0.875rem" }}>
+              <div
+                style={{
+                  padding: "20px",
+                  textAlign: "center",
+                  color: "#64748B",
+                  fontSize: "0.875rem",
+                }}
+              >
                 ✓ No payment issues currently require attention.
               </div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                }}
+              >
                 {attentionPayments.map((p) => (
                   <div
                     key={p.id}
                     style={{
                       padding: "12px",
                       borderRadius: "8px",
-                      border: p.status === "FAILED" ? "1px solid #FECACA" : "1px solid #FDE68A",
-                      backgroundColor: p.status === "FAILED" ? "#FEF2F2" : "#FFFBEB",
+                      border:
+                        p.status === "FAILED"
+                          ? "1px solid #FECACA"
+                          : "1px solid #FDE68A",
+                      backgroundColor:
+                        p.status === "FAILED" ? "#FEF2F2" : "#FFFBEB",
                     }}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                      }}
+                    >
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: "0.875rem", color: "#0F172A" }}>
+                        <div
+                          style={{
+                            fontWeight: 700,
+                            fontSize: "0.875rem",
+                            color: "#0F172A",
+                          }}
+                        >
                           {p.payerName} ({p.athleteName})
                         </div>
                         <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
@@ -329,7 +459,14 @@ export default function AdminDashboardPage() {
                       <StatusBadge status={p.status} size="sm" />
                     </div>
                     {p.failureReason && (
-                      <div style={{ fontSize: "0.75rem", color: "#991B1B", marginTop: "6px", fontWeight: 500 }}>
+                      <div
+                        style={{
+                          fontSize: "0.75rem",
+                          color: "#991B1B",
+                          marginTop: "6px",
+                          fontWeight: 500,
+                        }}
+                      >
                         ⚠️ Reason: {p.failureReason}
                       </div>
                     )}
@@ -349,21 +486,44 @@ export default function AdminDashboardPage() {
               boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "16px",
+              }}
+            >
               <div>
-                <h3 style={{ margin: 0, fontSize: "1.125rem", fontWeight: 800, color: "#0F172A" }}>
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: "1.125rem",
+                    fontWeight: 800,
+                    color: "#0F172A",
+                  }}
+                >
                   Recent Audit Activity
                 </h3>
                 <div style={{ fontSize: "0.8125rem", color: "#64748B" }}>
                   Immutable operational trail
                 </div>
               </div>
-              <Link href="/audit" style={{ fontSize: "0.8125rem", color: "#D97706", fontWeight: 600 }}>
+              <Link
+                href="/audit"
+                style={{
+                  fontSize: "0.8125rem",
+                  color: "#D97706",
+                  fontWeight: 600,
+                }}
+              >
                 Full Audit Log →
               </Link>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "12px" }}
+            >
               {auditLogs.slice(0, 4).map((log) => (
                 <div
                   key={log.id}
@@ -375,12 +535,20 @@ export default function AdminDashboardPage() {
                     fontSize: "0.8125rem",
                   }}
                 >
-                  <span style={{ fontSize: "1rem" }} aria-hidden="true">📜</span>
+                  <span style={{ fontSize: "1rem" }} aria-hidden="true">
+                    📜
+                  </span>
                   <div style={{ flex: 1 }}>
                     <div style={{ color: "#0F172A", fontWeight: 600 }}>
                       {log.summary}
                     </div>
-                    <div style={{ color: "#64748B", fontSize: "0.75rem", marginTop: "2px" }}>
+                    <div
+                      style={{
+                        color: "#64748B",
+                        fontSize: "0.75rem",
+                        marginTop: "2px",
+                      }}
+                    >
                       By <strong>{log.actorName}</strong> • {log.timestamp}
                     </div>
                   </div>

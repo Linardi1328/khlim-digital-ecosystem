@@ -66,12 +66,7 @@ export interface MembershipPlanItem {
 }
 
 export type MembershipStatus =
-  | "PENDING"
-  | "ACTIVE"
-  | "SUSPENDED"
-  | "CANCELLED"
-  | "COMPLETED"
-  | "EXPIRED";
+  "PENDING" | "ACTIVE" | "SUSPENDED" | "CANCELLED" | "COMPLETED" | "EXPIRED";
 
 export type PaymentIndicatorStatus = "PAID" | "PENDING" | "OVERDUE" | "FAILED";
 
@@ -137,12 +132,7 @@ export interface GuardianItem {
 }
 
 export type PaymentStatus =
-  | "PENDING"
-  | "PROCESSING"
-  | "PAID"
-  | "FAILED"
-  | "REFUNDED"
-  | "CANCELLED";
+  "PENDING" | "PROCESSING" | "PAID" | "FAILED" | "REFUNDED" | "CANCELLED";
 
 export interface PaymentItem {
   id: string;
@@ -188,10 +178,7 @@ export interface VenueItem {
 }
 
 export type SessionStatus =
-  | "SCHEDULED"
-  | "COMPLETED"
-  | "CANCELLED"
-  | "RESCHEDULED";
+  "SCHEDULED" | "COMPLETED" | "CANCELLED" | "RESCHEDULED";
 
 export interface SessionItem {
   id: string;

@@ -42,13 +42,28 @@ export function FilterBar({
         marginBottom: "16px",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#64748B", fontSize: "0.8125rem", fontWeight: 600 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          color: "#64748B",
+          fontSize: "0.8125rem",
+          fontWeight: 600,
+        }}
+      >
         <span aria-hidden="true">⚡</span> Filters:
       </div>
 
       {filters.map((filter) => (
-        <div key={filter.id} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <label htmlFor={`filter-${filter.id}`} style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}>
+        <div
+          key={filter.id}
+          style={{ display: "flex", alignItems: "center", gap: "6px" }}
+        >
+          <label
+            htmlFor={`filter-${filter.id}`}
+            style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}
+          >
             {filter.label}:
           </label>
           <select

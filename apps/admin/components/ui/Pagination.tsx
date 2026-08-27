@@ -39,7 +39,8 @@ export function Pagination({
     >
       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
         <span>
-          Showing <strong>{startItem}</strong> to <strong>{endItem}</strong> of <strong>{totalItems}</strong> results
+          Showing <strong>{startItem}</strong> to <strong>{endItem}</strong> of{" "}
+          <strong>{totalItems}</strong> results
         </span>
 
         {onItemsPerPageChange && (

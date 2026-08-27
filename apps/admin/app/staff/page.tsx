@@ -59,7 +59,8 @@ export default function StaffPage() {
     const matchesSearch =
       s.displayName.toLowerCase().includes(search.toLowerCase()) ||
       s.email.toLowerCase().includes(search.toLowerCase());
-    const matchesRole = roleFilter === "ALL" || s.roles.includes(roleFilter as StaffRole);
+    const matchesRole =
+      roleFilter === "ALL" || s.roles.includes(roleFilter as StaffRole);
     return matchesSearch && matchesRole;
   });
 
@@ -87,7 +88,9 @@ export default function StaffPage() {
     try {
       await adminApi.updateStaffRoles(editingStaff.id, selectedRoles);
       setStaffList((prev) =>
-        prev.map((s) => (s.id === editingStaff.id ? { ...s, roles: selectedRoles } : s)),
+        prev.map((s) =>
+          s.id === editingStaff.id ? { ...s, roles: selectedRoles } : s,
+        ),
       );
       setEditingStaff(null);
       setSaveSuccess(true);
@@ -95,7 +98,9 @@ export default function StaffPage() {
     } catch (err) {
       console.warn("Update staff roles fallback:", err);
       setStaffList((prev) =>
-        prev.map((s) => (s.id === editingStaff.id ? { ...s, roles: selectedRoles } : s)),
+        prev.map((s) =>
+          s.id === editingStaff.id ? { ...s, roles: selectedRoles } : s,
+        ),
       );
       setEditingStaff(null);
       setSaveSuccess(true);
@@ -128,8 +133,12 @@ export default function StaffPage() {
             {s.displayName[0]}
           </div>
           <div>
-            <div style={{ fontWeight: 700, color: "#0F172A" }}>{s.displayName}</div>
-            <div style={{ fontSize: "0.75rem", color: "#64748B" }}>{s.email}</div>
+            <div style={{ fontWeight: 700, color: "#0F172A" }}>
+              {s.displayName}
+            </div>
+            <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+              {s.email}
+            </div>
           </div>
         </div>
       ),
@@ -147,8 +156,18 @@ export default function StaffPage() {
                 fontWeight: 700,
                 padding: "2px 6px",
                 borderRadius: "4px",
-                backgroundColor: r === "SUPER_ADMIN" ? "#FEF3C7" : r === "FINANCE" ? "#EFF6FF" : "#F1F5F9",
-                color: r === "SUPER_ADMIN" ? "#92400E" : r === "FINANCE" ? "#1E40AF" : "#334155",
+                backgroundColor:
+                  r === "SUPER_ADMIN"
+                    ? "#FEF3C7"
+                    : r === "FINANCE"
+                      ? "#EFF6FF"
+                      : "#F1F5F9",
+                color:
+                  r === "SUPER_ADMIN"
+                    ? "#92400E"
+                    : r === "FINANCE"
+                      ? "#1E40AF"
+                      : "#334155",
                 border: "1px solid #E2E8F0",
               }}
             >
@@ -162,7 +181,12 @@ export default function StaffPage() {
       key: "mfaEnabled",
       header: "MFA Enforced",
       render: (s) => (
-        <span style={{ fontWeight: 600, color: s.mfaEnabled ? "#065F46" : "#B45309" }}>
+        <span
+          style={{
+            fontWeight: 600,
+            color: s.mfaEnabled ? "#065F46" : "#B45309",
+          }}
+        >
           {s.mfaEnabled ? "✓ Enabled" : "⚠️ Optional"}
         </span>
       ),
@@ -197,10 +221,7 @@ export default function StaffPage() {
         <PageHeader
           title="Staff & Role Permissions"
           subtitle="Manage administrative staff access, role assignments, and privileged operations."
-          breadcrumbs={[
-            { label: "Operations", href: "/" },
-            { label: "Staff" },
-          ]}
+          breadcrumbs={[{ label: "Operations", href: "/" }, { label: "Staff" }]}
         />
 
         {saveSuccess && (
@@ -235,7 +256,10 @@ export default function StaffPage() {
           />
 
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <label htmlFor="role-select" style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}>
+            <label
+              htmlFor="role-select"
+              style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}
+            >
               Role:
             </label>
             <select
@@ -294,7 +318,13 @@ export default function StaffPage() {
                 title="Role Assignments"
                 description="Select the operational roles granted to this account. Role changes are audited."
               >
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
+                  }}
+                >
                   {ALL_ROLES.map((r) => {
                     const isChecked = selectedRoles.includes(r);
                     return (
@@ -306,7 +336,9 @@ export default function StaffPage() {
                           gap: "12px",
                           padding: "12px 14px",
                           borderRadius: "8px",
-                          border: isChecked ? "2px solid #F59E0B" : "1px solid #E2E8F0",
+                          border: isChecked
+                            ? "2px solid #F59E0B"
+                            : "1px solid #E2E8F0",
                           backgroundColor: isChecked ? "#FFFDF5" : "#FFFFFF",
                           cursor: "pointer",
                         }}
@@ -315,17 +347,33 @@ export default function StaffPage() {
                           type="checkbox"
                           checked={isChecked}
                           onChange={() => handleToggleRole(r)}
-                          style={{ width: "16px", height: "16px", accentColor: "#F59E0B" }}
+                          style={{
+                            width: "16px",
+                            height: "16px",
+                            accentColor: "#F59E0B",
+                          }}
                         />
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 700, fontSize: "0.875rem", color: "#0F172A" }}>
+                          <div
+                            style={{
+                              fontWeight: 700,
+                              fontSize: "0.875rem",
+                              color: "#0F172A",
+                            }}
+                          >
                             {r.replace("_", " ")}
                           </div>
-                          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
-                            {r === "SUPER_ADMIN" && "Full administrative control across all domains."}
-                            {r === "FINANCE" && "Exclusive access to payment reconciliation and gateway ledgers."}
-                            {r === "ACADEMY_ADMIN" && "Manage programmes, offerings, and venue schedules."}
-                            {r === "COACH" && "Log attendance and session drills without financial visibility."}
+                          <div
+                            style={{ fontSize: "0.75rem", color: "#64748B" }}
+                          >
+                            {r === "SUPER_ADMIN" &&
+                              "Full administrative control across all domains."}
+                            {r === "FINANCE" &&
+                              "Exclusive access to payment reconciliation and gateway ledgers."}
+                            {r === "ACADEMY_ADMIN" &&
+                              "Manage programmes, offerings, and venue schedules."}
+                            {r === "COACH" &&
+                              "Log attendance and session drills without financial visibility."}
                           </div>
                         </div>
                       </label>
@@ -334,11 +382,28 @@ export default function StaffPage() {
                 </div>
               </FormSection>
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "20px" }}>
-                <Button variant="outline" size="md" type="button" onClick={() => setEditingStaff(null)}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "10px",
+                  marginTop: "20px",
+                }}
+              >
+                <Button
+                  variant="outline"
+                  size="md"
+                  type="button"
+                  onClick={() => setEditingStaff(null)}
+                >
                   Cancel
                 </Button>
-                <Button variant="primary" size="md" type="submit" isLoading={isSaving}>
+                <Button
+                  variant="primary"
+                  size="md"
+                  type="submit"
+                  isLoading={isSaving}
+                >
                   Update Staff Roles
                 </Button>
               </div>

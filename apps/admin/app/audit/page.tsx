@@ -45,7 +45,8 @@ export default function AuditLogPage() {
       log.actorName.toLowerCase().includes(search.toLowerCase()) ||
       log.action.toLowerCase().includes(search.toLowerCase()) ||
       log.entityId.toLowerCase().includes(search.toLowerCase());
-    const matchesEntity = entityFilter === "ALL" || log.entityType === entityFilter;
+    const matchesEntity =
+      entityFilter === "ALL" || log.entityType === entityFilter;
     return matchesSearch && matchesEntity;
   });
 
@@ -59,7 +60,13 @@ export default function AuditLogPage() {
       key: "timestamp",
       header: "Timestamp",
       render: (log) => (
-        <span style={{ fontSize: "0.75rem", fontFamily: "monospace", color: "#475569" }}>
+        <span
+          style={{
+            fontSize: "0.75rem",
+            fontFamily: "monospace",
+            color: "#475569",
+          }}
+        >
           {log.timestamp}
         </span>
       ),
@@ -69,8 +76,12 @@ export default function AuditLogPage() {
       header: "Staff / Actor",
       render: (log) => (
         <div>
-          <div style={{ fontWeight: 700, color: "#0F172A" }}>{log.actorName}</div>
-          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>Role: {log.actorRole}</div>
+          <div style={{ fontWeight: 700, color: "#0F172A" }}>
+            {log.actorName}
+          </div>
+          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+            Role: {log.actorRole}
+          </div>
         </div>
       ),
     },
@@ -99,10 +110,14 @@ export default function AuditLogPage() {
       header: "Entity & ID",
       render: (log) => (
         <div>
-          <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#64748B" }}>
+          <span
+            style={{ fontSize: "0.75rem", fontWeight: 600, color: "#64748B" }}
+          >
             {log.entityType}:
           </span>{" "}
-          <code style={{ fontSize: "0.75rem", color: "#0F172A" }}>{log.entityId}</code>
+          <code style={{ fontSize: "0.75rem", color: "#0F172A" }}>
+            {log.entityId}
+          </code>
         </div>
       ),
     },
@@ -110,7 +125,9 @@ export default function AuditLogPage() {
       key: "summary",
       header: "Summary Note",
       render: (log) => (
-        <span style={{ fontSize: "0.8125rem", color: "#334155" }}>{log.summary}</span>
+        <span style={{ fontSize: "0.8125rem", color: "#334155" }}>
+          {log.summary}
+        </span>
       ),
     },
     {
@@ -159,7 +176,10 @@ export default function AuditLogPage() {
           />
 
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <label htmlFor="entity-select" style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}>
+            <label
+              htmlFor="entity-select"
+              style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}
+            >
               Entity Type:
             </label>
             <select
@@ -212,13 +232,19 @@ export default function AuditLogPage() {
           subtitle={`${selectedLog?.action} on ${selectedLog?.entityType}`}
           width="540px"
           footer={
-            <Button variant="outline" size="sm" onClick={() => setSelectedLog(null)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedLog(null)}
+            >
               Close
             </Button>
           }
         >
           {selectedLog && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+            >
               <div
                 style={{
                   display: "grid",
@@ -231,36 +257,108 @@ export default function AuditLogPage() {
                 }}
               >
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>TIMESTAMP</div>
-                  <div style={{ fontFamily: "monospace", fontSize: "0.8125rem", marginTop: "2px" }}>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#64748B",
+                      fontWeight: 700,
+                    }}
+                  >
+                    TIMESTAMP
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: "monospace",
+                      fontSize: "0.8125rem",
+                      marginTop: "2px",
+                    }}
+                  >
                     {selectedLog.timestamp}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>ACTOR</div>
-                  <div style={{ fontWeight: 700, color: "#0F172A", marginTop: "2px" }}>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#64748B",
+                      fontWeight: 700,
+                    }}
+                  >
+                    ACTOR
+                  </div>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      color: "#0F172A",
+                      marginTop: "2px",
+                    }}
+                  >
                     {selectedLog.actorName} ({selectedLog.actorRole})
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>TARGET ENTITY</div>
-                  <div style={{ fontWeight: 600, color: "#0F172A", marginTop: "2px" }}>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#64748B",
+                      fontWeight: 700,
+                    }}
+                  >
+                    TARGET ENTITY
+                  </div>
+                  <div
+                    style={{
+                      fontWeight: 600,
+                      color: "#0F172A",
+                      marginTop: "2px",
+                    }}
+                  >
                     {selectedLog.entityType}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>TARGET ID</div>
-                  <div style={{ fontFamily: "monospace", fontSize: "0.8125rem", color: "#0F172A", marginTop: "2px" }}>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#64748B",
+                      fontWeight: 700,
+                    }}
+                  >
+                    TARGET ID
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: "monospace",
+                      fontSize: "0.8125rem",
+                      color: "#0F172A",
+                      marginTop: "2px",
+                    }}
+                  >
                     {selectedLog.entityId}
                   </div>
                 </div>
               </div>
 
               <div>
-                <h4 style={{ margin: "0 0 6px", fontSize: "0.9375rem", fontWeight: 700 }}>
+                <h4
+                  style={{
+                    margin: "0 0 6px",
+                    fontSize: "0.9375rem",
+                    fontWeight: 700,
+                  }}
+                >
                   Operation Summary
                 </h4>
-                <div style={{ padding: "14px", backgroundColor: "#FFFFFF", borderRadius: "8px", border: "1px solid #E2E8F0", fontSize: "0.875rem", color: "#334155" }}>
+                <div
+                  style={{
+                    padding: "14px",
+                    backgroundColor: "#FFFFFF",
+                    borderRadius: "8px",
+                    border: "1px solid #E2E8F0",
+                    fontSize: "0.875rem",
+                    color: "#334155",
+                  }}
+                >
                   {selectedLog.summary}
                 </div>
               </div>
@@ -275,7 +373,9 @@ export default function AuditLogPage() {
                   color: "#92400E",
                 }}
               >
-                <strong>Operational Invariant:</strong> Audit logs are immutable and permanent. Records cannot be edited or purged by any staff role.
+                <strong>Operational Invariant:</strong> Audit logs are immutable
+                and permanent. Records cannot be edited or purged by any staff
+                role.
               </div>
             </div>
           )}

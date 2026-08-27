@@ -12,7 +12,7 @@ import { Button } from "../../components/ui/Button";
 import { Drawer } from "../../components/ui/Drawer";
 import { useAdminAuth } from "../../lib/auth-context";
 import { adminApi } from "../../lib/admin-api";
-import type { PaymentItem, PaymentStatus } from "../../lib/types";
+import type { PaymentItem } from "../../lib/types";
 
 export default function PaymentsPage() {
   const { canAccessFinance, role } = useAdminAuth();
@@ -27,7 +27,9 @@ export default function PaymentsPage() {
   const [pageSize, setPageSize] = useState(10);
 
   // Drawer / Selection
-  const [selectedPayment, setSelectedPayment] = useState<PaymentItem | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<PaymentItem | null>(
+    null,
+  );
 
   useEffect(() => {
     async function load() {
@@ -46,13 +48,37 @@ export default function PaymentsPage() {
   if (!canAccessFinance()) {
     return (
       <AdminShell>
-        <div style={{ padding: "48px 24px", textAlign: "center", backgroundColor: "#FFFFFF", borderRadius: "12px", border: "1px solid #E2E8F0" }}>
+        <div
+          style={{
+            padding: "48px 24px",
+            textAlign: "center",
+            backgroundColor: "#FFFFFF",
+            borderRadius: "12px",
+            border: "1px solid #E2E8F0",
+          }}
+        >
           <div style={{ fontSize: "2.5rem", marginBottom: "12px" }}>🔒</div>
-          <h2 style={{ fontSize: "1.25rem", fontWeight: 800, color: "#0F172A", margin: "0 0 8px" }}>
+          <h2
+            style={{
+              fontSize: "1.25rem",
+              fontWeight: 800,
+              color: "#0F172A",
+              margin: "0 0 8px",
+            }}
+          >
             Restricted Financial Ledger
           </h2>
-          <p style={{ color: "#64748B", maxWidth: "460px", margin: "0 auto 20px", fontSize: "0.875rem" }}>
-            Financial transactions and payment provider ledgers are restricted to Finance, Management, and Super Admin roles. Current role: <strong>{role}</strong>.
+          <p
+            style={{
+              color: "#64748B",
+              maxWidth: "460px",
+              margin: "0 auto 20px",
+              fontSize: "0.875rem",
+            }}
+          >
+            Financial transactions and payment provider ledgers are restricted
+            to Finance, Management, and Super Admin roles. Current role:{" "}
+            <strong>{role}</strong>.
           </p>
         </div>
       </AdminShell>
@@ -64,9 +90,11 @@ export default function PaymentsPage() {
       p.paymentId.toLowerCase().includes(search.toLowerCase()) ||
       p.payerName.toLowerCase().includes(search.toLowerCase()) ||
       p.athleteName.toLowerCase().includes(search.toLowerCase()) ||
-      (p.providerReference && p.providerReference.toLowerCase().includes(search.toLowerCase()));
+      (p.providerReference &&
+        p.providerReference.toLowerCase().includes(search.toLowerCase()));
     const matchesStatus = statusFilter === "ALL" || p.status === statusFilter;
-    const matchesProvider = providerFilter === "ALL" || p.provider === providerFilter;
+    const matchesProvider =
+      providerFilter === "ALL" || p.provider === providerFilter;
     return matchesSearch && matchesStatus && matchesProvider;
   });
 
@@ -80,7 +108,9 @@ export default function PaymentsPage() {
       render: (p) => (
         <div>
           <div style={{ fontWeight: 700, color: "#0F172A" }}>{p.paymentId}</div>
-          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>Ref: {p.providerReference || "Pending Webhook"}</div>
+          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+            Ref: {p.providerReference || "Pending Webhook"}
+          </div>
         </div>
       ),
     },
@@ -90,7 +120,9 @@ export default function PaymentsPage() {
       render: (p) => (
         <div>
           <div style={{ fontWeight: 600, color: "#334155" }}>{p.payerName}</div>
-          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>Athlete: {p.athleteName}</div>
+          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+            Athlete: {p.athleteName}
+          </div>
         </div>
       ),
     },
@@ -132,7 +164,9 @@ export default function PaymentsPage() {
       render: (p) => (
         <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
           <div>{p.createdAt}</div>
-          {p.settledAt && <div style={{ color: "#065F46" }}>Settled: {p.settledAt}</div>}
+          {p.settledAt && (
+            <div style={{ color: "#065F46" }}>Settled: {p.settledAt}</div>
+          )}
         </div>
       ),
     },
@@ -174,7 +208,9 @@ export default function PaymentsPage() {
 
         {/* Filter Controls */}
         <FilterBar
-          hasActiveFilters={search !== "" || statusFilter !== "ALL" || providerFilter !== "ALL"}
+          hasActiveFilters={
+            search !== "" || statusFilter !== "ALL" || providerFilter !== "ALL"
+          }
           onReset={() => {
             setSearch("");
             setStatusFilter("ALL");
@@ -188,7 +224,10 @@ export default function PaymentsPage() {
           />
 
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <label htmlFor="pay-status" style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}>
+            <label
+              htmlFor="pay-status"
+              style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}
+            >
               Status:
             </label>
             <select
@@ -215,7 +254,10 @@ export default function PaymentsPage() {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <label htmlFor="pay-provider" style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}>
+            <label
+              htmlFor="pay-provider"
+              style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}
+            >
               Gateway:
             </label>
             <select
@@ -266,13 +308,19 @@ export default function PaymentsPage() {
           subtitle={`${selectedPayment?.currency} ${(selectedPayment ? selectedPayment.amountMinor / 100 : 0).toFixed(2)} • Gateway: ${selectedPayment?.provider}`}
           width="560px"
           footer={
-            <Button variant="outline" size="sm" onClick={() => setSelectedPayment(null)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedPayment(null)}
+            >
               Close
             </Button>
           }
         >
           {selectedPayment && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+            >
               <div
                 style={{
                   display: "grid",
@@ -285,50 +333,141 @@ export default function PaymentsPage() {
                 }}
               >
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>STATUS</div>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#64748B",
+                      fontWeight: 700,
+                    }}
+                  >
+                    STATUS
+                  </div>
                   <div style={{ marginTop: "4px" }}>
                     <StatusBadge status={selectedPayment.status} size="sm" />
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>SETTLED AT</div>
-                  <div style={{ fontWeight: 600, color: "#0F172A", marginTop: "2px" }}>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#64748B",
+                      fontWeight: 700,
+                    }}
+                  >
+                    SETTLED AT
+                  </div>
+                  <div
+                    style={{
+                      fontWeight: 600,
+                      color: "#0F172A",
+                      marginTop: "2px",
+                    }}
+                  >
                     {selectedPayment.settledAt || "Unsettled"}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>PAYER</div>
-                  <div style={{ fontWeight: 700, color: "#0F172A", marginTop: "2px" }}>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#64748B",
+                      fontWeight: 700,
+                    }}
+                  >
+                    PAYER
+                  </div>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      color: "#0F172A",
+                      marginTop: "2px",
+                    }}
+                  >
                     {selectedPayment.payerName}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 700 }}>ATHLETE</div>
-                  <div style={{ fontWeight: 700, color: "#0F172A", marginTop: "2px" }}>
+                  <div
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#64748B",
+                      fontWeight: 700,
+                    }}
+                  >
+                    ATHLETE
+                  </div>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      color: "#0F172A",
+                      marginTop: "2px",
+                    }}
+                  >
                     {selectedPayment.athleteName}
                   </div>
                 </div>
               </div>
 
               {selectedPayment.failureReason && (
-                <div style={{ padding: "14px", backgroundColor: "#FEF2F2", borderRadius: "8px", border: "1px solid #FECACA" }}>
-                  <div style={{ fontWeight: 700, color: "#991B1B", fontSize: "0.875rem" }}>
+                <div
+                  style={{
+                    padding: "14px",
+                    backgroundColor: "#FEF2F2",
+                    borderRadius: "8px",
+                    border: "1px solid #FECACA",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      color: "#991B1B",
+                      fontSize: "0.875rem",
+                    }}
+                  >
                     ⚠️ Failure Diagnostics
                   </div>
-                  <p style={{ color: "#991B1B", margin: "4px 0 0", fontSize: "0.8125rem" }}>
+                  <p
+                    style={{
+                      color: "#991B1B",
+                      margin: "4px 0 0",
+                      fontSize: "0.8125rem",
+                    }}
+                  >
                     {selectedPayment.failureReason}
                   </p>
                 </div>
               )}
 
               <div>
-                <h4 style={{ margin: "0 0 8px", fontSize: "0.9375rem", fontWeight: 700 }}>
+                <h4
+                  style={{
+                    margin: "0 0 8px",
+                    fontSize: "0.9375rem",
+                    fontWeight: 700,
+                  }}
+                >
                   Provider Webhook Truth
                 </h4>
-                <div style={{ padding: "12px", backgroundColor: "#FFFFFF", borderRadius: "8px", border: "1px solid #E2E8F0", fontSize: "0.8125rem" }}>
-                  <div>• Provider: <strong>{selectedPayment.provider}</strong></div>
-                  <div style={{ marginTop: "4px" }}>• Gateway Intent ID: <code>{selectedPayment.providerReference || "None"}</code></div>
-                  <div style={{ marginTop: "4px" }}>• Attempt Sequence: <strong>#{selectedPayment.attemptNumber}</strong></div>
+                <div
+                  style={{
+                    padding: "12px",
+                    backgroundColor: "#FFFFFF",
+                    borderRadius: "8px",
+                    border: "1px solid #E2E8F0",
+                    fontSize: "0.8125rem",
+                  }}
+                >
+                  <div>
+                    • Provider: <strong>{selectedPayment.provider}</strong>
+                  </div>
+                  <div style={{ marginTop: "4px" }}>
+                    • Gateway Intent ID:{" "}
+                    <code>{selectedPayment.providerReference || "None"}</code>
+                  </div>
+                  <div style={{ marginTop: "4px" }}>
+                    • Attempt Sequence:{" "}
+                    <strong>#{selectedPayment.attemptNumber}</strong>
+                  </div>
                 </div>
               </div>
 
@@ -342,7 +481,9 @@ export default function PaymentsPage() {
                   color: "#92400E",
                 }}
               >
-                <strong>Security Invariant:</strong> Raw credit card numbers and CVVs are strictly forbidden from entering KHLIM servers. Only tokenized provider event IDs are stored.
+                <strong>Security Invariant:</strong> Raw credit card numbers and
+                CVVs are strictly forbidden from entering KHLIM servers. Only
+                tokenized provider event IDs are stored.
               </div>
             </div>
           )}
