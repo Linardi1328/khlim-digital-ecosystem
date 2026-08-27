@@ -90,10 +90,12 @@ test("demo role preview hides finance ledger from coach role", async ({
   viewport,
 }) => {
   test.skip(!viewport || viewport.width < 1024, "Desktop role preview only");
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.goto("/payments", { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Switch demo role" }).click();
   await page.getByRole("button", { name: "COACH", exact: true }).click();
-  await page.getByRole("link", { name: "Payments", exact: true }).click();
+  await expect(
+    page.getByRole("link", { name: "Payments", exact: true }),
+  ).toHaveCount(0);
   await expect(page.getByText("Restricted Financial Ledger")).toBeVisible();
 });
 
