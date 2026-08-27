@@ -8,16 +8,16 @@ async function read(path) {
   return readFile(new URL(path, root), "utf8");
 }
 
-async function readJson(path) {
-  return JSON.parse(await read(path));
-}
+test("Admin app reuses workspace aliases without redundant lockfile declarations", async () => {
+  const manifest = JSON.parse(await read("apps/admin/package.json"));
+  const tsconfig = await read("apps/admin/tsconfig.json");
 
-test("Admin app package.json includes necessary workspace dependencies", async () => {
-  const manifest = await readJson("apps/admin/package.json");
   assert.equal(manifest.name, "@khlim/admin");
-  assert.equal(manifest.dependencies["@khlim/api-client"], "workspace:*");
-  assert.equal(manifest.dependencies["@khlim/design-tokens"], "workspace:*");
-  assert.equal(manifest.dependencies["@khlim/i18n"], "workspace:*");
+  assert.equal(manifest.dependencies["@khlim/api-client"], undefined);
+  assert.equal(manifest.dependencies["@khlim/design-tokens"], undefined);
+  assert.equal(manifest.dependencies["@khlim/i18n"], undefined);
+  assert.match(tsconfig, /@khlim\/api-client/);
+  assert.match(tsconfig, /@khlim\/i18n/);
 });
 
 test("Admin console implements all required reusable UI components", async () => {
@@ -102,42 +102,60 @@ test("Admin operations console preserves strict domain rules", async () => {
   const guardians = await read("apps/admin/app/guardians/page.tsx");
   const payments = await read("apps/admin/app/payments/page.tsx");
 
-  // Programme != Offering separation
   assert.match(
     programmes,
     /Programme\s+and\s+Programme\s+Offering\s+are\s+separate\s+entities/,
   );
-
-  // Membership != Payment separation
   assert.match(
     memberships,
     /Membership\s+state\s+and\s+payment\s+state\s+are\s+separate/,
   );
-
-  // User != Athlete
   assert.match(
     athletes,
     /Athletes\s+are\s+managed\s+profiles\s+linked\s+to\s+adult\s+guardians/,
   );
-
-  // Guardian relationship authorization
   assert.match(
     guardians,
     /Guardian\s+role\s+alone\s+does\s+not\s+grant\s+access\s+to\s+unrelated\s+athletes/,
   );
-
-  // Payments forbid raw card storage
   assert.match(
     payments,
     /Raw\s+credit\s+card\s+numbers\s+and\s+CVVs\s+are\s+strictly\s+forbidden/,
   );
 });
 
-test("Admin role context prevents unauthorized financial data visibility to coach roles", async () => {
+test("Admin finance visibility is role-aware and server authorization remains authoritative", async () => {
   const authContext = await read("apps/admin/lib/auth-context.tsx");
   const payments = await read("apps/admin/app/payments/page.tsx");
 
   assert.match(authContext, /canAccessFinance/);
   assert.match(payments, /Restricted Financial Ledger/);
   assert.match(payments, /canAccessFinance\(\)/);
+});
+
+test("Admin privileged access is denied unless explicit demo mode is enabled", async () => {
+  const demoMode = await read("apps/admin/lib/demo-mode.ts");
+  const authContext = await read("apps/admin/lib/auth-context.tsx");
+  const shell = await read("apps/admin/components/layout/AdminShell.tsx");
+  const header = await read("apps/admin/components/layout/AdminHeader.tsx");
+  const api = await read("apps/admin/lib/admin-api.ts");
+
+  assert.match(demoMode, /NEXT_PUBLIC_ADMIN_DEMO_MODE/);
+  assert.match(demoMode, /Changes are not persisted/);
+  assert.match(authContext, /ADMIN_DEMO_MODE \? DEMO_ADMIN_USER : null/);
+  assert.match(authContext, /if \(!ADMIN_DEMO_MODE \|\| !user\) return/);
+  assert.match(shell, /Staff authentication is not configured/);
+  assert.match(shell, /DEMO MODE/);
+  assert.match(header, /isDemoMode && role/);
+  assert.doesNotMatch(api, /mock-admin-token/);
+  assert.match(api, /Promise\.reject\(integrationPending\(method\)\)/);
+});
+
+test("Web and admin Vercel builds disable standalone output only on Vercel", async () => {
+  const adminConfig = await read("apps/admin/next.config.ts");
+  const webConfig = await read("apps/web/next.config.ts");
+
+  for (const config of [adminConfig, webConfig]) {
+    assert.match(config, /process\.env\.VERCEL \? undefined : "standalone"/);
+  }
 });
