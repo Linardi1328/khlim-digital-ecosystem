@@ -25,6 +25,11 @@ import type {
 
 const offeringStatuses = new Set(["DRAFT", "OPEN", "CLOSED", "INACTIVE"]);
 const billingFrequencies = new Set(["MONTHLY", "UPFRONT"]);
+const capacityHoldingMembershipStatuses = [
+  "PENDING",
+  "ACTIVE",
+  "SUSPENDED",
+] as const;
 
 @Injectable()
 export class AcademyService {
@@ -270,6 +275,16 @@ export class AcademyService {
     const planId = requireTrimmedString(body?.planId, "planId", 100);
 
     return this.prisma.client.$transaction(async (transaction) => {
+      // Serialize membership creation per offering. Without this row lock, two
+      // concurrent requests can both observe the final available seat and
+      // create memberships beyond the configured capacity.
+      await transaction.$queryRaw`
+        SELECT id
+        FROM programme_offerings
+        WHERE id = ${offeringId}::uuid
+        FOR UPDATE
+      `;
+
       const eligibility =
         await transaction.membershipPlanOfferingEligibility.findUnique({
           where: { planId_offeringId: { planId, offeringId } },
@@ -289,7 +304,7 @@ export class AcademyService {
         where: {
           athleteId,
           programmeOfferingId: offeringId,
-          status: { in: ["PENDING", "ACTIVE", "SUSPENDED"] },
+          status: { in: [...capacityHoldingMembershipStatuses] },
         },
         select: { id: true },
       });
@@ -297,6 +312,16 @@ export class AcademyService {
         throw new ConflictException(
           "Athlete already has a current membership for this offering",
         );
+      }
+
+      const occupiedSeats = await transaction.membership.count({
+        where: {
+          programmeOfferingId: offeringId,
+          status: { in: [...capacityHoldingMembershipStatuses] },
+        },
+      });
+      if (occupiedSeats >= eligibility.offering.capacity) {
+        throw new ConflictException("Programme offering is at capacity");
       }
 
       return transaction.membership.create({
