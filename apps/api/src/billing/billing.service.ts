@@ -283,13 +283,53 @@ export class BillingService {
         },
       });
     } catch (error) {
-      if (isUniqueConstraintError(error)) {
+      if (!isUniqueConstraintError(error)) {
+        throw error;
+      }
+
+      const existing = await this.prisma.client.paymentProviderEvent.findUnique(
+        {
+          where: {
+            provider_providerEventId: {
+              provider: gateway.provider,
+              providerEventId: event.providerEventId,
+            },
+          },
+        },
+      );
+
+      if (!existing) {
+        throw error;
+      }
+
+      if (
+        existing.payloadHash !== payloadHash ||
+        existing.eventType !== event.eventType
+      ) {
+        throw new ConflictException(
+          "Provider event payload does not match previously received event",
+        );
+      }
+
+      if (existing.processingStatus !== "FAILED") {
         return { duplicate: true, providerEventId: event.providerEventId };
+      }
+    }
+
+    try {
+      return await this.applyVerifiedEvent(gateway.provider, event);
+    } catch (error) {
+      try {
+        await this.finishProviderEvent(
+          gateway.provider,
+          event.providerEventId,
+          "FAILED",
+        );
+      } catch {
+        // Preserve the original processing error if failure-state persistence also fails.
       }
       throw error;
     }
-
-    return this.applyVerifiedEvent(gateway.provider, event);
   }
 
   private async applyVerifiedEvent(
