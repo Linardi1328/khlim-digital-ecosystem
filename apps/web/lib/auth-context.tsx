@@ -42,9 +42,7 @@ interface AuthContextValue {
   ) => Promise<RegistrationResult>;
   logout: () => Promise<void>;
   refreshAccount: () => Promise<AccountMeResponse | null>;
-  updateGuardianProfile: (
-    profile: UpsertGuardianProfileDto,
-  ) => Promise<void>;
+  updateGuardianProfile: (profile: UpsertGuardianProfileDto) => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
 }
 
@@ -158,9 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updateGuardianProfile = async (
-    profile: UpsertGuardianProfileDto,
-  ) => {
+  const updateGuardianProfile = async (profile: UpsertGuardianProfileDto) => {
     await apiService.upsertGuardianProfile(profile);
     await refreshAccount();
   };

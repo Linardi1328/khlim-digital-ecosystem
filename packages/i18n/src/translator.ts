@@ -19,7 +19,8 @@ export function translate(
   params?: Record<string, string | number>,
 ): string {
   const catalogue = messages[locale] ?? messages.en;
-  let text = catalogue[key as MessageKey] ?? messages.en[key as MessageKey] ?? key;
+  let text =
+    catalogue[key as MessageKey] ?? messages.en[key as MessageKey] ?? key;
 
   if (params) {
     for (const [paramKey, paramValue] of Object.entries(params)) {

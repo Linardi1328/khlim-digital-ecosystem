@@ -55,10 +55,26 @@ function LoginContent() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", backgroundColor: "#f4f4f5", padding: 24 }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "grid",
+        placeItems: "center",
+        backgroundColor: "#f4f4f5",
+        padding: 24,
+      }}
+    >
       <div style={{ width: "100%", maxWidth: 440 }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <Link href="/" style={{ color: "#18181b", textDecoration: "none", fontSize: "1.5rem", fontWeight: 900 }}>
+          <Link
+            href="/"
+            style={{
+              color: "#18181b",
+              textDecoration: "none",
+              fontSize: "1.5rem",
+              fontWeight: 900,
+            }}
+          >
             KHLIM
           </Link>
         </div>
@@ -69,22 +85,54 @@ function LoginContent() {
           </CardHeader>
           <CardContent>
             {error ? <Alert variant="danger">{error}</Alert> : null}
-            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: error ? 16 : 0 }}>
-              <Input label={t("auth.login.email")} type="email" required value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" />
-              <Input label={t("auth.login.password")} type="password" required value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" />
+            <form
+              onSubmit={handleSubmit}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 16,
+                marginTop: error ? 16 : 0,
+              }}
+            >
+              <Input
+                label={t("auth.login.email")}
+                type="email"
+                required
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                autoComplete="email"
+              />
+              <Input
+                label={t("auth.login.password")}
+                type="password"
+                required
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+              />
               <div style={{ textAlign: "right" }}>
-                <Link href="/auth/forgot-password" style={{ color: "#b45309", fontSize: "0.8125rem" }}>
+                <Link
+                  href="/auth/forgot-password"
+                  style={{ color: "#b45309", fontSize: "0.8125rem" }}
+                >
                   {t("auth.login.forgotPassword")}
                 </Link>
               </div>
-              <Button variant="primary" size="lg" type="submit" isLoading={isLoading} style={{ width: "100%" }}>
+              <Button
+                variant="primary"
+                size="lg"
+                type="submit"
+                isLoading={isLoading}
+                style={{ width: "100%" }}
+              >
                 {t("auth.login.submit")}
               </Button>
             </form>
           </CardContent>
           <CardFooter style={{ justifyContent: "center" }}>
             <span style={{ fontSize: "0.875rem" }}>
-              {t("auth.login.noAccount")} <Link href="/auth/register">{t("auth.login.createAccount")}</Link>
+              {t("auth.login.noAccount")}{" "}
+              <Link href="/auth/register">{t("auth.login.createAccount")}</Link>
             </span>
           </CardFooter>
         </Card>
@@ -95,7 +143,11 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div style={{ padding: 40, textAlign: "center" }}>Loading login…</div>}>
+    <Suspense
+      fallback={
+        <div style={{ padding: 40, textAlign: "center" }}>Loading login…</div>
+      }
+    >
       <LoginContent />
     </Suspense>
   );

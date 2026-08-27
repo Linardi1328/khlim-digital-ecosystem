@@ -53,12 +53,22 @@ export function PortalShell({ children }: PortalShellProps) {
     { href: "/portal/membership", label: t("nav.membership"), icon: "🏅" },
     { href: "/portal/payments", label: t("nav.payments"), icon: "💳" },
     { href: "/portal/schedule", label: t("nav.schedule"), icon: "📅" },
-    { href: "/portal/notifications", label: t("nav.notifications"), icon: "🔔" },
+    {
+      href: "/portal/notifications",
+      label: t("nav.notifications"),
+      icon: "🔔",
+    },
     { href: "/portal/account", label: t("nav.account"), icon: "⚙️" },
   ];
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", backgroundColor: "#F8FAFC" }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        backgroundColor: "#F8FAFC",
+      }}
+    >
       <aside
         aria-label="Parent Portal Sidebar"
         style={{
@@ -75,8 +85,18 @@ export function PortalShell({ children }: PortalShellProps) {
         }}
         className="portal-desktop-sidebar"
       >
-        <div style={{ padding: "24px 20px", borderBottom: "1px solid #27272A" }}>
-          <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: "10px" }}>
+        <div
+          style={{ padding: "24px 20px", borderBottom: "1px solid #27272A" }}
+        >
+          <Link
+            href="/"
+            style={{
+              textDecoration: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+            }}
+          >
             <div
               style={{
                 width: "36px",
@@ -94,10 +114,24 @@ export function PortalShell({ children }: PortalShellProps) {
               K
             </div>
             <div>
-              <div style={{ fontWeight: 900, fontSize: "1.125rem", color: "#FFFFFF", letterSpacing: "0.04em" }}>
+              <div
+                style={{
+                  fontWeight: 900,
+                  fontSize: "1.125rem",
+                  color: "#FFFFFF",
+                  letterSpacing: "0.04em",
+                }}
+              >
                 KHLIM
               </div>
-              <div style={{ fontSize: "0.6875rem", color: "#A1A1AA", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              <div
+                style={{
+                  fontSize: "0.6875rem",
+                  color: "#A1A1AA",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                }}
+              >
                 Parent Member Portal
               </div>
             </div>
@@ -106,7 +140,13 @@ export function PortalShell({ children }: PortalShellProps) {
 
         <nav
           aria-label="Portal Desktop Navigation"
-          style={{ flex: 1, padding: "16px 12px", display: "flex", flexDirection: "column", gap: "4px" }}
+          style={{
+            flex: 1,
+            padding: "16px 12px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "4px",
+          }}
         >
           {navItems.map((item) => {
             const isActive = pathname.startsWith(item.href);
@@ -125,12 +165,16 @@ export function PortalShell({ children }: PortalShellProps) {
                   fontWeight: isActive ? 700 : 500,
                   color: isActive ? "#FFFFFF" : "#A1A1AA",
                   backgroundColor: isActive ? "#27272A" : "transparent",
-                  borderLeft: isActive ? "3px solid #F59E0B" : "3px solid transparent",
+                  borderLeft: isActive
+                    ? "3px solid #F59E0B"
+                    : "3px solid transparent",
                   textDecoration: "none",
                   transition: "all 0.15s ease",
                 }}
               >
-                <span style={{ fontSize: "1.125rem" }} aria-hidden="true">{item.icon}</span>
+                <span style={{ fontSize: "1.125rem" }} aria-hidden="true">
+                  {item.icon}
+                </span>
                 <span>{item.label}</span>
               </Link>
             );
@@ -138,12 +182,26 @@ export function PortalShell({ children }: PortalShellProps) {
         </nav>
 
         <div style={{ padding: "16px 20px", borderTop: "1px solid #27272A" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
             <div>
-              <div style={{ fontWeight: 700, fontSize: "0.875rem", color: "#FFFFFF" }}>
+              <div
+                style={{
+                  fontWeight: 700,
+                  fontSize: "0.875rem",
+                  color: "#FFFFFF",
+                }}
+              >
                 {guardianProfile?.displayName || "Guardian Account"}
               </div>
-              <div style={{ fontSize: "0.75rem", color: "#71717A" }}>Authorized Guardian</div>
+              <div style={{ fontSize: "0.75rem", color: "#71717A" }}>
+                Authorized Guardian
+              </div>
             </div>
             <button
               onClick={() => void logout()}
@@ -164,7 +222,15 @@ export function PortalShell({ children }: PortalShellProps) {
         </div>
       </aside>
 
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, paddingBottom: "70px" }}>
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minWidth: 0,
+          paddingBottom: "70px",
+        }}
+      >
         <header
           style={{
             height: "64px",
@@ -250,27 +316,35 @@ export function PortalShell({ children }: PortalShellProps) {
                 padding: "4px 8px",
               }}
             >
-              <span style={{ fontSize: "1.125rem" }} aria-hidden="true">{item.icon}</span>
+              <span style={{ fontSize: "1.125rem" }} aria-hidden="true">
+                {item.icon}
+              </span>
               <span>{item.label}</span>
             </Link>
           );
         })}
         <Link
           href="/portal/account"
-          aria-current={pathname.startsWith("/portal/account") ? "page" : undefined}
+          aria-current={
+            pathname.startsWith("/portal/account") ? "page" : undefined
+          }
           style={{
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             gap: "2px",
             textDecoration: "none",
-            color: pathname.startsWith("/portal/account") ? "#F59E0B" : "#64748B",
+            color: pathname.startsWith("/portal/account")
+              ? "#F59E0B"
+              : "#64748B",
             fontSize: "0.6875rem",
             fontWeight: pathname.startsWith("/portal/account") ? 700 : 500,
             padding: "4px 8px",
           }}
         >
-          <span style={{ fontSize: "1.125rem" }} aria-hidden="true">⚙️</span>
+          <span style={{ fontSize: "1.125rem" }} aria-hidden="true">
+            ⚙️
+          </span>
           <span>{t("nav.account")}</span>
         </Link>
       </nav>

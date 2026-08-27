@@ -30,7 +30,11 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
 
 Card.displayName = "Card";
 
-export function CardHeader({ children, style, ...props }: HTMLAttributes<HTMLDivElement>) {
+export function CardHeader({
+  children,
+  style,
+  ...props
+}: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       style={{
@@ -47,7 +51,11 @@ export function CardHeader({ children, style, ...props }: HTMLAttributes<HTMLDiv
   );
 }
 
-export function CardTitle({ children, style, ...props }: HTMLAttributes<HTMLHeadingElement>) {
+export function CardTitle({
+  children,
+  style,
+  ...props
+}: HTMLAttributes<HTMLHeadingElement>) {
   return (
     <h3
       style={{
@@ -64,7 +72,11 @@ export function CardTitle({ children, style, ...props }: HTMLAttributes<HTMLHead
   );
 }
 
-export function CardDescription({ children, style, ...props }: HTMLAttributes<HTMLParagraphElement>) {
+export function CardDescription({
+  children,
+  style,
+  ...props
+}: HTMLAttributes<HTMLParagraphElement>) {
   return (
     <p
       style={{
@@ -81,7 +93,11 @@ export function CardDescription({ children, style, ...props }: HTMLAttributes<HT
   );
 }
 
-export function CardContent({ children, style, ...props }: HTMLAttributes<HTMLDivElement>) {
+export function CardContent({
+  children,
+  style,
+  ...props
+}: HTMLAttributes<HTMLDivElement>) {
   return (
     <div style={{ ...style }} {...props}>
       {children}
@@ -89,7 +105,11 @@ export function CardContent({ children, style, ...props }: HTMLAttributes<HTMLDi
   );
 }
 
-export function CardFooter({ children, style, ...props }: HTMLAttributes<HTMLDivElement>) {
+export function CardFooter({
+  children,
+  style,
+  ...props
+}: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       style={{

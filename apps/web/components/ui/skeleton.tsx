@@ -46,7 +46,13 @@ export function CardSkeleton() {
       <Skeleton width="40%" height="24px" />
       <Skeleton width="90%" height="16px" />
       <Skeleton width="60%" height="16px" />
-      <div style={{ marginTop: "12px", display: "flex", justifyContent: "space-between" }}>
+      <div
+        style={{
+          marginTop: "12px",
+          display: "flex",
+          justifyContent: "space-between",
+        }}
+      >
         <Skeleton width="30%" height="32px" />
         <Skeleton width="25%" height="32px" />
       </div>

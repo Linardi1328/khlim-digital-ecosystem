@@ -8,15 +8,31 @@ import { Badge } from "../../components/ui/badge";
 
 export default function PrivacyPage() {
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+    <div
+      style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
+    >
       <PublicHeader />
 
-      <main style={{ flex: 1, maxWidth: "860px", margin: "0 auto", padding: "48px 20px" }}>
+      <main
+        style={{
+          flex: 1,
+          maxWidth: "860px",
+          margin: "0 auto",
+          padding: "48px 20px",
+        }}
+      >
         <div style={{ marginBottom: "32px" }}>
           <Badge variant="warning" size="sm">
             [DRAFT — Subject to Final Owner & Legal Approval]
           </Badge>
-          <h1 style={{ fontSize: "2.5rem", fontWeight: 900, color: "#18181B", margin: "12px 0 8px" }}>
+          <h1
+            style={{
+              fontSize: "2.5rem",
+              fontWeight: 900,
+              color: "#18181B",
+              margin: "12px 0 8px",
+            }}
+          >
             Privacy Policy & Child Data Protection
           </h1>
           <p style={{ fontSize: "0.875rem", color: "#71717A" }}>
@@ -25,26 +41,50 @@ export default function PrivacyPage() {
         </div>
 
         <Card>
-          <CardContent style={{ fontSize: "0.9375rem", color: "#3F3F46", lineHeight: 1.7 }}>
-            <h2 style={{ fontSize: "1.25rem", fontWeight: 800, color: "#18181B", marginTop: 0 }}>
+          <CardContent
+            style={{ fontSize: "0.9375rem", color: "#3F3F46", lineHeight: 1.7 }}
+          >
+            <h2
+              style={{
+                fontSize: "1.25rem",
+                fontWeight: 800,
+                color: "#18181B",
+                marginTop: 0,
+              }}
+            >
               1. Child Data Protection Principles
             </h2>
             <p>
-              KHLIM models minor athletes as managed profiles linked to authorized adult guardians. A child does not need a separate login or email account to be managed by their guardian.
+              KHLIM models minor athletes as managed profiles linked to
+              authorized adult guardians. A child does not need a separate login
+              or email account to be managed by their guardian.
             </p>
 
-            <h2 style={{ fontSize: "1.25rem", fontWeight: 800, color: "#18181B" }}>
+            <h2
+              style={{ fontSize: "1.25rem", fontWeight: 800, color: "#18181B" }}
+            >
               2. MVP Data Scope
             </h2>
             <p>
-              The current platform foundation supports guardian account details, optional guardian phone information, athlete name and date of birth, language preference, programme and membership records, and payment or billing records returned through the KHLIM backend and configured payment provider. Later capabilities such as attendance or development records require separate implementation and review.
+              The current platform foundation supports guardian account details,
+              optional guardian phone information, athlete name and date of
+              birth, language preference, programme and membership records, and
+              payment or billing records returned through the KHLIM backend and
+              configured payment provider. Later capabilities such as attendance
+              or development records require separate implementation and review.
             </p>
 
-            <h2 style={{ fontSize: "1.25rem", fontWeight: 800, color: "#18181B" }}>
+            <h2
+              style={{ fontSize: "1.25rem", fontWeight: 800, color: "#18181B" }}
+            >
               3. Access, Correction & Requests
             </h2>
             <p>
-              Guardians can access the managed athlete profiles linked to their account and update supported profile fields. The final process for privacy requests, deletion or account deactivation will be documented and approved before public launch; the current portal does not claim those unsupported requests have been submitted.
+              Guardians can access the managed athlete profiles linked to their
+              account and update supported profile fields. The final process for
+              privacy requests, deletion or account deactivation will be
+              documented and approved before public launch; the current portal
+              does not claim those unsupported requests have been submitted.
             </p>
           </CardContent>
         </Card>

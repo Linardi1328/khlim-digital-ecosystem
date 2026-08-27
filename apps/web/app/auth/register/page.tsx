@@ -28,13 +28,17 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [selectedLocale, setSelectedLocale] = useState<SupportedLocale>(locale);
   const [error, setError] = useState("");
-  const [confirmationEmail, setConfirmationEmail] = useState<string | null>(null);
+  const [confirmationEmail, setConfirmationEmail] = useState<string | null>(
+    null,
+  );
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError("");
     if (!fullName.trim() || !email || password.length < 8) {
-      setError("Enter your name, a valid email, and a password of at least 8 characters.");
+      setError(
+        "Enter your name, a valid email, and a password of at least 8 characters.",
+      );
       return;
     }
 
@@ -54,12 +58,22 @@ export default function RegisterPage() {
         setConfirmationEmail(email);
       }
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Registration failed.");
+      setError(
+        caught instanceof Error ? caught.message : "Registration failed.",
+      );
     }
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", backgroundColor: "#f4f4f5", padding: 24 }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "grid",
+        placeItems: "center",
+        backgroundColor: "#f4f4f5",
+        padding: 24,
+      }}
+    >
       <div style={{ width: "100%", maxWidth: 480 }}>
         <Card>
           <CardHeader>
@@ -69,19 +83,52 @@ export default function RegisterPage() {
           <CardContent>
             {confirmationEmail ? (
               <Alert variant="success" title="Verify your email to continue">
-                Supabase requires email confirmation for {confirmationEmail}. Open the verification email, then sign in to finish your guardian profile.
+                Supabase requires email confirmation for {confirmationEmail}.
+                Open the verification email, then sign in to finish your
+                guardian profile.
               </Alert>
             ) : (
               <>
                 {error ? <Alert variant="danger">{error}</Alert> : null}
-                <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: error ? 16 : 0 }}>
-                  <Input label={t("auth.register.fullName")} required value={fullName} onChange={(event) => setFullName(event.target.value)} autoComplete="name" />
-                  <Input label={t("auth.register.email")} type="email" required value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" />
-                  <Input label={t("auth.register.password")} type="password" required value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" helperText="Minimum 8 characters." />
+                <form
+                  onSubmit={handleSubmit}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 16,
+                    marginTop: error ? 16 : 0,
+                  }}
+                >
+                  <Input
+                    label={t("auth.register.fullName")}
+                    required
+                    value={fullName}
+                    onChange={(event) => setFullName(event.target.value)}
+                    autoComplete="name"
+                  />
+                  <Input
+                    label={t("auth.register.email")}
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    autoComplete="email"
+                  />
+                  <Input
+                    label={t("auth.register.password")}
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    autoComplete="new-password"
+                    helperText="Minimum 8 characters."
+                  />
                   <Select
                     label={t("auth.register.preferredLanguage")}
                     value={selectedLocale}
-                    onChange={(event) => setSelectedLocale(event.target.value as SupportedLocale)}
+                    onChange={(event) =>
+                      setSelectedLocale(event.target.value as SupportedLocale)
+                    }
                     options={[
                       { label: "English", value: "en" },
                       { label: "Bahasa Melayu", value: "ms" },
@@ -90,8 +137,22 @@ export default function RegisterPage() {
                       { label: "हिन्दी", value: "hi" },
                     ]}
                   />
-                  <p style={{ color: "#71717a", fontSize: "0.75rem", lineHeight: 1.5 }}>{t("auth.register.termsNotice")}</p>
-                  <Button variant="primary" size="lg" type="submit" isLoading={isLoading} style={{ width: "100%" }}>
+                  <p
+                    style={{
+                      color: "#71717a",
+                      fontSize: "0.75rem",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {t("auth.register.termsNotice")}
+                  </p>
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    type="submit"
+                    isLoading={isLoading}
+                    style={{ width: "100%" }}
+                  >
                     {t("auth.register.submit")}
                   </Button>
                 </form>
@@ -99,7 +160,9 @@ export default function RegisterPage() {
             )}
           </CardContent>
           <CardFooter style={{ justifyContent: "center" }}>
-            <Link href="/auth/login">{t("auth.register.haveAccount")} {t("nav.login")}</Link>
+            <Link href="/auth/login">
+              {t("auth.register.haveAccount")} {t("nav.login")}
+            </Link>
           </CardFooter>
         </Card>
       </div>

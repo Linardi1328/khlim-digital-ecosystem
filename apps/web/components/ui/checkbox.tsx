@@ -1,15 +1,26 @@
 "use client";
 
-import React, { type InputHTMLAttributes, forwardRef, type ReactNode } from "react";
+import React, {
+  type InputHTMLAttributes,
+  forwardRef,
+  type ReactNode,
+} from "react";
 
-export interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "type"> {
+export interface CheckboxProps extends Omit<
+  InputHTMLAttributes<HTMLInputElement>,
+  "type"
+> {
   label: ReactNode;
   error?: string;
 }
 
 export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
   ({ label, error, id, style, ...props }, ref) => {
-    const checkId = id ?? (typeof label === "string" ? label.toLowerCase().replace(/\s+/g, "-") : undefined);
+    const checkId =
+      id ??
+      (typeof label === "string"
+        ? label.toLowerCase().replace(/\s+/g, "-")
+        : undefined);
 
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
@@ -42,7 +53,14 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
           <div>{label}</div>
         </label>
         {error && (
-          <span style={{ fontSize: "0.8125rem", color: "#DC2626", fontWeight: 500, marginLeft: "28px" }}>
+          <span
+            style={{
+              fontSize: "0.8125rem",
+              color: "#DC2626",
+              fontWeight: 500,
+              marginLeft: "28px",
+            }}
+          >
             {error}
           </span>
         )}

@@ -198,8 +198,18 @@ export function PublicHeader() {
               {link.label}
             </Link>
           ))}
-          <div style={{ marginTop: "16px", display: "flex", flexDirection: "column", gap: "10px" }}>
-            <Link href="/portal/dashboard" onClick={() => setMobileMenuOpen(false)}>
+          <div
+            style={{
+              marginTop: "16px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "10px",
+            }}
+          >
+            <Link
+              href="/portal/dashboard"
+              onClick={() => setMobileMenuOpen(false)}
+            >
               <Button variant="secondary" size="md" style={{ width: "100%" }}>
                 🏀 {t("nav.portal")}
               </Button>

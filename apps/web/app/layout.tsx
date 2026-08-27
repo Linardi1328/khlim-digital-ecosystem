@@ -6,7 +6,8 @@ import { Providers } from "../components/providers";
 
 export const metadata: Metadata = {
   title: "KHLIM — Digital Sports Ecosystem",
-  description: "Official KHLIM Basketball Academy public website and member platform.",
+  description:
+    "Official KHLIM Basketball Academy public website and member platform.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

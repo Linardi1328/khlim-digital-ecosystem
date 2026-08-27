@@ -1,6 +1,12 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  type ReactNode,
+} from "react";
 import {
   type SupportedLocale,
   DEFAULT_LOCALE,
@@ -16,10 +22,19 @@ import {
 interface I18nContextValue {
   locale: SupportedLocale;
   setLocale: (locale: SupportedLocale) => void;
-  t: (key: MessageKey | string, params?: Record<string, string | number>) => string;
+  t: (
+    key: MessageKey | string,
+    params?: Record<string, string | number>,
+  ) => string;
   formatCurrency: (amount: number, currency?: string) => string;
-  formatDate: (date: Date | string | number, options?: Intl.DateTimeFormatOptions) => string;
-  formatTime: (date: Date | string | number, options?: Intl.DateTimeFormatOptions) => string;
+  formatDate: (
+    date: Date | string | number,
+    options?: Intl.DateTimeFormatOptions,
+  ) => string;
+  formatTime: (
+    date: Date | string | number,
+    options?: Intl.DateTimeFormatOptions,
+  ) => string;
   supportedLocales: readonly SupportedLocale[];
 }
 
@@ -35,7 +50,10 @@ export function I18nProvider({
   const [locale, setLocaleState] = useState<SupportedLocale>(initialLocale);
 
   useEffect(() => {
-    const saved = typeof window !== "undefined" ? localStorage.getItem("khlim_locale") : null;
+    const saved =
+      typeof window !== "undefined"
+        ? localStorage.getItem("khlim_locale")
+        : null;
     if (saved) {
       setLocaleState(resolveLocale(saved));
     }
@@ -49,7 +67,10 @@ export function I18nProvider({
     }
   };
 
-  const t = (key: MessageKey | string, params?: Record<string, string | number>) => {
+  const t = (
+    key: MessageKey | string,
+    params?: Record<string, string | number>,
+  ) => {
     return translate(key, locale, params);
   };
 
@@ -57,11 +78,17 @@ export function I18nProvider({
     return baseFormatCurrency(amount, currency, locale);
   };
 
-  const formatDate = (date: Date | string | number, options?: Intl.DateTimeFormatOptions) => {
+  const formatDate = (
+    date: Date | string | number,
+    options?: Intl.DateTimeFormatOptions,
+  ) => {
     return baseFormatDate(date, locale, options);
   };
 
-  const formatTime = (date: Date | string | number, options?: Intl.DateTimeFormatOptions) => {
+  const formatTime = (
+    date: Date | string | number,
+    options?: Intl.DateTimeFormatOptions,
+  ) => {
     return baseFormatTime(date, locale, options);
   };
 
@@ -89,7 +116,8 @@ export function useI18n(): I18nContextValue {
       locale: DEFAULT_LOCALE,
       setLocale: () => {},
       t: (key, params) => translate(key, DEFAULT_LOCALE, params),
-      formatCurrency: (amount, currency = "MYR") => baseFormatCurrency(amount, currency, DEFAULT_LOCALE),
+      formatCurrency: (amount, currency = "MYR") =>
+        baseFormatCurrency(amount, currency, DEFAULT_LOCALE),
       formatDate: (d, opt) => baseFormatDate(d, DEFAULT_LOCALE, opt),
       formatTime: (d, opt) => baseFormatTime(d, DEFAULT_LOCALE, opt),
       supportedLocales: SUPPORTED_LOCALES,

@@ -13,7 +13,14 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
     const selectId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
 
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: "6px", width: "100%" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "6px",
+          width: "100%",
+        }}
+      >
         {label && (
           <label
             htmlFor={selectId}
@@ -53,7 +60,9 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           ))}
         </select>
         {error && (
-          <span style={{ fontSize: "0.8125rem", color: "#DC2626", fontWeight: 500 }}>
+          <span
+            style={{ fontSize: "0.8125rem", color: "#DC2626", fontWeight: 500 }}
+          >
             {error}
           </span>
         )}

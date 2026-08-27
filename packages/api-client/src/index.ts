@@ -28,11 +28,7 @@ export interface ApiClient {
     body?: unknown,
     options?: ApiRequestOptions,
   ): Promise<T>;
-  put<T>(
-    path: string,
-    body?: unknown,
-    options?: ApiRequestOptions,
-  ): Promise<T>;
+  put<T>(path: string, body?: unknown, options?: ApiRequestOptions): Promise<T>;
   patch<T>(
     path: string,
     body?: unknown,

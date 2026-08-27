@@ -111,12 +111,7 @@ export interface CreateManagedAthleteResponse {
 
 export type AthleteProfileResponse = ManagedAthlete;
 export type MembershipStatus =
-  | "PENDING"
-  | "ACTIVE"
-  | "SUSPENDED"
-  | "CANCELLED"
-  | "COMPLETED"
-  | "EXPIRED";
+  "PENDING" | "ACTIVE" | "SUSPENDED" | "CANCELLED" | "COMPLETED" | "EXPIRED";
 
 export interface MembershipOfferingItem {
   id: string;
@@ -127,7 +122,12 @@ export interface MembershipOfferingItem {
   startsOn: string | null;
   endsOn: string | null;
   status: "DRAFT" | "OPEN" | "CLOSED" | "INACTIVE";
-  programme?: { id?: string; code?: string; name: string; level: string | null };
+  programme?: {
+    id?: string;
+    code?: string;
+    name: string;
+    level: string | null;
+  };
   venue?: { id?: string; name: string; address: string | null } | null;
 }
 
@@ -160,7 +160,8 @@ export interface PaymentRecord {
   idempotencyKey: string;
   amountMinor: number;
   currency: string;
-  status: "PENDING" | "PROCESSING" | "PAID" | "FAILED" | "REFUNDED" | "CANCELLED";
+  status:
+    "PENDING" | "PROCESSING" | "PAID" | "FAILED" | "REFUNDED" | "CANCELLED";
   attemptNumber: number;
   attemptedAt: string;
   settledAt: string | null;

@@ -13,7 +13,14 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     const inputId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
 
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: "6px", width: "100%" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "6px",
+          width: "100%",
+        }}
+      >
         {label && (
           <label
             htmlFor={inputId}
@@ -47,7 +54,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           {...props}
         />
         {error && (
-          <span style={{ fontSize: "0.8125rem", color: "#DC2626", fontWeight: 500 }}>
+          <span
+            style={{ fontSize: "0.8125rem", color: "#DC2626", fontWeight: 500 }}
+          >
             {error}
           </span>
         )}

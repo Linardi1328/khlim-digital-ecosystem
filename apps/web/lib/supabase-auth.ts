@@ -188,7 +188,10 @@ export async function restoreSupabaseSession(): Promise<SupabaseSession | null> 
   const session = readStoredSession();
   if (!session) return null;
 
-  if (session.expires_at > Math.floor(Date.now() / 1000) + EXPIRY_SKEW_SECONDS) {
+  if (
+    session.expires_at >
+    Math.floor(Date.now() / 1000) + EXPIRY_SKEW_SECONDS
+  ) {
     return session;
   }
 
@@ -286,7 +289,12 @@ export function restoreRecoverySessionFromUrl(): SupabaseSession | null {
   const refreshToken = params.get("refresh_token");
   const expiresIn = Number(params.get("expires_in") || "0");
   const tokenType = params.get("token_type") || "bearer";
-  if (!accessToken || !refreshToken || !Number.isFinite(expiresIn) || expiresIn <= 0) {
+  if (
+    !accessToken ||
+    !refreshToken ||
+    !Number.isFinite(expiresIn) ||
+    expiresIn <= 0
+  ) {
     return null;
   }
 

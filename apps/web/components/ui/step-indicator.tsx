@@ -44,7 +44,11 @@ export function StepIndicator({ steps, currentStep }: StepIndicatorProps) {
                   width: "36px",
                   height: "36px",
                   borderRadius: "50%",
-                  backgroundColor: isCompleted ? "#10B981" : isCurrent ? "#F59E0B" : "#E4E4E7",
+                  backgroundColor: isCompleted
+                    ? "#10B981"
+                    : isCurrent
+                      ? "#F59E0B"
+                      : "#E4E4E7",
                   color: isCompleted || isCurrent ? "#18181B" : "#71717A",
                   display: "flex",
                   alignItems: "center",
@@ -62,7 +66,11 @@ export function StepIndicator({ steps, currentStep }: StepIndicatorProps) {
                   marginTop: "8px",
                   fontSize: "0.75rem",
                   fontWeight: isCurrent ? 700 : 500,
-                  color: isCurrent ? "#18181B" : isCompleted ? "#065F46" : "#71717A",
+                  color: isCurrent
+                    ? "#18181B"
+                    : isCompleted
+                      ? "#065F46"
+                      : "#71717A",
                   textAlign: "center",
                 }}
               >

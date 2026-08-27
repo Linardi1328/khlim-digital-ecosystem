@@ -30,7 +30,9 @@ const FamilyContext = createContext<FamilyContextValue | null>(null);
 
 export function FamilyProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
-  const [athleteLinks, setAthleteLinks] = useState<ManagedAthleteLinkItem[]>([]);
+  const [athleteLinks, setAthleteLinks] = useState<ManagedAthleteLinkItem[]>(
+    [],
+  );
   const [activeChild, setActiveChild] = useState<ManagedAthlete | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -48,7 +50,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       const athletes = links.map((link) => link.athlete);
       setActiveChild((current) => {
         if (current) {
-          const existing = athletes.find((athlete) => athlete.id === current.id);
+          const existing = athletes.find(
+            (athlete) => athlete.id === current.id,
+          );
           if (existing) return existing;
         }
         return athletes[0] ?? null;

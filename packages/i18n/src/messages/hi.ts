@@ -24,7 +24,8 @@ export const hi: Record<MessageKey, string> = {
 
   // Public Hero & Highlights
   "hero.title": "मलेशिया में युवा बास्केटबॉल को बढ़ावा",
-  "hero.subtitle": "खिलाड़ी-केंद्रित संरचित अकादमी इकोसिस्टम जो उत्कृष्ट कोचिंग, चरित्र निर्माण और डिजिटल प्रगति ट्रैकिंग को जोड़ता है।",
+  "hero.subtitle":
+    "खिलाड़ी-केंद्रित संरचित अकादमी इकोसिस्टम जो उत्कृष्ट कोचिंग, चरित्र निर्माण और डिजिटल प्रगति ट्रैकिंग को जोड़ता है।",
   "hero.cta.join": "अपने बच्चे का नामांकन करें",
   "hero.cta.explore": "प्रोग्राम देखें",
   "hero.badge": "बास्केटबॉल अकादमी सत्र 2026",
@@ -35,7 +36,8 @@ export const hi: Record<MessageKey, string> = {
 
   // Programmes
   "programmes.title": "अकादमी प्रशिक्षण प्रोग्राम",
-  "programmes.subtitle": "उम्र के अनुसार विकास मार्ग जो बुनियादी कौशल, बास्केटबॉल समझ और आत्मविश्वास का निर्माण करते हैं।",
+  "programmes.subtitle":
+    "उम्र के अनुसार विकास मार्ग जो बुनियादी कौशल, बास्केटबॉल समझ और आत्मविश्वास का निर्माण करते हैं।",
   "programmes.ageGroup": "आयु वर्ग",
   "programmes.capacity": "क्षमता",
   "programmes.sessionsPerWeek": "प्रति सप्ताह सत्र",
@@ -46,7 +48,8 @@ export const hi: Record<MessageKey, string> = {
 
   // Auth
   "auth.login.title": "KHLIM में साइन इन करें",
-  "auth.login.subtitle": "अपने अभिभावक पोर्टल, बच्चे के शेड्यूल और सदस्यता विवरण तक पहुंचें।",
+  "auth.login.subtitle":
+    "अपने अभिभावक पोर्टल, बच्चे के शेड्यूल और सदस्यता विवरण तक पहुंचें।",
   "auth.login.email": "ईमेल पता",
   "auth.login.password": "पासवर्ड",
   "auth.login.submit": "साइन इन करें",
@@ -54,23 +57,27 @@ export const hi: Record<MessageKey, string> = {
   "auth.login.noAccount": "खाता नहीं है?",
   "auth.login.createAccount": "अभिभावक खाता बनाएं",
   "auth.register.title": "अभिभावक खाता बनाएं",
-  "auth.register.subtitle": "KHLIM प्रोग्रामों और प्रतियोगिताओं में अपने बच्चों को प्रबंधित करने के लिए एक बार पंजीकरण करें।",
+  "auth.register.subtitle":
+    "KHLIM प्रोग्रामों और प्रतियोगिताओं में अपने बच्चों को प्रबंधित करने के लिए एक बार पंजीकरण करें।",
   "auth.register.fullName": "पूरा नाम",
   "auth.register.email": "ईमेल पता",
   "auth.register.password": "पासवर्ड बनाएं",
   "auth.register.confirmPassword": "पासवर्ड की पुष्टि करें",
   "auth.register.preferredLanguage": "पसंदीदा भाषा",
-  "auth.register.termsNotice": "खाता बनाकर आप KHLIM सेवा की शर्तों और गोपनीयता नीति से सहमत होते हैं।",
+  "auth.register.termsNotice":
+    "खाता बनाकर आप KHLIM सेवा की शर्तों और गोपनीयता नीति से सहमत होते हैं।",
   "auth.register.submit": "खाता बनाएं और आगे बढ़ें",
   "auth.register.haveAccount": "पहले से खाता है?",
   "auth.forgot.title": "पासवर्ड रीसेट करें",
-  "auth.forgot.subtitle": "अपना पंजीकृत ईमेल दर्ज करें और हम आपको एक रीसेट लिंक भेजेंगे।",
+  "auth.forgot.subtitle":
+    "अपना पंजीकृत ईमेल दर्ज करें और हम आपको एक रीसेट लिंक भेजेंगे।",
   "auth.forgot.submit": "रीसेट लिंक भेजें",
   "auth.forgot.backToLogin": "साइन इन पर वापस जाएं",
 
   // Onboarding
   "onboarding.guardian.title": "अभिभावक प्रोफ़ाइल पूरा करें",
-  "onboarding.guardian.subtitle": "कृपया अपनी संपर्क जानकारी प्रदान करें ताकि कोचिंग स्टाफ और अकादमी टीम आपसे संपर्क कर सके।",
+  "onboarding.guardian.subtitle":
+    "कृपया अपनी संपर्क जानकारी प्रदान करें ताकि कोचिंग स्टाफ और अकादमी टीम आपसे संपर्क कर सके।",
   "onboarding.guardian.displayName": "अभिभावक का नाम",
   "onboarding.guardian.phone": "मोबाइल नंबर (WhatsApp सक्षम)",
   "onboarding.guardian.emergencyContact": "आपातकालीन संपर्क नाम और फोन",
@@ -83,26 +90,32 @@ export const hi: Record<MessageKey, string> = {
   "enrol.steps.terms": "4. शर्तें और समीक्षा",
   "enrol.steps.payment": "5. सुरक्षित भुगतान",
   "enrol.player.selectTitle": "नामांकन के लिए खिलाड़ी चुनें",
-  "enrol.player.selectSubtitle": "लिंक किए गए बच्चे को चुनें या नया खिलाड़ी प्रोफ़ाइल जोड़ें।",
+  "enrol.player.selectSubtitle":
+    "लिंक किए गए बच्चे को चुनें या नया खिलाड़ी प्रोफ़ाइल जोड़ें।",
   "enrol.player.addNew": "+ नया बच्चा जोड़ें",
   "enrol.player.fullName": "बच्चे का पूरा नाम",
   "enrol.player.dob": "जन्म तिथि",
   "enrol.player.gender": "लिंग",
   "enrol.programme.selectTitle": "प्रोग्राम सत्र चुनें",
-  "enrol.programme.selectSubtitle": "स्थान, सप्ताह का दिन और प्रशिक्षण समय स्लॉट चुनें।",
+  "enrol.programme.selectSubtitle":
+    "स्थान, सप्ताह का दिन और प्रशिक्षण समय स्लॉट चुनें।",
   "enrol.plan.selectTitle": "सदस्यता योजना चुनें",
-  "enrol.plan.selectSubtitle": "पारदर्शी मूल्य निर्धारण जो KHLIM सर्वर द्वारा प्रमाणित है।",
+  "enrol.plan.selectSubtitle":
+    "पारदर्शी मूल्य निर्धारण जो KHLIM सर्वर द्वारा प्रमाणित है।",
   "enrol.plan.monthly": "मासिक आवर्ती",
   "enrol.plan.upfront": "एकमुश्त भुगतान",
   "enrol.plan.perMonth": "/ माह",
   "enrol.plan.total": "कुल",
   "enrol.plan.commitment": "{count} महीने की प्रतिबद्धता",
   "enrol.terms.title": "शर्तों की समीक्षा और आवर्ती बिलिंग सहमति",
-  "enrol.terms.recurringNotice": "मैं KHLIM को सहमत अनुसूची के अनुसार मासिक सदस्यता शुल्क लेने के लिए अधिकृत करता हूं।",
-  "enrol.terms.acceptCheckbox": "मैंने KHLIM अकादमी की शर्तें, आचार संहिता और आवर्ती बिलिंग नीति पढ़ ली है और सहमत हूं।",
+  "enrol.terms.recurringNotice":
+    "मैं KHLIM को सहमत अनुसूची के अनुसार मासिक सदस्यता शुल्क लेने के लिए अधिकृत करता हूं।",
+  "enrol.terms.acceptCheckbox":
+    "मैंने KHLIM अकादमी की शर्तें, आचार संहिता और आवर्ती बिलिंग नीति पढ़ ली है और सहमत हूं।",
   "enrol.checkout.proceed": "सुरक्षित भुगतान के लिए आगे बढ़ें",
   "enrol.confirmation.title": "नामांकन सफलतापूर्वक जमा हुआ!",
-  "enrol.confirmation.subtitle": "आपका सदस्यता अनुरोध दर्ज कर लिया गया है और सक्रिय किया जा रहा है।",
+  "enrol.confirmation.subtitle":
+    "आपका सदस्यता अनुरोध दर्ज कर लिया गया है और सक्रिय किया जा रहा है।",
   "enrol.confirmation.viewDashboard": "सदस्य डैशबोर्ड पर जाएं",
 
   // Member Portal
@@ -122,7 +135,8 @@ export const hi: Record<MessageKey, string> = {
   "portal.membership.endDate": "नवीनीकरण / समाप्ति",
   "portal.membership.history": "सदस्यता इतिहास",
   "portal.payments.title": "बिलिंग और भुगतान",
-  "portal.payments.subtitle": "भुगतान कार्यक्रम, आगामी किश्तें और पिछली रसीदें देखें।",
+  "portal.payments.subtitle":
+    "भुगतान कार्यक्रम, आगामी किश्तें और पिछली रसीदें देखें।",
   "portal.payments.upcoming": "आगामी किश्तें",
   "portal.payments.history": "लेन-देन इतिहास",
   "portal.payments.receipt": "रसीद देखें",

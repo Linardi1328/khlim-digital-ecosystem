@@ -49,7 +49,14 @@ export function ChildSwitcher() {
         Active Player:
       </div>
 
-      <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: "6px",
+          alignItems: "center",
+          flexWrap: "wrap",
+        }}
+      >
         {athletes.map((child) => {
           const isSelected = activeChild?.id === child.id;
           return (
@@ -128,11 +135,28 @@ export function ChildSwitcher() {
             value={newChildDob}
             onChange={(e) => setNewChildDob(e.target.value)}
           />
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "12px" }}>
-            <Button variant="outline" size="md" type="button" onClick={() => setModalOpen(false)}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: "10px",
+              marginTop: "12px",
+            }}
+          >
+            <Button
+              variant="outline"
+              size="md"
+              type="button"
+              onClick={() => setModalOpen(false)}
+            >
               Cancel
             </Button>
-            <Button variant="primary" size="md" type="submit" isLoading={isSaving}>
+            <Button
+              variant="primary"
+              size="md"
+              type="submit"
+              isLoading={isSaving}
+            >
               Save Child Profile
             </Button>
           </div>

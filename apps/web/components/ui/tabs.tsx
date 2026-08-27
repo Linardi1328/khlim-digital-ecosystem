@@ -40,7 +40,9 @@ export function Tabs({ tabs, activeTab, onChange }: TabsProps) {
               fontSize: "0.9375rem",
               fontWeight: isActive ? 600 : 500,
               color: isActive ? "#18181B" : "#71717A",
-              borderBottom: isActive ? "2px solid #F59E0B" : "2px solid transparent",
+              borderBottom: isActive
+                ? "2px solid #F59E0B"
+                : "2px solid transparent",
               background: "transparent",
               borderTop: "none",
               borderLeft: "none",

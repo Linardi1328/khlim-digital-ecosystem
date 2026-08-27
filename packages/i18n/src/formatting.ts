@@ -26,7 +26,10 @@ export function formatDate(
   locale: SupportedLocale = "en",
   options?: Intl.DateTimeFormatOptions,
 ): string {
-  const d = typeof date === "string" || typeof date === "number" ? new Date(date) : date;
+  const d =
+    typeof date === "string" || typeof date === "number"
+      ? new Date(date)
+      : date;
   const targetLocale = localeFormatMap[locale] ?? "en-MY";
   const defaultOptions: Intl.DateTimeFormatOptions = {
     year: "numeric",
@@ -43,7 +46,10 @@ export function formatTime(
   locale: SupportedLocale = "en",
   options?: Intl.DateTimeFormatOptions,
 ): string {
-  const d = typeof date === "string" || typeof date === "number" ? new Date(date) : date;
+  const d =
+    typeof date === "string" || typeof date === "number"
+      ? new Date(date)
+      : date;
   const targetLocale = localeFormatMap[locale] ?? "en-MY";
   const defaultOptions: Intl.DateTimeFormatOptions = {
     hour: "numeric",

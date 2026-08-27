@@ -67,7 +67,10 @@ test("Phase 5 confirmation requires verified backend state and has an explicit v
   assert.match(confirmation, /getMembershipBilling/);
   assert.match(confirmation, /listAthleteMemberships/);
   assert.match(confirmation, /"error"/);
-  assert.match(confirmation, /No payment or membership success is being assumed/);
+  assert.match(
+    confirmation,
+    /No payment or membership success is being assumed/,
+  );
   assert.doesNotMatch(confirmation, /memberships\[0\]/);
 });
 
@@ -122,8 +125,14 @@ test("Phase 5 public copy does not hard-code unverified venues or programme tier
 
   assert.doesNotMatch(footer, /Seri Kembangan|Cyberjaya|Advanced Elite/i);
   assert.doesNotMatch(about, /Founded by passionate basketball coaches/i);
-  assert.match(privacy, /Later capabilities such as attendance or development records require separate implementation/);
-  assert.match(terms, /Detailed session scheduling, cancellations, replacement sessions, attendance, and term-adjustment rules are later operational capabilities/);
+  assert.match(
+    privacy,
+    /Later capabilities such as attendance or development records require separate implementation/,
+  );
+  assert.match(
+    terms,
+    /Detailed session scheduling, cancellations, replacement sessions, attendance, and term-adjustment rules are later operational capabilities/,
+  );
 });
 
 test("Phase 5 responsive rules separate desktop and mobile navigation", async () => {

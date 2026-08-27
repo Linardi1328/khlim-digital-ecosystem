@@ -24,7 +24,8 @@ export const zhHans: Record<MessageKey, string> = {
 
   // Public Hero & Highlights
   "hero.title": "提升马来西亚青少年篮球发展",
-  "hero.subtitle": "以球员为中心的结构化学院生态系统，融合精英教练指导、品格塑造与数字化成长追踪。",
+  "hero.subtitle":
+    "以球员为中心的结构化学院生态系统，融合精英教练指导、品格塑造与数字化成长追踪。",
   "hero.cta.join": "为孩子报名",
   "hero.cta.explore": "浏览课程项目",
   "hero.badge": "2026 赛季篮球学院招生中",
@@ -35,7 +36,8 @@ export const zhHans: Record<MessageKey, string> = {
 
   // Programmes
   "programmes.title": "学院训练课程",
-  "programmes.subtitle": "分龄定制的发展路径，旨在夯实篮球基本功、培养球商与建立自信心。",
+  "programmes.subtitle":
+    "分龄定制的发展路径，旨在夯实篮球基本功、培养球商与建立自信心。",
   "programmes.ageGroup": "适用年龄",
   "programmes.capacity": "班级名额",
   "programmes.sessionsPerWeek": "每周训练频次",
@@ -54,13 +56,15 @@ export const zhHans: Record<MessageKey, string> = {
   "auth.login.noAccount": "还没有账号？",
   "auth.login.createAccount": "创建家长账号",
   "auth.register.title": "注册家长账号",
-  "auth.register.subtitle": "一次注册，即可统一管理所有孩子在 KHLIM 学院与赛事的报名。",
+  "auth.register.subtitle":
+    "一次注册，即可统一管理所有孩子在 KHLIM 学院与赛事的报名。",
   "auth.register.fullName": "家长姓名",
   "auth.register.email": "电子邮箱",
   "auth.register.password": "设置密码",
   "auth.register.confirmPassword": "确认密码",
   "auth.register.preferredLanguage": "首选语言",
-  "auth.register.termsNotice": "创建账号即表示您同意 KHLIM 服务条款与隐私政策。",
+  "auth.register.termsNotice":
+    "创建账号即表示您同意 KHLIM 服务条款与隐私政策。",
   "auth.register.submit": "创建账号并继续",
   "auth.register.haveAccount": "已有账号？",
   "auth.forgot.title": "重置密码",
@@ -70,7 +74,8 @@ export const zhHans: Record<MessageKey, string> = {
 
   // Onboarding
   "onboarding.guardian.title": "完善家长信息",
-  "onboarding.guardian.subtitle": "请提供联系电话，以便教练团队与学院管理人员及时与您沟通。",
+  "onboarding.guardian.subtitle":
+    "请提供联系电话，以便教练团队与学院管理人员及时与您沟通。",
   "onboarding.guardian.displayName": "家长称呼",
   "onboarding.guardian.phone": "手机号码 (支持 WhatsApp)",
   "onboarding.guardian.emergencyContact": "紧急联系人姓名与电话",
@@ -98,8 +103,10 @@ export const zhHans: Record<MessageKey, string> = {
   "enrol.plan.total": "总计",
   "enrol.plan.commitment": "{count} 个月周期承诺",
   "enrol.terms.title": "核对条款与授权定期扣款",
-  "enrol.terms.recurringNotice": "本人授权 KHLIM 根据约定的周期计划按月扣缴会籍费用，直至承诺期结束。",
-  "enrol.terms.acceptCheckbox": "我已阅读并同意《KHLIM 学院服务条款》、《学员行为准则》及《自动续订政策》。",
+  "enrol.terms.recurringNotice":
+    "本人授权 KHLIM 根据约定的周期计划按月扣缴会籍费用，直至承诺期结束。",
+  "enrol.terms.acceptCheckbox":
+    "我已阅读并同意《KHLIM 学院服务条款》、《学员行为准则》及《自动续订政策》。",
   "enrol.checkout.proceed": "进入安全支付通道",
   "enrol.confirmation.title": "报名已成功提交！",
   "enrol.confirmation.subtitle": "您的会籍申请已录入系统，正在激活中。",

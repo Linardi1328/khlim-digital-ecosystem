@@ -1,6 +1,11 @@
 "use client";
 
-import React, { createContext, useContext, useState, type ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  type ReactNode,
+} from "react";
 
 export type ToastVariant = "success" | "error" | "warning" | "info";
 
@@ -76,9 +81,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               }}
             >
               <div>
-                <div style={{ fontWeight: 700, fontSize: "0.875rem" }}>{t.title}</div>
+                <div style={{ fontWeight: 700, fontSize: "0.875rem" }}>
+                  {t.title}
+                </div>
                 {t.description && (
-                  <div style={{ fontSize: "0.8125rem", opacity: 0.9, marginTop: "2px" }}>
+                  <div
+                    style={{
+                      fontSize: "0.8125rem",
+                      opacity: 0.9,
+                      marginTop: "2px",
+                    }}
+                  >
                     {t.description}
                   </div>
                 )}

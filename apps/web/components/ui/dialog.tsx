@@ -30,7 +30,8 @@ export function Dialog({
     };
 
     if (isOpen) {
-      previousActiveElement.current = document.activeElement as HTMLElement | null;
+      previousActiveElement.current =
+        document.activeElement as HTMLElement | null;
       document.body.style.overflow = "hidden";
       window.addEventListener("keydown", handleKeyDown);
       // Move focus inside dialog
@@ -80,19 +81,42 @@ export function Dialog({
           maxWidth: "500px",
           backgroundColor: "#FFFFFF",
           borderRadius: "16px",
-          boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+          boxShadow:
+            "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
           padding: "24px",
           position: "relative",
           outline: "none",
         }}
       >
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "16px" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            marginBottom: "16px",
+          }}
+        >
           <div>
-            <h3 id={titleId} style={{ margin: 0, fontSize: "1.25rem", fontWeight: 700, color: "#18181B" }}>
+            <h3
+              id={titleId}
+              style={{
+                margin: 0,
+                fontSize: "1.25rem",
+                fontWeight: 700,
+                color: "#18181B",
+              }}
+            >
               {title}
             </h3>
             {description && (
-              <p id={descId} style={{ margin: "4px 0 0", fontSize: "0.875rem", color: "#71717A" }}>
+              <p
+                id={descId}
+                style={{
+                  margin: "4px 0 0",
+                  fontSize: "0.875rem",
+                  color: "#71717A",
+                }}
+              >
                 {description}
               </p>
             )}

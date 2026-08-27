@@ -27,7 +27,8 @@ export function Sheet({
     };
 
     if (isOpen) {
-      previousActiveElement.current = document.activeElement as HTMLElement | null;
+      previousActiveElement.current =
+        document.activeElement as HTMLElement | null;
       document.body.style.overflow = "hidden";
       window.addEventListener("keydown", handleKeyDown);
       setTimeout(() => {
@@ -108,9 +109,19 @@ export function Sheet({
         }}
       >
         <div style={{ padding: "20px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: "16px",
+            }}
+          >
             {title && (
-              <h3 id={titleId} style={{ margin: 0, fontSize: "1.125rem", fontWeight: 700 }}>
+              <h3
+                id={titleId}
+                style={{ margin: 0, fontSize: "1.125rem", fontWeight: 700 }}
+              >
                 {title}
               </h3>
             )}

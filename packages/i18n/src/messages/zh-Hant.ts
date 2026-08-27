@@ -24,7 +24,8 @@ export const zhHant: Record<MessageKey, string> = {
 
   // Public Hero & Highlights
   "hero.title": "提升馬來西亞青少年籃球發展",
-  "hero.subtitle": "以球員為中心的結構化學院生態系統，融合菁英教練指導、品格塑造與數位化成長追蹤。",
+  "hero.subtitle":
+    "以球員為中心的結構化學院生態系統，融合菁英教練指導、品格塑造與數位化成長追蹤。",
   "hero.cta.join": "為孩子報名",
   "hero.cta.explore": "瀏覽課程項目",
   "hero.badge": "2026 賽季籃球學院熱烈招生",
@@ -35,7 +36,8 @@ export const zhHant: Record<MessageKey, string> = {
 
   // Programmes
   "programmes.title": "學院訓練課程",
-  "programmes.subtitle": "分齡定制的發展路徑，旨在夯實籃球基本功、培養球商與建立自信心。",
+  "programmes.subtitle":
+    "分齡定制的發展路徑，旨在夯實籃球基本功、培養球商與建立自信心。",
   "programmes.ageGroup": "適用年齡",
   "programmes.capacity": "班級名額",
   "programmes.sessionsPerWeek": "每週訓練頻次",
@@ -54,13 +56,15 @@ export const zhHant: Record<MessageKey, string> = {
   "auth.login.noAccount": "還沒有帳號？",
   "auth.login.createAccount": "創建家長帳號",
   "auth.register.title": "註冊家長帳號",
-  "auth.register.subtitle": "一次註冊，即可統一管理所有孩子在 KHLIM 學院與賽事的報名。",
+  "auth.register.subtitle":
+    "一次註冊，即可統一管理所有孩子在 KHLIM 學院與賽事的報名。",
   "auth.register.fullName": "家長姓名",
   "auth.register.email": "電子郵件",
   "auth.register.password": "設定密碼",
   "auth.register.confirmPassword": "確認密碼",
   "auth.register.preferredLanguage": "首選語言",
-  "auth.register.termsNotice": "創建帳號即表示您同意 KHLIM 服務條款與隱私政策。",
+  "auth.register.termsNotice":
+    "創建帳號即表示您同意 KHLIM 服務條款與隱私政策。",
   "auth.register.submit": "創建帳號並繼續",
   "auth.register.haveAccount": "已有帳號？",
   "auth.forgot.title": "重設密碼",
@@ -70,7 +74,8 @@ export const zhHant: Record<MessageKey, string> = {
 
   // Onboarding
   "onboarding.guardian.title": "完善家長資料",
-  "onboarding.guardian.subtitle": "請提供聯絡電話，以便教練團隊與學院管理人員及時與您溝通。",
+  "onboarding.guardian.subtitle":
+    "請提供聯絡電話，以便教練團隊與學院管理人員及時與您溝通。",
   "onboarding.guardian.displayName": "家長稱呼",
   "onboarding.guardian.phone": "手機號碼 (支援 WhatsApp)",
   "onboarding.guardian.emergencyContact": "緊急聯絡人姓名與電話",
@@ -98,8 +103,10 @@ export const zhHant: Record<MessageKey, string> = {
   "enrol.plan.total": "總計",
   "enrol.plan.commitment": "{count} 個月週期承諾",
   "enrol.terms.title": "核對條款與授權定期扣款",
-  "enrol.terms.recurringNotice": "本人授權 KHLIM 根據約定的週期計劃按月扣繳會籍費用，直至承諾期結束。",
-  "enrol.terms.acceptCheckbox": "我已閱讀並同意《KHLIM 學院服務條款》、《學員行為準則》及《自動續訂政策》。",
+  "enrol.terms.recurringNotice":
+    "本人授權 KHLIM 根據約定的週期計劃按月扣繳會籍費用，直至承諾期結束。",
+  "enrol.terms.acceptCheckbox":
+    "我已閱讀並同意《KHLIM 學院服務條款》、《學員行為準則》及《自動續訂政策》。",
   "enrol.checkout.proceed": "進入安全支付通道",
   "enrol.confirmation.title": "報名已成功提交！",
   "enrol.confirmation.subtitle": "您的會籍申請已錄入系統，正在啟用中。",

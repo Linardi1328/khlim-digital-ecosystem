@@ -54,7 +54,14 @@ export function EmptyState({
           🏀
         </div>
       )}
-      <h4 style={{ fontSize: "1.125rem", fontWeight: 700, color: "#18181B", margin: "0 0 8px" }}>
+      <h4
+        style={{
+          fontSize: "1.125rem",
+          fontWeight: 700,
+          color: "#18181B",
+          margin: "0 0 8px",
+        }}
+      >
         {title}
       </h4>
       <p

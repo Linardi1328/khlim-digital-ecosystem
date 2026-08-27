@@ -22,7 +22,8 @@ export const en = {
 
   // Public Hero & Highlights
   "hero.title": "Elevating Youth Basketball in Malaysia",
-  "hero.subtitle": "A structured, player-first academy ecosystem combining elite coaching, character development, and digital progression tracking.",
+  "hero.subtitle":
+    "A structured, player-first academy ecosystem combining elite coaching, character development, and digital progression tracking.",
   "hero.cta.join": "Enrol Your Child",
   "hero.cta.explore": "Explore Programmes",
   "hero.badge": "Basketball Academy 2026 Season",
@@ -33,7 +34,8 @@ export const en = {
 
   // Programmes
   "programmes.title": "Academy Training Programmes",
-  "programmes.subtitle": "Age-appropriate development pathways designed to build fundamentals, basketball IQ, and confidence.",
+  "programmes.subtitle":
+    "Age-appropriate development pathways designed to build fundamentals, basketball IQ, and confidence.",
   "programmes.ageGroup": "Age Group",
   "programmes.capacity": "Capacity",
   "programmes.sessionsPerWeek": "Sessions per week",
@@ -44,7 +46,8 @@ export const en = {
 
   // Auth
   "auth.login.title": "Sign In to KHLIM",
-  "auth.login.subtitle": "Access your parent portal, child schedules, and membership details.",
+  "auth.login.subtitle":
+    "Access your parent portal, child schedules, and membership details.",
   "auth.login.email": "Email Address",
   "auth.login.password": "Password",
   "auth.login.submit": "Sign In",
@@ -52,23 +55,27 @@ export const en = {
   "auth.login.noAccount": "Don't have an account?",
   "auth.login.createAccount": "Create Guardian Account",
   "auth.register.title": "Create Guardian Account",
-  "auth.register.subtitle": "Register once to manage all your children across KHLIM programmes and events.",
+  "auth.register.subtitle":
+    "Register once to manage all your children across KHLIM programmes and events.",
   "auth.register.fullName": "Full Name",
   "auth.register.email": "Email Address",
   "auth.register.password": "Create Password",
   "auth.register.confirmPassword": "Confirm Password",
   "auth.register.preferredLanguage": "Preferred Language",
-  "auth.register.termsNotice": "By creating an account, you agree to the KHLIM Terms of Service and Privacy Policy.",
+  "auth.register.termsNotice":
+    "By creating an account, you agree to the KHLIM Terms of Service and Privacy Policy.",
   "auth.register.submit": "Create Account & Continue",
   "auth.register.haveAccount": "Already have an account?",
   "auth.forgot.title": "Reset Password",
-  "auth.forgot.subtitle": "Enter your registered email and we will send you a reset link.",
+  "auth.forgot.subtitle":
+    "Enter your registered email and we will send you a reset link.",
   "auth.forgot.submit": "Send Reset Link",
   "auth.forgot.backToLogin": "Back to Sign In",
 
   // Onboarding
   "onboarding.guardian.title": "Complete Guardian Profile",
-  "onboarding.guardian.subtitle": "Please provide your contact information so our coaching staff and academy team can reach you.",
+  "onboarding.guardian.subtitle":
+    "Please provide your contact information so our coaching staff and academy team can reach you.",
   "onboarding.guardian.displayName": "Guardian Display Name",
   "onboarding.guardian.phone": "Mobile Phone Number (WhatsApp enabled)",
   "onboarding.guardian.emergencyContact": "Emergency Contact Name & Phone",
@@ -81,26 +88,32 @@ export const en = {
   "enrol.steps.terms": "4. Terms & Review",
   "enrol.steps.payment": "5. Secure Checkout",
   "enrol.player.selectTitle": "Select Athlete to Enrol",
-  "enrol.player.selectSubtitle": "Choose an existing linked child or register a new player profile.",
+  "enrol.player.selectSubtitle":
+    "Choose an existing linked child or register a new player profile.",
   "enrol.player.addNew": "+ Add New Child",
   "enrol.player.fullName": "Child Full Name",
   "enrol.player.dob": "Date of Birth",
   "enrol.player.gender": "Gender (for competition brackets)",
   "enrol.programme.selectTitle": "Choose Programme Offering",
-  "enrol.programme.selectSubtitle": "Select venue, day of the week, and training time slot.",
+  "enrol.programme.selectSubtitle":
+    "Select venue, day of the week, and training time slot.",
   "enrol.plan.selectTitle": "Choose Membership Plan",
-  "enrol.plan.selectSubtitle": "Transparent pricing calculated authoritative by KHLIM backend.",
+  "enrol.plan.selectSubtitle":
+    "Transparent pricing calculated authoritative by KHLIM backend.",
   "enrol.plan.monthly": "Monthly Recurring",
   "enrol.plan.upfront": "Upfront Commitment",
   "enrol.plan.perMonth": "/ month",
   "enrol.plan.total": "Total",
   "enrol.plan.commitment": "{count} months commitment",
   "enrol.terms.title": "Review Terms & Authorize Billing",
-  "enrol.terms.recurringNotice": "I authorize KHLIM to bill the monthly recurring membership amount according to the agreed schedule until the commitment period is completed.",
-  "enrol.terms.acceptCheckbox": "I have read and agree to the KHLIM Academy Terms, Code of Conduct, and Recurring Billing Policy.",
+  "enrol.terms.recurringNotice":
+    "I authorize KHLIM to bill the monthly recurring membership amount according to the agreed schedule until the commitment period is completed.",
+  "enrol.terms.acceptCheckbox":
+    "I have read and agree to the KHLIM Academy Terms, Code of Conduct, and Recurring Billing Policy.",
   "enrol.checkout.proceed": "Proceed to Secure Payment",
   "enrol.confirmation.title": "Enrolment Submitted!",
-  "enrol.confirmation.subtitle": "Your membership request has been recorded and is activating.",
+  "enrol.confirmation.subtitle":
+    "Your membership request has been recorded and is activating.",
   "enrol.confirmation.viewDashboard": "Go to Member Dashboard",
 
   // Member Portal
@@ -120,12 +133,14 @@ export const en = {
   "portal.membership.endDate": "Renews / Expires",
   "portal.membership.history": "Membership History",
   "portal.payments.title": "Billing & Payments",
-  "portal.payments.subtitle": "View payment schedules, upcoming installments, and past receipts.",
+  "portal.payments.subtitle":
+    "View payment schedules, upcoming installments, and past receipts.",
   "portal.payments.upcoming": "Upcoming Installments",
   "portal.payments.history": "Transaction History",
   "portal.payments.receipt": "View Receipt",
   "portal.schedule.title": "Training Schedule",
-  "portal.schedule.subtitle": "Authoritative session dates, court assignments, and coaches.",
+  "portal.schedule.subtitle":
+    "Authoritative session dates, court assignments, and coaches.",
   "portal.schedule.viewCalendar": "Calendar View",
   "portal.schedule.viewList": "List View",
   "portal.notifications.title": "Notifications",

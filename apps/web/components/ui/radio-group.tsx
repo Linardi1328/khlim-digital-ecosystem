@@ -26,7 +26,14 @@ export function RadioGroup<T extends string = string>({
   error,
 }: RadioGroupProps<T>) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "10px",
+        width: "100%",
+      }}
+    >
       {options.map((option) => {
         const isSelected = value === option.value;
         return (
@@ -61,14 +68,33 @@ export function RadioGroup<T extends string = string>({
               }}
             />
             <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
-                <span style={{ fontWeight: 600, fontSize: "1rem", color: "#18181B" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "8px",
+                }}
+              >
+                <span
+                  style={{
+                    fontWeight: 600,
+                    fontSize: "1rem",
+                    color: "#18181B",
+                  }}
+                >
                   {option.title}
                 </span>
                 {option.badge && <div>{option.badge}</div>}
               </div>
               {option.description && (
-                <div style={{ fontSize: "0.875rem", color: "#71717A", marginTop: "4px" }}>
+                <div
+                  style={{
+                    fontSize: "0.875rem",
+                    color: "#71717A",
+                    marginTop: "4px",
+                  }}
+                >
                   {option.description}
                 </div>
               )}
@@ -77,7 +103,9 @@ export function RadioGroup<T extends string = string>({
         );
       })}
       {error && (
-        <span style={{ fontSize: "0.8125rem", color: "#DC2626", fontWeight: 500 }}>
+        <span
+          style={{ fontSize: "0.8125rem", color: "#DC2626", fontWeight: 500 }}
+        >
           {error}
         </span>
       )}

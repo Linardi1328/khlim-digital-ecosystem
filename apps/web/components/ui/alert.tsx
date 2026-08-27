@@ -16,7 +16,10 @@ export function Alert({
   style,
   ...props
 }: AlertProps) {
-  const variantStyles: Record<string, { bg: string; border: string; text: string; titleColor: string }> = {
+  const variantStyles: Record<
+    string,
+    { bg: string; border: string; text: string; titleColor: string }
+  > = {
     info: {
       bg: "#EFF6FF",
       border: "#BFDBFE",
@@ -66,7 +69,13 @@ export function Alert({
       {icon && <div style={{ flexShrink: 0, marginTop: "2px" }}>{icon}</div>}
       <div style={{ flex: 1 }}>
         {title && (
-          <div style={{ fontWeight: 700, color: currentVariant.titleColor, marginBottom: "2px" }}>
+          <div
+            style={{
+              fontWeight: 700,
+              color: currentVariant.titleColor,
+              marginBottom: "2px",
+            }}
+          >
             {title}
           </div>
         )}

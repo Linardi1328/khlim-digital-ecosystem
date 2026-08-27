@@ -8,14 +8,26 @@ import { useI18n } from "../../../lib/i18n-context";
 import { PortalShell } from "../../../components/portal/portal-shell";
 import { Alert } from "../../../components/ui/alert";
 import { Button } from "../../../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../../../components/ui/card";
 import { Input } from "../../../components/ui/input";
 import { Select } from "../../../components/ui/select";
 
 export default function AccountPage() {
   const { t, locale, setLocale } = useI18n();
-  const { account, guardianProfile, updateGuardianProfile, requestPasswordReset } = useAuth();
-  const [displayName, setDisplayName] = useState(guardianProfile?.displayName ?? "");
+  const {
+    account,
+    guardianProfile,
+    updateGuardianProfile,
+    requestPasswordReset,
+  } = useAuth();
+  const [displayName, setDisplayName] = useState(
+    guardianProfile?.displayName ?? "",
+  );
   const [phone, setPhone] = useState(guardianProfile?.phone ?? "");
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
@@ -32,10 +44,17 @@ export default function AccountPage() {
     setError("");
     setNotice("");
     try {
-      await updateGuardianProfile({ displayName: displayName.trim(), phone: phone.trim() || null });
+      await updateGuardianProfile({
+        displayName: displayName.trim(),
+        phone: phone.trim() || null,
+      });
       setNotice("Guardian profile saved to KHLIM.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Unable to save guardian profile.");
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Unable to save guardian profile.",
+      );
     } finally {
       setSaving(false);
     }
@@ -49,7 +68,11 @@ export default function AccountPage() {
       await apiService.updatePreferences({ preferredLocale: next });
     } catch (caught) {
       setLocale(previous);
-      setError(caught instanceof Error ? caught.message : "Unable to save language preference.");
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Unable to save language preference.",
+      );
     }
   };
 
@@ -61,9 +84,15 @@ export default function AccountPage() {
     setError("");
     try {
       await requestPasswordReset(account.email);
-      setNotice("Password recovery request accepted by Supabase Auth. Check your email for the reset link.");
+      setNotice(
+        "Password recovery request accepted by Supabase Auth. Check your email for the reset link.",
+      );
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Unable to request password recovery.");
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Unable to request password recovery.",
+      );
     }
   };
 
@@ -72,26 +101,61 @@ export default function AccountPage() {
       <div style={{ maxWidth: 800 }}>
         <h1>{t("portal.account.title")}</h1>
         {notice ? <Alert variant="success">{notice}</Alert> : null}
-        {error ? <div style={{ marginTop: 12 }}><Alert variant="danger">{error}</Alert></div> : null}
-        <div style={{ display: "flex", flexDirection: "column", gap: 24, marginTop: 24 }}>
+        {error ? (
+          <div style={{ marginTop: 12 }}>
+            <Alert variant="danger">{error}</Alert>
+          </div>
+        ) : null}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 24,
+            marginTop: 24,
+          }}
+        >
           <Card>
-            <CardHeader><CardTitle>{t("portal.account.profile")}</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>{t("portal.account.profile")}</CardTitle>
+            </CardHeader>
             <CardContent>
-              <form onSubmit={saveProfile} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                <Input label="Registered email" disabled value={account?.email ?? "Email unavailable"} />
-                <Input label="Guardian display name" required value={displayName} onChange={(event) => setDisplayName(event.target.value)} />
-                <Input label="Contact phone" value={phone} onChange={(event) => setPhone(event.target.value)} />
-                <Button variant="primary" type="submit" isLoading={saving}>{t("common.save")}</Button>
+              <form
+                onSubmit={saveProfile}
+                style={{ display: "flex", flexDirection: "column", gap: 16 }}
+              >
+                <Input
+                  label="Registered email"
+                  disabled
+                  value={account?.email ?? "Email unavailable"}
+                />
+                <Input
+                  label="Guardian display name"
+                  required
+                  value={displayName}
+                  onChange={(event) => setDisplayName(event.target.value)}
+                />
+                <Input
+                  label="Contact phone"
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                />
+                <Button variant="primary" type="submit" isLoading={saving}>
+                  {t("common.save")}
+                </Button>
               </form>
             </CardContent>
           </Card>
           <Card>
-            <CardHeader><CardTitle>{t("portal.account.language")}</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>{t("portal.account.language")}</CardTitle>
+            </CardHeader>
             <CardContent>
               <Select
                 label="Application language"
                 value={locale}
-                onChange={(event) => changeLocale(event.target.value as SupportedLocale)}
+                onChange={(event) =>
+                  changeLocale(event.target.value as SupportedLocale)
+                }
                 options={[
                   { label: "English", value: "en" },
                   { label: "Bahasa Melayu", value: "ms" },
@@ -103,16 +167,50 @@ export default function AccountPage() {
             </CardContent>
           </Card>
           <Card>
-            <CardHeader><CardTitle>{t("portal.account.security")}</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>{t("portal.account.security")}</CardTitle>
+            </CardHeader>
             <CardContent>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-                <div><strong>Password</strong><div style={{ color: "#64748b", fontSize: "0.8125rem" }}>Managed by Supabase Auth</div></div>
-                <Button variant="outline" onClick={sendReset}>Send reset link</Button>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 16,
+                  flexWrap: "wrap",
+                }}
+              >
+                <div>
+                  <strong>Password</strong>
+                  <div style={{ color: "#64748b", fontSize: "0.8125rem" }}>
+                    Managed by Supabase Auth
+                  </div>
+                </div>
+                <Button variant="outline" onClick={sendReset}>
+                  Send reset link
+                </Button>
               </div>
-              <div style={{ borderTop: "1px solid #e2e8f0", marginTop: 18, paddingTop: 18 }}>
-                <strong style={{ color: "#b91c1c" }}>Account deactivation</strong>
-                <p style={{ color: "#64748b", fontSize: "0.875rem" }}>Self-service deactivation is not available yet. No request is recorded by this page.</p>
-                <Button variant="danger" disabled title="Deactivation workflow is not yet implemented">Not yet available</Button>
+              <div
+                style={{
+                  borderTop: "1px solid #e2e8f0",
+                  marginTop: 18,
+                  paddingTop: 18,
+                }}
+              >
+                <strong style={{ color: "#b91c1c" }}>
+                  Account deactivation
+                </strong>
+                <p style={{ color: "#64748b", fontSize: "0.875rem" }}>
+                  Self-service deactivation is not available yet. No request is
+                  recorded by this page.
+                </p>
+                <Button
+                  variant="danger"
+                  disabled
+                  title="Deactivation workflow is not yet implemented"
+                >
+                  Not yet available
+                </Button>
               </div>
             </CardContent>
           </Card>

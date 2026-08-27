@@ -4,7 +4,12 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Alert } from "../../../components/ui/alert";
 import { Button } from "../../../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../../../components/ui/card";
 import { Input } from "../../../components/ui/input";
 import {
   restoreRecoverySessionFromUrl,
@@ -40,31 +45,64 @@ export default function ResetPasswordPage() {
       await supabaseUpdatePassword(password);
       setComplete(true);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Unable to update password.");
+      setError(
+        caught instanceof Error ? caught.message : "Unable to update password.",
+      );
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", backgroundColor: "#f4f4f5", padding: 24 }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "grid",
+        placeItems: "center",
+        backgroundColor: "#f4f4f5",
+        padding: 24,
+      }}
+    >
       <Card style={{ width: "100%", maxWidth: 460 }}>
-        <CardHeader><CardTitle>Set a new password</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Set a new password</CardTitle>
+        </CardHeader>
         <CardContent>
           {complete ? (
             <Alert variant="success" title="Password updated">
-              Your Supabase account password has been changed. <Link href="/auth/login">Return to sign in.</Link>
+              Your Supabase account password has been changed.{" "}
+              <Link href="/auth/login">Return to sign in.</Link>
             </Alert>
           ) : !recoveryReady ? (
             <Alert variant="warning" title="Recovery session unavailable">
-              Open this page from the latest password-recovery email. If the link has expired, request another reset link.
+              Open this page from the latest password-recovery email. If the
+              link has expired, request another reset link.
             </Alert>
           ) : (
-            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <form
+              onSubmit={handleSubmit}
+              style={{ display: "flex", flexDirection: "column", gap: 16 }}
+            >
               {error ? <Alert variant="danger">{error}</Alert> : null}
-              <Input label="New password" type="password" required value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" />
-              <Input label="Confirm new password" type="password" required value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="new-password" />
-              <Button type="submit" variant="primary" isLoading={saving}>Update password</Button>
+              <Input
+                label="New password"
+                type="password"
+                required
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="new-password"
+              />
+              <Input
+                label="Confirm new password"
+                type="password"
+                required
+                value={confirmation}
+                onChange={(event) => setConfirmation(event.target.value)}
+                autoComplete="new-password"
+              />
+              <Button type="submit" variant="primary" isLoading={saving}>
+                Update password
+              </Button>
             </form>
           )}
         </CardContent>
