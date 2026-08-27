@@ -43,7 +43,9 @@ function makeGatewayAdapter(provider = "Sandbox") {
   return {
     provider,
     createCustomer: async () => ({ providerCustomerId: "customer_test" }),
-    createCheckout: async () => ({ checkoutUrl: "https://checkout.example.test" }),
+    createCheckout: async () => ({
+      checkoutUrl: "https://checkout.example.test",
+    }),
     verifyWebhook: async () => ({
       providerEventId: "event_test",
       eventType: "PAYMENT_SUCCEEDED",
@@ -61,7 +63,10 @@ test("payment gateway registry fails closed without a configured adapter", () =>
   try {
     assert.throws(
       () => registry.requireConfigured(),
-      expectHttpError(503, /No production payment provider adapter is configured/),
+      expectHttpError(
+        503,
+        /No production payment provider adapter is configured/,
+      ),
     );
   } finally {
     if (originalProvider === undefined) {
@@ -81,7 +86,10 @@ test("payment gateway registry resolves registered providers case-insensitively"
   assert.equal(registry.requireConfigured(" sandbox "), adapter);
   assert.throws(
     () => registry.requireConfigured("unregistered"),
-    expectHttpError(503, /No production payment provider adapter is configured/),
+    expectHttpError(
+      503,
+      /No production payment provider adapter is configured/,
+    ),
   );
 });
 
@@ -122,7 +130,9 @@ test("family staff roles can access a valid athlete without relationship lookup"
 });
 
 test("guardian access requires an active relationship to the requested athlete", async () => {
-  const linked = makeFamilyAccessPrismaDouble({ guardianLink: { id: "link-1" } });
+  const linked = makeFamilyAccessPrismaDouble({
+    guardianLink: { id: "link-1" },
+  });
   const linkedService = new FamilyAccessService(linked.prisma);
 
   assert.equal(
@@ -171,7 +181,11 @@ test("athletes may read their own profile but may not use athlete self-access fo
   });
 
   assert.equal(
-    await service.canAccessAthlete(athleteUser, PRE_ALPHA_IDS.athlete, "manage"),
+    await service.canAccessAthlete(
+      athleteUser,
+      PRE_ALPHA_IDS.athlete,
+      "manage",
+    ),
     false,
   );
   assert.equal(ownProfile.calls.athleteProfile.length, 1);
