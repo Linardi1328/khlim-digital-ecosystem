@@ -208,6 +208,7 @@ export class BillingService {
       amountMinor,
       currency: plan.currency,
       idempotencyKey,
+      providerPaymentId: payment.providerPaymentId ?? undefined,
     });
 
     await this.prisma.client.$transaction([
