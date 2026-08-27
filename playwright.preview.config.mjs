@@ -5,6 +5,7 @@ const baseURL =
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  testMatch: "web-preview.spec.mjs",
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,

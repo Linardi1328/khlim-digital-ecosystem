@@ -1,3 +1,11 @@
 {
-  "extends": "../../packages/typescript-config/nextjs.json"
+  "extends": "../../packages/typescript-config/nextjs.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@khlim/api-client": ["../../packages/api-client/src/index.ts"],
+      "@khlim/api-client/schema": ["../../packages/api-client/src/schema.d.ts"],
+      "@khlim/i18n": ["../../packages/i18n/src/index.ts"]
+    }
+  }
 }

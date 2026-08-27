@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import "./globals.css";
+import { AdminProviders } from "../components/providers";
 
 export const metadata: Metadata = {
-  title: "KHLIM Admin",
-  description: "KHLIM staff operations console",
+  title: "KHLIM Admin Operations Console",
+  description: "KHLIM Digital Sports Ecosystem Operations & Management",
 };
 
 export default function RootLayout({
@@ -11,15 +13,8 @@ export default function RootLayout({
 }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en">
-      <body
-        style={{
-          margin: 0,
-          fontFamily: "Arial, sans-serif",
-          background: "#111",
-          color: "#f5f5f5",
-        }}
-      >
-        {children}
+      <body>
+        <AdminProviders>{children}</AdminProviders>
       </body>
     </html>
   );
