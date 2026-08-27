@@ -17,6 +17,8 @@ import type {
 
 const BILLPLZ_SANDBOX_API_BASE_URL = "https://www.billplz-sandbox.com/api";
 const BILLPLZ_PRODUCTION_API_BASE_URL = "https://www.billplz.com/api";
+const BILLPLZ_SANDBOX_BILL_BASE_URL = "https://www.billplz-sandbox.com/bills";
+const BILLPLZ_PRODUCTION_BILL_BASE_URL = "https://www.billplz.com/bills";
 
 interface BillplzBillResponse {
   id?: string;
@@ -43,12 +45,16 @@ export class BillplzPaymentGatewayAdapter implements PaymentGatewayAdapter {
 
   private readonly fetchImpl: typeof fetch;
   private readonly apiBaseUrl: string;
+  private readonly billBaseUrl: string;
 
   constructor(private readonly options: BillplzPaymentGatewayOptions) {
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.apiBaseUrl = options.sandbox
       ? BILLPLZ_SANDBOX_API_BASE_URL
       : BILLPLZ_PRODUCTION_API_BASE_URL;
+    this.billBaseUrl = options.sandbox
+      ? BILLPLZ_SANDBOX_BILL_BASE_URL
+      : BILLPLZ_PRODUCTION_BILL_BASE_URL;
   }
 
   async createCustomer(
@@ -70,6 +76,13 @@ export class BillplzPaymentGatewayAdapter implements PaymentGatewayAdapter {
   ): Promise<CreateGatewayCheckoutResult> {
     if (input.currency.toUpperCase() !== "MYR") {
       throw new BadRequestException("Billplz checkout supports MYR only");
+    }
+
+    if (input.providerPaymentId) {
+      return {
+        checkoutUrl: this.checkoutUrlForBill(input.providerPaymentId),
+        providerPaymentId: input.providerPaymentId,
+      };
     }
 
     const email = this.extractEmail(input.providerCustomerId);
@@ -176,6 +189,11 @@ export class BillplzPaymentGatewayAdapter implements PaymentGatewayAdapter {
     return createHmac("sha256", this.options.xSignatureKey)
       .update(source)
       .digest("hex");
+  }
+
+  private checkoutUrlForBill(providerPaymentId: string): string {
+    const url = `${this.billBaseUrl}/${encodeURIComponent(providerPaymentId)}`;
+    return this.options.directGatewayCode ? `${url}?auto_submit=true` : url;
   }
 
   private extractEmail(providerCustomerId: string): string {
