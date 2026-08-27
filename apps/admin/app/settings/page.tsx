@@ -73,8 +73,8 @@ export default function SettingsPage() {
               lineHeight: 1.5,
             }}
           >
-            Settings persistence is not connected yet. Changes on this screen are
-            local preview state only and are not saved to the KHLIM backend.
+            Settings persistence is not connected yet. Changes on this screen
+            are local preview state only and are not saved to the KHLIM backend.
           </div>
         </FormSection>
 
