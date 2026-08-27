@@ -1,0 +1,57 @@
+name: Format Admin PR20 Fixes
+
+on:
+  push:
+    branches:
+      - feat/phase-6-admin-operations-ui
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/phase-6-admin-operations-ui
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Format PR 20 fixes
+        run: |
+          pnpm exec prettier --write \
+            apps/admin/app/page.tsx \
+            apps/admin/app/payments/page.tsx \
+            apps/admin/components/ui/DataTable.tsx \
+            apps/admin/components/ui/Pagination.tsx \
+            tests/admin-frontend.test.mjs \
+            tests/e2e/admin-ui.spec.mjs
+
+      - name: Commit formatted fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            apps/admin/app/page.tsx \
+            apps/admin/app/payments/page.tsx \
+            apps/admin/components/ui/DataTable.tsx \
+            apps/admin/components/ui/Pagination.tsx \
+            tests/admin-frontend.test.mjs \
+            tests/e2e/admin-ui.spec.mjs
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "style(admin): format PR 20 fixes"
+          git push origin HEAD:feat/phase-6-admin-operations-ui
