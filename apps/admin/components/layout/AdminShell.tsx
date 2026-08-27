@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, type ReactNode } from "react";
+import { useAdminAuth } from "../../lib/auth-context";
+import { ADMIN_DEMO_NOTICE } from "../../lib/demo-mode";
 import { AdminSidebar } from "./AdminSidebar";
 import { AdminHeader } from "./AdminHeader";
 import { Drawer } from "../ui/Drawer";
@@ -10,8 +12,36 @@ export interface AdminShellProps {
 }
 
 export function AdminShell({ children }: AdminShellProps) {
+  const { isAuthenticated, isLoading, isDemoMode } = useAdminAuth();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
+  if (isLoading) {
+    return (
+      <main className="admin-access-gate">
+        <p>Verifying staff access…</p>
+      </main>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <main className="admin-access-gate">
+        <div className="admin-access-card">
+          <div className="admin-access-mark">K</div>
+          <h1>KHLIM Operations Console</h1>
+          <p>
+            Staff authentication is not configured for this environment. Access
+            remains denied until the Supabase staff session and backend role/MFA
+            checks are connected.
+          </p>
+          <p className="admin-access-note">
+            For frontend QA only, build with NEXT_PUBLIC_ADMIN_DEMO_MODE=true.
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <div
@@ -21,7 +51,6 @@ export function AdminShell({ children }: AdminShellProps) {
         backgroundColor: "#F8FAFC",
       }}
     >
-      {/* Desktop Sidebar */}
       <div className="admin-desktop-sidebar">
         <AdminSidebar
           isCollapsed={isSidebarCollapsed}
@@ -29,7 +58,6 @@ export function AdminShell({ children }: AdminShellProps) {
         />
       </div>
 
-      {/* Mobile Drawer Navigation */}
       <Drawer
         isOpen={isMobileNavOpen}
         onClose={() => setIsMobileNavOpen(false)}
@@ -39,7 +67,6 @@ export function AdminShell({ children }: AdminShellProps) {
         <AdminSidebar onNavigate={() => setIsMobileNavOpen(false)} />
       </Drawer>
 
-      {/* Main Content Layout */}
       <div
         style={{
           flex: 1,
@@ -48,6 +75,13 @@ export function AdminShell({ children }: AdminShellProps) {
           minWidth: 0,
         }}
       >
+        {isDemoMode && (
+          <div className="admin-demo-banner" role="status">
+            <strong>DEMO MODE</strong>
+            <span>{ADMIN_DEMO_NOTICE}</span>
+          </div>
+        )}
+
         <AdminHeader
           onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
           onOpenMobileNav={() => setIsMobileNavOpen(true)}
