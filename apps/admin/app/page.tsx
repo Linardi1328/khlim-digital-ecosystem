@@ -71,9 +71,7 @@ export default function AdminDashboardPage() {
   }, [canViewFinance]);
 
   const attentionPayments = canViewFinance
-    ? payments.filter(
-        (p) => p.status === "FAILED" || p.status === "PROCESSING",
-      )
+    ? payments.filter((p) => p.status === "FAILED" || p.status === "PROCESSING")
     : [];
 
   return (

@@ -21,8 +21,7 @@ export function Pagination({
 }: PaginationProps) {
   const safeTotalPages = Math.max(1, totalPages);
   const displayPage = Math.min(Math.max(1, currentPage), safeTotalPages);
-  const startItem =
-    totalItems === 0 ? 0 : (displayPage - 1) * itemsPerPage + 1;
+  const startItem = totalItems === 0 ? 0 : (displayPage - 1) * itemsPerPage + 1;
   const endItem = Math.min(displayPage * itemsPerPage, totalItems);
 
   useEffect(() => {

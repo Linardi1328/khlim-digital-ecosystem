@@ -141,7 +141,10 @@ test("Admin finance visibility gates payment fetching and rendering", async () =
 
   assert.match(dashboard, /const canViewFinance = canAccessFinance\(\)/);
   assert.match(dashboard, /canViewFinance\s*\?\s*adminApi\.listPayments\(\)/);
-  assert.match(dashboard, /Payment operations are hidden for the current staff role/);
+  assert.match(
+    dashboard,
+    /Payment operations are hidden for the current staff role/,
+  );
   assert.match(dashboard, /Finance roles only/);
 });
 

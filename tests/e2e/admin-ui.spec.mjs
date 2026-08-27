@@ -102,12 +102,12 @@ test("demo role preview hides finance data from coach role", async ({
   await page.getByRole("link", { name: "Dashboard", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByText("Finance roles only")).toBeVisible();
-  await expect(page.getByText("Declined mandates & unconfirmed charges")).toHaveCount(
-    0,
-  );
-  await expect(page.getByRole("link", { name: "Manage Payments →" })).toHaveCount(
-    0,
-  );
+  await expect(
+    page.getByText("Declined mandates & unconfirmed charges"),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "Manage Payments →" }),
+  ).toHaveCount(0);
 });
 
 test("clickable table rows support keyboard activation", async ({ page }) => {
