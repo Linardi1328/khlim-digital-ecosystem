@@ -33,6 +33,8 @@ export interface NormalizedGatewayEvent {
   eventType: NormalizedGatewayEventType;
   idempotencyKey: string;
   providerPaymentId?: string;
+  amountMinor?: number;
+  currency?: string;
   failureCode?: string;
   safeFailureReason?: string;
 }
