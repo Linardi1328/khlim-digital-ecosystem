@@ -90,7 +90,7 @@ export class BillplzPaymentGatewayAdapter implements PaymentGatewayAdapter {
       form.set("reference_1", this.options.directGatewayCode);
     }
 
-    const response = await this.fetchImpl(`${this.apiBaseUrl}/v4/bills`, {
+    const response = await this.fetchImpl(`${this.apiBaseUrl}/v3/bills`, {
       method: "POST",
       headers: {
         authorization: this.basicAuthorizationHeader(),
