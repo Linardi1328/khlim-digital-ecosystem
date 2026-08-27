@@ -199,7 +199,9 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
               }}
             >
               <span style={{ color: "#F59E0B" }}>●</span>
-              <span className="hide-on-mobile">{role.replaceAll("_", " ")}</span>
+              <span className="hide-on-mobile">
+                {role.replaceAll("_", " ")}
+              </span>
               <span style={{ fontSize: "0.625rem" }}>▼</span>
             </button>
 

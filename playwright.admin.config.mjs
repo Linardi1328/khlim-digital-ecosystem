@@ -7,7 +7,10 @@ export default defineConfig({
   expect: { timeout: 5_000 },
   fullyParallel: true,
   retries: 1,
-  reporter: [["list"], ["html", { outputFolder: "playwright-admin-report", open: "never" }]],
+  reporter: [
+    ["list"],
+    ["html", { outputFolder: "playwright-admin-report", open: "never" }],
+  ],
   use: {
     baseURL: process.env.PLAYWRIGHT_ADMIN_BASE_URL || "http://127.0.0.1:3002",
     trace: "retain-on-failure",
@@ -16,15 +19,24 @@ export default defineConfig({
   projects: [
     {
       name: "admin-desktop",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } },
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1280, height: 900 },
+      },
     },
     {
       name: "admin-tablet",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 768, height: 1024 } },
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 768, height: 1024 },
+      },
     },
     {
       name: "admin-mobile",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 } },
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 390, height: 844 },
+      },
     },
   ],
 });

@@ -22,7 +22,9 @@ async function expectHealthyAdminDocument(page, path) {
 
   const response = await page.goto(path, { waitUntil: "domcontentloaded" });
   expect(response, `Expected a document response for ${path}`).not.toBeNull();
-  expect(response.status(), `Unexpected server error for ${path}`).toBeLessThan(500);
+  expect(response.status(), `Unexpected server error for ${path}`).toBeLessThan(
+    500,
+  );
 
   await expect(page.getByText("DEMO MODE", { exact: true })).toBeVisible();
   await expect(page.locator("body")).not.toContainText("Internal Server Error");
