@@ -203,6 +203,7 @@ export class BillingService {
 
     const checkout = await gateway.createCheckout({
       providerCustomerId: billingProfile.providerCustomerId,
+      payerEmail: membership.purchasedBy?.email ?? null,
       membershipId,
       installmentId: firstInstallment.id,
       amountMinor,
