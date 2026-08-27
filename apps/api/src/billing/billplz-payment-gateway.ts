@@ -60,14 +60,8 @@ export class BillplzPaymentGatewayAdapter implements PaymentGatewayAdapter {
   async createCustomer(
     input: CreateGatewayCustomerInput,
   ): Promise<CreateGatewayCustomerResult> {
-    if (!input.email) {
-      throw new BadRequestException(
-        "Billplz checkout requires an email address for the payer",
-      );
-    }
-
     return {
-      providerCustomerId: `email:${input.email}`,
+      providerCustomerId: `khlim-user:${input.khlimUserId}`,
     };
   }
 
@@ -85,10 +79,15 @@ export class BillplzPaymentGatewayAdapter implements PaymentGatewayAdapter {
       };
     }
 
-    const email = this.extractEmail(input.providerCustomerId);
+    if (!input.payerEmail) {
+      throw new BadRequestException(
+        "Billplz checkout requires an email address for the payer",
+      );
+    }
+
     const form = new URLSearchParams({
       collection_id: this.options.collectionId,
-      email,
+      email: input.payerEmail,
       name: "KHLIM Member",
       amount: String(input.amountMinor),
       callback_url: this.options.callbackUrl,
@@ -194,13 +193,6 @@ export class BillplzPaymentGatewayAdapter implements PaymentGatewayAdapter {
   private checkoutUrlForBill(providerPaymentId: string): string {
     const url = `${this.billBaseUrl}/${encodeURIComponent(providerPaymentId)}`;
     return this.options.directGatewayCode ? `${url}?auto_submit=true` : url;
-  }
-
-  private extractEmail(providerCustomerId: string): string {
-    if (!providerCustomerId.startsWith("email:")) {
-      throw new BadRequestException("Billplz payer reference is invalid");
-    }
-    return providerCustomerId.slice("email:".length);
   }
 
   private basicAuthorizationHeader(): string {
