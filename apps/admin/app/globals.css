@@ -77,6 +77,18 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .hide-on-mobile {
     display: none !important;
   }
+  .admin-filter-bar > * {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  .admin-filter-bar > div:not(:first-child) {
+    flex: 1 1 100% !important;
+  }
+  .admin-filter-bar select,
+  .admin-filter-bar input {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
   .table-responsive-stacked {
     display: block !important;
   }
