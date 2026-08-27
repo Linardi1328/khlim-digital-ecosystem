@@ -1,9 +1,5 @@
 import assert from "node:assert/strict";
-import {
-  createHash,
-  createHmac,
-  timingSafeEqual,
-} from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { createRequire } from "node:module";
 import { test } from "node:test";
 
@@ -220,7 +216,9 @@ async function cleanup(client) {
   });
   await client.billingProfile.deleteMany({ where: { userId: IDS.payer } });
   await client.membership.deleteMany({ where: { id: { in: MEMBERSHIP_IDS } } });
-  await client.athleteProfile.deleteMany({ where: { id: { in: ATHLETE_IDS } } });
+  await client.athleteProfile.deleteMany({
+    where: { id: { in: ATHLETE_IDS } },
+  });
   await client.programmeOffering.deleteMany({
     where: { id: { in: [IDS.offeringGeneral, IDS.offeringCapacity] } },
   });
@@ -426,10 +424,7 @@ async function webhookRequest(baseUrl, adapter, payload, options = {}) {
   const headers = new Headers({ "content-type": "application/json" });
 
   if (options.sign !== false) {
-    headers.set(
-      SIGNATURE_HEADER,
-      options.signature ?? adapter.sign(rawBody),
-    );
+    headers.set(SIGNATURE_HEADER, options.signature ?? adapter.sign(rawBody));
   }
 
   const response = await fetch(`${baseUrl}/v1/payments/webhooks/sandbox`, {

@@ -287,14 +287,16 @@ export class BillingService {
         throw error;
       }
 
-      const existing = await this.prisma.client.paymentProviderEvent.findUnique({
-        where: {
-          provider_providerEventId: {
-            provider: gateway.provider,
-            providerEventId: event.providerEventId,
+      const existing = await this.prisma.client.paymentProviderEvent.findUnique(
+        {
+          where: {
+            provider_providerEventId: {
+              provider: gateway.provider,
+              providerEventId: event.providerEventId,
+            },
           },
         },
-      });
+      );
 
       if (!existing) {
         throw error;
