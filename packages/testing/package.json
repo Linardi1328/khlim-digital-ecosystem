@@ -1,5 +1,8 @@
 {
   "name": "@khlim/testing",
   "version": "0.0.0",
-  "private": true
+  "private": true,
+  "exports": {
+    "./pre-alpha-fixtures": "./src/pre-alpha-fixtures.mjs"
+  }
 }
