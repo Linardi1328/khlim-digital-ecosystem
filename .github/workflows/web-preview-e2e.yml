@@ -31,7 +31,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright test runner
-        run: npm install --no-save --package-lock=false @playwright/test@1.55.0
+        run: npm install --no-save --package-lock=false --workspaces=false @playwright/test@1.55.0
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
@@ -68,7 +68,6 @@ jobs:
           path: |
             playwright-report/
             test-results/
-            /tmp/khlim-web.log
           if-no-files-found: ignore
           retention-days: 7
 
