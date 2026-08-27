@@ -30,7 +30,10 @@ async function expectHealthyDocument(page, path) {
 
   const response = await page.goto(path, { waitUntil: "domcontentloaded" });
   expect(response, `Expected a document response for ${path}`).not.toBeNull();
-  expect(response.status(), `Unexpected server error for ${path}`).toBeLessThan(500);
+  expect(
+    response.status(),
+    `Unexpected server error for ${path}`,
+  ).toBeLessThan(500);
 
   await expect(page.locator("body")).toBeVisible();
   await expect(page.locator("body")).not.toContainText("Application error");
@@ -44,6 +47,11 @@ async function expectHealthyDocument(page, path) {
   });
   expect(overflow, `Horizontal overflow detected on ${path}`).toBe(false);
   expect(pageErrors, `Uncaught browser errors on ${path}`).toEqual([]);
+}
+
+async function openMobileMenu(page) {
+  await page.getByRole("button", { name: "Open Mobile Menu" }).click();
+  await expect(page.getByText("KHLIM Navigation")).toBeVisible();
 }
 
 for (const path of publicRoutes) {
@@ -75,10 +83,16 @@ test("homepage carousel controls change the active slide", async ({ page }) => {
   await expect(firstDot).not.toHaveAttribute("aria-current", "true");
 });
 
-test("language choice persists after reload", async ({ page }) => {
+test("language choice persists after reload", async ({ page, viewport }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
-  const locale = page.getByRole("combobox", { name: "Select Language" });
+  if (viewport && viewport.width <= 640) {
+    await openMobileMenu(page);
+  }
+
+  const locale = page
+    .getByRole("combobox", { name: "Select Language" })
+    .filter({ visible: true });
   await locale.selectOption("ms");
 
   await expect
@@ -89,7 +103,16 @@ test("language choice persists after reload", async ({ page }) => {
     .toBe("ms");
 
   await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(locale).toHaveValue("ms");
+
+  if (viewport && viewport.width <= 640) {
+    await openMobileMenu(page);
+  }
+
+  await expect(
+    page
+      .getByRole("combobox", { name: "Select Language" })
+      .filter({ visible: true }),
+  ).toHaveValue("ms");
 });
 
 test("desktop header navigation reaches core public pages", async ({
@@ -106,7 +129,10 @@ test("desktop header navigation reaches core public pages", async ({
     ["About", "/about"],
     ["Contact", "/contact"],
   ]) {
-    await page.locator(".desktop-nav").getByRole("link", { name: label }).click();
+    await page
+      .locator(".desktop-nav")
+      .getByRole("link", { name: label })
+      .click();
     await expect(page).toHaveURL(new RegExp(`${path}$`));
     await page.goto("/", { waitUntil: "domcontentloaded" });
   }
@@ -116,8 +142,7 @@ test("mobile menu opens and navigates", async ({ page, viewport }) => {
   test.skip(!viewport || viewport.width > 500, "Mobile navigation only");
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "Open Mobile Menu" }).click();
-  await expect(page.getByText("KHLIM Navigation")).toBeVisible();
+  await openMobileMenu(page);
   await page.getByRole("link", { name: "Academy", exact: true }).click();
   await expect(page).toHaveURL(/\/academy$/);
 });
@@ -133,21 +158,26 @@ test("login page exposes the expected authentication controls", async ({
     "href",
     "/auth/forgot-password",
   );
-  await expect(page.getByRole("button").filter({ hasText: /sign|log/i })).toBeVisible();
+  await expect(
+    page.getByRole("button").filter({ hasText: /sign|log/i }),
+  ).toBeVisible();
 });
 
 for (const path of protectedRoutes) {
   test(`unauthenticated ${path} redirects to login`, async ({ page }) => {
     await page.goto(path, { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/auth\/login\?redirect=/);
-    expect(decodeURIComponent(new URL(page.url()).searchParams.get("redirect"))).toBe(
-      path,
-    );
+    expect(
+      decodeURIComponent(new URL(page.url()).searchParams.get("redirect")),
+    ).toBe(path);
   });
 }
 
-test("unauthenticated enrolment redirects to login", async ({ page }) => {
+test("unauthenticated enrolment redirects to login when continuing", async ({
+  page,
+}) => {
   await page.goto("/enrol", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Continue" }).click();
   await expect(page).toHaveURL(/\/auth\/login\?redirect=%2Fenrol/);
 });
 
