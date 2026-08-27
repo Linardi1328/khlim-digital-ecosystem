@@ -7,6 +7,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { MetricCard } from "../components/ui/MetricCard";
 import { StatusBadge } from "../components/ui/StatusBadge";
 import { Button } from "../components/ui/Button";
+import { useAdminAuth } from "../lib/auth-context";
 import { adminApi } from "../lib/admin-api";
 import type {
   DashboardMetrics,
@@ -17,6 +18,8 @@ import type {
 } from "../lib/types";
 
 export default function AdminDashboardPage() {
+  const { canAccessFinance } = useAdminAuth();
+  const canViewFinance = canAccessFinance();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [offerings, setOfferings] = useState<OfferingItem[]>([]);
   const [memberships, setMemberships] = useState<MembershipItem[]>([]);
@@ -25,32 +28,53 @@ export default function AdminDashboardPage() {
   const [_loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+
+    if (!canViewFinance) {
+      setPayments([]);
+    }
+
+    setLoading(true);
+
     async function loadData() {
       try {
+        const paymentRequest: Promise<PaymentItem[]> = canViewFinance
+          ? adminApi.listPayments()
+          : Promise.resolve([]);
         const [m, off, mem, pay, aud] = await Promise.all([
           adminApi.getDashboardMetrics(),
           adminApi.listOfferings(),
           adminApi.listMemberships(),
-          adminApi.listPayments(),
+          paymentRequest,
           adminApi.listAuditLogs(),
         ]);
+
+        if (cancelled) return;
+
         setMetrics(m);
         setOfferings(off);
         setMemberships(mem);
-        setPayments(pay);
+        setPayments(canViewFinance ? pay : []);
         setAuditLogs(aud);
       } catch (err) {
-        console.warn("Failed to load dashboard data:", err);
+        if (!cancelled) console.warn("Failed to load dashboard data:", err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
-    loadData();
-  }, []);
 
-  const attentionPayments = payments.filter(
-    (p) => p.status === "FAILED" || p.status === "PROCESSING",
-  );
+    loadData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canViewFinance]);
+
+  const attentionPayments = canViewFinance
+    ? payments.filter(
+        (p) => p.status === "FAILED" || p.status === "PROCESSING",
+      )
+    : [];
 
   return (
     <AdminShell>
@@ -133,17 +157,26 @@ export default function AdminDashboardPage() {
             variant="success"
             icon="📈"
           />
-          <MetricCard
-            title="Payments Requiring Action"
-            value={metrics?.paymentsAttentionCount ?? "—"}
-            subtitle="Declined / Processing"
-            variant={
-              metrics && metrics.paymentsAttentionCount > 0
-                ? "danger"
-                : "default"
-            }
-            icon="⚠️"
-          />
+          {canViewFinance ? (
+            <MetricCard
+              title="Payments Requiring Action"
+              value={metrics?.paymentsAttentionCount ?? "—"}
+              subtitle="Declined / Processing"
+              variant={
+                metrics && metrics.paymentsAttentionCount > 0
+                  ? "danger"
+                  : "default"
+              }
+              icon="⚠️"
+            />
+          ) : (
+            <MetricCard
+              title="Payments Requiring Action"
+              value="Restricted"
+              subtitle="Finance roles only"
+              icon="🔒"
+            />
+          )}
         </div>
 
         {/* Grid Layout: Capacity & Memberships */}
@@ -387,22 +420,40 @@ export default function AdminDashboardPage() {
                   Payment Attention Queue
                 </h3>
                 <div style={{ fontSize: "0.8125rem", color: "#64748B" }}>
-                  Declined mandates & unconfirmed charges
+                  {canViewFinance
+                    ? "Declined mandates & unconfirmed charges"
+                    : "Finance roles only"}
                 </div>
               </div>
-              <Link
-                href="/payments"
-                style={{
-                  fontSize: "0.8125rem",
-                  color: "#D97706",
-                  fontWeight: 600,
-                }}
-              >
-                Manage Payments →
-              </Link>
+              {canViewFinance && (
+                <Link
+                  href="/payments"
+                  style={{
+                    fontSize: "0.8125rem",
+                    color: "#D97706",
+                    fontWeight: 600,
+                  }}
+                >
+                  Manage Payments →
+                </Link>
+              )}
             </div>
 
-            {attentionPayments.length === 0 ? (
+            {!canViewFinance ? (
+              <div
+                style={{
+                  padding: "20px",
+                  textAlign: "center",
+                  color: "#64748B",
+                  fontSize: "0.875rem",
+                  backgroundColor: "#F8FAFC",
+                  borderRadius: "8px",
+                  border: "1px solid #E2E8F0",
+                }}
+              >
+                🔒 Payment operations are hidden for the current staff role.
+              </div>
+            ) : attentionPayments.length === 0 ? (
               <div
                 style={{
                   padding: "20px",

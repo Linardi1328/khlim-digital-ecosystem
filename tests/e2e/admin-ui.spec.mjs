@@ -85,7 +85,7 @@ test("mobile drawer navigation opens and reaches programmes", async ({
   await expect(page).toHaveURL(/\/programmes$/);
 });
 
-test("demo role preview hides finance ledger from coach role", async ({
+test("demo role preview hides finance data from coach role", async ({
   page,
   viewport,
 }) => {
@@ -93,10 +93,30 @@ test("demo role preview hides finance ledger from coach role", async ({
   await page.goto("/payments", { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Switch demo role" }).click();
   await page.getByRole("button", { name: "COACH", exact: true }).click();
+
   await expect(
     page.getByRole("link", { name: "Payments", exact: true }),
   ).toHaveCount(0);
   await expect(page.getByText("Restricted Financial Ledger")).toBeVisible();
+
+  await page.getByRole("link", { name: "Dashboard", exact: true }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByText("Finance roles only")).toBeVisible();
+  await expect(page.getByText("Declined mandates & unconfirmed charges")).toHaveCount(
+    0,
+  );
+  await expect(page.getByRole("link", { name: "Manage Payments →" })).toHaveCount(
+    0,
+  );
+});
+
+test("clickable table rows support keyboard activation", async ({ page }) => {
+  await page.goto("/athletes", { waitUntil: "domcontentloaded" });
+  const firstRow = page.locator("tbody tr").first();
+  await expect(firstRow).toBeVisible();
+  await firstRow.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("dialog")).toBeVisible();
 });
 
 test("payments UI never renders KHLIM-owned raw card credential fields", async ({

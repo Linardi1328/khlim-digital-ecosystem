@@ -124,13 +124,38 @@ test("Admin operations console preserves strict domain rules", async () => {
   );
 });
 
-test("Admin finance visibility is role-aware and server authorization remains authoritative", async () => {
+test("Admin finance visibility gates payment fetching and rendering", async () => {
   const authContext = await read("apps/admin/lib/auth-context.tsx");
   const payments = await read("apps/admin/app/payments/page.tsx");
+  const dashboard = await read("apps/admin/app/page.tsx");
 
   assert.match(authContext, /canAccessFinance/);
   assert.match(payments, /Restricted Financial Ledger/);
-  assert.match(payments, /canAccessFinance\(\)/);
+  assert.match(payments, /const canViewFinance = canAccessFinance\(\)/);
+  assert.match(payments, /\[canViewFinance\]/);
+
+  const paymentGuardIndex = payments.indexOf("if (!canViewFinance)");
+  const paymentFetchIndex = payments.indexOf("adminApi.listPayments()");
+  assert.ok(paymentGuardIndex >= 0);
+  assert.ok(paymentFetchIndex > paymentGuardIndex);
+
+  assert.match(dashboard, /const canViewFinance = canAccessFinance\(\)/);
+  assert.match(dashboard, /canViewFinance\s*\?\s*adminApi\.listPayments\(\)/);
+  assert.match(dashboard, /Payment operations are hidden for the current staff role/);
+  assert.match(dashboard, /Finance roles only/);
+});
+
+test("Admin shared data interactions remain keyboard and pagination safe", async () => {
+  const dataTable = await read("apps/admin/components/ui/DataTable.tsx");
+  const pagination = await read("apps/admin/components/ui/Pagination.tsx");
+
+  assert.match(dataTable, /tabIndex=\{onRowClick \? 0 : undefined\}/);
+  assert.match(dataTable, /e\.key === "Enter" \|\| e\.key === " "/);
+  assert.match(dataTable, /e\.target !== e\.currentTarget/);
+
+  assert.match(pagination, /const safeTotalPages = Math\.max\(1, totalPages\)/);
+  assert.match(pagination, /const displayPage = Math\.min/);
+  assert.match(pagination, /onPageChange\(displayPage\)/);
 });
 
 test("Admin privileged access is denied unless explicit demo mode is enabled", async () => {

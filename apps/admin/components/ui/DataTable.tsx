@@ -120,19 +120,36 @@ export function DataTable<T>({
           {data.map((item, rowIdx) => (
             <tr
               key={keyExtractor(item)}
+              tabIndex={onRowClick ? 0 : undefined}
               onClick={() => onRowClick && onRowClick(item)}
+              onKeyDown={(e) => {
+                if (!onRowClick || e.target !== e.currentTarget) return;
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onRowClick(item);
+                }
+              }}
               style={{
                 borderBottom:
                   rowIdx === data.length - 1 ? "none" : "1px solid #F1F5F9",
                 cursor: onRowClick ? "pointer" : "default",
                 backgroundColor: "#FFFFFF",
                 transition: "background-color 0.12s ease",
+                outlineOffset: "-2px",
               }}
               onMouseEnter={(e) => {
                 if (onRowClick)
                   e.currentTarget.style.backgroundColor = "#F8FAFC";
               }}
               onMouseLeave={(e) => {
+                if (onRowClick)
+                  e.currentTarget.style.backgroundColor = "#FFFFFF";
+              }}
+              onFocus={(e) => {
+                if (onRowClick)
+                  e.currentTarget.style.backgroundColor = "#F8FAFC";
+              }}
+              onBlur={(e) => {
                 if (onRowClick)
                   e.currentTarget.style.backgroundColor = "#FFFFFF";
               }}

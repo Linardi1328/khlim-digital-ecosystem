@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 
 export interface PaginationProps {
   currentPage: number;
@@ -19,8 +19,17 @@ export function Pagination({
   onPageChange,
   onItemsPerPageChange,
 }: PaginationProps) {
-  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
-  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+  const safeTotalPages = Math.max(1, totalPages);
+  const displayPage = Math.min(Math.max(1, currentPage), safeTotalPages);
+  const startItem =
+    totalItems === 0 ? 0 : (displayPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(displayPage * itemsPerPage, totalItems);
+
+  useEffect(() => {
+    if (displayPage !== currentPage) {
+      onPageChange(displayPage);
+    }
+  }, [currentPage, displayPage, onPageChange]);
 
   return (
     <div
@@ -71,8 +80,8 @@ export function Pagination({
       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
         <button
           type="button"
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage <= 1}
+          onClick={() => onPageChange(displayPage - 1)}
+          disabled={displayPage <= 1}
           aria-label="Previous page"
           style={{
             padding: "6px 12px",
@@ -80,22 +89,22 @@ export function Pagination({
             fontWeight: 600,
             borderRadius: "6px",
             border: "1px solid #CBD5E1",
-            backgroundColor: currentPage <= 1 ? "#F1F5F9" : "#FFFFFF",
-            color: currentPage <= 1 ? "#94A3B8" : "#0F172A",
-            cursor: currentPage <= 1 ? "not-allowed" : "pointer",
+            backgroundColor: displayPage <= 1 ? "#F1F5F9" : "#FFFFFF",
+            color: displayPage <= 1 ? "#94A3B8" : "#0F172A",
+            cursor: displayPage <= 1 ? "not-allowed" : "pointer",
           }}
         >
           ← Previous
         </button>
 
         <span style={{ padding: "0 8px", fontWeight: 600, color: "#0F172A" }}>
-          Page {currentPage} of {Math.max(1, totalPages)}
+          Page {displayPage} of {safeTotalPages}
         </span>
 
         <button
           type="button"
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage >= totalPages}
+          onClick={() => onPageChange(displayPage + 1)}
+          disabled={totalItems === 0 || displayPage >= safeTotalPages}
           aria-label="Next page"
           style={{
             padding: "6px 12px",
@@ -103,9 +112,18 @@ export function Pagination({
             fontWeight: 600,
             borderRadius: "6px",
             border: "1px solid #CBD5E1",
-            backgroundColor: currentPage >= totalPages ? "#F1F5F9" : "#FFFFFF",
-            color: currentPage >= totalPages ? "#94A3B8" : "#0F172A",
-            cursor: currentPage >= totalPages ? "not-allowed" : "pointer",
+            backgroundColor:
+              totalItems === 0 || displayPage >= safeTotalPages
+                ? "#F1F5F9"
+                : "#FFFFFF",
+            color:
+              totalItems === 0 || displayPage >= safeTotalPages
+                ? "#94A3B8"
+                : "#0F172A",
+            cursor:
+              totalItems === 0 || displayPage >= safeTotalPages
+                ? "not-allowed"
+                : "pointer",
           }}
         >
           Next →

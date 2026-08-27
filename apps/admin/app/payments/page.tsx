@@ -16,6 +16,7 @@ import type { PaymentItem } from "../../lib/types";
 
 export default function PaymentsPage() {
   const { canAccessFinance, role } = useAdminAuth();
+  const canViewFinance = canAccessFinance();
   const [payments, setPayments] = useState<PaymentItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -32,20 +33,38 @@ export default function PaymentsPage() {
   );
 
   useEffect(() => {
+    let cancelled = false;
+
+    if (!canViewFinance) {
+      setPayments([]);
+      setSelectedPayment(null);
+      setLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setLoading(true);
+
     async function load() {
       try {
         const list = await adminApi.listPayments();
-        setPayments(list);
+        if (!cancelled) setPayments(list);
       } catch (err) {
-        console.warn("Failed to load payments:", err);
+        if (!cancelled) console.warn("Failed to load payments:", err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
-    load();
-  }, []);
 
-  if (!canAccessFinance()) {
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canViewFinance]);
+
+  if (!canViewFinance) {
     return (
       <AdminShell>
         <div
@@ -78,7 +97,7 @@ export default function PaymentsPage() {
           >
             Financial transactions and payment provider ledgers are restricted
             to Finance, Management, and Super Admin roles. Current role:{" "}
-            <strong>{role}</strong>.
+            <strong>{role || "Not authenticated"}</strong>.
           </p>
         </div>
       </AdminShell>
