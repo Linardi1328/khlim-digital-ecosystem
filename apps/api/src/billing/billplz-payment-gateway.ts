@@ -245,7 +245,9 @@ export class BillplzPaymentGatewayAdapter implements PaymentGatewayAdapter {
       amountMinor <= 0 ||
       !currency
     ) {
-      throw new BadRequestException("Billplz KHLIM payment reference is invalid");
+      throw new BadRequestException(
+        "Billplz KHLIM payment reference is invalid",
+      );
     }
 
     return {

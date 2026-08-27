@@ -1,8 +1,6 @@
 import { Module } from "@nestjs/common";
 import { DatabaseModule } from "../database/database.module";
-import {
-  createBillplzPaymentGatewayFromEnv,
-} from "./billplz-payment-gateway";
+import { createBillplzPaymentGatewayFromEnv } from "./billplz-payment-gateway";
 import { BillingController } from "./billing.controller";
 import { BillingService } from "./billing.service";
 import { PaymentGatewayRegistry } from "./payment-gateway";

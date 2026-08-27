@@ -231,7 +231,9 @@ test("Billplz checkout fails closed for unsupported currency, missing payer emai
   const providerError = makeAdapter({
     fetchImpl: async () =>
       jsonResponse(
-        { error: { type: "RecordNotFound", message: ["Collection not found"] } },
+        {
+          error: { type: "RecordNotFound", message: ["Collection not found"] },
+        },
         422,
       ),
   });
@@ -270,7 +272,10 @@ test("Billplz signed callbacks normalize successful and failed local payments", 
   const adapter = makeAdapter();
 
   const successRaw = signedBody(adapter, validCallbackValues());
-  const success = await adapter.verifyWebhook({ headers: {}, rawBody: successRaw });
+  const success = await adapter.verifyWebhook({
+    headers: {},
+    rawBody: successRaw,
+  });
   assert.equal(success.eventType, "PAYMENT_SUCCEEDED");
   assert.equal(success.idempotencyKey, IDEMPOTENCY_KEY);
   assert.equal(success.providerPaymentId, "bill-khlim-success");
@@ -409,7 +414,10 @@ test(
       idempotencyKey: `live-billplz:${Date.now()}`,
     });
 
-    assert.match(checkout.checkoutUrl, /^https:\/\/www\.billplz-sandbox\.com\/bills\//);
+    assert.match(
+      checkout.checkoutUrl,
+      /^https:\/\/www\.billplz-sandbox\.com\/bills\//,
+    );
     assert.ok(checkout.providerPaymentId);
   },
 );
