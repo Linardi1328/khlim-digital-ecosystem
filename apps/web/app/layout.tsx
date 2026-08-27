@@ -1,25 +1,30 @@
+import "../../../packages/design-tokens/src/tokens.css";
+import "./globals.css";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { Providers } from "../components/providers";
 
 export const metadata: Metadata = {
-  title: "KHLIM",
-  description: "KHLIM Digital Sports Ecosystem",
+  title: "KHLIM — Digital Sports Ecosystem",
+  description:
+    "Official KHLIM Basketball Academy public website and member platform.",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{ children: ReactNode }>) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body
         style={{
           margin: 0,
-          fontFamily: "Arial, sans-serif",
+          fontFamily:
+            'var(--khlim-font-sans, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif)',
           background: "#fafafa",
-          color: "#151515",
+          color: "#18181b",
+          WebkitFontSmoothing: "antialiased",
+          MozOsxFontSmoothing: "grayscale",
         }}
       >
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

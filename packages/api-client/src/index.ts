@@ -28,6 +28,7 @@ export interface ApiClient {
     body?: unknown,
     options?: ApiRequestOptions,
   ): Promise<T>;
+  put<T>(path: string, body?: unknown, options?: ApiRequestOptions): Promise<T>;
   patch<T>(
     path: string,
     body?: unknown,
@@ -134,6 +135,17 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     });
   }
 
+  async function put<T>(
+    path: string,
+    body?: unknown,
+    requestOptions: ApiRequestOptions = {},
+  ): Promise<T> {
+    return request<T>(path, {
+      ...withJsonBody(body, requestOptions),
+      method: "PUT",
+    });
+  }
+
   async function patch<T>(
     path: string,
     body?: unknown,
@@ -156,6 +168,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     request,
     get,
     post,
+    put,
     patch,
     delete: deleteRequest,
   };

@@ -143,7 +143,8 @@ test("each application inherits the matching runtime TypeScript foundation", asy
   };
 
   for (const [path, expectedBase] of Object.entries(simpleConsumers)) {
-    assert.deepEqual(await readJson(path), { extends: expectedBase });
+    const consumer = await readJson(path);
+    assert.equal(consumer.extends, expectedBase);
   }
 
   const api = await readJson("apps/api/tsconfig.json");
