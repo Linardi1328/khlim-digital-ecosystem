@@ -9,7 +9,9 @@ const require = createRequire(import.meta.url);
 const {
   PrismaService,
 } = require("../../apps/api/dist/database/prisma.service.js");
-const { AcademyService } = require("../../apps/api/dist/academy/academy.service.js");
+const {
+  AcademyService,
+} = require("../../apps/api/dist/academy/academy.service.js");
 const {
   FamilyAccessService,
 } = require("../../apps/api/dist/family/family-access.service.js");
@@ -211,11 +213,7 @@ test(
             true,
           );
           assert.equal(
-            await familyAccess.canAccessAthlete(
-              guardian,
-              IDS.athleteB,
-              "read",
-            ),
+            await familyAccess.canAccessAthlete(guardian, IDS.athleteB, "read"),
             true,
           );
           assert.equal(
@@ -258,11 +256,10 @@ test(
 
           await assert.rejects(
             () =>
-              academy.createPendingMembership(
-                IDS.guardianUser,
-                IDS.athleteA,
-                { offeringId: IDS.offering, planId: IDS.plan },
-              ),
+              academy.createPendingMembership(IDS.guardianUser, IDS.athleteA, {
+                offeringId: IDS.offering,
+                planId: IDS.plan,
+              }),
             expectHttpError(
               409,
               /Athlete already has a current membership for this offering/,
@@ -282,11 +279,10 @@ test(
           });
           await assert.rejects(
             () =>
-              academy.createPendingMembership(
-                IDS.guardianUser,
-                IDS.athleteA,
-                { offeringId: IDS.offering, planId: IDS.plan },
-              ),
+              academy.createPendingMembership(IDS.guardianUser, IDS.athleteA, {
+                offeringId: IDS.offering,
+                planId: IDS.plan,
+              }),
             expectHttpError(
               400,
               /Selected plan is not available for this offering/,
@@ -303,11 +299,10 @@ test(
           });
           await assert.rejects(
             () =>
-              academy.createPendingMembership(
-                IDS.guardianUser,
-                IDS.athleteA,
-                { offeringId: IDS.offering, planId: IDS.plan },
-              ),
+              academy.createPendingMembership(IDS.guardianUser, IDS.athleteA, {
+                offeringId: IDS.offering,
+                planId: IDS.plan,
+              }),
             expectHttpError(
               400,
               /Selected plan is not available for this offering/,
@@ -340,16 +335,14 @@ test(
           });
 
           const results = await Promise.allSettled([
-            academy.createPendingMembership(
-              IDS.guardianUser,
-              IDS.athleteA,
-              { offeringId: IDS.offering, planId: IDS.plan },
-            ),
-            academy.createPendingMembership(
-              IDS.guardianUser,
-              IDS.athleteB,
-              { offeringId: IDS.offering, planId: IDS.plan },
-            ),
+            academy.createPendingMembership(IDS.guardianUser, IDS.athleteA, {
+              offeringId: IDS.offering,
+              planId: IDS.plan,
+            }),
+            academy.createPendingMembership(IDS.guardianUser, IDS.athleteB, {
+              offeringId: IDS.offering,
+              planId: IDS.plan,
+            }),
           ]);
 
           const fulfilled = results.filter(
