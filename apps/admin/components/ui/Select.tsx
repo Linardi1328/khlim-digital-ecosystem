@@ -34,6 +34,8 @@ export function Select({
         flexDirection: "column",
         gap: "6px",
         width: "100%",
+        minWidth: 0,
+        maxWidth: "100%",
       }}
     >
       {label && (
@@ -58,6 +60,9 @@ export function Select({
         required={required}
         aria-invalid={!!error}
         style={{
+          width: "100%",
+          minWidth: 0,
+          maxWidth: "100%",
           padding: "8px 12px",
           fontSize: "0.875rem",
           borderRadius: "8px",
