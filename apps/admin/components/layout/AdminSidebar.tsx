@@ -18,7 +18,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { href: "/programmes", label: "Programmes", icon: "🏀" },
   { href: "/offerings", label: "Offerings", icon: "🏟️" },
   { href: "/plans", label: "Membership Plans", icon: "🏷️" },
-  { href: "/memberships", label: "Memberships", icon: "🏅", badge: "6" },
+  { href: "/memberships", label: "Memberships", icon: "🏅" },
   { href: "/athletes", label: "Athletes", icon: "👦" },
   { href: "/guardians", label: "Guardians", icon: "👥" },
   { href: "/payments", label: "Payments", icon: "💳", requiresFinance: true },
@@ -66,7 +66,6 @@ export function AdminSidebar({
         zIndex: 40,
       }}
     >
-      {/* Brand Header */}
       <div
         style={{
           height: "64px",
@@ -151,7 +150,6 @@ export function AdminSidebar({
         )}
       </div>
 
-      {/* Navigation List */}
       <nav
         style={{
           flex: 1,
@@ -233,7 +231,6 @@ export function AdminSidebar({
         })}
       </nav>
 
-      {/* Staff Profile Summary in Sidebar */}
       {!isCollapsed && (
         <div
           style={{
@@ -256,11 +253,11 @@ export function AdminSidebar({
             style={{
               fontSize: "0.8125rem",
               fontWeight: 700,
-              color: "#F59E0B",
+              color: role ? "#F59E0B" : "#A1A1AA",
               marginTop: "2px",
             }}
           >
-            {role.replace("_", " ")}
+            {role ? role.replaceAll("_", " ") : "Not authenticated"}
           </div>
         </div>
       )}
