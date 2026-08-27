@@ -30,6 +30,7 @@ jobs:
 
       - name: Run Stripe-native sandbox adapter tests
         env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/khlim_stripe_test
           PAYMENT_PROVIDER: stripe
           STRIPE_SECRET_KEY: sk_test_pre_alpha_placeholder
           STRIPE_WEBHOOK_SECRET: whsec_pre_alpha_stripe_native_signature
