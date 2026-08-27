@@ -30,10 +30,13 @@ export function FilterBar({
 }: FilterBarProps) {
   return (
     <div
+      className="admin-filter-bar"
       style={{
         display: "flex",
         alignItems: "center",
         flexWrap: "wrap",
+        width: "100%",
+        minWidth: 0,
         gap: "12px",
         padding: "12px 16px",
         backgroundColor: "#FFFFFF",
@@ -58,7 +61,14 @@ export function FilterBar({
       {filters.map((filter) => (
         <div
           key={filter.id}
-          style={{ display: "flex", alignItems: "center", gap: "6px" }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            minWidth: 0,
+            maxWidth: "100%",
+            flex: "1 1 180px",
+            gap: "6px",
+          }}
         >
           <label
             htmlFor={`filter-${filter.id}`}
@@ -71,6 +81,9 @@ export function FilterBar({
             value={filter.value}
             onChange={(e) => filter.onChange(e.target.value)}
             style={{
+              width: "100%",
+              minWidth: 0,
+              maxWidth: "100%",
               padding: "6px 10px",
               fontSize: "0.8125rem",
               backgroundColor: "#F8FAFC",
