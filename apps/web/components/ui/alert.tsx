@@ -11,7 +11,10 @@ type AlertVariantStyle = {
   titleColor: string;
 };
 
-export interface AlertProps extends Omit<HTMLAttributes<HTMLDivElement>, "title"> {
+export interface AlertProps extends Omit<
+  HTMLAttributes<HTMLDivElement>,
+  "title"
+> {
   variant?: AlertVariant;
   title?: ReactNode;
   icon?: ReactNode;
