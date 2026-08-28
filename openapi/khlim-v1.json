@@ -837,6 +837,26 @@
         ]
       }
     },
+    "/v1/admin/billing/reconcile-stale-checkouts": {
+      "post": {
+        "operationId": "BillingController_reconcileStaleCheckouts",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Expire abandoned checkout holds and release pending capacity",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
     "/v1/payments/webhooks/{provider}": {
       "post": {
         "operationId": "BillingController_handleWebhook",
