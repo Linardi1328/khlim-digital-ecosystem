@@ -19,6 +19,7 @@ import type {
   PrepareMembershipCheckoutDto,
   CheckoutSessionResponse,
   ScheduleSessionItem,
+  PortalNotificationItem,
 } from "./types";
 
 const API_BASE_URL = (
@@ -123,5 +124,15 @@ export const apiService = {
 
   async listMySchedule(): Promise<ScheduleSessionItem[]> {
     return apiClient.get<ScheduleSessionItem[]>("/me/schedule");
+  },
+
+  async listMyNotifications(): Promise<PortalNotificationItem[]> {
+    return apiClient.get<PortalNotificationItem[]>("/me/notifications");
+  },
+
+  async markNotificationRead(
+    receiptId: string,
+  ): Promise<{ id: string; readAt: string | null }> {
+    return apiClient.post(`/me/notifications/${receiptId}/read`, {});
   },
 };

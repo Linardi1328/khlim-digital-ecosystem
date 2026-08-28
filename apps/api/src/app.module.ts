@@ -6,6 +6,7 @@ import { AdminModule } from "./admin/admin.module";
 import { AuthModule } from "./auth/auth.module";
 import { BillingModule } from "./billing/billing.module";
 import { HealthController } from "./health.controller";
+import { NotificationsModule } from "./notifications/notifications.module";
 import { SchedulingModule } from "./scheduling/scheduling.module";
 import { EditorialModule } from "./editorial/editorial.module";
 
@@ -18,6 +19,7 @@ import { EditorialModule } from "./editorial/editorial.module";
     BillingModule,
     EditorialModule,
     SchedulingModule,
+    NotificationsModule,
   ],
   controllers: [HealthController],
   providers: [

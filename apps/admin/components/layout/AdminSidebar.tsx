@@ -25,6 +25,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { href: "/venues", label: "Venues", icon: "📍" },
   { href: "/scheduling", label: "Scheduling", icon: "📅" },
   { href: "/editorial", label: "Editorial Studio", icon: "📰" },
+  { href: "/notifications", label: "Notifications", icon: "🔔" },
   { href: "/staff", label: "Staff", icon: "👔" },
   { href: "/audit", label: "Audit Log", icon: "📜" },
   { href: "/settings", label: "Settings", icon: "⚙️" },
