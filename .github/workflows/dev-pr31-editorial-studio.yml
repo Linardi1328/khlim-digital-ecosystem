@@ -49,9 +49,10 @@ jobs:
         run: python scripts/dev-pr31-editorial.py
       - name: Format changed sources
         run: >-
-          pnpm exec prettier --write prisma/schema.prisma apps/api/src/app.module.ts apps/api/src/editorial/*.ts apps/admin/app/editorial/page.tsx apps/admin/components/layout/AdminSidebar.tsx apps/web/lib/editorial-api.ts apps/web/components/home/achievements-section.tsx apps/web/components/home/player-spotlight-section.tsx tests/phase-6-editorial-studio.test.mjs
+          pnpm exec prettier --write apps/api/src/app.module.ts apps/api/src/editorial/*.ts apps/admin/app/editorial/page.tsx apps/admin/components/layout/AdminSidebar.tsx apps/web/lib/editorial-api.ts apps/web/components/home/achievements-section.tsx apps/web/components/home/player-spotlight-section.tsx tests/phase-6-editorial-studio.test.mjs
       - name: Apply migrations and generate Prisma client
         run: |
+          pnpm exec prisma validate
           pnpm exec prisma migrate deploy
           pnpm prisma:generate
       - name: Verify PR31
