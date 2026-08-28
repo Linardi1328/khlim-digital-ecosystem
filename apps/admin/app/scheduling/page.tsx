@@ -1,504 +1,408 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { AdminShell } from "../../components/layout/AdminShell";
 import { PageHeader } from "../../components/ui/PageHeader";
-import { DataTable, type Column } from "../../components/ui/DataTable";
-import { StatusBadge } from "../../components/ui/StatusBadge";
-import { SearchInput } from "../../components/ui/SearchInput";
-import { FilterBar } from "../../components/ui/FilterBar";
-import { Pagination } from "../../components/ui/Pagination";
 import { Button } from "../../components/ui/Button";
-import { Drawer } from "../../components/ui/Drawer";
-import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
-import { adminApi } from "../../lib/admin-api";
-import type { SessionItem } from "../../lib/types";
+import { getAdminAccessToken } from "../../lib/admin-api";
+
+const API = (
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001/v1"
+).replace(/\/+$/, "");
+type Session = {
+  id: string;
+  programmeOfferingId: string | null;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  venueName: string;
+  courtName: string | null;
+  coachName: string | null;
+  notes: string | null;
+  status: "SCHEDULED" | "COMPLETED" | "CANCELLED";
+  cancellationReason: string | null;
+  _count?: { attendances: number };
+};
+type Attendance = {
+  id: string;
+  athleteId: string;
+  athleteName: string;
+  status: "PRESENT" | "ABSENT" | "EXCUSED" | "LATE";
+  notes: string | null;
+};
+const authHeaders = () => ({
+  "Content-Type": "application/json",
+  Authorization: `Bearer ${getAdminAccessToken() || ""}`,
+});
+const emptyForm = {
+  programmeOfferingId: "",
+  title: "",
+  startsAt: "",
+  endsAt: "",
+  venueName: "",
+  courtName: "",
+  coachName: "",
+  notes: "",
+};
 
 export default function SchedulingPage() {
-  const [sessions, setSessions] = useState<SessionItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [form, setForm] = useState(emptyForm);
+  const [selected, setSelected] = useState<Session | null>(null);
+  const [attendance, setAttendance] = useState<Attendance[]>([]);
+  const [attendeeName, setAttendeeName] = useState("");
+  const [attendeeStatus, setAttendeeStatus] =
+    useState<Attendance["status"]>("PRESENT");
+  const [message, setMessage] = useState("");
 
-  // View switch: table vs calendar
-  const [viewMode, setViewMode] = useState<"table" | "calendar">("table");
-
-  // Search & Filter
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-
-  // Selected Session / Drawer
-  const [selectedSession, setSelectedSession] = useState<SessionItem | null>(
-    null,
-  );
-
-  // Cancel Session Confirm Dialog
-  const [cancelTarget, setCancelTarget] = useState<SessionItem | null>(null);
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const list = await adminApi.listSessions();
-        setSessions(list);
-      } catch (err) {
-        console.warn("Failed to load sessions:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
+  const load = useCallback(async () => {
+    const response = await fetch(`${API}/admin/scheduling/sessions`, {
+      headers: authHeaders(),
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error(`Scheduling API ${response.status}`);
+    setSessions(await response.json());
+  }, []);
+  const loadAttendance = useCallback(async (session: Session) => {
+    const response = await fetch(
+      `${API}/admin/scheduling/sessions/${session.id}/attendance`,
+      { headers: authHeaders(), cache: "no-store" },
+    );
+    if (response.ok) setAttendance(await response.json());
   }, []);
 
-  const filtered = sessions.filter((s) => {
-    const matchesSearch =
-      s.offeringName.toLowerCase().includes(search.toLowerCase()) ||
-      s.programmeName.toLowerCase().includes(search.toLowerCase()) ||
-      s.coachName.toLowerCase().includes(search.toLowerCase()) ||
-      s.venueName.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === "ALL" || s.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
-  const totalPages = Math.ceil(filtered.length / pageSize);
-  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
-
-  const handleConfirmCancel = () => {
-    if (!cancelTarget) return;
-    setSessions((prev) =>
-      prev.map((s) =>
-        s.id === cancelTarget.id ? { ...s, status: "CANCELLED" } : s,
-      ),
+  useEffect(() => {
+    void load().catch(() =>
+      setMessage("Connect a staff session to manage scheduling."),
     );
-    setCancelTarget(null);
-  };
+  }, [load]);
 
-  const columns: Column<SessionItem>[] = [
-    {
-      key: "sessionDate",
-      header: "Date & Time",
-      render: (s) => (
-        <div>
-          <div style={{ fontWeight: 700, color: "#0F172A" }}>
-            🗓️ {s.sessionDate}
-          </div>
-          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
-            ⏰ {s.startTime} – {s.endTime}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "offeringName",
-      header: "Cohort / Programme",
-      render: (s) => (
-        <div>
-          <div style={{ fontWeight: 600, color: "#334155" }}>
-            {s.offeringName}
-          </div>
-          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
-            {s.programmeName}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "venueName",
-      header: "Court Location",
-      render: (s) => (
-        <div>
-          <div style={{ fontWeight: 600, color: "#0F172A" }}>
-            📍 {s.venueName}
-          </div>
-          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
-            {s.courtName}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "coachName",
-      header: "Assigned Coach",
-      render: (s) => (
-        <span style={{ fontWeight: 600, color: "#0F172A" }}>
-          👨‍🏫 {s.coachName}
-        </span>
-      ),
-    },
-    {
-      key: "status",
-      header: "Status",
-      render: (s) => <StatusBadge status={s.status} size="sm" />,
-    },
-    {
-      key: "actions",
-      header: "Actions",
-      align: "right",
-      render: (s) => (
-        <div
-          style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}
-        >
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              setSelectedSession(s);
-            }}
-          >
-            Details
-          </Button>
-          {s.status === "SCHEDULED" && (
-            <Button
-              variant="outline"
-              size="sm"
-              style={{ borderColor: "#FCA5A5", color: "#DC2626" }}
-              onClick={(e) => {
-                e.stopPropagation();
-                setCancelTarget(s);
-              }}
-            >
-              Cancel
-            </Button>
-          )}
-        </div>
-      ),
-    },
-  ];
+  async function createSession(event: React.FormEvent) {
+    event.preventDefault();
+    setMessage("");
+    const response = await fetch(`${API}/admin/scheduling/sessions`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        ...form,
+        programmeOfferingId: form.programmeOfferingId || null,
+        startsAt: new Date(form.startsAt).toISOString(),
+        endsAt: new Date(form.endsAt).toISOString(),
+      }),
+    });
+    if (!response.ok) {
+      setMessage(
+        `Could not create session (${response.status}). Staff MFA is required.`,
+      );
+      return;
+    }
+    setForm(emptyForm);
+    setMessage("Session created and persisted.");
+    await load();
+  }
+
+  async function cancelSession(session: Session) {
+    const reason = window.prompt("Cancellation reason");
+    if (!reason) return;
+    const response = await fetch(
+      `${API}/admin/scheduling/sessions/${session.id}/cancel`,
+      {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ reason }),
+      },
+    );
+    if (!response.ok) {
+      setMessage(`Could not cancel session (${response.status}).`);
+      return;
+    }
+    await load();
+  }
+
+  async function completeSession(session: Session) {
+    const response = await fetch(
+      `${API}/admin/scheduling/sessions/${session.id}/complete`,
+      { method: "POST", headers: authHeaders() },
+    );
+    if (response.ok) await load();
+  }
+
+  async function addAttendance(event: React.FormEvent) {
+    event.preventDefault();
+    if (!selected || !attendeeName.trim()) return;
+    const response = await fetch(
+      `${API}/admin/scheduling/sessions/${selected.id}/attendance`,
+      {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          athleteName: attendeeName,
+          status: attendeeStatus,
+        }),
+      },
+    );
+    if (!response.ok) {
+      setMessage(`Could not mark attendance (${response.status}).`);
+      return;
+    }
+    setAttendeeName("");
+    await loadAttendance(selected);
+    await load();
+  }
+
+  async function changeAttendance(
+    record: Attendance,
+    status: Attendance["status"],
+  ) {
+    if (!selected) return;
+    const response = await fetch(
+      `${API}/admin/scheduling/sessions/${selected.id}/attendance`,
+      {
+        method: "PUT",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          athleteId: record.athleteId,
+          athleteName: record.athleteName,
+          status,
+          notes: record.notes,
+        }),
+      },
+    );
+    if (response.ok) await loadAttendance(selected);
+  }
 
   return (
     <AdminShell>
       <div>
         <PageHeader
-          title="Scheduling & Training Sessions"
-          subtitle="Generate recurring term session series, manage weather cancellations, and allocate replacement sessions."
+          title="Scheduling & Attendance"
+          subtitle="Create real training events, manage cancellations, and record attendance."
           breadcrumbs={[
             { label: "Operations", href: "/" },
             { label: "Scheduling" },
           ]}
-          actions={
-            <div style={{ display: "flex", gap: "8px" }}>
-              <Button
-                variant={viewMode === "table" ? "secondary" : "outline"}
-                size="sm"
-                onClick={() => setViewMode("table")}
-              >
-                📋 Table View
-              </Button>
-              <Button
-                variant={viewMode === "calendar" ? "secondary" : "outline"}
-                size="sm"
-                onClick={() => setViewMode("calendar")}
-              >
-                📅 Calendar View
-              </Button>
-            </div>
-          }
         />
-
-        {/* Filter Controls */}
-        <FilterBar
-          hasActiveFilters={search !== "" || statusFilter !== "ALL"}
-          onReset={() => {
-            setSearch("");
-            setStatusFilter("ALL");
+        {message && (
+          <p
+            role="status"
+            style={{ padding: 12, background: "#FEF3C7", borderRadius: 8 }}
+          >
+            {message}
+          </p>
+        )}
+        <form
+          onSubmit={createSession}
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
+            gap: 10,
+            padding: 16,
+            background: "white",
+            border: "1px solid #E2E8F0",
+            borderRadius: 12,
           }}
         >
-          <SearchInput
-            value={search}
-            onChange={setSearch}
-            placeholder="Search sessions by offering, coach, venue..."
+          <input
+            required
+            placeholder="Event / session title"
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
           />
+          <input
+            type="datetime-local"
+            required
+            value={form.startsAt}
+            onChange={(e) => setForm({ ...form, startsAt: e.target.value })}
+          />
+          <input
+            type="datetime-local"
+            required
+            value={form.endsAt}
+            onChange={(e) => setForm({ ...form, endsAt: e.target.value })}
+          />
+          <input
+            required
+            placeholder="Venue"
+            value={form.venueName}
+            onChange={(e) => setForm({ ...form, venueName: e.target.value })}
+          />
+          <input
+            placeholder="Court"
+            value={form.courtName}
+            onChange={(e) => setForm({ ...form, courtName: e.target.value })}
+          />
+          <input
+            placeholder="Coach"
+            value={form.coachName}
+            onChange={(e) => setForm({ ...form, coachName: e.target.value })}
+          />
+          <input
+            placeholder="Programme offering UUID (optional)"
+            value={form.programmeOfferingId}
+            onChange={(e) =>
+              setForm({ ...form, programmeOfferingId: e.target.value })
+            }
+          />
+          <input
+            placeholder="Notes"
+            value={form.notes}
+            onChange={(e) => setForm({ ...form, notes: e.target.value })}
+          />
+          <Button type="submit" variant="primary">
+            Create session
+          </Button>
+        </form>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <label
-              htmlFor="sess-status"
-              style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}
-            >
-              Status:
-            </label>
-            <select
-              id="sess-status"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{
-                padding: "6px 10px",
-                fontSize: "0.8125rem",
-                backgroundColor: "#F8FAFC",
-                border: "1px solid #CBD5E1",
-                borderRadius: "6px",
-                color: "#0F172A",
-              }}
-            >
-              <option value="ALL">All Statuses</option>
-              <option value="SCHEDULED">SCHEDULED</option>
-              <option value="COMPLETED">COMPLETED</option>
-              <option value="CANCELLED">CANCELLED</option>
-              <option value="RESCHEDULED">RESCHEDULED</option>
-            </select>
-          </div>
-        </FilterBar>
-
-        {viewMode === "table" ? (
-          <>
-            <DataTable
-              columns={columns}
-              data={paginated}
-              keyExtractor={(item) => item.id}
-              isLoading={loading}
-              onRowClick={(item) => setSelectedSession(item)}
-            />
-
-            <Pagination
-              currentPage={page}
-              totalPages={totalPages}
-              totalItems={filtered.length}
-              itemsPerPage={pageSize}
-              onPageChange={setPage}
-              onItemsPerPageChange={setPageSize}
-            />
-          </>
-        ) : (
-          /* Calendar View Grid */
-          <div
-            style={{
-              backgroundColor: "#FFFFFF",
-              borderRadius: "12px",
-              border: "1px solid #E2E8F0",
-              padding: "24px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "20px",
-              }}
-            >
-              <h3 style={{ margin: 0, fontSize: "1.125rem", fontWeight: 800 }}>
-                September 2026 Training Timetable
-              </h3>
-              <div style={{ fontSize: "0.8125rem", color: "#64748B" }}>
-                Active sessions across all academy venues
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-                gap: "16px",
-              }}
-            >
-              {filtered.map((s) => (
+        <div style={{ display: "grid", gap: 12, marginTop: 18 }}>
+          {sessions.length === 0 ? (
+            <p>
+              No sessions yet. Create a fake event above to test the workflow.
+            </p>
+          ) : (
+            sessions.map((session) => (
+              <article
+                key={session.id}
+                style={{
+                  padding: 16,
+                  background: "white",
+                  border: "1px solid #E2E8F0",
+                  borderRadius: 12,
+                }}
+              >
                 <div
-                  key={s.id}
-                  onClick={() => setSelectedSession(s)}
                   style={{
-                    padding: "16px",
-                    borderRadius: "10px",
-                    border: "1px solid #E2E8F0",
-                    backgroundColor: "#F8FAFC",
-                    cursor: "pointer",
-                    transition: "border-color 0.15s ease",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    flexWrap: "wrap",
                   }}
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "6px",
+                  <div>
+                    <strong>{session.title}</strong>
+                    <div>
+                      {new Date(session.startsAt).toLocaleString()} —{" "}
+                      {new Date(session.endsAt).toLocaleTimeString()}
+                    </div>
+                    <small>
+                      {session.venueName}
+                      {session.courtName ? ` · ${session.courtName}` : ""}
+                      {session.coachName ? ` · Coach ${session.coachName}` : ""}
+                    </small>
+                  </div>
+                  <strong>{session.status}</strong>
+                </div>
+                {session.cancellationReason && (
+                  <p>Cancelled: {session.cancellationReason}</p>
+                )}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    marginTop: 10,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelected(session);
+                      void loadAttendance(session);
                     }}
                   >
-                    <span
-                      style={{
-                        fontWeight: 800,
-                        color: "#0F172A",
-                        fontSize: "0.875rem",
-                      }}
-                    >
-                      🗓️ {s.sessionDate}
-                    </span>
-                    <StatusBadge status={s.status} size="sm" />
-                  </div>
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      fontSize: "0.9375rem",
-                      color: "#0F172A",
-                      margin: "4px 0",
-                    }}
+                    Attendance ({session._count?.attendances ?? 0})
+                  </Button>
+                  {session.status === "SCHEDULED" && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void completeSession(session)}
+                      >
+                        Complete
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void cancelSession(session)}
+                      >
+                        Cancel
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+
+        {selected && (
+          <section
+            style={{
+              marginTop: 24,
+              padding: 18,
+              background: "#18181B",
+              color: "white",
+              borderRadius: 12,
+            }}
+          >
+            <h2>Attendance · {selected.title}</h2>
+            <form
+              onSubmit={addAttendance}
+              style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
+            >
+              <input
+                aria-label="Attendee name"
+                placeholder="Fake or real attendee name"
+                value={attendeeName}
+                onChange={(e) => setAttendeeName(e.target.value)}
+              />
+              <select
+                value={attendeeStatus}
+                onChange={(e) =>
+                  setAttendeeStatus(e.target.value as Attendance["status"])
+                }
+              >
+                <option>PRESENT</option>
+                <option>LATE</option>
+                <option>ABSENT</option>
+                <option>EXCUSED</option>
+              </select>
+              <Button type="submit" variant="primary">
+                Add attendance
+              </Button>
+            </form>
+            <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+              {attendance.map((record) => (
+                <div
+                  key={record.id}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
+                  <span>{record.athleteName}</span>
+                  <select
+                    value={record.status}
+                    onChange={(e) =>
+                      void changeAttendance(
+                        record,
+                        e.target.value as Attendance["status"],
+                      )
+                    }
                   >
-                    {s.offeringName}
-                  </div>
-                  <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
-                    ⏰ {s.startTime} – {s.endTime} • 📍 {s.courtName}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "0.75rem",
-                      color: "#334155",
-                      marginTop: "4px",
-                    }}
-                  >
-                    Coach: <strong>{s.coachName}</strong>
-                  </div>
+                    <option>PRESENT</option>
+                    <option>LATE</option>
+                    <option>ABSENT</option>
+                    <option>EXCUSED</option>
+                  </select>
                 </div>
               ))}
             </div>
-          </div>
+          </section>
         )}
-
-        {/* Cancellation Confirmation Dialog */}
-        {cancelTarget && (
-          <ConfirmDialog
-            isOpen={!!cancelTarget}
-            onClose={() => setCancelTarget(null)}
-            onConfirm={handleConfirmCancel}
-            title="Cancel Training Session"
-            description={`Are you sure you want to cancel the session on ${cancelTarget.sessionDate} (${cancelTarget.offeringName})? Guardians will be notified of the cancellation.`}
-            confirmLabel="Confirm Session Cancellation"
-            variant="danger"
-          />
-        )}
-
-        {/* Session Detail Drawer */}
-        <Drawer
-          isOpen={!!selectedSession}
-          onClose={() => setSelectedSession(null)}
-          title={`Session: ${selectedSession?.sessionDate}`}
-          subtitle={`${selectedSession?.offeringName} (${selectedSession?.startTime}–${selectedSession?.endTime})`}
-          width="540px"
-          footer={
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectedSession(null)}
-            >
-              Close
-            </Button>
-          }
-        >
-          {selectedSession && (
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "16px" }}
-            >
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "12px",
-                  backgroundColor: "#F8FAFC",
-                  padding: "16px",
-                  borderRadius: "10px",
-                  border: "1px solid #E2E8F0",
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      fontSize: "0.75rem",
-                      color: "#64748B",
-                      fontWeight: 700,
-                    }}
-                  >
-                    STATUS
-                  </div>
-                  <div style={{ marginTop: "4px" }}>
-                    <StatusBadge status={selectedSession.status} size="sm" />
-                  </div>
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontSize: "0.75rem",
-                      color: "#64748B",
-                      fontWeight: 700,
-                    }}
-                  >
-                    ASSIGNED COACH
-                  </div>
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      color: "#0F172A",
-                      marginTop: "2px",
-                    }}
-                  >
-                    {selectedSession.coachName}
-                  </div>
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontSize: "0.75rem",
-                      color: "#64748B",
-                      fontWeight: 700,
-                    }}
-                  >
-                    FACILITY
-                  </div>
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      color: "#0F172A",
-                      marginTop: "2px",
-                    }}
-                  >
-                    {selectedSession.venueName}
-                  </div>
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontSize: "0.75rem",
-                      color: "#64748B",
-                      fontWeight: 700,
-                    }}
-                  >
-                    COURT
-                  </div>
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      color: "#0F172A",
-                      marginTop: "2px",
-                    }}
-                  >
-                    {selectedSession.courtName}
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h4
-                  style={{
-                    margin: "0 0 6px",
-                    fontSize: "0.9375rem",
-                    fontWeight: 700,
-                  }}
-                >
-                  Attendance Roll
-                </h4>
-                <div
-                  style={{
-                    padding: "16px",
-                    backgroundColor: "#FFFFFF",
-                    borderRadius: "8px",
-                    border: "1px solid #E2E8F0",
-                    textAlign: "center",
-                    color: "#64748B",
-                    fontSize: "0.875rem",
-                  }}
-                >
-                  📋 Player attendance check-in is logged by coaches on mobile
-                  court devices.
-                </div>
-              </div>
-            </div>
-          )}
-        </Drawer>
       </div>
     </AdminShell>
   );

@@ -549,3 +549,54 @@ model EditorialEntry {
   @@index([type, status, publishedAt])
   @@map("editorial_entries")
 }
+
+
+enum TrainingSessionStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  EXCUSED
+  LATE
+}
+
+model TrainingSession {
+  id                  String                @id @default(uuid()) @db.Uuid
+  programmeOfferingId String?               @map("programme_offering_id") @db.Uuid
+  title               String                @db.VarChar(180)
+  startsAt            DateTime              @map("starts_at")
+  endsAt              DateTime              @map("ends_at")
+  venueName           String                @map("venue_name") @db.VarChar(180)
+  courtName           String?               @map("court_name") @db.VarChar(120)
+  coachName           String?               @map("coach_name") @db.VarChar(160)
+  notes               String?               @db.Text
+  status              TrainingSessionStatus @default(SCHEDULED)
+  cancellationReason  String?               @map("cancellation_reason") @db.Text
+  createdAt           DateTime              @default(now()) @map("created_at")
+  updatedAt           DateTime              @updatedAt @map("updated_at")
+  attendances         AttendanceRecord[]
+
+  @@index([programmeOfferingId, startsAt, status])
+  @@index([startsAt, status])
+  @@map("training_sessions")
+}
+
+model AttendanceRecord {
+  id          String           @id @default(uuid()) @db.Uuid
+  sessionId   String           @map("session_id") @db.Uuid
+  athleteId   String           @map("athlete_id") @db.Uuid
+  athleteName String           @map("athlete_name") @db.VarChar(160)
+  status      AttendanceStatus @default(PRESENT)
+  notes       String?          @db.Text
+  markedAt    DateTime         @default(now()) @map("marked_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  session     TrainingSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, athleteId])
+  @@index([athleteId, markedAt])
+  @@map("attendance_records")
+}

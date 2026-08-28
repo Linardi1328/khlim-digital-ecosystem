@@ -6,6 +6,7 @@ import { AdminModule } from "./admin/admin.module";
 import { AuthModule } from "./auth/auth.module";
 import { BillingModule } from "./billing/billing.module";
 import { HealthController } from "./health.controller";
+import { SchedulingModule } from "./scheduling/scheduling.module";
 import { EditorialModule } from "./editorial/editorial.module";
 
 @Module({
@@ -16,6 +17,7 @@ import { EditorialModule } from "./editorial/editorial.module";
     AcademyModule,
     BillingModule,
     EditorialModule,
+    SchedulingModule,
   ],
   controllers: [HealthController],
   providers: [
