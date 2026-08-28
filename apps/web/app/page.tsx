@@ -5,6 +5,7 @@ import Link from "next/link";
 import { apiService } from "../lib/api-service";
 import { useI18n } from "../lib/i18n-context";
 import type { PublicOfferingItem } from "../lib/types";
+import { AchievementsSection } from "../components/home/achievements-section";
 import {
   HeroCarousel,
   type HeroCarouselSlide,
@@ -15,6 +16,7 @@ import {
   type PhotoGalleryItem,
   type PhotoStoryItem,
 } from "../components/home/photo-gallery";
+import { PlayerSpotlightSection } from "../components/home/player-spotlight-section";
 import { PublicFooter } from "../components/layout/public-footer";
 import { PublicHeader } from "../components/layout/public-header";
 import { Badge } from "../components/ui/badge";
@@ -195,7 +197,13 @@ export default function HomePage() {
           )}
         </section>
 
-        {photoStories.map((item) => (
+        <AchievementsSection />
+
+        {photoStories[0] && <PhotoStorySection item={photoStories[0]} />}
+
+        <PlayerSpotlightSection />
+
+        {photoStories.slice(1).map((item) => (
           <PhotoStorySection key={item.id} item={item} />
         ))}
 

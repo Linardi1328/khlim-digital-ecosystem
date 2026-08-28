@@ -6,6 +6,8 @@ const publicRoutes = [
   "/programmes",
   "/about",
   "/contact",
+  "/spotlight",
+  "/spotlight/editorial-preview-player-achievement",
   "/terms",
   "/privacy",
   "/auth/login",
@@ -84,6 +86,33 @@ test("homepage carousel controls change the active slide", async ({ page }) => {
   await thirdDot.click();
   await expect(thirdDot).toHaveAttribute("aria-current", "true");
   await expect(firstDot).not.toHaveAttribute("aria-current", "true");
+});
+
+test("homepage exposes achievements and a publication-safe Player Spotlight preview", async ({
+  page,
+}) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  await expect(
+    page.getByRole("heading", { name: "Achievements that shaped KHLIM." }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "When KHLIM players make the news." }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("AI-assisted example, not a real player claim."),
+  ).toBeVisible();
+
+  await page.getByRole("link", { name: "Preview article format →" }).click();
+  await expect(page).toHaveURL(
+    /\/spotlight\/editorial-preview-player-achievement$/,
+  );
+  await expect(
+    page.getByText("Editorial preview — not a real player result."),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Facts first. Storytelling second."),
+  ).toBeVisible();
 });
 
 test("language choice persists after reload", async ({ page, viewport }) => {
