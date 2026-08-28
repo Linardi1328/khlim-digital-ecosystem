@@ -104,7 +104,9 @@ test("homepage exposes achievements and a publication-safe Player Spotlight prev
   ).toBeVisible();
 
   await page.getByRole("link", { name: "Preview article format →" }).click();
-  await expect(page).toHaveURL(/\/spotlight\/editorial-preview-player-achievement$/);
+  await expect(page).toHaveURL(
+    /\/spotlight\/editorial-preview-player-achievement$/,
+  );
   await expect(
     page.getByText("Editorial preview — not a real player result."),
   ).toBeVisible();

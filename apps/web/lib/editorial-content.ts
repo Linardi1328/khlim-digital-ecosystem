@@ -129,7 +129,9 @@ export const publishedPlayerSpotlights = playerSpotlightArticles.filter(
   (article) => article.status === "published" && article.factsVerified,
 );
 
-export function findSpotlightArticle(slug: string): PlayerSpotlightArticle | null {
+export function findSpotlightArticle(
+  slug: string,
+): PlayerSpotlightArticle | null {
   const published = publishedPlayerSpotlights.find(
     (article) => article.slug === slug,
   );

@@ -51,9 +51,9 @@ export default async function PlayerSpotlightArticlePage({
           <div className="spotlight-preview-warning" role="note">
             <strong>Editorial preview — not a real player result.</strong>
             <span>
-              This AI-assisted article demonstrates the intended voice and layout.
-              Replace the placeholder player/event facts and approved photo before
-              publishing a real KHLIM story.
+              This AI-assisted article demonstrates the intended voice and
+              layout. Replace the placeholder player/event facts and approved
+              photo before publishing a real KHLIM story.
             </span>
           </div>
         )}
@@ -65,7 +65,9 @@ export default async function PlayerSpotlightArticlePage({
                 Player Spotlight
               </Badge>
               {article.aiAssisted && (
-                <span className="spotlight-ai-label">AI-assisted editorial</span>
+                <span className="spotlight-ai-label">
+                  AI-assisted editorial
+                </span>
               )}
             </div>
             <p className="spotlight-article-event">

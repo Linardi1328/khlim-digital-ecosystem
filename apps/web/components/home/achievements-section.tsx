@@ -74,8 +74,8 @@ export function AchievementsSection() {
           <strong>Archive ready for verified club history.</strong>
           <span>
             These three preview slots do not claim a result. Replace them with
-            confirmed event names, years, descriptions and approved photos before
-            publication.
+            confirmed event names, years, descriptions and approved photos
+            before publication.
           </span>
         </div>
       )}

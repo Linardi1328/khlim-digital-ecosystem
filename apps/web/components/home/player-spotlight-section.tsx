@@ -21,9 +21,7 @@ function SpotlightCard({
     : `linear-gradient(180deg, rgba(9, 9, 11, 0.06), rgba(9, 9, 11, 0.8)), ${article.placeholderGradient}`;
 
   return (
-    <article
-      className={`home-spotlight-card${featured ? " is-featured" : ""}`}
-    >
+    <article className={`home-spotlight-card${featured ? " is-featured" : ""}`}>
       <div
         className="home-spotlight-photo"
         style={{ backgroundImage }}
@@ -100,12 +98,15 @@ export function PlayerSpotlightSection() {
       </div>
 
       {preview && (
-        <div className="home-editorial-notice home-spotlight-notice" role="note">
+        <div
+          className="home-editorial-notice home-spotlight-notice"
+          role="note"
+        >
           <strong>AI-assisted example, not a real player claim.</strong>
           <span>
             The preview below demonstrates the finished editorial experience.
-            Real stories remain hidden until the player, event, result and timing
-            are verified by KHLIM staff.
+            Real stories remain hidden until the player, event, result and
+            timing are verified by KHLIM staff.
           </span>
         </div>
       )}
