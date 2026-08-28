@@ -46,7 +46,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Implement editorial studio
-        run: python scripts/dev-pr31-editorial.py
+        run: |
+          python scripts/dev-pr31-editorial.py
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('tests/phase-6-editorial-studio.test.mjs')
+          text = path.read_text().replace('/cache:"no-store"/', '/cache\\s*:\\s*"no-store"/')
+          path.write_text(text)
+          PY
       - name: Format changed sources
         run: >-
           pnpm exec prettier --write apps/api/src/app.module.ts apps/api/src/editorial/*.ts apps/admin/app/editorial/page.tsx apps/admin/components/layout/AdminSidebar.tsx apps/web/lib/editorial-api.ts apps/web/components/home/achievements-section.tsx apps/web/components/home/player-spotlight-section.tsx tests/phase-6-editorial-studio.test.mjs
