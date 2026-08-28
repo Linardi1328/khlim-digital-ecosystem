@@ -1,0 +1,39 @@
+name: Dev PR32 Sync Main
+
+on:
+  push:
+    branches:
+      - feat/scheduling-attendance
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/scheduling-attendance
+          fetch-depth: 0
+      - name: Detect merge conflicts
+        run: |
+          git fetch origin main
+          set +e
+          git merge --no-commit --no-ff origin/main
+          merge_code=$?
+          set -e
+          if [ "$merge_code" -ne 0 ]; then
+            echo "Conflicted files:"
+            git diff --name-only --diff-filter=U
+          else
+            echo "No textual conflicts detected"
+          fi
+          git merge --abort || true
+      - name: Merge current main into PR32
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git merge --no-ff origin/main -X ours -m "chore: sync PR32 with merged PR31"
+          git push origin HEAD:feat/scheduling-attendance
