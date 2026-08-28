@@ -1,0 +1,164 @@
+name: Dev PR29 Payment Hardening
+
+on:
+  push:
+    branches:
+      - feat/payment-state-machine-hardening
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: khlim
+          POSTGRES_PASSWORD: khlim
+          POSTGRES_DB: khlim_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://khlim:khlim@127.0.0.1:5432/khlim_test
+      DIRECT_URL: postgresql://khlim:khlim@127.0.0.1:5432/khlim_test
+      KHLIM_TEST_DATABASE: "1"
+      PAYMENT_PROVIDER: sandbox
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/payment-state-machine-hardening
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply payment hardening patch
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          service_path = Path('apps/api/src/billing/billing.service.ts')
+          service = service_path.read_text()
+          service = service.replace(
+              'const CURRENT_MEMBERSHIP_TERMS_VERSION = "membership-mvp-v1";\n',
+              '''const CURRENT_MEMBERSHIP_TERMS_VERSION = "membership-mvp-v1";\nconst DEFAULT_CHECKOUT_HOLD_MINUTES = 45;\n\nfunction checkoutHoldMinutes(): number {\n  const configured = Number.parseInt(\n    process.env.PAYMENT_CHECKOUT_HOLD_MINUTES ?? "",\n    10,\n  );\n  return Number.isFinite(configured) && configured >= 5 && configured <= 1440\n    ? configured\n    : DEFAULT_CHECKOUT_HOLD_MINUTES;\n}\n''',
+          )
+          marker = '''  private async ensureBillingProfile(\n'''
+          reconcile = '''  async reconcileStaleCheckoutHolds(now = new Date()) {\n    const cutoff = new Date(\n      now.getTime() - checkoutHoldMinutes() * 60 * 1000,\n    );\n    const stalePayments = await this.prisma.client.payment.findMany({\n      where: {\n        status: "PROCESSING",\n        attemptedAt: { lt: cutoff },\n        membership: { is: { status: "PENDING" } },\n      },\n      include: { paymentInstallment: true, membership: true },\n    });\n\n    let expired = 0;\n    for (const payment of stalePayments) {\n      await this.prisma.client.$transaction(async (transaction) => {\n        const cancelled = await transaction.payment.updateMany({\n          where: { id: payment.id, status: "PROCESSING" },\n          data: {\n            status: "CANCELLED",\n            failedAt: now,\n            failureCode: "checkout_expired",\n            safeFailureReason: "Checkout expired before provider confirmation",\n          },\n        });\n        if (cancelled.count === 0) return;\n\n        if (payment.paymentInstallmentId) {\n          await transaction.paymentInstallment.updateMany({\n            where: {\n              id: payment.paymentInstallmentId,\n              status: "PROCESSING",\n            },\n            data: { status: "CANCELLED" },\n          });\n        }\n        if (payment.paymentInstallment?.paymentScheduleId) {\n          await transaction.paymentSchedule.updateMany({\n            where: {\n              id: payment.paymentInstallment.paymentScheduleId,\n              status: { in: ["PENDING", "ACTIVE"] },\n            },\n            data: { status: "CANCELLED" },\n          });\n        }\n        if (payment.membershipId) {\n          await transaction.membership.updateMany({\n            where: { id: payment.membershipId, status: "PENDING" },\n            data: { status: "CANCELLED", cancelledAt: now },\n          });\n        }\n        expired += 1;\n      });\n    }\n\n    return {\n      expired,\n      cutoff: cutoff.toISOString(),\n      holdMinutes: checkoutHoldMinutes(),\n    };\n  }\n\n'''
+          if reconcile not in service:
+              service = service.replace(marker, reconcile + marker)
+
+          old = '''    if (event.eventType === "PAYMENT_FAILED") {\n'''
+          guard = '''    if (\n      payment.providerPaymentId &&\n      event.providerPaymentId &&\n      payment.providerPaymentId !== event.providerPaymentId\n    ) {\n      await this.finishProviderEvent(\n        provider,\n        event.providerEventId,\n        "ACTION_REQUIRED",\n      );\n      return {\n        processed: false,\n        actionRequired: true,\n        reason: "PROVIDER_PAYMENT_ID_MISMATCH",\n      };\n    }\n\n    if (\n      (event.amountMinor !== undefined &&\n        event.amountMinor !== payment.amountMinor) ||\n      (event.currency !== undefined && event.currency !== payment.currency)\n    ) {\n      await this.finishProviderEvent(\n        provider,\n        event.providerEventId,\n        "ACTION_REQUIRED",\n      );\n      return {\n        processed: false,\n        actionRequired: true,\n        reason: "PAYMENT_AMOUNT_OR_CURRENCY_MISMATCH",\n      };\n    }\n\n    if (payment.status === "PAID") {\n      await this.finishProviderEvent(\n        provider,\n        event.providerEventId,\n        "PROCESSED",\n      );\n      return {\n        processed: true,\n        paymentStatus: "PAID",\n        membershipActivated: payment.membership?.status === "ACTIVE",\n        actionRequired: false,\n        ignoredTerminalState: true,\n      };\n    }\n\n    if (payment.status === "REFUNDED" || payment.status === "CANCELLED") {\n      await this.finishProviderEvent(\n        provider,\n        event.providerEventId,\n        "ACTION_REQUIRED",\n      );\n      return {\n        processed: false,\n        actionRequired: true,\n        reason: "TERMINAL_PAYMENT_STATE_REQUIRES_REVIEW",\n      };\n    }\n\n    if (event.eventType === "PAYMENT_FAILED") {\n'''
+          service = service.replace(old, guard, 1)
+          service = service.replace('''          settledAt: now,\n''', '''          settledAt: payment.settledAt ?? now,\n''', 1)
+          service = service.replace(
+              '''    processingStatus: "ACTION_REQUIRED" | "FAILED",\n''',
+              '''    processingStatus: "PROCESSED" | "ACTION_REQUIRED" | "FAILED",\n''',
+          )
+          service_path.write_text(service)
+
+          controller_path = Path('apps/api/src/billing/billing.controller.ts')
+          controller = controller_path.read_text()
+          controller = controller.replace(
+              'import { Public, RequireAthleteAccess } from "../auth/authorization.decorators";',
+              'import {\n  Public,\n  RequireAnyRole,\n  RequireAthleteAccess,\n  RequireMfa,\n} from "../auth/authorization.decorators";',
+          )
+          endpoint = '''\n  @Post("admin/billing/reconcile-stale-checkouts")\n  @ApiBearerAuth("supabase")\n  @RequireAnyRole("SUPER_ADMIN", "FINANCE_ADMIN", "MANAGEMENT")\n  @RequireMfa()\n  @ApiOperation({\n    summary: "Expire abandoned checkout holds and release pending capacity",\n  })\n  reconcileStaleCheckouts() {\n    return this.billing.reconcileStaleCheckoutHolds();\n  }\n'''
+          controller = controller.replace(
+              '\n  @Post("payments/webhooks/:provider")\n', endpoint + '\n  @Post("payments/webhooks/:provider")\n',
+          )
+          controller_path.write_text(controller)
+
+          root_test_path = Path('tests/phase-4-billing-payments.test.mjs')
+          root_test = root_test_path.read_text()
+          root_test += '''\n\ntest("payment state ordering protects settled money from stale provider events", async () => {\n  const service = await read("apps/api/src/billing/billing.service.ts");\n  assert.match(service, /payment\\.status === "PAID"/);\n  assert.match(service, /ignoredTerminalState: true/);\n  assert.match(service, /PROVIDER_PAYMENT_ID_MISMATCH/);\n  assert.match(service, /PAYMENT_AMOUNT_OR_CURRENCY_MISMATCH/);\n  assert.match(service, /settledAt: payment\\.settledAt \\?\\? now/);\n});\n\ntest("abandoned checkout holds have an MFA-protected reconciliation path", async () => {\n  const service = await read("apps/api/src/billing/billing.service.ts");\n  const controller = await read("apps/api/src/billing/billing.controller.ts");\n  assert.match(service, /PAYMENT_CHECKOUT_HOLD_MINUTES/);\n  assert.match(service, /reconcileStaleCheckoutHolds/);\n  assert.match(service, /status: "CANCELLED", cancelledAt: now/);\n  assert.match(controller, /admin\\/billing\\/reconcile-stale-checkouts/);\n  assert.match(controller, /RequireAnyRole\\("SUPER_ADMIN", "FINANCE_ADMIN", "MANAGEMENT"\\)/);\n  assert.match(controller, /@RequireMfa\\(\\)/);\n});\n'''
+          root_test_path.write_text(root_test)
+
+          integration_path = Path('tests/integration/pre-alpha-payment-webhook-integration.test.mjs')
+          integration = integration_path.read_text()
+          integration = integration.replace(
+              '''      safeFailureReason:\n        typeof payload.safeFailureReason === "string"\n          ? payload.safeFailureReason\n          : undefined,\n''',
+              '''      safeFailureReason:\n        typeof payload.safeFailureReason === "string"\n          ? payload.safeFailureReason\n          : undefined,\n      amountMinor:\n        Number.isInteger(payload.amountMinor) ? payload.amountMinor : undefined,\n      currency:\n        typeof payload.currency === "string" ? payload.currency : undefined,\n''',
+          )
+          integration = integration.replace(
+              '''  paymentCapacity: "70000000-0000-4000-8000-000000000054",\n''',
+              '''  paymentCapacity: "70000000-0000-4000-8000-000000000054",\n  athleteExpired: "70000000-0000-4000-8000-000000000008",\n  membershipExpired: "70000000-0000-4000-8000-000000000027",\n  scheduleExpired: "70000000-0000-4000-8000-000000000035",\n  installmentExpired: "70000000-0000-4000-8000-000000000045",\n  paymentExpired: "70000000-0000-4000-8000-000000000055",\n''',
+          )
+          integration = integration.replace(
+              '''  IDS.membershipCapacityFiller,\n];\n''',
+              '''  IDS.membershipCapacityFiller,\n  IDS.membershipExpired,\n];\n''',
+              1,
+          )
+          integration = integration.replace(
+              '''  IDS.athleteCapacityFiller,\n];\n''',
+              '''  IDS.athleteCapacityFiller,\n  IDS.athleteExpired,\n];\n''',
+              1,
+          )
+          integration = integration.replace(
+              '''  capacity: `membership:${IDS.membershipCapacityTarget}:installment:1`,\n''',
+              '''  capacity: `membership:${IDS.membershipCapacityTarget}:installment:1`,\n  expired: `membership:${IDS.membershipExpired}:installment:1`,\n''',
+          )
+          integration = integration.replace(
+              '''      {\n        id: IDS.membershipCapacityFiller,\n        athleteId: IDS.athleteCapacityFiller,\n        programmeOfferingId: IDS.offeringCapacity,\n        membershipPlanId: IDS.plan,\n        purchasedByUserId: IDS.payer,\n        status: "ACTIVE",\n        startsAt: new Date(),\n        activatedAt: new Date(),\n      },\n''',
+              '''      {\n        id: IDS.membershipCapacityFiller,\n        athleteId: IDS.athleteCapacityFiller,\n        programmeOfferingId: IDS.offeringCapacity,\n        membershipPlanId: IDS.plan,\n        purchasedByUserId: IDS.payer,\n        status: "ACTIVE",\n        startsAt: new Date(),\n        activatedAt: new Date(),\n      },\n      {\n        id: IDS.membershipExpired,\n        athleteId: IDS.athleteExpired,\n        programmeOfferingId: IDS.offeringGeneral,\n        membershipPlanId: IDS.plan,\n        purchasedByUserId: IDS.payer,\n        status: "PENDING",\n      },\n''',
+          )
+          integration = integration.replace(
+              '''  await createPaymentFixture(client, {\n    membershipId: IDS.membershipCapacityTarget,\n    scheduleId: IDS.scheduleCapacity,\n    installmentId: IDS.installmentCapacity,\n    paymentId: IDS.paymentCapacity,\n    idempotencyKey: KEYS.capacity,\n  });\n''',
+              '''  await createPaymentFixture(client, {\n    membershipId: IDS.membershipCapacityTarget,\n    scheduleId: IDS.scheduleCapacity,\n    installmentId: IDS.installmentCapacity,\n    paymentId: IDS.paymentCapacity,\n    idempotencyKey: KEYS.capacity,\n  });\n  await createPaymentFixture(client, {\n    membershipId: IDS.membershipExpired,\n    scheduleId: IDS.scheduleExpired,\n    installmentId: IDS.installmentExpired,\n    paymentId: IDS.paymentExpired,\n    idempotencyKey: KEYS.expired,\n  });\n''',
+          )
+          integration = integration.replace(
+              '''      providerPaymentId: `sandbox-seeded-${paymentId.slice(-12)}`,\n''',
+              '',
+          )
+          insertion = '''\n      await t.test(\n        "settled payments ignore stale failures and flag signed provider mismatches",\n        async () => {\n          const payment = await client.payment.findFirstOrThrow({\n            where: { membershipId: IDS.membershipCheckout },\n          });\n          const beforeMembership = await client.membership.findUnique({\n            where: { id: IDS.membershipCheckout },\n          });\n          const beforePayment = await client.payment.findUnique({\n            where: { id: payment.id },\n          });\n\n          const staleFailure = await webhookRequest(baseUrl, adapter, {\n            providerEventId: "evt-stale-failure-after-success",\n            eventType: "PAYMENT_FAILED",\n            idempotencyKey: payment.idempotencyKey,\n            providerPaymentId: payment.providerPaymentId,\n            failureCode: "late_failure",\n          });\n          assert.equal(staleFailure.response.status, 201);\n          assert.equal(staleFailure.body.paymentStatus, "PAID");\n          assert.equal(staleFailure.body.ignoredTerminalState, true);\n\n          const repeatedSuccess = await webhookRequest(baseUrl, adapter, {\n            providerEventId: "evt-distinct-success-after-success",\n            eventType: "PAYMENT_SUCCEEDED",\n            idempotencyKey: payment.idempotencyKey,\n            providerPaymentId: payment.providerPaymentId,\n          });\n          assert.equal(repeatedSuccess.body.ignoredTerminalState, true);\n\n          const mismatch = await webhookRequest(baseUrl, adapter, {\n            providerEventId: "evt-provider-id-mismatch",\n            eventType: "PAYMENT_SUCCEEDED",\n            idempotencyKey: payment.idempotencyKey,\n            providerPaymentId: "sandbox-wrong-payment-id",\n          });\n          assert.equal(mismatch.body.processed, false);\n          assert.equal(mismatch.body.actionRequired, true);\n          assert.equal(mismatch.body.reason, "PROVIDER_PAYMENT_ID_MISMATCH");\n\n          const afterPayment = await client.payment.findUnique({\n            where: { id: payment.id },\n          });\n          const afterMembership = await client.membership.findUnique({\n            where: { id: IDS.membershipCheckout },\n          });\n          assert.equal(afterPayment?.status, "PAID");\n          assert.equal(\n            afterPayment?.settledAt?.toISOString(),\n            beforePayment?.settledAt?.toISOString(),\n          );\n          assert.equal(\n            afterMembership?.activatedAt?.toISOString(),\n            beforeMembership?.activatedAt?.toISOString(),\n          );\n        },\n      );\n\n      await t.test(\n        "signed amount mismatch is held for review and stale checkout reconciliation releases capacity",\n        async () => {\n          const mismatch = await webhookRequest(baseUrl, adapter, {\n            providerEventId: "evt-amount-mismatch",\n            eventType: "PAYMENT_SUCCEEDED",\n            idempotencyKey: KEYS.expired,\n            providerPaymentId: "sandbox-expired-payment",\n            amountMinor: AMOUNT_MINOR + 1,\n            currency: "MYR",\n          });\n          assert.equal(mismatch.body.processed, false);\n          assert.equal(mismatch.body.actionRequired, true);\n          assert.equal(\n            mismatch.body.reason,\n            "PAYMENT_AMOUNT_OR_CURRENCY_MISMATCH",\n          );\n\n          await client.payment.update({\n            where: { id: IDS.paymentExpired },\n            data: { attemptedAt: new Date(Date.now() - 60 * 60 * 1000) },\n          });\n          const result = await billing.reconcileStaleCheckoutHolds(new Date());\n          assert.equal(result.expired, 1);\n\n          const payment = await client.payment.findUnique({\n            where: { id: IDS.paymentExpired },\n          });\n          const installment = await client.paymentInstallment.findUnique({\n            where: { id: IDS.installmentExpired },\n          });\n          const schedule = await client.paymentSchedule.findUnique({\n            where: { id: IDS.scheduleExpired },\n          });\n          const membership = await client.membership.findUnique({\n            where: { id: IDS.membershipExpired },\n          });\n          assert.equal(payment?.status, "CANCELLED");\n          assert.equal(installment?.status, "CANCELLED");\n          assert.equal(schedule?.status, "CANCELLED");\n          assert.equal(membership?.status, "CANCELLED");\n          assert.ok(membership?.cancelledAt);\n        },\n      );\n'''
+          anchor = '''      await t.test(\n        "failed payment can recover through a later distinct verified success event",\n'''
+          integration = integration.replace(anchor, insertion + '\n' + anchor)
+          integration_path.write_text(integration)
+          PY
+
+      - name: Format changed files
+        run: >-
+          pnpm exec prettier --write
+          apps/api/src/billing/billing.service.ts
+          apps/api/src/billing/billing.controller.ts
+          tests/phase-4-billing-payments.test.mjs
+          tests/integration/pre-alpha-payment-webhook-integration.test.mjs
+
+      - name: Apply database migrations
+        run: pnpm prisma:migrate:deploy
+
+      - name: Verify PR29
+        run: |
+          pnpm test
+          pnpm lint
+          pnpm format:check
+          pnpm prisma:generate
+          pnpm --filter @khlim/api build
+          node --test tests/integration/pre-alpha-payment-webhook-integration.test.mjs
+
+      - name: Commit verified patch and remove dev workflow
+        run: |
+          rm .github/workflows/dev-pr29-payment-hardening.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(billing): harden payment state ordering and stale holds"
+          git push origin HEAD:feat/payment-state-machine-hardening
