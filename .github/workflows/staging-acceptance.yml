@@ -1,0 +1,31 @@
+name: Staging Acceptance
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  KHLIM_STAGING_WEB_URL: ${{ secrets.KHLIM_STAGING_WEB_URL }}
+  KHLIM_STAGING_API_URL: ${{ secrets.KHLIM_STAGING_API_URL }}
+  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.KHLIM_STAGING_SUPABASE_URL }}
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.KHLIM_STAGING_SUPABASE_ANON_KEY }}
+  PAYMENT_PROVIDER: billplz
+  BILLPLZ_SANDBOX: "1"
+  BILLPLZ_SECRET_KEY: ${{ secrets.KHLIM_STAGING_BILLPLZ_SECRET_KEY }}
+  BILLPLZ_COLLECTION_ID: ${{ secrets.KHLIM_STAGING_BILLPLZ_COLLECTION_ID }}
+  BILLPLZ_X_SIGNATURE_KEY: ${{ secrets.KHLIM_STAGING_BILLPLZ_X_SIGNATURE_KEY }}
+  BILLPLZ_CALLBACK_URL: ${{ secrets.KHLIM_STAGING_BILLPLZ_CALLBACK_URL }}
+  BILLPLZ_REDIRECT_URL: ${{ secrets.KHLIM_STAGING_BILLPLZ_REDIRECT_URL }}
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Verify deployed staging services and fail-closed configuration
+        run: node scripts/verify-staging-acceptance.mjs
