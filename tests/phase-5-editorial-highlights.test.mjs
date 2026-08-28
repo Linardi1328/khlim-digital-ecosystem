@@ -43,7 +43,7 @@ test("Player Spotlight keeps AI drafting subordinate to verified facts", async (
     /article\.status === "published" && article\.factsVerified/,
   );
   assert.match(section, /AI-assisted example, not a real player claim/);
-  assert.match(section, /player, event, result and timing/);
+  assert.match(section, /player, event, result and\s+timing/);
 });
 
 test("Player Spotlight has archive and shareable article routes", async () => {
