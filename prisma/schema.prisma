@@ -512,3 +512,40 @@ model PaymentProviderEvent {
   @@index([processingStatus, receivedAt])
   @@map("payment_provider_events")
 }
+
+
+enum EditorialEntryType {
+  ACHIEVEMENT
+  PLAYER_SPOTLIGHT
+}
+
+enum EditorialEntryStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model EditorialEntry {
+  id                String               @id @default(uuid()) @db.Uuid
+  type              EditorialEntryType
+  slug              String?              @unique @db.VarChar(160)
+  title             String               @db.VarChar(220)
+  eventName         String               @db.VarChar(220)
+  summary           String               @db.Text
+  yearLabel         String?              @db.VarChar(80)
+  playerName        String?              @db.VarChar(160)
+  achievement       String?              @db.VarChar(220)
+  achievedOnLabel   String?              @db.VarChar(120)
+  articleParagraphs Json?
+  photoLabel        String               @db.VarChar(220)
+  imageUrl          String?              @db.Text
+  factsVerified     Boolean              @default(false)
+  aiAssisted        Boolean              @default(false)
+  status            EditorialEntryStatus @default(DRAFT)
+  publishedAt       DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@index([type, status, publishedAt])
+  @@map("editorial_entries")
+}

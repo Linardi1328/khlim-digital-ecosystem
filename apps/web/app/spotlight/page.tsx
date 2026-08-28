@@ -1,3 +1,6 @@
+"use client";
+
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { PublicFooter } from "../../components/layout/public-footer";
 import { PublicHeader } from "../../components/layout/public-header";
@@ -7,12 +10,18 @@ import {
   playerSpotlightEditorialPreview,
   publishedPlayerSpotlights,
 } from "../../lib/editorial-content";
+import { fetchPublishedSpotlights } from "../../lib/editorial-api";
 
 export default function PlayerSpotlightArchivePage() {
-  const preview = publishedPlayerSpotlights.length === 0;
-  const stories = preview
-    ? [playerSpotlightEditorialPreview]
-    : publishedPlayerSpotlights;
+  const [remote, setRemote] = useState<typeof publishedPlayerSpotlights>([]);
+  useEffect(() => {
+    void fetchPublishedSpotlights()
+      .then(setRemote)
+      .catch(() => undefined);
+  }, []);
+  const live = remote.length > 0 ? remote : publishedPlayerSpotlights;
+  const preview = live.length === 0;
+  const stories = preview ? [playerSpotlightEditorialPreview] : live;
 
   return (
     <div className="spotlight-page-shell">
