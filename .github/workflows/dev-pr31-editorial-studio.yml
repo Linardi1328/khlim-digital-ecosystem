@@ -48,15 +48,16 @@ jobs:
       - name: Implement editorial studio
         run: |
           python scripts/dev-pr31-editorial.py
+          python scripts/dev-pr31-routes.py
           python - <<'PY'
           from pathlib import Path
           path = Path('tests/phase-6-editorial-studio.test.mjs')
           text = path.read_text().replace('/cache:"no-store"/', '/cache\\s*:\\s*"no-store"/')
           path.write_text(text)
           PY
-      - name: Format changed sources
+      - name: Format changed and stacked sources
         run: >-
-          pnpm exec prettier --write apps/api/src/app.module.ts apps/api/src/editorial/*.ts apps/admin/app/editorial/page.tsx apps/admin/components/layout/AdminSidebar.tsx apps/web/lib/editorial-api.ts apps/web/components/home/achievements-section.tsx apps/web/components/home/player-spotlight-section.tsx tests/phase-6-editorial-studio.test.mjs
+          pnpm exec prettier --write apps/api/src/app.module.ts apps/api/src/editorial/*.ts apps/admin/app/editorial/page.tsx apps/admin/components/layout/AdminSidebar.tsx apps/web/lib/editorial-api.ts apps/web/components/home/achievements-section.tsx apps/web/components/home/player-spotlight-section.tsx apps/web/app/spotlight/page.tsx apps/web/app/spotlight/[slug]/page.tsx tests/phase-6-editorial-studio.test.mjs scripts/verify-staging-acceptance.mjs
       - name: Apply migrations and generate Prisma client
         run: |
           pnpm exec prisma validate
@@ -74,6 +75,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add prisma apps/api/src/app.module.ts apps/api/src/editorial apps/admin/app/editorial apps/admin/components/layout/AdminSidebar.tsx apps/web/lib/editorial-api.ts apps/web/components/home/achievements-section.tsx apps/web/components/home/player-spotlight-section.tsx tests/phase-6-editorial-studio.test.mjs
+          git add prisma apps/api/src/app.module.ts apps/api/src/editorial apps/admin/app/editorial apps/admin/components/layout/AdminSidebar.tsx apps/web/lib/editorial-api.ts apps/web/components/home/achievements-section.tsx apps/web/components/home/player-spotlight-section.tsx apps/web/app/spotlight/page.tsx apps/web/app/spotlight/[slug]/page.tsx tests/phase-6-editorial-studio.test.mjs scripts/verify-staging-acceptance.mjs
           git commit -m "feat(editorial): add persistent Admin publishing studio"
           git push origin HEAD:feat/admin-editorial-studio
