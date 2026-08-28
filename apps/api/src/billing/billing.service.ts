@@ -13,6 +13,17 @@ import {
 } from "./payment-gateway";
 
 const CURRENT_MEMBERSHIP_TERMS_VERSION = "membership-mvp-v1";
+const DEFAULT_CHECKOUT_HOLD_MINUTES = 45;
+
+function checkoutHoldMinutes(): number {
+  const configured = Number.parseInt(
+    process.env.PAYMENT_CHECKOUT_HOLD_MINUTES ?? "",
+    10,
+  );
+  return Number.isFinite(configured) && configured >= 5 && configured <= 1440
+    ? configured
+    : DEFAULT_CHECKOUT_HOLD_MINUTES;
+}
 
 function addMonthsUtc(value: Date, months: number): Date {
   const copy = new Date(value);
@@ -239,6 +250,66 @@ export class BillingService {
     };
   }
 
+  async reconcileStaleCheckoutHolds(now = new Date()) {
+    const cutoff = new Date(now.getTime() - checkoutHoldMinutes() * 60 * 1000);
+    const stalePayments = await this.prisma.client.payment.findMany({
+      where: {
+        status: "PROCESSING",
+        attemptedAt: { lt: cutoff },
+        membership: { is: { status: "PENDING" } },
+      },
+      include: { paymentInstallment: true, membership: true },
+    });
+
+    let expired = 0;
+    for (const payment of stalePayments) {
+      await this.prisma.client.$transaction(async (transaction) => {
+        const cancelled = await transaction.payment.updateMany({
+          where: { id: payment.id, status: "PROCESSING" },
+          data: {
+            status: "CANCELLED",
+            failedAt: now,
+            failureCode: "checkout_expired",
+            safeFailureReason: "Checkout expired before provider confirmation",
+          },
+        });
+        if (cancelled.count === 0) return;
+
+        if (payment.paymentInstallmentId) {
+          await transaction.paymentInstallment.updateMany({
+            where: {
+              id: payment.paymentInstallmentId,
+              status: "PROCESSING",
+            },
+            data: { status: "CANCELLED" },
+          });
+        }
+        if (payment.paymentInstallment?.paymentScheduleId) {
+          await transaction.paymentSchedule.updateMany({
+            where: {
+              id: payment.paymentInstallment.paymentScheduleId,
+              status: { in: ["PENDING", "ACTIVE"] },
+            },
+            data: { status: "CANCELLED" },
+          });
+        }
+        if (payment.membershipId) {
+          await transaction.membership.updateMany({
+            where: { id: payment.membershipId, status: "PENDING" },
+            data: { status: "CANCELLED", cancelledAt: now },
+          });
+        }
+        expired += 1;
+      });
+    }
+
+    return {
+      expired,
+      cutoff: cutoff.toISOString(),
+      holdMinutes: checkoutHoldMinutes(),
+    };
+  }
+
   private async ensureBillingProfile(
     gateway: ReturnType<PaymentGatewayRegistry["requireConfigured"]>,
     userId: string,
@@ -357,6 +428,68 @@ export class BillingService {
       return { processed: false, actionRequired: true };
     }
 
+    if (
+      payment.providerPaymentId &&
+      event.providerPaymentId &&
+      payment.providerPaymentId !== event.providerPaymentId
+    ) {
+      await this.finishProviderEvent(
+        provider,
+        event.providerEventId,
+        "ACTION_REQUIRED",
+      );
+      return {
+        processed: false,
+        actionRequired: true,
+        reason: "PROVIDER_PAYMENT_ID_MISMATCH",
+      };
+    }
+
+    if (
+      (event.amountMinor !== undefined &&
+        event.amountMinor !== payment.amountMinor) ||
+      (event.currency !== undefined && event.currency !== payment.currency)
+    ) {
+      await this.finishProviderEvent(
+        provider,
+        event.providerEventId,
+        "ACTION_REQUIRED",
+      );
+      return {
+        processed: false,
+        actionRequired: true,
+        reason: "PAYMENT_AMOUNT_OR_CURRENCY_MISMATCH",
+      };
+    }
+
+    if (payment.status === "PAID") {
+      await this.finishProviderEvent(
+        provider,
+        event.providerEventId,
+        "PROCESSED",
+      );
+      return {
+        processed: true,
+        paymentStatus: "PAID",
+        membershipActivated: payment.membership?.status === "ACTIVE",
+        actionRequired: false,
+        ignoredTerminalState: true,
+      };
+    }
+
+    if (payment.status === "REFUNDED" || payment.status === "CANCELLED") {
+      await this.finishProviderEvent(
+        provider,
+        event.providerEventId,
+        "ACTION_REQUIRED",
+      );
+      return {
+        processed: false,
+        actionRequired: true,
+        reason: "TERMINAL_PAYMENT_STATE_REQUIRES_REVIEW",
+      };
+    }
+
     if (event.eventType === "PAYMENT_FAILED") {
       await this.prisma.client.$transaction(async (transaction) => {
         await transaction.payment.update({
@@ -395,7 +528,7 @@ export class BillingService {
         where: { id: payment.id },
         data: {
           status: "PAID",
-          settledAt: now,
+          settledAt: payment.settledAt ?? now,
           providerPaymentId:
             event.providerPaymentId ?? payment.providerPaymentId,
           failureCode: null,
@@ -475,7 +608,7 @@ export class BillingService {
   private finishProviderEvent(
     provider: string,
     providerEventId: string,
-    processingStatus: "ACTION_REQUIRED" | "FAILED",
+    processingStatus: "PROCESSED" | "ACTION_REQUIRED" | "FAILED",
   ) {
     return this.prisma.client.paymentProviderEvent.update({
       where: { provider_providerEventId: { provider, providerEventId } },

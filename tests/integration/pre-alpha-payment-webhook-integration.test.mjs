@@ -56,6 +56,11 @@ const IDS = Object.freeze({
   paymentRetry: "70000000-0000-4000-8000-000000000052",
   paymentConcurrent: "70000000-0000-4000-8000-000000000053",
   paymentCapacity: "70000000-0000-4000-8000-000000000054",
+  athleteExpired: "70000000-0000-4000-8000-000000000008",
+  membershipExpired: "70000000-0000-4000-8000-000000000027",
+  scheduleExpired: "70000000-0000-4000-8000-000000000035",
+  installmentExpired: "70000000-0000-4000-8000-000000000045",
+  paymentExpired: "70000000-0000-4000-8000-000000000055",
 });
 
 const MEMBERSHIP_IDS = [
@@ -65,6 +70,7 @@ const MEMBERSHIP_IDS = [
   IDS.membershipConcurrent,
   IDS.membershipCapacityTarget,
   IDS.membershipCapacityFiller,
+  IDS.membershipExpired,
 ];
 
 const ATHLETE_IDS = [
@@ -74,6 +80,7 @@ const ATHLETE_IDS = [
   IDS.athleteConcurrent,
   IDS.athleteCapacityTarget,
   IDS.athleteCapacityFiller,
+  IDS.athleteExpired,
 ];
 
 const KEYS = Object.freeze({
@@ -81,6 +88,7 @@ const KEYS = Object.freeze({
   retry: `membership:${IDS.membershipRetry}:installment:1`,
   concurrent: `membership:${IDS.membershipConcurrent}:installment:1`,
   capacity: `membership:${IDS.membershipCapacityTarget}:installment:1`,
+  expired: `membership:${IDS.membershipExpired}:installment:1`,
 });
 
 class SandboxPaymentGatewayAdapter {
@@ -175,6 +183,11 @@ class SandboxPaymentGatewayAdapter {
         typeof payload.safeFailureReason === "string"
           ? payload.safeFailureReason
           : undefined,
+      amountMinor: Number.isInteger(payload.amountMinor)
+        ? payload.amountMinor
+        : undefined,
+      currency:
+        typeof payload.currency === "string" ? payload.currency : undefined,
     };
   }
 
@@ -262,7 +275,6 @@ async function createPaymentFixture(
       membershipId,
       paymentInstallmentId: installmentId,
       provider: "sandbox",
-      providerPaymentId: `sandbox-seeded-${paymentId.slice(-12)}`,
       idempotencyKey,
       amountMinor: AMOUNT_MINOR,
       currency: "MYR",
@@ -385,6 +397,14 @@ async function seed(client) {
         startsAt: new Date(),
         activatedAt: new Date(),
       },
+      {
+        id: IDS.membershipExpired,
+        athleteId: IDS.athleteExpired,
+        programmeOfferingId: IDS.offeringGeneral,
+        membershipPlanId: IDS.plan,
+        purchasedByUserId: IDS.payer,
+        status: "PENDING",
+      },
     ],
   });
 
@@ -415,6 +435,13 @@ async function seed(client) {
     installmentId: IDS.installmentCapacity,
     paymentId: IDS.paymentCapacity,
     idempotencyKey: KEYS.capacity,
+  });
+  await createPaymentFixture(client, {
+    membershipId: IDS.membershipExpired,
+    scheduleId: IDS.scheduleExpired,
+    installmentId: IDS.installmentExpired,
+    paymentId: IDS.paymentExpired,
+    idempotencyKey: KEYS.expired,
   });
 }
 
@@ -684,6 +711,111 @@ test(
             where: { id: payment.id },
           });
           assert.equal(afterCollision?.status, "PAID");
+        },
+      );
+
+      await t.test(
+        "settled payments ignore stale failures and flag signed provider mismatches",
+        async () => {
+          const payment = await client.payment.findFirstOrThrow({
+            where: { membershipId: IDS.membershipCheckout },
+          });
+          const beforeMembership = await client.membership.findUnique({
+            where: { id: IDS.membershipCheckout },
+          });
+          const beforePayment = await client.payment.findUnique({
+            where: { id: payment.id },
+          });
+
+          const staleFailure = await webhookRequest(baseUrl, adapter, {
+            providerEventId: "evt-stale-failure-after-success",
+            eventType: "PAYMENT_FAILED",
+            idempotencyKey: payment.idempotencyKey,
+            providerPaymentId: payment.providerPaymentId,
+            failureCode: "late_failure",
+          });
+          assert.equal(staleFailure.response.status, 201);
+          assert.equal(staleFailure.body.paymentStatus, "PAID");
+          assert.equal(staleFailure.body.ignoredTerminalState, true);
+
+          const repeatedSuccess = await webhookRequest(baseUrl, adapter, {
+            providerEventId: "evt-distinct-success-after-success",
+            eventType: "PAYMENT_SUCCEEDED",
+            idempotencyKey: payment.idempotencyKey,
+            providerPaymentId: payment.providerPaymentId,
+          });
+          assert.equal(repeatedSuccess.body.ignoredTerminalState, true);
+
+          const mismatch = await webhookRequest(baseUrl, adapter, {
+            providerEventId: "evt-provider-id-mismatch",
+            eventType: "PAYMENT_SUCCEEDED",
+            idempotencyKey: payment.idempotencyKey,
+            providerPaymentId: "sandbox-wrong-payment-id",
+          });
+          assert.equal(mismatch.body.processed, false);
+          assert.equal(mismatch.body.actionRequired, true);
+          assert.equal(mismatch.body.reason, "PROVIDER_PAYMENT_ID_MISMATCH");
+
+          const afterPayment = await client.payment.findUnique({
+            where: { id: payment.id },
+          });
+          const afterMembership = await client.membership.findUnique({
+            where: { id: IDS.membershipCheckout },
+          });
+          assert.equal(afterPayment?.status, "PAID");
+          assert.equal(
+            afterPayment?.settledAt?.toISOString(),
+            beforePayment?.settledAt?.toISOString(),
+          );
+          assert.equal(
+            afterMembership?.activatedAt?.toISOString(),
+            beforeMembership?.activatedAt?.toISOString(),
+          );
+        },
+      );
+
+      await t.test(
+        "signed amount mismatch is held for review and stale checkout reconciliation releases capacity",
+        async () => {
+          const mismatch = await webhookRequest(baseUrl, adapter, {
+            providerEventId: "evt-amount-mismatch",
+            eventType: "PAYMENT_SUCCEEDED",
+            idempotencyKey: KEYS.expired,
+            providerPaymentId: "sandbox-expired-payment",
+            amountMinor: AMOUNT_MINOR + 1,
+            currency: "MYR",
+          });
+          assert.equal(mismatch.body.processed, false);
+          assert.equal(mismatch.body.actionRequired, true);
+          assert.equal(
+            mismatch.body.reason,
+            "PAYMENT_AMOUNT_OR_CURRENCY_MISMATCH",
+          );
+
+          await client.payment.update({
+            where: { id: IDS.paymentExpired },
+            data: { attemptedAt: new Date(Date.now() - 60 * 60 * 1000) },
+          });
+          const result = await billing.reconcileStaleCheckoutHolds(new Date());
+          assert.equal(result.expired, 1);
+
+          const payment = await client.payment.findUnique({
+            where: { id: IDS.paymentExpired },
+          });
+          const installment = await client.paymentInstallment.findUnique({
+            where: { id: IDS.installmentExpired },
+          });
+          const schedule = await client.paymentSchedule.findUnique({
+            where: { id: IDS.scheduleExpired },
+          });
+          const membership = await client.membership.findUnique({
+            where: { id: IDS.membershipExpired },
+          });
+          assert.equal(payment?.status, "CANCELLED");
+          assert.equal(installment?.status, "CANCELLED");
+          assert.equal(schedule?.status, "CANCELLED");
+          assert.equal(membership?.status, "CANCELLED");
+          assert.ok(membership?.cancelledAt);
         },
       );
 

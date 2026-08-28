@@ -10,7 +10,12 @@ import {
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import type { AuthenticatedUserContext } from "../auth/authenticated-user";
-import { Public, RequireAthleteAccess } from "../auth/authorization.decorators";
+import {
+  Public,
+  RequireAnyRole,
+  RequireAthleteAccess,
+  RequireMfa,
+} from "../auth/authorization.decorators";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { BillingService } from "./billing.service";
 import { PrepareMembershipCheckoutDto } from "./billing.dto";
@@ -50,6 +55,17 @@ export class BillingController {
       membershipId,
       body,
     );
+  }
+
+  @Post("admin/billing/reconcile-stale-checkouts")
+  @ApiBearerAuth("supabase")
+  @RequireAnyRole("SUPER_ADMIN", "FINANCE_ADMIN", "MANAGEMENT")
+  @RequireMfa()
+  @ApiOperation({
+    summary: "Expire abandoned checkout holds and release pending capacity",
+  })
+  reconcileStaleCheckouts() {
+    return this.billing.reconcileStaleCheckoutHolds();
   }
 
   @Post("payments/webhooks/:provider")

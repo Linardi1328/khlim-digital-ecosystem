@@ -64,3 +64,26 @@ test("checkout retries can resume a persisted provider payment instead of duplic
     /providerPaymentId:\s*payment\.providerPaymentId\s*\?\?\s*undefined/,
   );
 });
+
+test("payment state ordering protects settled money from stale provider events", async () => {
+  const service = await read("apps/api/src/billing/billing.service.ts");
+  assert.match(service, /payment\.status === "PAID"/);
+  assert.match(service, /ignoredTerminalState: true/);
+  assert.match(service, /PROVIDER_PAYMENT_ID_MISMATCH/);
+  assert.match(service, /PAYMENT_AMOUNT_OR_CURRENCY_MISMATCH/);
+  assert.match(service, /settledAt: payment\.settledAt \?\? now/);
+});
+
+test("abandoned checkout holds have an MFA-protected reconciliation path", async () => {
+  const service = await read("apps/api/src/billing/billing.service.ts");
+  const controller = await read("apps/api/src/billing/billing.controller.ts");
+  assert.match(service, /PAYMENT_CHECKOUT_HOLD_MINUTES/);
+  assert.match(service, /reconcileStaleCheckoutHolds/);
+  assert.match(service, /status: "CANCELLED", cancelledAt: now/);
+  assert.match(controller, /admin\/billing\/reconcile-stale-checkouts/);
+  assert.match(
+    controller,
+    /RequireAnyRole\("SUPER_ADMIN", "FINANCE_ADMIN", "MANAGEMENT"\)/,
+  );
+  assert.match(controller, /@RequireMfa\(\)/);
+});
