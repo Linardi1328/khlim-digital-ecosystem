@@ -1,0 +1,440 @@
+name: Dev PR31 Editorial Studio
+
+on:
+  push:
+    branches:
+      - feat/admin-editorial-studio
+
+permissions:
+  contents: write
+
+jobs:
+  implement-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: khlim
+          POSTGRES_PASSWORD: khlim
+          POSTGRES_DB: khlim_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U khlim -d khlim_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://khlim:khlim@127.0.0.1:5432/khlim_test
+      DIRECT_URL: postgresql://khlim:khlim@127.0.0.1:5432/khlim_test
+      KHLIM_TEST_DATABASE: "1"
+      NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:3001/v1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/admin-editorial-studio
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.0 --activate
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Implement editorial persistence, API, Admin studio and public consumption
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          schema = Path('prisma/schema.prisma')
+          text = schema.read_text()
+          if 'enum EditorialEntryType' not in text:
+              text += '''\n\nenum EditorialEntryType {\n  ACHIEVEMENT\n  PLAYER_SPOTLIGHT\n}\n\nenum EditorialEntryStatus {\n  DRAFT\n  PUBLISHED\n  ARCHIVED\n}\n\nmodel EditorialEntry {\n  id                String               @id @default(uuid()) @db.Uuid\n  type              EditorialEntryType\n  slug              String?              @unique @db.VarChar(160)\n  title             String               @db.VarChar(220)\n  eventName         String               @db.VarChar(220)\n  summary           String               @db.Text\n  yearLabel         String?              @db.VarChar(80)\n  playerName        String?              @db.VarChar(160)\n  achievement       String?              @db.VarChar(220)\n  achievedOnLabel   String?              @db.VarChar(120)\n  articleParagraphs Json?\n  photoLabel        String               @db.VarChar(220)\n  imageUrl          String?              @db.Text\n  factsVerified     Boolean              @default(false)\n  aiAssisted        Boolean              @default(false)\n  status            EditorialEntryStatus @default(DRAFT)\n  publishedAt       DateTime?\n  createdAt         DateTime             @default(now())\n  updatedAt         DateTime             @updatedAt\n\n  @@index([type, status, publishedAt])\n  @@map("editorial_entries")\n}\n'''
+          schema.write_text(text)
+
+          migration = Path('prisma/migrations/20260828024500_editorial_studio')
+          migration.mkdir(exist_ok=True)
+          (migration / 'migration.sql').write_text('''CREATE TYPE "EditorialEntryType" AS ENUM ('ACHIEVEMENT', 'PLAYER_SPOTLIGHT');\nCREATE TYPE "EditorialEntryStatus" AS ENUM ('DRAFT', 'PUBLISHED', 'ARCHIVED');\n\nCREATE TABLE "editorial_entries" (\n  "id" UUID NOT NULL,\n  "type" "EditorialEntryType" NOT NULL,\n  "slug" VARCHAR(160),\n  "title" VARCHAR(220) NOT NULL,\n  "eventName" VARCHAR(220) NOT NULL,\n  "summary" TEXT NOT NULL,\n  "yearLabel" VARCHAR(80),\n  "playerName" VARCHAR(160),\n  "achievement" VARCHAR(220),\n  "achievedOnLabel" VARCHAR(120),\n  "articleParagraphs" JSONB,\n  "photoLabel" VARCHAR(220) NOT NULL,\n  "imageUrl" TEXT,\n  "factsVerified" BOOLEAN NOT NULL DEFAULT false,\n  "aiAssisted" BOOLEAN NOT NULL DEFAULT false,\n  "status" "EditorialEntryStatus" NOT NULL DEFAULT 'DRAFT',\n  "publishedAt" TIMESTAMP(3),\n  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  "updatedAt" TIMESTAMP(3) NOT NULL,\n  CONSTRAINT "editorial_entries_pkey" PRIMARY KEY ("id")\n);\nCREATE UNIQUE INDEX "editorial_entries_slug_key" ON "editorial_entries"("slug");\nCREATE INDEX "editorial_entries_type_status_publishedAt_idx" ON "editorial_entries"("type", "status", "publishedAt");\n''')
+
+          editorial_dir = Path('apps/api/src/editorial')
+          editorial_dir.mkdir(exist_ok=True)
+          (editorial_dir / 'editorial.service.ts').write_text(r'''import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { PrismaService } from "../database/prisma.service";
+
+export type EditorialType = "ACHIEVEMENT" | "PLAYER_SPOTLIGHT";
+
+interface EditorialInput {
+  type: EditorialType;
+  slug?: string;
+  title: string;
+  eventName: string;
+  summary: string;
+  yearLabel?: string;
+  playerName?: string;
+  achievement?: string;
+  achievedOnLabel?: string;
+  articleParagraphs?: string[];
+  photoLabel: string;
+  imageUrl?: string;
+  factsVerified?: boolean;
+  aiAssisted?: boolean;
+}
+
+@Injectable()
+export class EditorialService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  listAdmin() {
+    return this.prisma.client.editorialEntry.findMany({ orderBy: { updatedAt: "desc" } });
+  }
+
+  listPublished(type: EditorialType) {
+    return this.prisma.client.editorialEntry.findMany({
+      where: { type, status: "PUBLISHED", factsVerified: true },
+      orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+    });
+  }
+
+  async findPublishedSpotlight(slug: string) {
+    return this.prisma.client.editorialEntry.findFirst({
+      where: { slug, type: "PLAYER_SPOTLIGHT", status: "PUBLISHED", factsVerified: true },
+    });
+  }
+
+  create(input: EditorialInput) {
+    this.assertComplete(input);
+    return this.prisma.client.editorialEntry.create({
+      data: {
+        ...input,
+        articleParagraphs: input.articleParagraphs ?? undefined,
+        factsVerified: Boolean(input.factsVerified),
+        aiAssisted: Boolean(input.aiAssisted),
+      },
+    });
+  }
+
+  async update(id: string, input: Partial<EditorialInput>) {
+    const existing = await this.requireEntry(id);
+    const merged = { ...existing, ...input, articleParagraphs: input.articleParagraphs ?? existing.articleParagraphs } as EditorialInput;
+    this.assertComplete(merged);
+    return this.prisma.client.editorialEntry.update({
+      where: { id },
+      data: {
+        slug: input.slug,
+        title: input.title,
+        eventName: input.eventName,
+        summary: input.summary,
+        yearLabel: input.yearLabel,
+        playerName: input.playerName,
+        achievement: input.achievement,
+        achievedOnLabel: input.achievedOnLabel,
+        articleParagraphs: input.articleParagraphs,
+        photoLabel: input.photoLabel,
+        imageUrl: input.imageUrl,
+        factsVerified: input.factsVerified,
+        aiAssisted: input.aiAssisted,
+      },
+    });
+  }
+
+  async publish(id: string) {
+    const entry = await this.requireEntry(id);
+    if (!entry.factsVerified) {
+      throw new BadRequestException("Facts must be verified before publication");
+    }
+    this.assertComplete(entry as EditorialInput);
+    return this.prisma.client.editorialEntry.update({
+      where: { id },
+      data: { status: "PUBLISHED", publishedAt: entry.publishedAt ?? new Date() },
+    });
+  }
+
+  async unpublish(id: string) {
+    await this.requireEntry(id);
+    return this.prisma.client.editorialEntry.update({
+      where: { id },
+      data: { status: "DRAFT", publishedAt: null },
+    });
+  }
+
+  generateSpotlightDraft(input: {
+    playerName: string;
+    eventName: string;
+    achievement: string;
+    achievedOnLabel: string;
+    developmentNote?: string;
+  }) {
+    for (const [key, value] of Object.entries(input).slice(0, 4)) {
+      if (!value?.trim()) throw new BadRequestException(`${key} is required`);
+    }
+    const development = input.developmentNote?.trim() || "the preparation, habits and resilience built through consistent training";
+    return {
+      headline: `${input.playerName} reaches ${input.achievement} at ${input.eventName}`,
+      excerpt: `${input.playerName} has reached ${input.achievement} at ${input.eventName}, a milestone that reflects ${development}.`,
+      articleParagraphs: [
+        `${input.playerName} reached ${input.achievement} at ${input.eventName} on ${input.achievedOnLabel}, marking a memorable competitive milestone.`,
+        `The result reflects ${development}. KHLIM's editorial focus is on the verified achievement and the development habits behind it rather than overstating the club's role.`,
+        `The achievement also recognises the wider support around the player, including teammates, coaches and family, while keeping the focus on the athlete's next stage of growth.`,
+      ],
+      aiAssisted: true,
+      generator: "khlim-editorial-assist-v1",
+      sourceFactsOnly: true,
+    };
+  }
+
+  private async requireEntry(id: string) {
+    const entry = await this.prisma.client.editorialEntry.findUnique({ where: { id } });
+    if (!entry) throw new NotFoundException("Editorial entry not found");
+    return entry;
+  }
+
+  private assertComplete(input: EditorialInput) {
+    if (!input.title?.trim() || !input.eventName?.trim() || !input.summary?.trim() || !input.photoLabel?.trim()) {
+      throw new BadRequestException("Title, event name, summary and photo label are required");
+    }
+    if (input.type === "ACHIEVEMENT" && !input.yearLabel?.trim()) {
+      throw new BadRequestException("Achievement year label is required");
+    }
+    if (input.type === "PLAYER_SPOTLIGHT") {
+      if (!input.slug?.trim() || !input.playerName?.trim() || !input.achievement?.trim() || !input.achievedOnLabel?.trim()) {
+        throw new BadRequestException("Spotlight slug, player, achievement and event date are required");
+      }
+      if (!input.articleParagraphs || input.articleParagraphs.length < 2) {
+        throw new BadRequestException("Spotlight article requires at least two paragraphs");
+      }
+    }
+  }
+}
+''')
+          (editorial_dir / 'editorial.controller.ts').write_text(r'''import { Body, Controller, Get, Param, Patch, Post } from "@nestjs/common";
+import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { Public, RequireAnyRole, RequireMfa } from "../auth/authorization.decorators";
+import { EditorialService } from "./editorial.service";
+
+@ApiTags("editorial")
+@Controller()
+export class EditorialController {
+  constructor(private readonly editorial: EditorialService) {}
+
+  @Public()
+  @Get("editorial/achievements")
+  listAchievements() { return this.editorial.listPublished("ACHIEVEMENT"); }
+
+  @Public()
+  @Get("editorial/player-spotlights")
+  listSpotlights() { return this.editorial.listPublished("PLAYER_SPOTLIGHT"); }
+
+  @Public()
+  @Get("editorial/player-spotlights/:slug")
+  getSpotlight(@Param("slug") slug: string) { return this.editorial.findPublishedSpotlight(slug); }
+
+  @Get("admin/editorial")
+  @ApiBearerAuth("supabase")
+  @RequireAnyRole("SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN")
+  listAdmin() { return this.editorial.listAdmin(); }
+
+  @Post("admin/editorial")
+  @ApiBearerAuth("supabase")
+  @RequireAnyRole("SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN")
+  create(@Body() input: Parameters<EditorialService["create"]>[0]) { return this.editorial.create(input); }
+
+  @Patch("admin/editorial/:id")
+  @ApiBearerAuth("supabase")
+  @RequireAnyRole("SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN")
+  update(@Param("id") id: string, @Body() input: Parameters<EditorialService["update"]>[1]) { return this.editorial.update(id, input); }
+
+  @Post("admin/editorial/player-spotlights/draft")
+  @ApiBearerAuth("supabase")
+  @RequireAnyRole("SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN")
+  @ApiOperation({ summary: "Generate an AI-assisted newsletter draft from staff-supplied facts" })
+  draft(@Body() input: Parameters<EditorialService["generateSpotlightDraft"]>[0]) { return this.editorial.generateSpotlightDraft(input); }
+
+  @Post("admin/editorial/:id/publish")
+  @ApiBearerAuth("supabase")
+  @RequireAnyRole("SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN")
+  @RequireMfa()
+  publish(@Param("id") id: string) { return this.editorial.publish(id); }
+
+  @Post("admin/editorial/:id/unpublish")
+  @ApiBearerAuth("supabase")
+  @RequireAnyRole("SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN")
+  @RequireMfa()
+  unpublish(@Param("id") id: string) { return this.editorial.unpublish(id); }
+}
+''')
+          (editorial_dir / 'editorial.module.ts').write_text(r'''import { Module } from "@nestjs/common";
+import { EditorialController } from "./editorial.controller";
+import { EditorialService } from "./editorial.service";
+
+@Module({ controllers: [EditorialController], providers: [EditorialService], exports: [EditorialService] })
+export class EditorialModule {}
+''')
+
+          app = Path('apps/api/src/app.module.ts')
+          s = app.read_text()
+          if 'EditorialModule' not in s:
+              s = s.replace('import { HealthController } from "./health.controller";', 'import { HealthController } from "./health.controller";\nimport { EditorialModule } from "./editorial/editorial.module";')
+              s = s.replace('    BillingModule,\n', '    BillingModule,\n    EditorialModule,\n')
+          app.write_text(s)
+
+          sidebar = Path('apps/admin/components/layout/AdminSidebar.tsx')
+          s = sidebar.read_text()
+          if 'Editorial Studio' not in s:
+              s = s.replace('{ href: "/scheduling", label: "Scheduling", icon: "📅" },', '{ href: "/scheduling", label: "Scheduling", icon: "📅" },\n  { href: "/editorial", label: "Editorial Studio", icon: "📰" },')
+          sidebar.write_text(s)
+
+          admin_page = Path('apps/admin/app/editorial/page.tsx')
+          admin_page.parent.mkdir(exist_ok=True)
+          admin_page.write_text(r'''"use client";
+
+import React, { useEffect, useState } from "react";
+import { AdminShell } from "../../components/layout/AdminShell";
+import { PageHeader } from "../../components/ui/PageHeader";
+import { Button } from "../../components/ui/Button";
+import { getAdminAccessToken } from "../../lib/admin-api";
+
+const API = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001/v1").replace(/\/+$/, "");
+
+type Entry = { id: string; type: "ACHIEVEMENT" | "PLAYER_SPOTLIGHT"; slug?: string | null; title: string; eventName: string; summary: string; yearLabel?: string | null; playerName?: string | null; achievement?: string | null; achievedOnLabel?: string | null; articleParagraphs?: string[] | null; photoLabel: string; imageUrl?: string | null; factsVerified: boolean; aiAssisted: boolean; status: "DRAFT" | "PUBLISHED" | "ARCHIVED" };
+
+const empty = { type: "PLAYER_SPOTLIGHT" as const, slug: "", title: "", eventName: "", summary: "", yearLabel: "", playerName: "", achievement: "", achievedOnLabel: "", articleParagraphs: "", photoLabel: "", imageUrl: "", factsVerified: false, developmentNote: "" };
+
+async function api(path: string, init?: RequestInit) {
+  const token = getAdminAccessToken();
+  const response = await fetch(`${API}${path}`, { ...init, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(init?.headers || {}) } });
+  if (!response.ok) throw new Error((await response.text()) || `HTTP ${response.status}`);
+  return response.json();
+}
+
+export default function EditorialStudioPage() {
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const [form, setForm] = useState({ ...empty });
+  const [message, setMessage] = useState("");
+  const load = () => api("/admin/editorial").then(setEntries).catch((error) => setMessage(error.message));
+  useEffect(() => { void load(); }, []);
+
+  const set = (key: string, value: string | boolean) => setForm((current) => ({ ...current, [key]: value }));
+
+  async function generateDraft() {
+    try {
+      const draft = await api("/admin/editorial/player-spotlights/draft", { method: "POST", body: JSON.stringify({ playerName: form.playerName, eventName: form.eventName, achievement: form.achievement, achievedOnLabel: form.achievedOnLabel, developmentNote: form.developmentNote }) });
+      setForm((current) => ({ ...current, title: draft.headline, summary: draft.excerpt, articleParagraphs: draft.articleParagraphs.join("\n\n") }));
+      setMessage("AI-assisted draft generated from the supplied facts. Review it before saving.");
+    } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
+  }
+
+  async function save() {
+    try {
+      const payload = { ...form, articleParagraphs: form.type === "PLAYER_SPOTLIGHT" ? form.articleParagraphs.split(/\n\s*\n/).filter(Boolean) : undefined, aiAssisted: form.type === "PLAYER_SPOTLIGHT" };
+      delete (payload as { developmentNote?: string }).developmentNote;
+      await api("/admin/editorial", { method: "POST", body: JSON.stringify(payload) });
+      setForm({ ...empty, type: form.type });
+      setMessage("Draft saved.");
+      await load();
+    } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
+  }
+
+  async function transition(id: string, action: "publish" | "unpublish") {
+    try { await api(`/admin/editorial/${id}/${action}`, { method: "POST" }); setMessage(action === "publish" ? "Published to the public website." : "Removed from the public website."); await load(); }
+    catch (error) { setMessage(error instanceof Error ? error.message : String(error)); }
+  }
+
+  return <AdminShell><div><PageHeader title="Editorial Studio" subtitle="Create verified club achievements and Player Spotlight newsletters, with AI-assisted drafting from staff-supplied facts." breadcrumbs={[{ label: "Operations", href: "/" }, { label: "Editorial Studio" }]} />
+    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.1fr) minmax(320px, .9fr)", gap: 24 }}>
+      <section style={{ background: "white", border: "1px solid #E2E8F0", borderRadius: 12, padding: 20 }}>
+        <h2 style={{ marginTop: 0 }}>New editorial draft</h2>
+        <label>Content type<select value={form.type} onChange={(e) => set("type", e.target.value)} style={{ width: "100%", padding: 10, margin: "6px 0 14px" }}><option value="PLAYER_SPOTLIGHT">Player Spotlight</option><option value="ACHIEVEMENT">Club Achievement</option></select></label>
+        {form.type === "PLAYER_SPOTLIGHT" ? <>
+          <label>Player name<input value={form.playerName} onChange={(e) => set("playerName", e.target.value)} /></label>
+          <label>URL slug<input value={form.slug} onChange={(e) => set("slug", e.target.value)} placeholder="player-name-event" /></label>
+          <label>Achievement<input value={form.achievement} onChange={(e) => set("achievement", e.target.value)} placeholder="Gold medal / selection / milestone" /></label>
+          <label>Achievement date<input value={form.achievedOnLabel} onChange={(e) => set("achievedOnLabel", e.target.value)} /></label>
+          <label>Development note<textarea value={form.developmentNote} onChange={(e) => set("developmentNote", e.target.value)} /></label>
+        </> : <label>Year / season label<input value={form.yearLabel} onChange={(e) => set("yearLabel", e.target.value)} /></label>}
+        <label>Event name<input value={form.eventName} onChange={(e) => set("eventName", e.target.value)} /></label>
+        {form.type === "PLAYER_SPOTLIGHT" && <Button variant="outline" onClick={generateDraft}>Generate AI-assisted draft</Button>}
+        <label>Headline / title<input value={form.title} onChange={(e) => set("title", e.target.value)} /></label>
+        <label>Summary<textarea value={form.summary} onChange={(e) => set("summary", e.target.value)} /></label>
+        {form.type === "PLAYER_SPOTLIGHT" && <label>Article paragraphs<textarea value={form.articleParagraphs} onChange={(e) => set("articleParagraphs", e.target.value)} rows={10} /></label>}
+        <label>Photo description<input value={form.photoLabel} onChange={(e) => set("photoLabel", e.target.value)} /></label>
+        <label>Approved photo URL (optional)<input value={form.imageUrl} onChange={(e) => set("imageUrl", e.target.value)} /></label>
+        <label style={{ display: "flex", gap: 8, alignItems: "center", margin: "12px 0" }}><input type="checkbox" checked={form.factsVerified} onChange={(e) => set("factsVerified", e.target.checked)} /> Facts and photo rights verified by KHLIM staff</label>
+        <Button onClick={save}>Save draft</Button>
+        {message && <p role="status" style={{ marginBottom: 0 }}>{message}</p>}
+      </section>
+      <section><h2 style={{ marginTop: 0 }}>Saved content</h2>{entries.length === 0 && <p>No editorial entries yet.</p>}{entries.map((entry) => <article key={entry.id} style={{ background: "white", border: "1px solid #E2E8F0", borderRadius: 12, padding: 16, marginBottom: 12 }}><div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><strong>{entry.title}</strong><span>{entry.status}</span></div><p>{entry.eventName} · {entry.factsVerified ? "Facts verified" : "Verification required"}</p><div style={{ display: "flex", gap: 8 }}>{entry.status === "PUBLISHED" ? <Button variant="outline" size="sm" onClick={() => transition(entry.id, "unpublish")}>Unpublish</Button> : <Button size="sm" disabled={!entry.factsVerified} onClick={() => transition(entry.id, "publish")}>Publish</Button>}{entry.type === "PLAYER_SPOTLIGHT" && entry.slug && <a href={`/spotlight/${entry.slug}`} target="_blank" rel="noreferrer">Preview public URL</a>}</div></article>)}</section>
+    </div>
+    <style jsx>{`label{display:block;font-size:.85rem;font-weight:650;color:#334155;margin-top:12px}input,textarea,select{box-sizing:border-box;width:100%;margin-top:6px;padding:10px;border:1px solid #CBD5E1;border-radius:8px;font:inherit}textarea{resize:vertical}`}</style>
+  </div></AdminShell>;
+}
+''')
+
+          # Public API helper and client-backed homepage sections.
+          Path('apps/web/lib/editorial-api.ts').write_text(r'''import type { AchievementStory, PlayerSpotlightArticle } from "./editorial-content";
+const API = (process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001/v1").replace(/\/+$/, "");
+const GRADIENT = "linear-gradient(135deg, #18181b, #3f2d0b 58%, #0f172a)";
+
+type Entry = { id:string; slug?:string|null; title:string; eventName:string; summary:string; yearLabel?:string|null; playerName?:string|null; achievement?:string|null; achievedOnLabel?:string|null; articleParagraphs?:unknown; photoLabel:string; imageUrl?:string|null; factsVerified:boolean; status:string; aiAssisted:boolean };
+function paragraphs(value: unknown): string[] { return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []; }
+export function toAchievement(entry: Entry): AchievementStory { return { id:entry.id, yearLabel:entry.yearLabel || "KHLIM", title:entry.title, eventName:entry.eventName, description:entry.summary, photoLabel:entry.photoLabel, imageUrl:entry.imageUrl || undefined, placeholderGradient:GRADIENT, factsVerified:entry.factsVerified, status:"published" }; }
+export function toSpotlight(entry: Entry): PlayerSpotlightArticle { return { slug:entry.slug || entry.id, playerName:entry.playerName || "KHLIM Player", headline:entry.title, eventName:entry.eventName, achievement:entry.achievement || "Verified milestone", achievedOnLabel:entry.achievedOnLabel || "Verified event date", excerpt:entry.summary, articleParagraphs:paragraphs(entry.articleParagraphs), photoLabel:entry.photoLabel, imageUrl:entry.imageUrl || undefined, placeholderGradient:GRADIENT, factsVerified:entry.factsVerified, status:"published", aiAssisted:true }; }
+async function get(path:string) { const response = await fetch(`${API}${path}`, { cache:"no-store" }); if (!response.ok) throw new Error(`Editorial API ${response.status}`); return response.json() as Promise<Entry[]>; }
+export async function fetchPublishedAchievements(){ return (await get("/editorial/achievements")).map(toAchievement); }
+export async function fetchPublishedSpotlights(){ return (await get("/editorial/player-spotlights")).map(toSpotlight); }
+export async function fetchPublishedSpotlight(slug:string){ const response = await fetch(`${API}/editorial/player-spotlights/${encodeURIComponent(slug)}`, { cache:"no-store" }); if (!response.ok) return null; const entry = await response.json() as Entry | null; return entry ? toSpotlight(entry) : null; }
+''')
+
+          achievements = Path('apps/web/components/home/achievements-section.tsx')
+          s = achievements.read_text()
+          s = '"use client";\n\n' + s if not s.startswith('"use client"') else s
+          s = s.replace('import React from "react";', 'import React, { useEffect, useState } from "react";')
+          s = s.replace('} from "../../lib/editorial-content";', '} from "../../lib/editorial-content";\nimport { fetchPublishedAchievements } from "../../lib/editorial-api";')
+          s = s.replace('export function AchievementsSection() {\n  const stories =\n    publishedAchievements.length > 0\n      ? publishedAchievements\n      : achievementArchiveSlots;\n  const preview = publishedAchievements.length === 0;', 'export function AchievementsSection() {\n  const [remote, setRemote] = useState<AchievementStory[]>([]);\n  useEffect(() => { fetchPublishedAchievements().then(setRemote).catch(() => undefined); }, []);\n  const live = remote.length > 0 ? remote : publishedAchievements;\n  const stories = live.length > 0 ? live : achievementArchiveSlots;\n  const preview = live.length === 0;')
+          achievements.write_text(s)
+
+          spot = Path('apps/web/components/home/player-spotlight-section.tsx')
+          s = spot.read_text()
+          s = '"use client";\n\n' + s if not s.startswith('"use client"') else s
+          s = s.replace('import React from "react";', 'import React, { useEffect, useState } from "react";')
+          s = s.replace('} from "../../lib/editorial-content";', '} from "../../lib/editorial-content";\nimport { fetchPublishedSpotlights } from "../../lib/editorial-api";')
+          s = s.replace('export function PlayerSpotlightSection() {\n  const preview = publishedPlayerSpotlights.length === 0;\n  const stories = preview\n    ? [playerSpotlightEditorialPreview]\n    : publishedPlayerSpotlights.slice(0, 3);', 'export function PlayerSpotlightSection() {\n  const [remote, setRemote] = useState<PlayerSpotlightArticle[]>([]);\n  useEffect(() => { fetchPublishedSpotlights().then(setRemote).catch(() => undefined); }, []);\n  const live = remote.length > 0 ? remote : publishedPlayerSpotlights;\n  const preview = live.length === 0;\n  const stories = preview ? [playerSpotlightEditorialPreview] : live.slice(0, 3);')
+          s = s.replace('!preview && publishedPlayerSpotlights.length > 3', '!preview && live.length > 3')
+          spot.write_text(s)
+
+          # Root regressions.
+          Path('tests/phase-6-editorial-studio.test.mjs').write_text(r'''import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { test } from "node:test";
+const root = new URL("../", import.meta.url); const read = (p) => readFile(new URL(p, root), "utf8");
+test("editorial studio persists drafts and gates publication on verified facts", async () => { const schema=await read("prisma/schema.prisma"); const service=await read("apps/api/src/editorial/editorial.service.ts"); assert.match(schema,/model EditorialEntry/); assert.match(service,/Facts must be verified before publication/); assert.match(service,/status: "PUBLISHED"/); });
+test("AI-assisted drafting is source-fact constrained and remains editable", async () => { const service=await read("apps/api/src/editorial/editorial.service.ts"); const page=await read("apps/admin/app/editorial/page.tsx"); assert.match(service,/sourceFactsOnly: true/); assert.match(service,/khlim-editorial-assist-v1/); assert.match(page,/Generate AI-assisted draft/); assert.match(page,/Facts and photo rights verified/); });
+test("public website consumes only published verified editorial API data", async () => { const controller=await read("apps/api/src/editorial/editorial.controller.ts"); const helper=await read("apps/web/lib/editorial-api.ts"); assert.match(controller,/editorial\/achievements/); assert.match(controller,/editorial\/player-spotlights/); assert.match(helper,/cache:"no-store"/); });
+test("Admin navigation exposes Editorial Studio", async () => { const nav=await read("apps/admin/components/layout/AdminSidebar.tsx"); assert.match(nav,/\/editorial/); assert.match(nav,/Editorial Studio/); });
+''')
+          PY
+      - name: Format changed sources
+        run: >-
+          pnpm exec prettier --write prisma/schema.prisma apps/api/src/app.module.ts apps/api/src/editorial/*.ts apps/admin/app/editorial/page.tsx apps/admin/components/layout/AdminSidebar.tsx apps/web/lib/editorial-api.ts apps/web/components/home/achievements-section.tsx apps/web/components/home/player-spotlight-section.tsx tests/phase-6-editorial-studio.test.mjs
+      - name: Apply migrations and generate Prisma client
+        run: |
+          pnpm exec prisma migrate deploy
+          pnpm prisma:generate
+      - name: Verify PR31
+        run: |
+          pnpm test
+          pnpm lint
+          pnpm format:check
+          pnpm --filter @khlim/api build
+          pnpm --filter @khlim/admin build
+          pnpm --filter @khlim/web build
+      - name: Commit verified product changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add prisma apps/api/src/app.module.ts apps/api/src/editorial apps/admin/app/editorial apps/admin/components/layout/AdminSidebar.tsx apps/web/lib/editorial-api.ts apps/web/components/home/achievements-section.tsx apps/web/components/home/player-spotlight-section.tsx tests/phase-6-editorial-studio.test.mjs
+          git commit -m "feat(editorial): add persistent Admin publishing studio"
+          git push origin HEAD:feat/admin-editorial-studio
