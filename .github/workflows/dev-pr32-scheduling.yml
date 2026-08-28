@@ -1,0 +1,72 @@
+name: Dev PR32 Scheduling Attendance
+
+on:
+  push:
+    branches:
+      - feat/scheduling-attendance
+
+permissions:
+  contents: write
+
+jobs:
+  implement-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: khlim
+          POSTGRES_PASSWORD: khlim
+          POSTGRES_DB: khlim_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U khlim -d khlim_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://khlim:khlim@127.0.0.1:5432/khlim_test
+      DIRECT_URL: postgresql://khlim:khlim@127.0.0.1:5432/khlim_test
+      KHLIM_TEST_DATABASE: "1"
+      NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:3001/v1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/scheduling-attendance
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.0 --activate
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Implement scheduling and attendance
+        run: python scripts/dev-pr32-scheduling.py
+      - name: Format changed sources
+        run: >-
+          pnpm exec prettier --write apps/api/src/app.module.ts apps/api/src/scheduling/*.ts apps/admin/app/scheduling/page.tsx apps/web/lib/types.ts apps/web/lib/api-service.ts apps/web/app/portal/schedule/page.tsx tests/phase-7-scheduling-attendance.test.mjs
+      - name: Validate database
+        run: |
+          pnpm exec prisma validate
+          pnpm exec prisma migrate deploy
+          pnpm prisma:generate
+      - name: Verify PR32
+        run: |
+          pnpm test
+          pnpm lint
+          pnpm format:check
+          pnpm --filter @khlim/api build
+          pnpm --filter @khlim/admin build
+          pnpm --filter @khlim/web build
+      - name: Commit verified product changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add prisma apps/api/src/app.module.ts apps/api/src/scheduling apps/admin/app/scheduling/page.tsx apps/web/lib/types.ts apps/web/lib/api-service.ts apps/web/app/portal/schedule/page.tsx tests/phase-7-scheduling-attendance.test.mjs docs/testing/pr32-scheduling-attendance.md
+          git commit -m "feat(scheduling): add persistent sessions and attendance"
+          git push origin HEAD:feat/scheduling-attendance
