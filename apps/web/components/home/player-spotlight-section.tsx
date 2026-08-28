@@ -1,10 +1,13 @@
-import React from "react";
+"use client";
+
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   playerSpotlightEditorialPreview,
   publishedPlayerSpotlights,
   type PlayerSpotlightArticle,
 } from "../../lib/editorial-content";
+import { fetchPublishedSpotlights } from "../../lib/editorial-api";
 import { Button } from "../ui/button";
 
 function SpotlightCard({
@@ -69,10 +72,17 @@ function SpotlightCard({
 }
 
 export function PlayerSpotlightSection() {
-  const preview = publishedPlayerSpotlights.length === 0;
+  const [remote, setRemote] = useState<PlayerSpotlightArticle[]>([]);
+  useEffect(() => {
+    void fetchPublishedSpotlights()
+      .then(setRemote)
+      .catch(() => undefined);
+  }, []);
+  const live = remote.length > 0 ? remote : publishedPlayerSpotlights;
+  const preview = live.length === 0;
   const stories = preview
     ? [playerSpotlightEditorialPreview]
-    : publishedPlayerSpotlights.slice(0, 3);
+    : live.slice(0, 3);
 
   return (
     <section
@@ -90,7 +100,7 @@ export function PlayerSpotlightSection() {
             into a polished club newsletter article.
           </p>
         </div>
-        {!preview && publishedPlayerSpotlights.length > 3 && (
+        {!preview && live.length > 3 && (
           <Link href="/spotlight" style={{ textDecoration: "none" }}>
             <Button variant="outline">View all stories</Button>
           </Link>

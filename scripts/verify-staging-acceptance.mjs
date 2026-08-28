@@ -47,14 +47,24 @@ async function fetchOk(label, url, init) {
 async function main() {
   for (const name of required) requiredValue(name);
   if (process.env.BILLPLZ_SANDBOX !== "1") {
-    throw new Error("BILLPLZ_SANDBOX must be 1; staging acceptance refuses production payments");
+    throw new Error(
+      "BILLPLZ_SANDBOX must be 1; staging acceptance refuses production payments",
+    );
   }
   if (process.env.PAYMENT_PROVIDER !== "billplz") {
-    throw new Error("PAYMENT_PROVIDER must be billplz in the staging acceptance environment");
+    throw new Error(
+      "PAYMENT_PROVIDER must be billplz in the staging acceptance environment",
+    );
   }
 
-  const web = requireHttps("KHLIM_STAGING_WEB_URL", requiredValue("KHLIM_STAGING_WEB_URL"));
-  const api = requireHttps("KHLIM_STAGING_API_URL", requiredValue("KHLIM_STAGING_API_URL"));
+  const web = requireHttps(
+    "KHLIM_STAGING_WEB_URL",
+    requiredValue("KHLIM_STAGING_WEB_URL"),
+  );
+  const api = requireHttps(
+    "KHLIM_STAGING_API_URL",
+    requiredValue("KHLIM_STAGING_API_URL"),
+  );
   const supabase = requireHttps(
     "NEXT_PUBLIC_SUPABASE_URL",
     requiredValue("NEXT_PUBLIC_SUPABASE_URL"),
@@ -86,4 +96,6 @@ async function main() {
   );
 }
 
-main().catch((error) => fail(error instanceof Error ? error.message : String(error)));
+main().catch((error) =>
+  fail(error instanceof Error ? error.message : String(error)),
+);

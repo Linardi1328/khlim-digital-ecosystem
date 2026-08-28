@@ -9,6 +9,12 @@ import {
   findSpotlightArticle,
   playerSpotlightEditorialPreview,
 } from "../../../lib/editorial-content";
+import { fetchPublishedSpotlight } from "../../../lib/editorial-api";
+
+async function resolveSpotlight(slug: string) {
+  const remote = await fetchPublishedSpotlight(slug).catch(() => null);
+  return remote ?? findSpotlightArticle(slug);
+}
 
 type SpotlightPageProps = {
   params: Promise<{ slug: string }>;
@@ -18,7 +24,7 @@ export async function generateMetadata({
   params,
 }: SpotlightPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const article = findSpotlightArticle(slug);
+  const article = await resolveSpotlight(slug);
   if (!article) return { title: "Player Spotlight | KHLIM" };
 
   return {
@@ -31,7 +37,7 @@ export default async function PlayerSpotlightArticlePage({
   params,
 }: SpotlightPageProps) {
   const { slug } = await params;
-  const article = findSpotlightArticle(slug);
+  const article = await resolveSpotlight(slug);
   if (!article) notFound();
 
   const preview = article.slug === playerSpotlightEditorialPreview.slug;

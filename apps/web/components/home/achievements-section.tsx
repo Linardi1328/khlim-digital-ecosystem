@@ -1,9 +1,12 @@
-import React from "react";
+"use client";
+
+import React, { useEffect, useState } from "react";
 import {
   achievementArchiveSlots,
   publishedAchievements,
   type AchievementStory,
 } from "../../lib/editorial-content";
+import { fetchPublishedAchievements } from "../../lib/editorial-api";
 
 function AchievementCard({
   story,
@@ -46,11 +49,15 @@ function AchievementCard({
 }
 
 export function AchievementsSection() {
-  const stories =
-    publishedAchievements.length > 0
-      ? publishedAchievements
-      : achievementArchiveSlots;
-  const preview = publishedAchievements.length === 0;
+  const [remote, setRemote] = useState<AchievementStory[]>([]);
+  useEffect(() => {
+    void fetchPublishedAchievements()
+      .then(setRemote)
+      .catch(() => undefined);
+  }, []);
+  const live = remote.length > 0 ? remote : publishedAchievements;
+  const stories = live.length > 0 ? live : achievementArchiveSlots;
+  const preview = live.length === 0;
 
   return (
     <section
