@@ -227,3 +227,22 @@ export function getPlanChargeMinor(plan: MembershipPlanItem): number | null {
     ? plan.upfrontAmountMinor
     : plan.recurringAmountMinor;
 }
+
+export interface ScheduleSessionItem {
+  id: string;
+  programmeOfferingId: string | null;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  venueName: string;
+  courtName: string | null;
+  coachName: string | null;
+  notes: string | null;
+  status: "SCHEDULED" | "COMPLETED" | "CANCELLED";
+  cancellationReason: string | null;
+  attendances: Array<{
+    athleteId: string;
+    athleteName: string;
+    status: "PRESENT" | "ABSENT" | "EXCUSED" | "LATE";
+  }>;
+}

@@ -18,6 +18,7 @@ import type {
   MembershipBillingResponse,
   PrepareMembershipCheckoutDto,
   CheckoutSessionResponse,
+  ScheduleSessionItem,
 } from "./types";
 
 const API_BASE_URL = (
@@ -118,5 +119,9 @@ export const apiService = {
       `/athletes/${athleteId}/memberships/${membershipId}/checkout`,
       data,
     );
+  },
+
+  async listMySchedule(): Promise<ScheduleSessionItem[]> {
+    return apiClient.get<ScheduleSessionItem[]>("/me/schedule");
   },
 };

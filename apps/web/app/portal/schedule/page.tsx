@@ -1,76 +1,94 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { apiService } from "../../../lib/api-service";
-import { useFamily } from "../../../lib/family-context";
-import { useI18n } from "../../../lib/i18n-context";
-import type { AthleteMembershipItem } from "../../../lib/types";
 import { PortalShell } from "../../../components/portal/portal-shell";
 import { Badge } from "../../../components/ui/badge";
 import { Card } from "../../../components/ui/card";
+import { apiService } from "../../../lib/api-service";
+import type { ScheduleSessionItem } from "../../../lib/types";
 
 export default function SchedulePage() {
-  const { t } = useI18n();
-  const { activeChild } = useFamily();
-  const [memberships, setMemberships] = useState<AthleteMembershipItem[]>([]);
+  const [sessions, setSessions] = useState<ScheduleSessionItem[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const [error, setError] = useState("");
   useEffect(() => {
-    if (!activeChild) {
-      setMemberships([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
     apiService
-      .listAthleteMemberships(activeChild.id)
-      .then(setMemberships)
-      .catch(() => setMemberships([]))
+      .listMySchedule()
+      .then(setSessions)
+      .catch(() => setError("Could not load the family schedule right now."))
       .finally(() => setLoading(false));
-  }, [activeChild]);
+  }, []);
 
   return (
     <PortalShell>
       <div>
-        <h1>{t("portal.schedule.title")}</h1>
+        <h1>Training schedule</h1>
         <p style={{ color: "#64748b" }}>
-          Detailed Session scheduling is a later platform capability. This page
-          currently shows only authoritative programme-term context already
-          available from memberships.
+          Upcoming and recent sessions tied to your family memberships. Session,
+          court and coach details come from KHLIM operations rather than being
+          inferred from the programme term.
         </p>
         {loading ? (
-          <p>Loading programme timing…</p>
-        ) : memberships.length === 0 ? (
-          <Card style={{ padding: 32 }}>
-            No programme term is associated with this athlete.
+          <p>Loading sessions…</p>
+        ) : error ? (
+          <Card style={{ padding: 24 }}>{error}</Card>
+        ) : sessions.length === 0 ? (
+          <Card style={{ padding: 24 }}>
+            No individual sessions have been scheduled for your active
+            memberships yet.
           </Card>
         ) : (
-          memberships.map((membership) => (
-            <Card key={membership.id} style={{ marginTop: 16 }}>
-              <h2>{membership.programmeOffering.name}</h2>
-              <Badge
-                variant={membership.status === "ACTIVE" ? "success" : "warning"}
-              >
-                {membership.status}
-              </Badge>
-              <p>
-                Term start:{" "}
-                {membership.programmeOffering.startsOn ?? "Not scheduled"}
-              </p>
-              <p>
-                Term end:{" "}
-                {membership.programmeOffering.endsOn ?? "Not scheduled"}
-              </p>
-              <p>
-                Venue:{" "}
-                {membership.programmeOffering.venue?.name ?? "Not assigned"}
-              </p>
-              <small>
-                No individual training session, court or coach assignment is
-                being inferred here.
-              </small>
-            </Card>
-          ))
+          <div style={{ display: "grid", gap: 14, marginTop: 18 }}>
+            {sessions.map((session) => (
+              <Card key={session.id}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div>
+                    <h2 style={{ marginBottom: 4 }}>{session.title}</h2>
+                    <strong>
+                      {new Date(session.startsAt).toLocaleString()}
+                    </strong>
+                    <p>
+                      {session.venueName}
+                      {session.courtName ? ` · ${session.courtName}` : ""}
+                      {session.coachName ? ` · Coach ${session.coachName}` : ""}
+                    </p>
+                  </div>
+                  <Badge
+                    variant={
+                      session.status === "CANCELLED"
+                        ? "warning"
+                        : session.status === "COMPLETED"
+                          ? "neutral"
+                          : "success"
+                    }
+                  >
+                    {session.status}
+                  </Badge>
+                </div>
+                {session.cancellationReason && (
+                  <p>
+                    <strong>Cancellation:</strong> {session.cancellationReason}
+                  </p>
+                )}
+                {session.notes && <p>{session.notes}</p>}
+                {session.attendances.length > 0 && (
+                  <small>
+                    Attendance:{" "}
+                    {session.attendances
+                      .map((item) => `${item.athleteName} — ${item.status}`)
+                      .join(", ")}
+                  </small>
+                )}
+              </Card>
+            ))}
+          </div>
         )}
       </div>
     </PortalShell>
