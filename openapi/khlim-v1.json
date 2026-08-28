@@ -837,6 +837,26 @@
         ]
       }
     },
+    "/v1/admin/billing/reconcile-stale-checkouts": {
+      "post": {
+        "operationId": "BillingController_reconcileStaleCheckouts",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Expire abandoned checkout holds and release pending capacity",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
     "/v1/payments/webhooks/{provider}": {
       "post": {
         "operationId": "BillingController_handleWebhook",
@@ -858,6 +878,390 @@
         "summary": "Receive a signed payment-provider webhook",
         "tags": [
           "billing"
+        ]
+      }
+    },
+    "/v1/editorial/achievements": {
+      "get": {
+        "operationId": "EditorialController_listAchievements",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "editorial"
+        ]
+      }
+    },
+    "/v1/editorial/player-spotlights": {
+      "get": {
+        "operationId": "EditorialController_listSpotlights",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "editorial"
+        ]
+      }
+    },
+    "/v1/editorial/player-spotlights/{slug}": {
+      "get": {
+        "operationId": "EditorialController_getSpotlight",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "editorial"
+        ]
+      }
+    },
+    "/v1/admin/editorial": {
+      "get": {
+        "operationId": "EditorialController_listAdmin",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "tags": [
+          "editorial"
+        ]
+      },
+      "post": {
+        "operationId": "EditorialController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "tags": [
+          "editorial"
+        ]
+      }
+    },
+    "/v1/admin/editorial/{id}": {
+      "patch": {
+        "operationId": "EditorialController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "tags": [
+          "editorial"
+        ]
+      }
+    },
+    "/v1/admin/editorial/player-spotlights/draft": {
+      "post": {
+        "operationId": "EditorialController_draft",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Generate an AI-assisted newsletter draft from staff-supplied facts",
+        "tags": [
+          "editorial"
+        ]
+      }
+    },
+    "/v1/admin/editorial/{id}/publish": {
+      "post": {
+        "operationId": "EditorialController_publish",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "tags": [
+          "editorial"
+        ]
+      }
+    },
+    "/v1/admin/editorial/{id}/unpublish": {
+      "post": {
+        "operationId": "EditorialController_unpublish",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "tags": [
+          "editorial"
+        ]
+      }
+    },
+    "/v1/me/schedule": {
+      "get": {
+        "operationId": "SchedulingController_mySchedule",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "tags": [
+          "scheduling"
+        ]
+      }
+    },
+    "/v1/admin/scheduling/sessions": {
+      "get": {
+        "operationId": "SchedulingController_listAdmin",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "tags": [
+          "scheduling"
+        ]
+      },
+      "post": {
+        "operationId": "SchedulingController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "tags": [
+          "scheduling"
+        ]
+      }
+    },
+    "/v1/admin/scheduling/sessions/{id}": {
+      "patch": {
+        "operationId": "SchedulingController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "tags": [
+          "scheduling"
+        ]
+      }
+    },
+    "/v1/admin/scheduling/sessions/{id}/cancel": {
+      "post": {
+        "operationId": "SchedulingController_cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "tags": [
+          "scheduling"
+        ]
+      }
+    },
+    "/v1/admin/scheduling/sessions/{id}/complete": {
+      "post": {
+        "operationId": "SchedulingController_complete",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "tags": [
+          "scheduling"
+        ]
+      }
+    },
+    "/v1/admin/scheduling/sessions/{id}/attendance": {
+      "get": {
+        "operationId": "SchedulingController_attendance",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "tags": [
+          "scheduling"
+        ]
+      },
+      "put": {
+        "operationId": "SchedulingController_markAttendance",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "tags": [
+          "scheduling"
         ]
       }
     }
