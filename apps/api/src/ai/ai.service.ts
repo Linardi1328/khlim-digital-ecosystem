@@ -25,7 +25,10 @@ export class AiService {
       throw new Error("KHLIM AI capabilities are disabled");
     }
 
-    if ((tool.risk === "mutate" || tool.risk === "restricted") && !status.writeActionsEnabled) {
+    if (
+      (tool.risk === "mutate" || tool.risk === "restricted") &&
+      !status.writeActionsEnabled
+    ) {
       throw new Error(`AI tool ${tool.name} requires write actions to be explicitly enabled`);
     }
 
