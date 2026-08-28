@@ -246,3 +246,14 @@ export interface ScheduleSessionItem {
     status: "PRESENT" | "ABSENT" | "EXCUSED" | "LATE";
   }>;
 }
+
+export interface PortalNotificationItem {
+  id: string;
+  notificationId: string;
+  type: "ANNOUNCEMENT" | "SCHEDULE_CHANGE" | "BILLING" | "EDITORIAL" | "SYSTEM";
+  title: string;
+  body: string;
+  programmeOfferingId: string | null;
+  readAt: string | null;
+  createdAt: string;
+}
