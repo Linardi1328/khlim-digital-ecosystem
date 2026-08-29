@@ -170,7 +170,7 @@ export function HeroCarousel({
                   width: "44px",
                   height: "44px",
                   display: "inline-flex",
-                  alignItems: "center",
+                  alignItems: "flex-end",
                   justifyContent: "center",
                   padding: 0,
                   border: 0,
