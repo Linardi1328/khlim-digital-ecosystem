@@ -3,25 +3,29 @@
 import Image from "next/image";
 
 export function BrandLogo({
-  size = 44,
+  size,
+  height,
   className,
   priority = false,
 }: {
   size?: number;
+  height?: number;
   className?: string;
   priority?: boolean;
 }) {
+  const resolvedSize = size ?? height ?? 44;
+
   return (
     <Image
       src="/khlim-logo.svg"
       alt="KHLIM Basketball Academy"
-      width={size}
-      height={size}
+      width={resolvedSize}
+      height={resolvedSize}
       className={className}
       priority={priority}
       style={{
-        width: size,
-        height: size,
+        width: resolvedSize,
+        height: resolvedSize,
         objectFit: "contain",
         flexShrink: 0,
       }}
