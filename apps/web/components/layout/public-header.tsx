@@ -57,7 +57,11 @@ export function PublicHeader() {
             minWidth: 0,
           }}
         >
-          <BrandLogo height={42} priority />
+          <BrandLogo
+            height={42}
+            priority
+            className={`public-header-logo ${styles.brandLogo}`}
+          />
           <div style={{ minWidth: 0, lineHeight: 1.05 }}>
             <div
               className={`public-header-brand-name ${styles.brandName}`}

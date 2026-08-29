@@ -203,11 +203,24 @@ test("mobile menu opens and navigates", async ({ page, viewport }) => {
   await expect(page).toHaveURL(/\/academy$/);
 });
 
-test("login page exposes the expected authentication controls", async ({
-  page,
-}) => {
+test("login page exposes branded authentication controls", async ({ page }) => {
   await page.goto("/auth/login", { waitUntil: "domcontentloaded" });
 
+  const logo = page.locator(".auth-brand-logo");
+  await expect(logo).toBeVisible();
+  await expect(logo).toHaveAttribute("src", "/khlim-logo.webp");
+  await expect
+    .poll(() =>
+      logo.evaluate(
+        (element) =>
+          element instanceof HTMLImageElement &&
+          element.complete &&
+          element.naturalWidth > 0,
+      ),
+    )
+    .toBe(true);
+  await expect(page.getByText("KHLIM", { exact: true })).toBeVisible();
+  await expect(page.getByText("Digital Sports Ecosystem")).toBeVisible();
   await expect(page.locator('input[type="email"]')).toBeVisible();
   await expect(page.locator('input[type="password"]')).toBeVisible();
   await expect(page.getByRole("link", { name: /forgot/i })).toHaveAttribute(
