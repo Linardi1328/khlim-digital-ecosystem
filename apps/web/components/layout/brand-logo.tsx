@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useI18n } from "../../lib/i18n-context";
 
 export function BrandLogo({
   size,
@@ -13,12 +14,13 @@ export function BrandLogo({
   className?: string;
   priority?: boolean;
 }) {
+  const { t } = useI18n();
   const resolvedSize = size ?? height ?? 44;
 
   return (
     <Image
       src="/khlim-logo.svg"
-      alt="KHLIM Basketball Academy"
+      alt={t("brand.academy")}
       width={resolvedSize}
       height={resolvedSize}
       className={className}
