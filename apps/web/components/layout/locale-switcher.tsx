@@ -23,6 +23,7 @@ export function LocaleSwitcher() {
         onChange={(e) => setLocale(e.target.value as SupportedLocale)}
         aria-label={t("layout.selectLanguage")}
         style={{
+          minHeight: "44px",
           padding: "6px 10px",
           fontSize: "0.8125rem",
           fontWeight: 600,
