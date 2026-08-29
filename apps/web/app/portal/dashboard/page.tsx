@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiService } from "../../../lib/api-service";
+import { membershipStatusLabel } from "../../../lib/display-labels";
 import { useAuth } from "../../../lib/auth-context";
 import { useFamily } from "../../../lib/family-context";
 import { useI18n } from "../../../lib/i18n-context";
@@ -22,7 +23,7 @@ import {
 } from "../../../components/ui/card";
 
 export default function DashboardPage() {
-  const { t, formatCurrency } = useI18n();
+  const { t, formatCurrency, formatDate } = useI18n();
   const { guardianProfile } = useAuth();
   const { activeChild, athletes } = useFamily();
   const [memberships, setMemberships] = useState<AthleteMembershipItem[]>([]);
@@ -78,15 +79,18 @@ export default function DashboardPage() {
       <div>
         <h1>
           {t("portal.dashboard.welcome", {
-            name: guardianProfile?.displayName ?? "Guardian",
+            name:
+              guardianProfile?.displayName ?? t("portal.common.guardian"),
           })}
         </h1>
         <p style={{ color: "#64748b" }}>
-          Selected athlete:{" "}
-          <strong>{activeChild?.displayName ?? "None"}</strong> •{" "}
-          {athletes.length} managed athlete(s)
+          {t("portal.dashboard.selectedAthlete")}: {" "}
+          <strong>
+            {activeChild?.displayName ?? t("portal.common.none")}
+          </strong>{" "}
+          • {t("portal.dashboard.managedAthletes", { count: athletes.length })}
         </p>
-        {loading ? <p>Loading current membership state…</p> : null}
+        {loading ? <p>{t("portal.dashboard.loadingMembership")}</p> : null}
         <div
           style={{
             display: "grid",
@@ -103,16 +107,17 @@ export default function DashboardPage() {
               <Badge
                 variant={current?.status === "ACTIVE" ? "success" : "warning"}
               >
-                {current?.status ?? "NONE"}
+                {membershipStatusLabel(current?.status, t)}
               </Badge>
               <p>
                 <strong>
-                  {current?.programmeOffering.name ?? "No programme membership"}
+                  {current?.programmeOffering.name ??
+                    t("portal.dashboard.noMembership")}
                 </strong>
               </p>
               <Link href="/portal/membership">
                 <Button variant="outline" size="sm">
-                  View memberships
+                  {t("portal.dashboard.viewMemberships")}
                 </Button>
               </Link>
             </CardContent>
@@ -122,15 +127,17 @@ export default function DashboardPage() {
               <CardTitle>{t("portal.dashboard.nextTraining")}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p>Detailed session scheduling is not available yet.</p>
+              <p>{t("portal.dashboard.scheduleSummary")}</p>
               <p style={{ color: "#64748b", fontSize: "0.875rem" }}>
                 {current?.programmeOffering.startsOn
-                  ? `Programme term starts ${current.programmeOffering.startsOn}.`
-                  : "Programme timing will appear when configured."}
+                  ? t("portal.dashboard.termStarts", {
+                      date: formatDate(current.programmeOffering.startsOn),
+                    })
+                  : t("portal.dashboard.timingConfigured")}
               </p>
               <Link href="/portal/schedule">
                 <Button variant="outline" size="sm">
-                  Programme timing
+                  {t("portal.dashboard.openSchedule")}
                 </Button>
               </Link>
             </CardContent>
@@ -148,13 +155,17 @@ export default function DashboardPage() {
                       nextInstallment.currency,
                     )}
                   </strong>
-                  <p>Due {nextInstallment.dueAt}</p>
+                  <p>
+                    {t("portal.dashboard.due", {
+                      date: formatDate(nextInstallment.dueAt),
+                    })}
+                  </p>
                 </>
               ) : billing?.paymentSchedule ? (
-                <p>No scheduled unpaid installment found.</p>
+                <p>{t("portal.dashboard.noUnpaidInstallment")}</p>
               ) : current && planAmount !== null ? (
                 <p>
-                  Billing schedule not created yet. Plan amount:{" "}
+                  {t("portal.dashboard.billingScheduleNotCreated")} {" "}
                   <strong>
                     {formatCurrency(
                       planAmount / 100,
@@ -164,11 +175,11 @@ export default function DashboardPage() {
                   .
                 </p>
               ) : (
-                <p>No billing schedule.</p>
+                <p>{t("portal.dashboard.noBillingSchedule")}</p>
               )}
               <Link href="/portal/payments">
                 <Button variant="outline" size="sm">
-                  Billing details
+                  {t("portal.dashboard.billingDetails")}
                 </Button>
               </Link>
             </CardContent>
