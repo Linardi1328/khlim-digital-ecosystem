@@ -92,7 +92,8 @@ test("mobile navigation drawer keeps obvious controls easy to tap", async ({
   );
   await expectMinimumTapTarget(dialog.locator("select"));
 
-  for (const link of dialog.getByRole("link").all()) {
+  const links = await dialog.getByRole("link").all();
+  for (const link of links) {
     await expectMinimumTapTarget(link);
   }
 });
