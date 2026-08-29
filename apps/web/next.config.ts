@@ -1,9 +1,11 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
 
 const isManagedNextHost = Boolean(process.env.VERCEL || process.env.NETLIFY);
-const publicDir = resolve(process.cwd(), "public");
+const appDir = dirname(fileURLToPath(import.meta.url));
+const publicDir = resolve(appDir, "public");
 const logoSourcePath = resolve(publicDir, "khlim-logo.svg");
 const logoTargetPath = resolve(publicDir, "khlim-logo.webp");
 
