@@ -14,7 +14,7 @@ test("mobile header actions and brand lockup stay visible", async ({
   const quick = page.locator(".public-header-mobile-quick-actions");
 
   await expect(logo).toBeVisible();
-  await expect(logo).toHaveAttribute("src", "/khlim-logo.webp");
+  await expect(logo).toHaveAttribute("src", "/khlim-logo.jpg");
   await expect
     .poll(() =>
       logo.evaluate(
