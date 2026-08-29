@@ -28,8 +28,39 @@ export function PublicFooter() {
         }}
       >
         <div>
-          <div style={{ marginBottom: "16px" }}>
-            <BrandLogo height={36} />
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              marginBottom: "18px",
+            }}
+          >
+            <BrandLogo height={44} />
+            <div style={{ lineHeight: 1.05 }}>
+              <div
+                style={{
+                  color: "#FFFFFF",
+                  fontSize: "1rem",
+                  fontWeight: 800,
+                  letterSpacing: "0.04em",
+                }}
+              >
+                KHLIM
+              </div>
+              <div
+                style={{
+                  marginTop: "4px",
+                  color: "#A1A1AA",
+                  fontSize: "0.6875rem",
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                {t("brand.tagline")}
+              </div>
+            </div>
           </div>
           <p
             style={{ fontSize: "0.875rem", lineHeight: 1.6, color: "#A1A1AA" }}
