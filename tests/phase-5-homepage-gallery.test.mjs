@@ -10,7 +10,7 @@ async function read(path) {
 
 test("homepage hero uses an accessible timed carousel with manual and swipe controls", async () => {
   const carousel = await read("apps/web/components/home/hero-carousel.tsx");
-  const english = await read("packages/i18n/src/messages/en.ts");
+  const webCatalogue = await read("packages/i18n/src/messages/web.ts");
 
   assert.match(carousel, /AUTOPLAY_MS\s*=\s*6000/);
   assert.match(carousel, /setInterval/);
@@ -19,8 +19,8 @@ test("homepage hero uses an accessible timed carousel with manual and swipe cont
   assert.match(carousel, /onTouchEnd/);
   assert.match(carousel, /t\("home\.hero\.previousPhoto"\)/);
   assert.match(carousel, /t\("home\.hero\.nextPhoto"\)/);
-  assert.match(english, /Show previous academy photo/);
-  assert.match(english, /Show next academy photo/);
+  assert.match(webCatalogue, /Show previous academy photo/);
+  assert.match(webCatalogue, /Show next academy photo/);
   assert.match(carousel, /aria-roledescription="carousel"/);
 });
 
