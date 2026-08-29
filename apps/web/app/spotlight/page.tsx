@@ -7,12 +7,14 @@ import { PublicHeader } from "../../components/layout/public-header";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import {
-  playerSpotlightEditorialPreview,
+  getLocalizedSpotlightPreview,
   publishedPlayerSpotlights,
 } from "../../lib/editorial-content";
 import { fetchPublishedSpotlights } from "../../lib/editorial-api";
+import { useI18n } from "../../lib/i18n-context";
 
 export default function PlayerSpotlightArchivePage() {
+  const { t } = useI18n();
   const [remote, setRemote] = useState<typeof publishedPlayerSpotlights>([]);
   useEffect(() => {
     void fetchPublishedSpotlights()
@@ -21,7 +23,7 @@ export default function PlayerSpotlightArchivePage() {
   }, []);
   const live = remote.length > 0 ? remote : publishedPlayerSpotlights;
   const preview = live.length === 0;
-  const stories = preview ? [playerSpotlightEditorialPreview] : live;
+  const stories = preview ? [getLocalizedSpotlightPreview(t)] : live;
 
   return (
     <div className="spotlight-page-shell">
@@ -29,24 +31,16 @@ export default function PlayerSpotlightArchivePage() {
       <main className="spotlight-archive-main">
         <header className="spotlight-archive-header">
           <Badge variant="brand" size="md">
-            Player Spotlight
+            {t("spotlight.archive.badge")}
           </Badge>
-          <h1>Stories from the next milestone.</h1>
-          <p>
-            KHLIM Player Spotlight turns verified player achievements into
-            concise club news stories, using AI-assisted drafting with staff
-            review before publication.
-          </p>
+          <h1>{t("spotlight.archive.title")}</h1>
+          <p>{t("spotlight.archive.description")}</p>
         </header>
 
         {preview && (
           <div className="spotlight-preview-warning" role="note">
-            <strong>Editorial preview only.</strong>
-            <span>
-              No verified player spotlight has been published yet. The sample
-              below demonstrates the article format without claiming a real
-              result.
-            </span>
+            <strong>{t("spotlight.archive.previewTitle")}</strong>
+            <span>{t("spotlight.archive.previewBody")}</span>
           </div>
         )}
 
@@ -65,7 +59,9 @@ export default function PlayerSpotlightArchivePage() {
                   aria-label={
                     article.imageUrl
                       ? article.photoLabel
-                      : `Photo slot: ${article.photoLabel}`
+                      : t("spotlight.archive.photoSlot", {
+                          label: article.photoLabel,
+                        })
                   }
                 />
                 <div className="spotlight-archive-copy">
@@ -79,7 +75,9 @@ export default function PlayerSpotlightArchivePage() {
                     style={{ textDecoration: "none" }}
                   >
                     <Button variant="outline">
-                      {preview ? "Preview story →" : "Read story →"}
+                      {preview
+                        ? t("spotlight.archive.previewStory")
+                        : t("spotlight.archive.readStory")}
                     </Button>
                   </Link>
                 </div>
