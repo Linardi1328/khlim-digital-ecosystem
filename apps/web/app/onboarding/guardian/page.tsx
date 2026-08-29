@@ -43,7 +43,7 @@ export default function GuardianOnboardingPage() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!displayName.trim()) {
-      setError("Please provide a guardian display name.");
+      setError(t("onboarding.guardian.error.displayName"));
       return;
     }
     setSubmitting(true);
@@ -58,7 +58,7 @@ export default function GuardianOnboardingPage() {
       setError(
         caught instanceof Error
           ? caught.message
-          : "Unable to save guardian profile.",
+          : t("onboarding.guardian.error.save"),
       );
     } finally {
       setSubmitting(false);
@@ -101,7 +101,7 @@ export default function GuardianOnboardingPage() {
               label={t("onboarding.guardian.phone")}
               value={phone}
               onChange={(event) => setPhone(event.target.value)}
-              helperText="Optional contact number stored in your KHLIM guardian profile."
+              helperText={t("onboarding.guardian.phoneHelper")}
             />
             <Button
               variant="primary"
