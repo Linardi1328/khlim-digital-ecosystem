@@ -19,7 +19,7 @@ import {
 } from "../../components/ui/card";
 
 export default function ProgrammesPage() {
-  const { t } = useI18n();
+  const { t, formatDate } = useI18n();
   const [offerings, setOfferings] = useState<PublicOfferingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [level, setLevel] = useState("ALL");
@@ -64,7 +64,7 @@ export default function ProgrammesPage() {
         }}
       >
         <div style={{ textAlign: "center", marginBottom: 36 }}>
-          <Badge variant="brand">Academy catalogue</Badge>
+          <Badge variant="brand">{t("programmes.catalogue")}</Badge>
           <h1>{t("programmes.title")}</h1>
           <p style={{ color: "#71717a" }}>{t("programmes.subtitle")}</p>
         </div>
@@ -83,7 +83,7 @@ export default function ProgrammesPage() {
               size="sm"
               onClick={() => setLevel("ALL")}
             >
-              All levels
+              {t("programmes.allLevels")}
             </Button>
             {levels.map((item) => (
               <Button
@@ -98,10 +98,10 @@ export default function ProgrammesPage() {
           </div>
         ) : null}
         {loading ? (
-          <p style={{ textAlign: "center" }}>Loading current offerings…</p>
+          <p style={{ textAlign: "center" }}>{t("programmes.loadingCurrent")}</p>
         ) : visible.length === 0 ? (
           <Card style={{ padding: 32, textAlign: "center" }}>
-            No matching open programme offerings.
+            {t("programmes.noMatching")}
           </Card>
         ) : (
           <div
@@ -120,11 +120,17 @@ export default function ProgrammesPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <p>Level: {offering.programme.level ?? "Open development"}</p>
-                  <p>Venue: {offering.venue?.name ?? "To be confirmed"}</p>
-                  <p>Term start: {offering.startsOn ?? "To be confirmed"}</p>
+                  <p>
+                    {t("programmes.levelLabel")}: {offering.programme.level ?? t("programmes.openDevelopment")}
+                  </p>
+                  <p>
+                    {t("programmes.venueLabel")}: {offering.venue?.name ?? t("common.toBeConfirmed")}
+                  </p>
+                  <p>
+                    {t("programmes.termStartLabel")}: {offering.startsOn ? formatDate(offering.startsOn) : t("common.toBeConfirmed")}
+                  </p>
                   <Badge variant="neutral" size="sm">
-                    Capacity {offering.capacity}
+                    {t("programmes.capacity")} {offering.capacity}
                   </Badge>
                 </CardContent>
                 <CardFooter>
