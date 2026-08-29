@@ -64,13 +64,12 @@ test("Phase 5 checkout never renders KHLIM-owned card or CVV fields", async () =
 
 test("Phase 5 confirmation requires verified backend state and has an explicit verification error state", async () => {
   const confirmation = await read("apps/web/app/enrol/confirmation/page.tsx");
+  const catalogue = await read("packages/i18n/src/messages/enrol-web.ts");
   assert.match(confirmation, /getMembershipBilling/);
   assert.match(confirmation, /listAthleteMemberships/);
   assert.match(confirmation, /"error"/);
-  assert.match(
-    confirmation,
-    /No payment or membership success is being assumed/,
-  );
+  assert.match(confirmation, /t\("enrol\.confirmation\.safetyNotice"\)/);
+  assert.match(catalogue, /No payment or membership success is being assumed/);
   assert.doesNotMatch(confirmation, /memberships\[0\]/);
 });
 
