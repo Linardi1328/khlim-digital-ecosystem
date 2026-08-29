@@ -5,8 +5,11 @@ import { PublicHeader } from "../../components/layout/public-header";
 import { PublicFooter } from "../../components/layout/public-footer";
 import { Card, CardContent } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
+import { useI18n } from "../../lib/i18n-context";
 
 export default function TermsPage() {
+  const { t } = useI18n();
+
   return (
     <div
       style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
@@ -35,7 +38,7 @@ export default function TermsPage() {
               boxSizing: "border-box",
             }}
           >
-            [DRAFT — Subject to Final Owner & Legal Approval]
+            {t("legal.draftBadge")}
           </Badge>
           <h1
             style={{
@@ -45,10 +48,10 @@ export default function TermsPage() {
               margin: "12px 0 8px",
             }}
           >
-            KHLIM Academy Terms of Service
+            {t("terms.title")}
           </h1>
           <p style={{ fontSize: "0.875rem", color: "#71717A" }}>
-            Draft Version: membership-mvp-v1 • For Platform Review
+            {t("terms.version")}
           </p>
         </div>
 
@@ -64,54 +67,30 @@ export default function TermsPage() {
                 marginTop: 0,
               }}
             >
-              1. Academy Enrolment & Membership Agreement
+              {t("terms.section1.title")}
             </h2>
-            <p>
-              Enrolment creates a membership record for the selected athlete,
-              programme offering, and membership plan. The final legally
-              approved agreement will define the applicable service period,
-              commitment, billing terms, eligibility, and benefits before public
-              launch.
-            </p>
+            <p>{t("terms.section1.body")}</p>
 
             <h2
               style={{ fontSize: "1.25rem", fontWeight: 800, color: "#18181B" }}
             >
-              2. Recurring Billing & Payment Authorization
+              {t("terms.section2.title")}
             </h2>
-            <p>
-              Where a plan uses recurring installments, the guardian must
-              explicitly authorize the billing schedule before KHLIM creates a
-              payment-provider checkout. KHLIM does not render or store raw card
-              numbers or CVVs, and membership activation is based on verified
-              backend payment state rather than the browser redirect alone.
-            </p>
+            <p>{t("terms.section2.body")}</p>
 
             <h2
               style={{ fontSize: "1.25rem", fontWeight: 800, color: "#18181B" }}
             >
-              3. Programme Information & Schedule Changes
+              {t("terms.section3.title")}
             </h2>
-            <p>
-              The current MVP can show authoritative programme-offering term
-              dates and venue information supplied by the KHLIM backend.
-              Detailed session scheduling, cancellations, replacement sessions,
-              attendance, and term-adjustment rules are later operational
-              capabilities and are not promised by this draft page.
-            </p>
+            <p>{t("terms.section3.body")}</p>
 
             <h2
               style={{ fontSize: "1.25rem", fontWeight: 800, color: "#18181B" }}
             >
-              4. Conduct, Safety & Final Approval
+              {t("terms.section4.title")}
             </h2>
-            <p>
-              Final academy conduct, safety, cancellation, refund, privacy, and
-              recurring-billing terms require KHLIM management and legal review
-              before the public launch. This draft is present for product-flow
-              testing only and is not represented as the final customer
-              contract.
-            </p>
+            <p>{t("terms.section4.body")}</p>
           </CardContent>
         </Card>
       </main>
