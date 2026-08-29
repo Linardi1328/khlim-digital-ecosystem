@@ -130,7 +130,7 @@ const en = {
   "enrol.error.createAthlete": "Unable to create the athlete profile.",
 } as const;
 
-type WebMessageKey = keyof typeof en;
+export type WebMessageKey = keyof typeof en;
 type WebCatalogue = Record<WebMessageKey, string>;
 
 const ms: WebCatalogue = {
@@ -631,4 +631,3 @@ const hi: WebCatalogue = {
 };
 
 export const webMessages = { en, ms, "zh-Hans": zhHans, "zh-Hant": zhHant, hi } as const;
-export type WebMessageKey = keyof typeof en;
