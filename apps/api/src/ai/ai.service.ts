@@ -18,7 +18,8 @@ export class AiService {
     return {
       enabled: process.env.KHLIM_AI_ENABLED === "true",
       capabilities: INITIAL_CAPABILITIES,
-      writeActionsEnabled: process.env.KHLIM_AI_WRITE_ACTIONS_ENABLED === "true",
+      writeActionsEnabled:
+        process.env.KHLIM_AI_WRITE_ACTIONS_ENABLED === "true",
     };
   }
 
