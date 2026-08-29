@@ -13,7 +13,7 @@ import { Dialog } from "../../../components/ui/dialog";
 import { Input } from "../../../components/ui/input";
 
 export default function PlayersPage() {
-  const { t } = useI18n();
+  const { t, formatDate } = useI18n();
   const { athletes, athleteLinks, addChild } = useFamily();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -32,7 +32,7 @@ export default function PlayersPage() {
       setOpen(false);
     } catch (caught) {
       setError(
-        caught instanceof Error ? caught.message : "Unable to add athlete.",
+        caught instanceof Error ? caught.message : t("portal.players.addError"),
       );
     } finally {
       setSaving(false);
@@ -64,9 +64,9 @@ export default function PlayersPage() {
         </div>
         {athletes.length === 0 ? (
           <Card style={{ padding: 40, textAlign: "center" }}>
-            <p>No managed athletes are linked to this guardian account.</p>
+            <p>{t("portal.players.empty")}</p>
             <Button variant="primary" onClick={() => setOpen(true)}>
-              Add first athlete
+              {t("portal.players.addFirst")}
             </Button>
           </Card>
         ) : (
@@ -93,26 +93,26 @@ export default function PlayersPage() {
                     >
                       <h2 style={{ margin: 0 }}>{athlete.displayName}</h2>
                       <Badge variant="success" size="sm">
-                        LINKED
+                        {t("portal.players.linked")}
                       </Badge>
                     </div>
                     <p style={{ color: "#64748b" }}>
-                      Date of birth: {athlete.dateOfBirth}
+                      {t("portal.players.dateOfBirth")}: {formatDate(athlete.dateOfBirth)}
                     </p>
                     <p style={{ color: "#64748b" }}>
-                      Relationship: {link?.relationshipType ?? "guardian"}
+                      {t("portal.players.relationship")}: {link?.relationshipType ?? t("portal.players.guardianRelationship")}
                     </p>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       <Link href={`/portal/players/${athlete.id}`}>
                         <Button variant="outline" size="sm">
-                          View profile
+                          {t("portal.players.viewProfile")}
                         </Button>
                       </Link>
                       <Link
                         href={`/enrol?athleteId=${encodeURIComponent(athlete.id)}`}
                       >
                         <Button variant="primary" size="sm">
-                          Enrol
+                          {t("portal.players.enrol")}
                         </Button>
                       </Link>
                     </div>
@@ -126,7 +126,7 @@ export default function PlayersPage() {
           isOpen={open}
           onClose={() => setOpen(false)}
           title={t("portal.players.addChild")}
-          description="Create a managed athlete profile linked to your guardian account."
+          description={t("portal.players.dialogDescription")}
         >
           {error ? <Alert variant="danger">{error}</Alert> : null}
           <form
@@ -139,20 +139,20 @@ export default function PlayersPage() {
             }}
           >
             <Input
-              label="Child full name"
+              label={t("portal.players.childName")}
               required
               value={name}
               onChange={(event) => setName(event.target.value)}
             />
             <Input
-              label="Date of birth"
+              label={t("portal.players.dateOfBirth")}
               type="date"
               required
               value={dateOfBirth}
               onChange={(event) => setDateOfBirth(event.target.value)}
             />
             <Button type="submit" variant="primary" isLoading={saving}>
-              Save athlete profile
+              {t("portal.players.saveProfile")}
             </Button>
           </form>
         </Dialog>
