@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiService } from "../../../lib/api-service";
+import { membershipStatusLabel } from "../../../lib/display-labels";
 import { useFamily } from "../../../lib/family-context";
 import { useI18n } from "../../../lib/i18n-context";
 import {
@@ -49,19 +50,23 @@ export default function MembershipPage() {
           <div>
             <h1>{t("portal.membership.title")}</h1>
             <p style={{ color: "#64748b" }}>
-              Memberships for{" "}
-              {activeChild?.displayName ?? "the selected athlete"}.
+              {t("portal.membership.forAthlete", {
+                name:
+                  activeChild?.displayName ?? t("portal.common.selectedAthlete"),
+              })}
             </p>
           </div>
           <Link href="/enrol">
-            <Button variant="primary">New enrolment</Button>
+            <Button variant="primary">
+              {t("portal.membership.newEnrolment")}
+            </Button>
           </Link>
         </div>
         {loading ? (
-          <p>Loading memberships…</p>
+          <p>{t("portal.membership.loading")}</p>
         ) : memberships.length === 0 ? (
           <Card style={{ padding: 32, textAlign: "center" }}>
-            No membership contracts recorded.
+            {t("portal.membership.empty")}
           </Card>
         ) : (
           memberships.map((membership) => {
@@ -82,32 +87,31 @@ export default function MembershipPage() {
                         membership.status === "ACTIVE" ? "success" : "warning"
                       }
                     >
-                      {membership.status}
+                      {membershipStatusLabel(membership.status, t)}
                     </Badge>
                     <h2>{membership.programmeOffering.name}</h2>
                     <p>
                       {membership.programmeOffering.venue?.name ??
-                        "Venue not assigned"}
+                        t("portal.common.venueNotAssigned")}
                     </p>
                   </div>
                   <div>
                     <strong>{membership.membershipPlan.name}</strong>
                     <p>
                       {amount === null
-                        ? "Pricing configuration unavailable"
-                        : `${formatCurrency(amount / 100, membership.membershipPlan.currency)} • ${membership.membershipPlan.billingFrequency === "UPFRONT" ? "upfront" : "per installment"}`}
+                        ? t("portal.common.pricingUnavailable")
+                        : `${formatCurrency(amount / 100, membership.membershipPlan.currency)} • ${membership.membershipPlan.billingFrequency === "UPFRONT" ? t("portal.common.upfront") : t("portal.common.perInstallment")}`}
                     </p>
                   </div>
                 </div>
                 {membership.status === "PENDING" ? (
                   <p style={{ color: "#b45309" }}>
-                    Pending memberships are not treated as active until verified
-                    backend billing state changes them.
+                    {t("portal.membership.pendingSafety")}
                   </p>
                 ) : null}
                 <Link href="/portal/payments">
                   <Button variant="outline" size="sm">
-                    View billing
+                    {t("portal.membership.viewBilling")}
                   </Button>
                 </Link>
               </Card>
