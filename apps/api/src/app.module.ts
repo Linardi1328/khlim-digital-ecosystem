@@ -3,6 +3,7 @@ import { APP_FILTER } from "@nestjs/core";
 import { SentryGlobalFilter, SentryModule } from "@sentry/nestjs/setup";
 import { AcademyModule } from "./academy/academy.module";
 import { AdminModule } from "./admin/admin.module";
+import { AiModule } from "./ai/ai.module";
 import { AuthModule } from "./auth/auth.module";
 import { BillingModule } from "./billing/billing.module";
 import { HealthController } from "./health.controller";
@@ -20,6 +21,7 @@ import { EditorialModule } from "./editorial/editorial.module";
     EditorialModule,
     SchedulingModule,
     NotificationsModule,
+    AiModule,
   ],
   controllers: [HealthController],
   providers: [
