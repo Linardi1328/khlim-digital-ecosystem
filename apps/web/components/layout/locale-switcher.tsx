@@ -13,7 +13,7 @@ const localeLabels: Record<SupportedLocale, string> = {
 };
 
 export function LocaleSwitcher() {
-  const { locale, setLocale, supportedLocales } = useI18n();
+  const { locale, setLocale, supportedLocales, t } = useI18n();
 
   return (
     <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
@@ -21,7 +21,7 @@ export function LocaleSwitcher() {
       <select
         value={locale}
         onChange={(e) => setLocale(e.target.value as SupportedLocale)}
-        aria-label="Select Language"
+        aria-label={t("layout.selectLanguage")}
         style={{
           padding: "6px 10px",
           fontSize: "0.8125rem",
