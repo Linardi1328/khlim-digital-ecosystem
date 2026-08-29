@@ -60,7 +60,9 @@ test("compact 320px header keeps tagline and controls without overflow", async (
   await expect(page.locator(".mobile-menu-btn")).toBeVisible();
 
   const overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 2,
+    () =>
+      document.documentElement.scrollWidth >
+      document.documentElement.clientWidth + 2,
   );
   expect(overflow).toBe(false);
 });
