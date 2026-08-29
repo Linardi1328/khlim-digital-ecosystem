@@ -48,7 +48,7 @@ export function BrandLogo({
 
   return (
     <img
-      src="/khlim-logo.webp"
+      src="/khlim-logo.jpg"
       alt={alt}
       width={resolvedSize}
       height={resolvedSize}
