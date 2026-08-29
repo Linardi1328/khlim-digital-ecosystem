@@ -8,7 +8,7 @@ async function read(path) {
   return readFile(new URL(path, root), "utf8");
 }
 
-test("mobile public header keeps language and primary account actions reachable", async () => {
+test("mobile public header keeps language, tagline, and primary account actions reachable", async () => {
   const header = await read("apps/web/components/layout/public-header.tsx");
   const styles = await read(
     "apps/web/components/layout/public-header.module.css",
@@ -16,6 +16,7 @@ test("mobile public header keeps language and primary account actions reachable"
 
   assert.match(header, /public-header-locale/);
   assert.match(header, /<LocaleSwitcher \/>/);
+  assert.match(header, /public-header-brand-tagline/);
   assert.match(header, /public-header-mobile-quick-actions/);
   assert.match(header, /href="\/auth\/login"/);
   assert.match(header, /href="\/enrol"/);
@@ -23,6 +24,30 @@ test("mobile public header keeps language and primary account actions reachable"
   assert.match(styles, /\.locale\s*\{\s*display:\s*block\s*!important;/);
   assert.match(
     styles,
+    /\.brandTagline\s*\{[\s\S]*?display:\s*block\s*!important;/,
+  );
+  assert.doesNotMatch(
+    styles,
+    /\.brandTagline\s*\{[\s\S]*?display:\s*none\s*!important;/,
+  );
+  assert.match(
+    styles,
     /@media \(max-width: 900px\)[\s\S]*?\.mobileQuickActions\s*\{[\s\S]*?display:\s*flex;/,
   );
+});
+
+test("public logo is materialized as a browser-safe WebP before web runtime tasks", async () => {
+  const logo = await read("apps/web/components/layout/brand-logo.tsx");
+  const manifest = JSON.parse(await read("apps/web/package.json"));
+  const materializer = await read("apps/web/scripts/materialize-logo.mjs");
+
+  assert.match(logo, /src="\/khlim-logo\.webp"/);
+  assert.match(logo, /onError=\{\(\) => setImageFailed\(true\)\}/);
+  assert.match(manifest.scripts.build, /materialize-logo\.mjs/);
+  assert.match(manifest.scripts.dev, /materialize-logo\.mjs/);
+  assert.match(manifest.scripts.start, /materialize-logo\.mjs/);
+  assert.match(materializer, /data:image\\\/webp;base64/);
+  assert.match(materializer, /khlim-logo\.webp/);
+  assert.match(materializer, /riff !== "RIFF"/);
+  assert.match(materializer, /webp !== "WEBP"/);
 });
