@@ -10,7 +10,6 @@ dist/
 out/
 coverage/
 apps/api/src/generated/prisma/
-apps/web/public/khlim-logo.webp
 
 # Expo / React Native
 .expo/

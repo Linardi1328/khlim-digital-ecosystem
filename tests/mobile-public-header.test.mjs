@@ -36,22 +36,18 @@ test("mobile public header keeps language, tagline, and primary account actions 
   );
 });
 
-test("public logo is materialized as a browser-safe WebP without changing runtime scripts", async () => {
+test("public logo uses the committed JPEG directly without build-time conversion", async () => {
   const logo = await read("apps/web/components/layout/brand-logo.tsx");
   const manifest = JSON.parse(await read("apps/web/package.json"));
   const nextConfig = await read("apps/web/next.config.ts");
   const gitignore = await read(".gitignore");
 
-  assert.match(logo, /src="\/khlim-logo\.webp"/);
+  assert.match(logo, /src="\/khlim-logo\.jpg"/);
   assert.match(logo, /onError=\{\(\) => setImageFailed\(true\)\}/);
   assert.equal(manifest.scripts.build, "next build");
   assert.equal(manifest.scripts.dev, "next dev");
   assert.equal(manifest.scripts.start, "next start");
-  assert.match(nextConfig, /khlim-logo\.svg/);
-  assert.match(nextConfig, /khlim-logo\.webp/);
-  assert.match(nextConfig, /data:image\\\/webp;base64/);
-  assert.match(nextConfig, /riff !== "RIFF"/);
-  assert.match(nextConfig, /webp !== "WEBP"/);
-  assert.match(nextConfig, /writeFileSync\(logoTargetPath, bytes\)/);
-  assert.match(gitignore, /apps\/web\/public\/khlim-logo\.webp/);
+  assert.doesNotMatch(nextConfig, /khlim-logo/);
+  assert.doesNotMatch(nextConfig, /writeFileSync|readFileSync|data:image/);
+  assert.doesNotMatch(gitignore, /apps\/web\/public\/khlim-logo/);
 });
