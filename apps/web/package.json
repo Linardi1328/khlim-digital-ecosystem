@@ -3,9 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "next build",
-    "dev": "next dev",
-    "start": "next start",
+    "build": "node scripts/materialize-logo.mjs && next build",
+    "dev": "node scripts/materialize-logo.mjs && next dev",
+    "start": "node scripts/materialize-logo.mjs && next start",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
