@@ -29,7 +29,13 @@ test("website and admin have executable Next.js runtime scaffolds", async () => 
       /output: process\.env\.VERCEL \? undefined : "standalone"/,
     );
     assert.match(layout, /<html lang="en">/);
-    assert.match(page, /KHLIM/);
+
+    if (app === "web") {
+      assert.match(page, /useI18n/);
+      assert.match(page, /t\("brand\.academy"\)/);
+    } else {
+      assert.match(page, /KHLIM/);
+    }
   }
 });
 
