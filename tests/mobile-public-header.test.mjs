@@ -36,6 +36,23 @@ test("mobile public header keeps language, tagline, and primary account actions 
   );
 });
 
+test("age-inclusive public controls preserve 44px interaction targets", async () => {
+  const header = await read("apps/web/components/layout/public-header.tsx");
+  const locale = await read("apps/web/components/layout/locale-switcher.tsx");
+  const sheet = await read("apps/web/components/ui/sheet.tsx");
+  const carousel = await read("apps/web/components/home/hero-carousel.tsx");
+
+  assert.match(locale, /minHeight: "44px"/);
+  assert.match(header, /minWidth: "44px"/);
+  assert.match(header, /minHeight: "44px"/);
+  assert.match(sheet, /minWidth: "44px"/);
+  assert.match(sheet, /minHeight: "44px"/);
+  assert.match(carousel, /minWidth: "44px"/);
+  assert.match(carousel, /minHeight: "44px"/);
+  assert.match(carousel, /width: "44px"/);
+  assert.match(carousel, /height: "44px"/);
+});
+
 test("public logo uses the committed JPEG directly without build-time conversion", async () => {
   const logo = await read("apps/web/components/layout/brand-logo.tsx");
   const manifest = JSON.parse(await read("apps/web/package.json"));
