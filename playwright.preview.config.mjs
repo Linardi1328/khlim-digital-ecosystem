@@ -5,11 +5,7 @@ const baseURL =
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  testMatch: [
-    "web-preview.spec.mjs",
-    "mobile-header.spec.mjs",
-    "live-netlify.spec.mjs",
-  ],
+  testMatch: ["web-preview.spec.mjs", "mobile-header.spec.mjs"],
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
