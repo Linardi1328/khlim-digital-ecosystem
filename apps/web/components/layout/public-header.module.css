@@ -2,6 +2,10 @@
   display: none;
 }
 
+.brandLogo {
+  flex-shrink: 0;
+}
+
 @media (max-width: 900px) {
   .mobileQuickActions {
     display: flex;
@@ -26,10 +30,20 @@
 
   .brand {
     gap: 8px !important;
+    min-width: 0;
+  }
+
+  .brandLogo {
+    width: 40px !important;
+    height: 40px !important;
   }
 
   .brandTagline {
-    display: none !important;
+    display: block !important;
+    margin-top: 2px !important;
+    font-size: 0.5rem !important;
+    letter-spacing: 0.025em !important;
+    line-height: 1.1 !important;
   }
 
   .locale > div > span {
@@ -37,8 +51,8 @@
   }
 
   .locale select {
-    width: 96px;
-    max-width: 30vw;
+    width: 92px;
+    max-width: 27vw;
     padding: 6px !important;
   }
 
@@ -52,11 +66,31 @@
 }
 
 @media (max-width: 360px) {
+  .brand {
+    gap: 6px !important;
+  }
+
+  .brandLogo {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
   .brandName {
-    font-size: 0.8125rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  .brandTagline {
+    font-size: 0.45rem !important;
+    letter-spacing: 0 !important;
   }
 
   .locale select {
-    width: 86px;
+    width: 78px;
+    max-width: 25vw;
+    padding: 5px !important;
+  }
+
+  .actions {
+    gap: 4px !important;
   }
 }
