@@ -60,23 +60,63 @@ function LoginContent() {
         display: "grid",
         placeItems: "center",
         backgroundColor: "#f4f4f5",
-        padding: 24,
+        padding: 20,
       }}
     >
       <div style={{ width: "100%", maxWidth: 440 }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            marginBottom: 28,
-          }}
-        >
-          <Link href="/" aria-label={t("brand.academy")}>
-            <BrandLogo size={78} priority />
-          </Link>
-        </div>
         <Card>
-          <CardHeader>
+          <CardHeader
+            style={{
+              alignItems: "center",
+              textAlign: "center",
+              gap: 6,
+              marginBottom: 20,
+            }}
+          >
+            <Link
+              href="/"
+              aria-label={t("brand.academy")}
+              style={{
+                display: "inline-flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 8,
+                textDecoration: "none",
+                marginBottom: 8,
+              }}
+            >
+              <BrandLogo
+                size={72}
+                priority
+                className="auth-brand-logo"
+              />
+              <div>
+                <div
+                  style={{
+                    color: "#18181B",
+                    fontSize: "1rem",
+                    fontWeight: 800,
+                    letterSpacing: "0.08em",
+                    lineHeight: 1.1,
+                  }}
+                >
+                  KHLIM
+                </div>
+                <div
+                  style={{
+                    marginTop: 4,
+                    color: "#71717A",
+                    fontSize: "0.625rem",
+                    fontWeight: 600,
+                    letterSpacing: "0.06em",
+                    lineHeight: 1.2,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {t("brand.tagline")}
+                </div>
+              </div>
+            </Link>
             <CardTitle>{t("auth.login.title")}</CardTitle>
             <CardDescription>{t("auth.login.subtitle")}</CardDescription>
           </CardHeader>
