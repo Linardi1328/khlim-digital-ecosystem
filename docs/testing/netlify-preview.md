@@ -9,6 +9,7 @@ Netlify is a secondary preview host for the KHLIM web client. It exists so manua
 - Use `apps/web` as the Netlify package directory.
 - Use a Preview/Deploy Preview context, not the production site, for acceptance testing.
 - Point the web preview only at staging/sandbox API, Supabase, and payment environments.
+- Always create or refresh the preview from the exact PR head under review; do not accept a stale deployment from an earlier commit.
 
 The web Next.js config treats both `VERCEL` and `NETLIFY` as managed Next.js hosts. Local/container builds continue to emit the standalone server output used by runtime CI.
 
