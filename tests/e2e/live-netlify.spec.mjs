@@ -15,27 +15,46 @@ const publicRoutes = [
   "/auth/forgot-password",
 ];
 
+async function expectMinimumTapTarget(locator) {
+  await expect(locator).toBeVisible();
+  const box = await locator.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box.width).toBeGreaterThanOrEqual(44);
+  expect(box.height).toBeGreaterThanOrEqual(44);
+}
+
+async function gotoLive(page, path = "/") {
+  const response = await page.goto(`${liveBase}${path}`, {
+    waitUntil: "domcontentloaded",
+  });
+  await expect(page.locator("body")).toBeVisible();
+  await page.waitForTimeout(400);
+  return response;
+}
+
 async function auditPage(page, path) {
   const pageErrors = [];
   const failedRequests = [];
 
   page.on("pageerror", (error) => pageErrors.push(error.message));
   page.on("requestfailed", (request) => {
-    if (request.url().startsWith(liveBase)) {
-      failedRequests.push(`${request.method()} ${request.url()} ${request.failure()?.errorText ?? "failed"}`);
-    }
+    if (!request.url().startsWith(liveBase)) return;
+
+    const errorText = request.failure()?.errorText ?? "failed";
+    const isCancelledRscPrefetch =
+      errorText.includes("ERR_ABORTED") && request.url().includes("_rsc=");
+    if (isCancelledRscPrefetch) return;
+
+    failedRequests.push(`${request.method()} ${request.url()} ${errorText}`);
   });
 
-  const response = await page.goto(`${liveBase}${path}`, {
-    waitUntil: "networkidle",
-  });
+  const response = await gotoLive(page, path);
 
   expect.soft(response, `${path} should return a document`).not.toBeNull();
   if (response) {
     expect.soft(response.status(), `${path} status`).toBeLessThan(400);
   }
 
-  await expect.soft(page.locator("body"), `${path} body`).toBeVisible();
   await expect
     .soft(page.locator("body"), `${path} should not show a fatal error`)
     .not.toContainText(/Application error|Internal Server Error/i);
@@ -66,7 +85,7 @@ test("live mobile header keeps critical controls visible and tappable", async ({
   viewport,
 }) => {
   test.skip(!viewport || viewport.width > 500, "Mobile only");
-  await page.goto(liveBase, { waitUntil: "networkidle" });
+  await gotoLive(page);
 
   const logo = page.locator(".public-header-logo");
   const tagline = page.locator(".public-header-brand-tagline");
@@ -85,25 +104,11 @@ test("live mobile header keeps critical controls visible and tappable", async ({
     )
     .toBe(true);
   await expect(tagline).toBeVisible();
-  await expect(locale).toBeVisible();
-  await expect(menu).toBeVisible();
   await expect(quick).toBeVisible();
-
-  for (const control of [locale, menu]) {
-    const box = await control.boundingBox();
-    expect(box).not.toBeNull();
-    expect(box.height).toBeGreaterThanOrEqual(44);
-  }
-
-  for (const link of [
-    quick.locator('a[href="/auth/login"]'),
-    quick.locator('a[href="/enrol"]'),
-  ]) {
-    await expect(link).toBeVisible();
-    const box = await link.boundingBox();
-    expect(box).not.toBeNull();
-    expect(box.height).toBeGreaterThanOrEqual(44);
-  }
+  await expectMinimumTapTarget(locale);
+  await expectMinimumTapTarget(menu);
+  await expectMinimumTapTarget(quick.locator('a[href="/auth/login"]'));
+  await expectMinimumTapTarget(quick.locator('a[href="/enrol"]'));
 
   await page.screenshot({
     path: `test-results/live-home-${viewport.width}x${viewport.height}.png`,
@@ -114,7 +119,7 @@ test("live mobile header keeps critical controls visible and tappable", async ({
 test("live mobile header remains usable at 320px", async ({ page, viewport }) => {
   test.skip(!viewport || viewport.width > 500, "Mobile only");
   await page.setViewportSize({ width: 320, height: 700 });
-  await page.goto(liveBase, { waitUntil: "networkidle" });
+  await gotoLive(page);
 
   await expect(page.locator(".public-header-brand-tagline")).toBeVisible();
   await expect(page.locator(".public-header-locale select")).toBeVisible();
@@ -129,7 +134,7 @@ test("live mobile header remains usable at 320px", async ({ page, viewport }) =>
 
 test("live locale switcher works directly on mobile", async ({ page, viewport }) => {
   test.skip(!viewport || viewport.width > 500, "Mobile only");
-  await page.goto(liveBase, { waitUntil: "networkidle" });
+  await gotoLive(page);
 
   const locale = page.locator(".public-header-locale select");
   await expect(locale).toBeVisible();
@@ -154,18 +159,57 @@ test("live mobile menu navigates core public pages", async ({ page, viewport }) 
     ["About", "/about"],
     ["Contact", "/contact"],
   ]) {
-    await page.goto(liveBase, { waitUntil: "networkidle" });
+    await gotoLive(page);
     await page.locator(".mobile-menu-btn").click();
-    await expect(page.getByRole("dialog")).toBeVisible();
-    await page.getByRole("link", { name: label, exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("link", { name: label, exact: true }).click();
     await expect(page).toHaveURL(`${liveBase}${path}`);
+  }
+});
+
+test("live mobile navigation drawer is easy to operate", async ({ page, viewport }) => {
+  test.skip(!viewport || viewport.width > 500, "Mobile only");
+  await gotoLive(page);
+  await page.locator(".mobile-menu-btn").click();
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expectMinimumTapTarget(dialog.getByRole("button", { name: /close/i }));
+  await expectMinimumTapTarget(dialog.locator("select"));
+
+  const links = await dialog.getByRole("link").all();
+  for (const link of links) {
+    await expectMinimumTapTarget(link);
+  }
+});
+
+test("live mobile carousel controls have usable touch targets", async ({
+  page,
+  viewport,
+}) => {
+  test.skip(!viewport || viewport.width > 500, "Mobile only");
+  await gotoLive(page);
+
+  const carousel = page.getByRole("region", {
+    name: "KHLIM academy photo highlights",
+  });
+  await expectMinimumTapTarget(
+    carousel.getByRole("button", { name: /previous/i }),
+  );
+  await expectMinimumTapTarget(carousel.getByRole("button", { name: /next/i }));
+
+  const slideButtons = carousel.getByRole("group").getByRole("button");
+  const count = await slideButtons.count();
+  for (let index = 0; index < count; index += 1) {
+    await expectMinimumTapTarget(slideButtons.nth(index));
   }
 });
 
 test("live sign-in gives users an obvious route home and complete branding", async ({
   page,
 }) => {
-  await page.goto(`${liveBase}/auth/login`, { waitUntil: "networkidle" });
+  await gotoLive(page, "/auth/login");
 
   const home = page.locator(".auth-home-link");
   await expect(home).toBeVisible();
@@ -197,7 +241,7 @@ test("live sign-in gives users an obvious route home and complete branding", asy
 });
 
 test("live enrolment preserves intended authentication redirect", async ({ page }) => {
-  await page.goto(`${liveBase}/enrol`, { waitUntil: "networkidle" });
+  await gotoLive(page, "/enrol");
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page).toHaveURL(/\/auth\/login\?redirect=%2Fenrol/);
 });
