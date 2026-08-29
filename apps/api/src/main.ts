@@ -7,6 +7,13 @@ import { loadApiRuntimeConfig } from "./environment";
 import { createStructuredLogger } from "./logger";
 import { createOpenApiDocument } from "./openapi";
 
+function getCorsAllowedOrigins(environment: NodeJS.ProcessEnv = process.env): string[] {
+  return (environment.CORS_ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
 async function bootstrap() {
   const runtime = loadApiRuntimeConfig();
   const logger = createStructuredLogger({
@@ -21,6 +28,11 @@ async function bootstrap() {
 
   app.setGlobalPrefix("v1");
   app.enableShutdownHooks();
+
+  const corsAllowedOrigins = getCorsAllowedOrigins();
+  if (corsAllowedOrigins.length > 0) {
+    app.enableCors({ origin: corsAllowedOrigins });
+  }
 
   const document = createOpenApiDocument(app);
   SwaggerModule.setup("docs", app, document);
