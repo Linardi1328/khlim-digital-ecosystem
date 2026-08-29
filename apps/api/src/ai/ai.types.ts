@@ -1,4 +1,8 @@
-export type AiCapability = "assistant" | "receptionist" | "operations" | "sports_intelligence";
+export type AiCapability =
+  | "assistant"
+  | "receptionist"
+  | "operations"
+  | "sports_intelligence";
 
 export type AiToolRisk = "read" | "propose" | "mutate" | "restricted";
 
