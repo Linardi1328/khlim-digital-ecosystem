@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useI18n } from "../../../lib/i18n-context";
 import { Alert } from "../../../components/ui/alert";
 import { Button } from "../../../components/ui/button";
 import {
@@ -17,6 +18,7 @@ import {
 } from "../../../lib/supabase-auth";
 
 export default function ResetPasswordPage() {
+  const { t } = useI18n();
   const [recoveryReady, setRecoveryReady] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -32,11 +34,11 @@ export default function ResetPasswordPage() {
     event.preventDefault();
     setError("");
     if (password.length < 8) {
-      setError("Password must contain at least 8 characters.");
+      setError(t("auth.reset.error.minimum"));
       return;
     }
     if (password !== confirmation) {
-      setError("Password confirmation does not match.");
+      setError(t("auth.reset.error.mismatch"));
       return;
     }
 
@@ -46,7 +48,7 @@ export default function ResetPasswordPage() {
       setComplete(true);
     } catch (caught) {
       setError(
-        caught instanceof Error ? caught.message : "Unable to update password.",
+        caught instanceof Error ? caught.message : t("auth.reset.error.failed"),
       );
     } finally {
       setSaving(false);
@@ -65,18 +67,17 @@ export default function ResetPasswordPage() {
     >
       <Card style={{ width: "100%", maxWidth: 460 }}>
         <CardHeader>
-          <CardTitle>Set a new password</CardTitle>
+          <CardTitle>{t("auth.reset.title")}</CardTitle>
         </CardHeader>
         <CardContent>
           {complete ? (
-            <Alert variant="success" title="Password updated">
-              Your Supabase account password has been changed.{" "}
-              <Link href="/auth/login">Return to sign in.</Link>
+            <Alert variant="success" title={t("auth.reset.updatedTitle")}>
+              {t("auth.reset.updatedBody")} {" "}
+              <Link href="/auth/login">{t("auth.reset.returnSignIn")}</Link>
             </Alert>
           ) : !recoveryReady ? (
-            <Alert variant="warning" title="Recovery session unavailable">
-              Open this page from the latest password-recovery email. If the
-              link has expired, request another reset link.
+            <Alert variant="warning" title={t("auth.reset.unavailableTitle")}>
+              {t("auth.reset.unavailableBody")}
             </Alert>
           ) : (
             <form
@@ -85,7 +86,7 @@ export default function ResetPasswordPage() {
             >
               {error ? <Alert variant="danger">{error}</Alert> : null}
               <Input
-                label="New password"
+                label={t("auth.reset.newPassword")}
                 type="password"
                 required
                 value={password}
@@ -93,7 +94,7 @@ export default function ResetPasswordPage() {
                 autoComplete="new-password"
               />
               <Input
-                label="Confirm new password"
+                label={t("auth.reset.confirmPassword")}
                 type="password"
                 required
                 value={confirmation}
@@ -101,7 +102,7 @@ export default function ResetPasswordPage() {
                 autoComplete="new-password"
               />
               <Button type="submit" variant="primary" isLoading={saving}>
-                Update password
+                {t("auth.reset.submit")}
               </Button>
             </form>
           )}
