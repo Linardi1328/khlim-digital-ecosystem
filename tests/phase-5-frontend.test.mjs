@@ -115,7 +115,10 @@ test("Phase 5 managed-athlete forms collect only fields supported by the family 
 
 test("Phase 5 account UI never claims unsupported deactivation was queued", async () => {
   const account = await read("apps/web/app/portal/account/page.tsx");
-  assert.match(account, /Not yet available/);
+  const catalogue = await read("packages/i18n/src/messages/portal-web.ts");
+  assert.match(account, /t\("portal\.account\.notAvailable"\)/);
+  assert.match(catalogue, /"portal\.account\.notAvailable": "Not yet available"/);
+  assert.match(account, /t\("portal\.account\.deactivationBody"\)/);
   assert.doesNotMatch(account, /queued for administrative review/i);
 });
 
@@ -124,17 +127,14 @@ test("Phase 5 public copy does not hard-code unverified venues or programme tier
   const about = await read("apps/web/app/about/page.tsx");
   const privacy = await read("apps/web/app/privacy/page.tsx");
   const terms = await read("apps/web/app/terms/page.tsx");
+  const legal = await read("packages/i18n/src/messages/legal-web.ts");
 
   assert.doesNotMatch(footer, /Seri Kembangan|Cyberjaya|Advanced Elite/i);
   assert.doesNotMatch(about, /Founded by passionate basketball coaches/i);
-  assert.match(
-    privacy,
-    /Later capabilities such as attendance\s+or development records require separate implementation/,
-  );
-  assert.match(
-    terms,
-    /Detailed session scheduling, cancellations, replacement sessions,\s+attendance, and term-adjustment rules are later operational\s+capabilities/,
-  );
+  assert.match(privacy, /t\("privacy\.section2\.body"\)/);
+  assert.match(terms, /t\("terms\.section3\.body"\)/);
+  assert.match(legal, /New data categories require separate implementation and review/);
+  assert.match(legal, /require final management and legal approval/);
 });
 
 test("Phase 5 responsive rules separate desktop and mobile navigation", async () => {
@@ -152,8 +152,10 @@ test("Phase 5 responsive rules separate desktop and mobile navigation", async ()
 test("Phase 5 legal pages remain clearly draft content", async () => {
   const terms = await read("apps/web/app/terms/page.tsx");
   const privacy = await read("apps/web/app/privacy/page.tsx");
-  assert.match(terms, /DRAFT/);
-  assert.match(privacy, /DRAFT/);
+  const legal = await read("packages/i18n/src/messages/legal-web.ts");
+  assert.match(terms, /t\("legal\.draftBadge"\)/);
+  assert.match(privacy, /t\("legal\.draftBadge"\)/);
+  assert.match(legal, /\[DRAFT — Subject to Final Owner & Legal Approval\]/);
   assert.doesNotMatch(privacy, />\s*Malaysian PDPA Compliant\s*</i);
 });
 
