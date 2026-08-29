@@ -3,25 +3,29 @@
 import Image from "next/image";
 
 export function BrandLogo({
-  size = 40,
+  height = 38,
   className,
+  priority = false,
 }: {
-  size?: number;
+  height?: number;
   className?: string;
+  priority?: boolean;
 }) {
+  const width = Math.round(height * 2);
+
   return (
     <Image
       src="/khlim-logo.svg"
       alt="KHLIM"
-      width={size}
-      height={size}
+      width={width}
+      height={height}
       className={className}
-      priority
+      priority={priority}
       style={{
-        width: size,
-        height: size,
-        objectFit: "cover",
-        borderRadius: Math.max(6, Math.round(size * 0.18)),
+        width,
+        height,
+        objectFit: "contain",
+        borderRadius: Math.max(6, Math.round(height * 0.18)),
         flexShrink: 0,
       }}
     />
