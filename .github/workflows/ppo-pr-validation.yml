@@ -41,6 +41,9 @@ jobs:
       - name: Full regression suite
         run: pnpm test
 
+      - name: Web static localization coverage
+        run: pnpm i18n:audit
+
       - name: Diff whitespace checks
         run: |
           git diff --check
