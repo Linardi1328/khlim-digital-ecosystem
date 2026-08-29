@@ -8,6 +8,7 @@ import { webMessages } from "./messages/web";
 import { authWebMessages } from "./messages/auth-web";
 import { publicPageMessages } from "./messages/public-pages";
 import { enrolWebMessages } from "./messages/enrol-web";
+import { portalWebMessages } from "./messages/portal-web";
 
 export const messages: Record<SupportedLocale, Record<string, string>> = {
   en: {
@@ -16,6 +17,7 @@ export const messages: Record<SupportedLocale, Record<string, string>> = {
     ...authWebMessages.en,
     ...publicPageMessages.en,
     ...enrolWebMessages.en,
+    ...portalWebMessages.en,
   },
   ms: {
     ...ms,
@@ -23,6 +25,7 @@ export const messages: Record<SupportedLocale, Record<string, string>> = {
     ...authWebMessages.ms,
     ...publicPageMessages.ms,
     ...enrolWebMessages.ms,
+    ...portalWebMessages.ms,
   },
   "zh-Hans": {
     ...zhHans,
@@ -30,6 +33,7 @@ export const messages: Record<SupportedLocale, Record<string, string>> = {
     ...authWebMessages["zh-Hans"],
     ...publicPageMessages["zh-Hans"],
     ...enrolWebMessages["zh-Hans"],
+    ...portalWebMessages["zh-Hans"],
   },
   "zh-Hant": {
     ...zhHant,
@@ -37,6 +41,7 @@ export const messages: Record<SupportedLocale, Record<string, string>> = {
     ...authWebMessages["zh-Hant"],
     ...publicPageMessages["zh-Hant"],
     ...enrolWebMessages["zh-Hant"],
+    ...portalWebMessages["zh-Hant"],
   },
   hi: {
     ...hi,
@@ -44,6 +49,7 @@ export const messages: Record<SupportedLocale, Record<string, string>> = {
     ...authWebMessages.hi,
     ...publicPageMessages.hi,
     ...enrolWebMessages.hi,
+    ...portalWebMessages.hi,
   },
 };
 
