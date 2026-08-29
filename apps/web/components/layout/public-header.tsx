@@ -8,6 +8,7 @@ import { BrandLogo } from "./brand-logo";
 import { LocaleSwitcher } from "./locale-switcher";
 import { Button } from "../ui/button";
 import { Sheet } from "../ui/sheet";
+import styles from "./public-header.module.css";
 
 export function PublicHeader() {
   const { t } = useI18n();
@@ -34,6 +35,7 @@ export function PublicHeader() {
       }}
     >
       <div
+        className={`public-header-inner ${styles.inner}`}
         style={{
           maxWidth: "1200px",
           margin: "0 auto",
@@ -46,26 +48,44 @@ export function PublicHeader() {
       >
         <Link
           href="/"
+          className={`public-header-brand ${styles.brand}`}
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "10px",
+            gap: "12px",
             textDecoration: "none",
             minWidth: 0,
           }}
         >
-          <BrandLogo height={38} priority />
-          <div
-            style={{
-              fontSize: "0.6875rem",
-              color: "#71717A",
-              fontWeight: 600,
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-              lineHeight: 1.25,
-            }}
-          >
-            {t("brand.tagline")}
+          <BrandLogo height={42} priority />
+          <div style={{ minWidth: 0, lineHeight: 1.05 }}>
+            <div
+              className={`public-header-brand-name ${styles.brandName}`}
+              style={{
+                color: "#18181B",
+                fontSize: "0.875rem",
+                fontWeight: 800,
+                letterSpacing: "0.04em",
+                whiteSpace: "nowrap",
+              }}
+            >
+              KHLIM
+            </div>
+            <div
+              className={`public-header-brand-tagline ${styles.brandTagline}`}
+              style={{
+                marginTop: "4px",
+                fontSize: "0.625rem",
+                color: "#71717A",
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                lineHeight: 1.2,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {t("brand.tagline")}
+            </div>
           </div>
         </Link>
 
@@ -95,7 +115,7 @@ export function PublicHeader() {
         </nav>
 
         <div
-          className="public-header-actions"
+          className={`public-header-actions ${styles.actions}`}
           style={{
             display: "flex",
             alignItems: "center",
@@ -103,7 +123,7 @@ export function PublicHeader() {
             flexShrink: 0,
           }}
         >
-          <div className="public-header-locale">
+          <div className={`public-header-locale ${styles.locale}`}>
             <LocaleSwitcher />
           </div>
 
@@ -148,6 +168,37 @@ export function PublicHeader() {
             ☰
           </button>
         </div>
+      </div>
+
+      <div
+        className={`public-header-mobile-quick-actions ${styles.mobileQuickActions}`}
+      >
+        {isAuthenticated ? (
+          <Link
+            href="/portal/dashboard"
+            style={{ textDecoration: "none", flex: 1 }}
+          >
+            <Button variant="secondary" size="sm" style={{ width: "100%" }}>
+              🏀 {t("nav.portal")}
+            </Button>
+          </Link>
+        ) : (
+          <>
+            <Link
+              href="/auth/login"
+              style={{ textDecoration: "none", flex: 1 }}
+            >
+              <Button variant="outline" size="sm" style={{ width: "100%" }}>
+                {t("nav.login")}
+              </Button>
+            </Link>
+            <Link href="/enrol" style={{ textDecoration: "none", flex: 1 }}>
+              <Button variant="primary" size="sm" style={{ width: "100%" }}>
+                {t("nav.register")}
+              </Button>
+            </Link>
+          </>
+        )}
       </div>
 
       <Sheet

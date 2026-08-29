@@ -56,9 +56,7 @@ async function openMobileMenu(page) {
 }
 
 function visibleLocaleSwitcher(page) {
-  return page.locator(
-    ".public-header-locale select:visible, .public-mobile-locale select:visible",
-  );
+  return page.locator(".public-header-locale select:visible");
 }
 
 for (const path of publicRoutes) {
@@ -119,14 +117,8 @@ test("homepage exposes achievements and a publication-safe Player Spotlight prev
 
 test("language choice persists after reload and restores document language", async ({
   page,
-  viewport,
 }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
-
-  if (viewport && viewport.width <= 640) {
-    await openMobileMenu(page);
-  }
-
   await visibleLocaleSwitcher(page).selectOption("ms");
 
   await expect
@@ -143,10 +135,6 @@ test("language choice persists after reload and restores document language", asy
 
   await page.reload({ waitUntil: "domcontentloaded" });
 
-  if (viewport && viewport.width <= 640) {
-    await openMobileMenu(page);
-  }
-
   await expect(visibleLocaleSwitcher(page)).toHaveValue("ms");
   await expect
     .poll(() => page.evaluate(() => document.documentElement.lang))
@@ -160,7 +148,6 @@ test("language choice persists after reload and restores document language", asy
 
 test("academy product copy renders in every supported locale", async ({
   page,
-  viewport,
 }) => {
   const expected = [
     ["en", "The KHLIM development approach"],
@@ -171,9 +158,6 @@ test("academy product copy renders in every supported locale", async ({
   ];
 
   await page.goto("/academy", { waitUntil: "domcontentloaded" });
-  if (viewport && viewport.width <= 640) {
-    await openMobileMenu(page);
-  }
 
   for (const [locale, title] of expected) {
     await visibleLocaleSwitcher(page).selectOption(locale);

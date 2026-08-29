@@ -7,7 +7,9 @@ import { loadApiRuntimeConfig } from "./environment";
 import { createStructuredLogger } from "./logger";
 import { createOpenApiDocument } from "./openapi";
 
-function getCorsAllowedOrigins(environment: NodeJS.ProcessEnv = process.env): string[] {
+function getCorsAllowedOrigins(
+  environment: NodeJS.ProcessEnv = process.env,
+): string[] {
   return (environment.CORS_ALLOWED_ORIGINS ?? "")
     .split(",")
     .map((origin) => origin.trim())
