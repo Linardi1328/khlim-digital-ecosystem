@@ -33,6 +33,67 @@ export function PublicHeader() {
         borderBottom: "1px solid #E4E4E7",
       }}
     >
+      <style>{`
+        @media (max-width: 900px) {
+          .public-header-mobile-quick-actions {
+            display: flex !important;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px 10px;
+            gap: 8px;
+            box-sizing: border-box;
+            border-top: 1px solid #F4F4F5;
+          }
+        }
+
+        @media (max-width: 640px) {
+          .public-header-locale {
+            display: block !important;
+          }
+
+          .public-header-inner {
+            height: 64px !important;
+            padding: 0 12px !important;
+          }
+
+          .public-header-brand {
+            gap: 8px !important;
+          }
+
+          .public-header-brand-tagline {
+            display: none !important;
+          }
+
+          .public-header-locale > div > span {
+            display: none !important;
+          }
+
+          .public-header-locale select {
+            width: 96px;
+            max-width: 30vw;
+            padding: 6px !important;
+          }
+
+          .public-header-actions {
+            gap: 6px !important;
+          }
+
+          .public-header-mobile-quick-actions {
+            padding: 0 12px 10px;
+          }
+        }
+
+        @media (max-width: 360px) {
+          .public-header-brand-name {
+            font-size: 0.8125rem !important;
+          }
+
+          .public-header-locale select {
+            width: 86px;
+          }
+        }
+      `}</style>
+
       <div
         className="public-header-inner"
         style={{
@@ -169,7 +230,7 @@ export function PublicHeader() {
         </div>
       </div>
 
-      <div className="public-header-mobile-quick-actions">
+      <div className="public-header-mobile-quick-actions" style={{ display: "none" }}>
         {isAuthenticated ? (
           <Link href="/portal/dashboard" style={{ textDecoration: "none", flex: 1 }}>
             <Button variant="secondary" size="sm" style={{ width: "100%" }}>
