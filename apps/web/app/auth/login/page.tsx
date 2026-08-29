@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "../../../lib/i18n-context";
 import { useAuth } from "../../../lib/auth-context";
+import { BrandLogo } from "../../../components/layout/brand-logo";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import {
@@ -38,7 +39,7 @@ function LoginContent() {
     event.preventDefault();
     setError("");
     if (!email || !password) {
-      setError("Please enter both email and password.");
+      setError(t("auth.login.error.required"));
       return;
     }
 
@@ -49,7 +50,7 @@ function LoginContent() {
       setError(
         caught instanceof Error
           ? caught.message
-          : "Sign in failed. Please verify your credentials.",
+          : t("auth.login.error.failed"),
       );
     }
   };
@@ -65,17 +66,9 @@ function LoginContent() {
       }}
     >
       <div style={{ width: "100%", maxWidth: 440 }}>
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <Link
-            href="/"
-            style={{
-              color: "#18181b",
-              textDecoration: "none",
-              fontSize: "1.5rem",
-              fontWeight: 900,
-            }}
-          >
-            KHLIM
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 28 }}>
+          <Link href="/" aria-label={t("brand.academy")}>
+            <BrandLogo size={78} priority />
           </Link>
         </div>
         <Card>
@@ -142,10 +135,13 @@ function LoginContent() {
 }
 
 export default function LoginPage() {
+  const { t } = useI18n();
   return (
     <Suspense
       fallback={
-        <div style={{ padding: 40, textAlign: "center" }}>Loading login…</div>
+        <div style={{ padding: 40, textAlign: "center" }}>
+          {t("auth.login.loading")}
+        </div>
       }
     >
       <LoginContent />
