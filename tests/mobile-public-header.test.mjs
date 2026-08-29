@@ -10,19 +10,19 @@ async function read(path) {
 
 test("mobile public header keeps language and primary account actions reachable", async () => {
   const header = await read("apps/web/components/layout/public-header.tsx");
+  const styles = await read(
+    "apps/web/components/layout/public-header.module.css",
+  );
 
   assert.match(header, /public-header-locale/);
   assert.match(header, /<LocaleSwitcher \/>/);
   assert.match(header, /public-header-mobile-quick-actions/);
   assert.match(header, /href="\/auth\/login"/);
   assert.match(header, /href="\/enrol"/);
-  assert.match(header, /@media \(max-width: 640px\)/);
+  assert.match(styles, /@media \(max-width: 640px\)/);
+  assert.match(styles, /\.locale\s*\{\s*display:\s*block\s*!important;/);
   assert.match(
-    header,
-    /\.public-header-locale\s*\{\s*display:\s*block\s*!important;/,
-  );
-  assert.match(
-    header,
-    /\.public-header-mobile-quick-actions\s*\{[\s\S]*?display:\s*flex\s*!important;/,
+    styles,
+    /@media \(max-width: 900px\)[\s\S]*?\.mobileQuickActions\s*\{[\s\S]*?display:\s*flex;/,
   );
 });
