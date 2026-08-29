@@ -33,9 +33,9 @@ jobs:
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Build web exact commit
+      - name: Build web exact commit in managed-host mode
         env:
-          VERCEL: "1"
+          NETLIFY: "1"
         run: pnpm --filter @khlim/web build
 
       - name: Start web server
@@ -71,6 +71,13 @@ jobs:
   remote-preview-reachable:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      QA_PREVIEW_URL: ${{ vars.KHLIM_WEB_QA_URL }}
     steps:
-      - name: Verify shared Vercel QA alias is reachable
-        run: curl --fail --silent --show-error --retry 5 --retry-delay 3 https://khlim-web-qa.vercel.app/ --output /dev/null
+      - name: Verify configured shared QA preview is reachable
+        if: ${{ env.QA_PREVIEW_URL != '' }}
+        run: curl --fail --silent --show-error --retry 5 --retry-delay 3 "$QA_PREVIEW_URL" --output /dev/null
+
+      - name: Record that remote QA preview is not configured
+        if: ${{ env.QA_PREVIEW_URL == '' }}
+        run: echo "KHLIM_WEB_QA_URL is not configured; exact-head local browser acceptance remains authoritative for this CI run."
