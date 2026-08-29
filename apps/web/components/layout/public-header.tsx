@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useI18n } from "../../lib/i18n-context";
 import { useAuth } from "../../lib/auth-context";
+import { BrandLogo } from "./brand-logo";
 import { LocaleSwitcher } from "./locale-switcher";
 import { Button } from "../ui/button";
 import { Sheet } from "../ui/sheet";
@@ -53,47 +54,18 @@ export function PublicHeader() {
             minWidth: 0,
           }}
         >
+          <BrandLogo height={38} priority />
           <div
             style={{
-              width: "38px",
-              height: "38px",
-              borderRadius: "10px",
-              backgroundColor: "#18181B",
-              color: "#F59E0B",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: 900,
-              fontSize: "1.25rem",
-              boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-              flexShrink: 0,
+              fontSize: "0.6875rem",
+              color: "#71717A",
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              lineHeight: 1.25,
             }}
           >
-            K
-          </div>
-          <div>
-            <div
-              style={{
-                fontWeight: 900,
-                fontSize: "1.125rem",
-                color: "#18181B",
-                letterSpacing: "0.04em",
-                lineHeight: 1.1,
-              }}
-            >
-              KHLIM
-            </div>
-            <div
-              style={{
-                fontSize: "0.6875rem",
-                color: "#71717A",
-                fontWeight: 600,
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
-              }}
-            >
-              Sports Ecosystem
-            </div>
+            {t("brand.tagline")}
           </div>
         </Link>
 
@@ -160,7 +132,7 @@ export function PublicHeader() {
 
           <button
             onClick={() => setMobileMenuOpen(true)}
-            aria-label="Open Mobile Menu"
+            aria-label={t("layout.openMobileMenu")}
             style={{
               display: "none",
               background: "transparent",
@@ -181,7 +153,7 @@ export function PublicHeader() {
       <Sheet
         isOpen={mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}
-        title="KHLIM Navigation"
+        title={t("layout.navigationTitle")}
         position="right"
       >
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
