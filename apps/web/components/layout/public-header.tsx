@@ -34,6 +34,7 @@ export function PublicHeader() {
       }}
     >
       <div
+        className="public-header-inner"
         style={{
           maxWidth: "1200px",
           margin: "0 auto",
@@ -46,6 +47,7 @@ export function PublicHeader() {
       >
         <Link
           href="/"
+          className="public-header-brand"
           style={{
             display: "flex",
             alignItems: "center",
@@ -57,6 +59,7 @@ export function PublicHeader() {
           <BrandLogo height={42} priority />
           <div style={{ minWidth: 0, lineHeight: 1.05 }}>
             <div
+              className="public-header-brand-name"
               style={{
                 color: "#18181B",
                 fontSize: "0.875rem",
@@ -68,6 +71,7 @@ export function PublicHeader() {
               KHLIM
             </div>
             <div
+              className="public-header-brand-tagline"
               style={{
                 marginTop: "4px",
                 fontSize: "0.625rem",
@@ -163,6 +167,29 @@ export function PublicHeader() {
             ☰
           </button>
         </div>
+      </div>
+
+      <div className="public-header-mobile-quick-actions">
+        {isAuthenticated ? (
+          <Link href="/portal/dashboard" style={{ textDecoration: "none", flex: 1 }}>
+            <Button variant="secondary" size="sm" style={{ width: "100%" }}>
+              🏀 {t("nav.portal")}
+            </Button>
+          </Link>
+        ) : (
+          <>
+            <Link href="/auth/login" style={{ textDecoration: "none", flex: 1 }}>
+              <Button variant="outline" size="sm" style={{ width: "100%" }}>
+                {t("nav.login")}
+              </Button>
+            </Link>
+            <Link href="/enrol" style={{ textDecoration: "none", flex: 1 }}>
+              <Button variant="primary" size="sm" style={{ width: "100%" }}>
+                {t("nav.register")}
+              </Button>
+            </Link>
+          </>
+        )}
       </div>
 
       <Sheet
