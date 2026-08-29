@@ -30,7 +30,7 @@ import { RadioGroup } from "../../components/ui/radio-group";
 import { StepIndicator } from "../../components/ui/step-indicator";
 
 function EnrolmentWizardContent() {
-  const { t, formatCurrency } = useI18n();
+  const { t, formatCurrency, formatDate } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated } = useAuth();
@@ -64,10 +64,7 @@ function EnrolmentWizardContent() {
         setSelectedOfferingId((current) => current || data[0]?.id || "");
       })
       .catch(() => {
-        if (!cancelled)
-          setError(
-            "Unable to load current academy offerings from the KHLIM API.",
-          );
+        if (!cancelled) setError(t("enrol.error.loadOfferings"));
       })
       .finally(() => {
         if (!cancelled) setOfferingsLoading(false);
@@ -75,7 +72,7 @@ function EnrolmentWizardContent() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (
@@ -160,7 +157,7 @@ function EnrolmentWizardContent() {
       }
       if (selectedChildId === "new") {
         if (!newChildName.trim() || !newChildDob) {
-          setError("Enter the child's name and date of birth.");
+          setError(t("enrol.error.childRequired"));
           return;
         }
         try {
@@ -173,7 +170,7 @@ function EnrolmentWizardContent() {
           setError(
             caught instanceof Error
               ? caught.message
-              : "Unable to create the athlete profile.",
+              : t("enrol.error.createAthlete"),
           );
           return;
         }
@@ -184,7 +181,7 @@ function EnrolmentWizardContent() {
 
     if (currentStep === 2) {
       if (!selectedOffering) {
-        setError("Select an available programme offering.");
+        setError(t("enrol.error.selectOffering"));
         return;
       }
       setCurrentStep(3);
@@ -193,7 +190,7 @@ function EnrolmentWizardContent() {
 
     if (currentStep === 3) {
       if (!selectedPlan || chargeMinor === null) {
-        setError("Select a valid membership plan with configured pricing.");
+        setError(t("enrol.error.selectPlan"));
         return;
       }
       setCurrentStep(4);
@@ -202,9 +199,7 @@ function EnrolmentWizardContent() {
 
     if (currentStep === 4) {
       if (!termsAccepted || (requiresRecurringConsent && !recurringConsent)) {
-        setError(
-          "Accept the membership terms and any required recurring-billing authorization to continue.",
-        );
+        setError(t("enrol.error.acceptTerms"));
         return;
       }
       setCurrentStep(5);
@@ -214,7 +209,7 @@ function EnrolmentWizardContent() {
     if (!selectedOffering || !selectedPlan) return;
     const athleteId = selectedAthlete?.id ?? selectedChildId;
     if (!athleteId || athleteId === "new") {
-      setError("Select or create an athlete before checkout.");
+      setError(t("enrol.error.selectAthlete"));
       return;
     }
 
@@ -248,7 +243,7 @@ function EnrolmentWizardContent() {
       setError(
         caught instanceof Error
           ? caught.message
-          : "Unable to create the pending membership.",
+          : t("enrol.error.createPending"),
       );
     } finally {
       setIsProcessing(false);
@@ -272,15 +267,12 @@ function EnrolmentWizardContent() {
       >
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <Badge variant="brand" size="md">
-            Academy Enrolment
+            {t("enrol.header.eyebrow")}
           </Badge>
           <h1 style={{ fontSize: "2.25rem", fontWeight: 900, marginBottom: 8 }}>
-            Join KHLIM Basketball Academy
+            {t("enrol.header.title")}
           </h1>
-          <p style={{ color: "#71717a" }}>
-            Programme availability and pricing are loaded from the KHLIM
-            backend.
-          </p>
+          <p style={{ color: "#71717a" }}>{t("enrol.header.subtitle")}</p>
         </div>
         <StepIndicator steps={steps} currentStep={currentStep} />
         {error ? (
@@ -300,8 +292,8 @@ function EnrolmentWizardContent() {
                   </CardDescription>
                 </CardHeader>
                 {!isAuthenticated ? (
-                  <Alert variant="info" title="Guardian sign-in required">
-                    Sign in before creating or selecting a managed athlete.
+                  <Alert variant="info" title={t("enrol.signIn.title")}>
+                    {t("enrol.signIn.body")}
                   </Alert>
                 ) : (
                   <div
@@ -336,7 +328,9 @@ function EnrolmentWizardContent() {
                         <span>
                           <strong>{athlete.displayName}</strong>
                           <br />
-                          <small>Date of birth: {athlete.dateOfBirth}</small>
+                          <small>
+                            {t("enrol.dateOfBirthLabel")}: {formatDate(athlete.dateOfBirth)}
+                          </small>
                         </span>
                       </label>
                     ))}
@@ -403,11 +397,9 @@ function EnrolmentWizardContent() {
                   </CardDescription>
                 </CardHeader>
                 {offeringsLoading ? (
-                  <p>Loading offerings…</p>
+                  <p>{t("enrol.loadingOfferings")}</p>
                 ) : offerings.length === 0 ? (
-                  <Alert variant="warning">
-                    No open programme offerings are currently available.
-                  </Alert>
+                  <Alert variant="warning">{t("enrol.noOfferings")}</Alert>
                 ) : (
                   <RadioGroup
                     name="offering"
@@ -416,10 +408,10 @@ function EnrolmentWizardContent() {
                     options={offerings.map((offering) => ({
                       value: offering.id,
                       title: `${offering.name} — ${offering.programme.name}`,
-                      description: `${offering.venue?.name ?? "Venue to be confirmed"}${offering.startsOn ? ` • Starts ${offering.startsOn}` : ""}`,
+                      description: `${offering.venue?.name ?? t("enrol.venueToBeConfirmed")}${offering.startsOn ? ` • ${t("enrol.starts", { date: formatDate(offering.startsOn) })}` : ""}`,
                       badge: (
                         <Badge variant="neutral" size="sm">
-                          Capacity {offering.capacity}
+                          {t("enrol.capacity", { count: offering.capacity })}
                         </Badge>
                       ),
                     }))}
@@ -437,9 +429,7 @@ function EnrolmentWizardContent() {
                   </CardDescription>
                 </CardHeader>
                 {eligiblePlans.length === 0 ? (
-                  <Alert variant="warning">
-                    No active plans are linked to this offering.
-                  </Alert>
+                  <Alert variant="warning">{t("enrol.noActivePlans")}</Alert>
                 ) : (
                   <RadioGroup
                     name="plan"
@@ -449,12 +439,19 @@ function EnrolmentWizardContent() {
                       const amount = getPlanChargeMinor(plan);
                       const amountLabel =
                         amount === null
-                          ? "Pricing unavailable"
+                          ? t("enrol.pricingUnavailable")
                           : formatCurrency(amount / 100, plan.currency);
+                      const billingLabel =
+                        plan.billingFrequency === "UPFRONT"
+                          ? t("enrol.upfrontPayment")
+                          : t("enrol.monthlyInstallments", {
+                              count:
+                                plan.commitmentCycles ?? plan.durationMonths ?? 1,
+                            });
                       return {
                         value: plan.id,
                         title: plan.name,
-                        description: `${amountLabel} • ${plan.billingFrequency === "UPFRONT" ? "one-time upfront payment" : `${plan.commitmentCycles ?? plan.durationMonths ?? 1} monthly installment(s)`}`,
+                        description: `${amountLabel} • ${billingLabel}`,
                       };
                     })}
                   />
@@ -466,10 +463,7 @@ function EnrolmentWizardContent() {
               <section>
                 <CardHeader>
                   <CardTitle>{t("enrol.terms.title")}</CardTitle>
-                  <CardDescription>
-                    Review the server-provided plan before billing
-                    authorization.
-                  </CardDescription>
+                  <CardDescription>{t("enrol.review.subtitle")}</CardDescription>
                 </CardHeader>
                 <div
                   style={{
@@ -480,30 +474,37 @@ function EnrolmentWizardContent() {
                   }}
                 >
                   <div>
-                    Player:{" "}
+                    {t("enrol.review.player")}: {" "}
                     <strong>
                       {selectedAthlete?.displayName ?? newChildName}
                     </strong>
                   </div>
                   <div>
-                    Offering: <strong>{selectedOffering?.name}</strong>
+                    {t("enrol.review.offering")}: {" "}
+                    <strong>{selectedOffering?.name}</strong>
                   </div>
                   <div>
-                    Plan: <strong>{selectedPlan?.name}</strong>
+                    {t("enrol.review.plan")}: {" "}
+                    <strong>{selectedPlan?.name}</strong>
                   </div>
                   <div>
-                    Amount:{" "}
+                    {t("enrol.review.amount")}: {" "}
                     <strong>
                       {selectedPlan && chargeMinor !== null
                         ? formatCurrency(
                             chargeMinor / 100,
                             selectedPlan.currency,
                           )
-                        : "Unavailable"}
+                        : t("enrol.review.unavailable")}
                     </strong>
                   </div>
                   <div>
-                    Billing: <strong>{selectedPlan?.billingFrequency}</strong>
+                    {t("enrol.review.billing")}: {" "}
+                    <strong>
+                      {selectedPlan?.billingFrequency === "UPFRONT"
+                        ? t("enrol.plan.upfront")
+                        : t("enrol.plan.monthly")}
+                    </strong>
                   </div>
                 </div>
                 {requiresRecurringConsent ? (
@@ -512,7 +513,7 @@ function EnrolmentWizardContent() {
                     onChange={(event) =>
                       setRecurringConsent(event.target.checked)
                     }
-                    label="I authorize the recurring installment schedule shown above."
+                    label={t("enrol.review.recurringAuthorization")}
                   />
                 ) : null}
                 <div style={{ marginTop: 14 }}>
@@ -521,13 +522,13 @@ function EnrolmentWizardContent() {
                     onChange={(event) => setTermsAccepted(event.target.checked)}
                     label={
                       <span>
-                        I accept the{" "}
+                        {t("enrol.terms.acceptPrefix")} {" "}
                         <Link href="/terms" target="_blank">
-                          draft KHLIM membership terms
+                          {t("enrol.terms.membershipLink")}
                         </Link>{" "}
-                        and{" "}
+                        {t("enrol.terms.and")} {" "}
                         <Link href="/privacy" target="_blank">
-                          privacy notice
+                          {t("enrol.terms.privacyLink")}
                         </Link>
                         .
                       </span>
@@ -541,14 +542,10 @@ function EnrolmentWizardContent() {
               <section>
                 <CardHeader>
                   <CardTitle>{t("enrol.steps.payment")}</CardTitle>
-                  <CardDescription>
-                    Checkout is hosted by the configured payment provider.
-                  </CardDescription>
+                  <CardDescription>{t("enrol.payment.description")}</CardDescription>
                 </CardHeader>
-                <Alert variant="info" title="Secure provider handoff">
-                  KHLIM does not render or store card numbers or CVVs. If no
-                  provider is configured, your membership remains PENDING and no
-                  payment is claimed.
+                <Alert variant="info" title={t("enrol.payment.handoffTitle")}>
+                  {t("enrol.payment.handoffBody")}
                 </Alert>
               </section>
             ) : null}
@@ -583,7 +580,7 @@ function EnrolmentWizardContent() {
                 isLoading={isProcessing}
               >
                 {currentStep === 5
-                  ? "Create membership & continue to payment"
+                  ? t("enrol.payment.createAndContinue")
                   : t("common.next")}
               </Button>
             </div>
@@ -591,23 +588,28 @@ function EnrolmentWizardContent() {
 
           <aside className="enrolment-summary">
             <Card>
-              <h3 style={{ marginTop: 0 }}>Enrolment summary</h3>
+              <h3 style={{ marginTop: 0 }}>{t("enrol.summary.title")}</h3>
               <p>
-                Player:{" "}
+                {t("enrol.review.player")}: {" "}
                 <strong>
                   {(selectedAthlete?.displayName ?? newChildName) ||
-                    "Not selected"}
+                    t("enrol.summary.notSelected")}
                 </strong>
               </p>
               <p>
-                Offering:{" "}
-                <strong>{selectedOffering?.name ?? "Not selected"}</strong>
+                {t("enrol.review.offering")}: {" "}
+                <strong>
+                  {selectedOffering?.name ?? t("enrol.summary.notSelected")}
+                </strong>
               </p>
               <p>
-                Plan: <strong>{selectedPlan?.name ?? "Not selected"}</strong>
+                {t("enrol.review.plan")}: {" "}
+                <strong>
+                  {selectedPlan?.name ?? t("enrol.summary.notSelected")}
+                </strong>
               </p>
               <p>
-                Amount:{" "}
+                {t("enrol.review.amount")}: {" "}
                 <strong>
                   {selectedPlan && chargeMinor !== null
                     ? formatCurrency(chargeMinor / 100, selectedPlan.currency)
@@ -615,7 +617,7 @@ function EnrolmentWizardContent() {
                 </strong>
               </p>
               <small style={{ color: "#71717a" }}>
-                Price and eligibility originate from the KHLIM API.
+                {t("enrol.summary.apiSource")}
               </small>
             </Card>
           </aside>
@@ -627,11 +629,12 @@ function EnrolmentWizardContent() {
 }
 
 export default function EnrolmentWizardPage() {
+  const { t } = useI18n();
   return (
     <Suspense
       fallback={
         <div style={{ padding: 40, textAlign: "center" }}>
-          Loading enrolment…
+          {t("enrol.loading")}
         </div>
       }
     >
