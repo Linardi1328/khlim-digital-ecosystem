@@ -6,21 +6,39 @@ import { zhHant } from "./messages/zh-Hant";
 import { hi } from "./messages/hi";
 import { webMessages } from "./messages/web";
 import { authWebMessages } from "./messages/auth-web";
+import { publicPageMessages } from "./messages/public-pages";
 
 export const messages: Record<SupportedLocale, Record<string, string>> = {
-  en: { ...en, ...webMessages.en, ...authWebMessages.en },
-  ms: { ...ms, ...webMessages.ms, ...authWebMessages.ms },
+  en: {
+    ...en,
+    ...webMessages.en,
+    ...authWebMessages.en,
+    ...publicPageMessages.en,
+  },
+  ms: {
+    ...ms,
+    ...webMessages.ms,
+    ...authWebMessages.ms,
+    ...publicPageMessages.ms,
+  },
   "zh-Hans": {
     ...zhHans,
     ...webMessages["zh-Hans"],
     ...authWebMessages["zh-Hans"],
+    ...publicPageMessages["zh-Hans"],
   },
   "zh-Hant": {
     ...zhHant,
     ...webMessages["zh-Hant"],
     ...authWebMessages["zh-Hant"],
+    ...publicPageMessages["zh-Hant"],
   },
-  hi: { ...hi, ...webMessages.hi, ...authWebMessages.hi },
+  hi: {
+    ...hi,
+    ...webMessages.hi,
+    ...authWebMessages.hi,
+    ...publicPageMessages.hi,
+  },
 };
 
 export function translate(
