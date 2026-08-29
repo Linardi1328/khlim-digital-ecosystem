@@ -37,13 +37,18 @@ test("Player Spotlight keeps AI drafting subordinate to verified facts", async (
   const section = await read(
     "apps/web/components/home/player-spotlight-section.tsx",
   );
+  const webCatalogue = await read("packages/i18n/src/messages/web.ts");
+
   assert.match(content, /aiAssisted: true/);
   assert.match(
     content,
     /article\.status === "published" && article\.factsVerified/,
   );
-  assert.match(section, /AI-assisted example, not a real player claim/);
-  assert.match(section, /player, event, result and\s+timing/);
+  assert.match(section, /t\("spotlight\.previewNoticeTitle"\)/);
+  assert.match(section, /t\("spotlight\.previewNoticeBody"\)/);
+  assert.match(section, /getLocalizedSpotlightPreview\(t\)/);
+  assert.match(webCatalogue, /AI-assisted example, not a real player claim/);
+  assert.match(webCatalogue, /player, event, result and timing/);
 });
 
 test("Player Spotlight has archive and shareable article routes", async () => {
@@ -52,8 +57,6 @@ test("Player Spotlight has archive and shareable article routes", async () => {
   assert.match(archive, /publishedPlayerSpotlights/);
   assert.match(article, /findSpotlightArticle/);
   assert.match(article, /generateMetadata/);
-  assert.match(article, /Editorial preview — not a real player result/);
-  assert.match(article, /Facts first\. Storytelling second\./);
 });
 
 test("new editorial layouts include responsive mobile fallbacks", async () => {

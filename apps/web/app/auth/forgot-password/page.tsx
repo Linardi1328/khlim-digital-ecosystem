@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useI18n } from "../../../lib/i18n-context";
 import { useAuth } from "../../../lib/auth-context";
+import { BrandLogo } from "../../../components/layout/brand-logo";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import {
@@ -33,9 +34,7 @@ export default function ForgotPasswordPage() {
       setSent(true);
     } catch (err: unknown) {
       const message =
-        err instanceof Error
-          ? err.message
-          : "Password recovery request failed.";
+        err instanceof Error ? err.message : t("auth.forgot.error.failed");
       setError(message);
     }
   };
@@ -52,6 +51,17 @@ export default function ForgotPasswordPage() {
       }}
     >
       <div style={{ width: "100%", maxWidth: "440px" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            marginBottom: 24,
+          }}
+        >
+          <Link href="/" aria-label={t("brand.academy")}>
+            <BrandLogo size={76} priority />
+          </Link>
+        </div>
         <Card
           style={{
             boxShadow: "0 10px 25px -5px rgba(0,0,0,0.08)",
@@ -71,9 +81,8 @@ export default function ForgotPasswordPage() {
             )}
 
             {sent ? (
-              <Alert variant="success" title="Recovery Link Dispatched">
-                If an account exists for {email}, a secure password reset link
-                has been dispatched via Supabase Auth.
+              <Alert variant="success" title={t("auth.forgot.sentTitle")}>
+                {t("auth.forgot.sentBody", { email })}
               </Alert>
             ) : (
               <form
@@ -90,7 +99,7 @@ export default function ForgotPasswordPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="guardian@example.com"
+                  placeholder={t("auth.forgot.emailPlaceholder")}
                 />
 
                 <Button

@@ -26,7 +26,8 @@
     "openapi:types": "openapi-typescript openapi/khlim-v1.json -o packages/api-client/src/schema.d.ts",
     "openapi:generate": "pnpm prisma:generate && pnpm openapi:export && pnpm openapi:types",
     "openapi:check": "pnpm openapi:generate && git diff --exit-code -- openapi/khlim-v1.json packages/api-client/src/schema.d.ts",
-    "bootstrap:verify": "node scripts/verify-bootstrap.mjs"
+    "bootstrap:verify": "node scripts/verify-bootstrap.mjs",
+    "i18n:audit": "node scripts/audit-web-i18n.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.55.0",

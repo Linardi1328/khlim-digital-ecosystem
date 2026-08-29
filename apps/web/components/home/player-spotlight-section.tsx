@@ -3,11 +3,12 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  playerSpotlightEditorialPreview,
+  getLocalizedSpotlightPreview,
   publishedPlayerSpotlights,
   type PlayerSpotlightArticle,
 } from "../../lib/editorial-content";
 import { fetchPublishedSpotlights } from "../../lib/editorial-api";
+import { useI18n } from "../../lib/i18n-context";
 import { Button } from "../ui/button";
 
 function SpotlightCard({
@@ -19,6 +20,7 @@ function SpotlightCard({
   preview: boolean;
   featured?: boolean;
 }) {
+  const { t } = useI18n();
   const backgroundImage = article.imageUrl
     ? `linear-gradient(180deg, rgba(9, 9, 11, 0.04), rgba(9, 9, 11, 0.76)), url("${article.imageUrl}")`
     : `linear-gradient(180deg, rgba(9, 9, 11, 0.06), rgba(9, 9, 11, 0.8)), ${article.placeholderGradient}`;
@@ -32,16 +34,20 @@ function SpotlightCard({
         aria-label={
           article.imageUrl
             ? article.photoLabel
-            : `Photo slot: ${article.photoLabel}`
+            : t("home.photoSlot", { label: article.photoLabel })
         }
       >
         {!article.imageUrl && (
           <span className="home-spotlight-photo-label">
-            Photo slot · {article.photoLabel}
+            {t("home.photoSlot", { label: article.photoLabel })}
           </span>
         )}
         <div className="home-spotlight-photo-meta">
-          <span>{preview ? "Editorial preview" : "Player spotlight"}</span>
+          <span>
+            {preview
+              ? t("spotlight.editorialPreview")
+              : t("spotlight.playerSpotlight")}
+          </span>
           <strong>{article.achievement}</strong>
         </div>
       </div>
@@ -56,14 +62,20 @@ function SpotlightCard({
         <p>{article.excerpt}</p>
         <div className="home-spotlight-byline">
           <span>{article.playerName}</span>
-          <span>{article.aiAssisted ? "AI-assisted draft" : "Editorial"}</span>
+          <span>
+            {article.aiAssisted
+              ? t("spotlight.aiAssistedDraft")
+              : t("spotlight.editorial")}
+          </span>
         </div>
         <Link
           href={`/spotlight/${article.slug}`}
           style={{ textDecoration: "none", alignSelf: "flex-start" }}
         >
           <Button variant="outline" size="md">
-            {preview ? "Preview article format →" : "Read player story →"}
+            {preview
+              ? t("spotlight.previewArticleCta")
+              : t("spotlight.readStoryCta")}
           </Button>
         </Link>
       </div>
@@ -72,6 +84,7 @@ function SpotlightCard({
 }
 
 export function PlayerSpotlightSection() {
+  const { t } = useI18n();
   const [remote, setRemote] = useState<PlayerSpotlightArticle[]>([]);
   useEffect(() => {
     void fetchPublishedSpotlights()
@@ -81,7 +94,7 @@ export function PlayerSpotlightSection() {
   const live = remote.length > 0 ? remote : publishedPlayerSpotlights;
   const preview = live.length === 0;
   const stories = preview
-    ? [playerSpotlightEditorialPreview]
+    ? [getLocalizedSpotlightPreview(t)]
     : live.slice(0, 3);
 
   return (
@@ -92,17 +105,13 @@ export function PlayerSpotlightSection() {
     >
       <div className="home-spotlight-heading-row">
         <div className="home-section-heading home-spotlight-heading">
-          <span>Player Spotlight</span>
-          <h2 id="home-spotlight-title">When KHLIM players make the news.</h2>
-          <p>
-            Short-form news stories celebrating verified player milestones at
-            major events, with AI-assisted writing used to turn approved facts
-            into a polished club newsletter article.
-          </p>
+          <span>{t("spotlight.playerSpotlight")}</span>
+          <h2 id="home-spotlight-title">{t("spotlight.homeTitle")}</h2>
+          <p>{t("spotlight.homeDescription")}</p>
         </div>
         {!preview && live.length > 3 && (
           <Link href="/spotlight" style={{ textDecoration: "none" }}>
-            <Button variant="outline">View all stories</Button>
+            <Button variant="outline">{t("spotlight.viewAll")}</Button>
           </Link>
         )}
       </div>
@@ -112,12 +121,8 @@ export function PlayerSpotlightSection() {
           className="home-editorial-notice home-spotlight-notice"
           role="note"
         >
-          <strong>AI-assisted example, not a real player claim.</strong>
-          <span>
-            The preview below demonstrates the finished editorial experience.
-            Real stories remain hidden until the player, event, result and
-            timing are verified by KHLIM staff.
-          </span>
+          <strong>{t("spotlight.previewNoticeTitle")}</strong>
+          <span>{t("spotlight.previewNoticeBody")}</span>
         </div>
       )}
 

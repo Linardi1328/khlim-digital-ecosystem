@@ -51,12 +51,14 @@ async function expectHealthyDocument(page, path) {
 }
 
 async function openMobileMenu(page) {
-  await page.getByRole("button", { name: "Open Mobile Menu" }).click();
-  await expect(page.getByText("KHLIM Navigation")).toBeVisible();
+  await page.locator(".mobile-menu-btn").click();
+  await expect(page.getByRole("dialog")).toBeVisible();
 }
 
 function visibleLocaleSwitcher(page) {
-  return page.locator('select[aria-label="Select Language"]:visible');
+  return page.locator(
+    ".public-header-locale select:visible, .public-mobile-locale select:visible",
+  );
 }
 
 for (const path of publicRoutes) {
@@ -115,7 +117,10 @@ test("homepage exposes achievements and a publication-safe Player Spotlight prev
   ).toBeVisible();
 });
 
-test("language choice persists after reload", async ({ page, viewport }) => {
+test("language choice persists after reload and restores document language", async ({
+  page,
+  viewport,
+}) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
   if (viewport && viewport.width <= 640) {
@@ -130,6 +135,11 @@ test("language choice persists after reload", async ({ page, viewport }) => {
   await expect
     .poll(() => page.evaluate(() => localStorage.getItem("khlim_locale")))
     .toBe("ms");
+  await expect(
+    page.getByRole("heading", {
+      name: "Memartabatkan Bola Keranjang Remaja di Malaysia",
+    }),
+  ).toBeVisible();
 
   await page.reload({ waitUntil: "domcontentloaded" });
 
@@ -138,6 +148,43 @@ test("language choice persists after reload", async ({ page, viewport }) => {
   }
 
   await expect(visibleLocaleSwitcher(page)).toHaveValue("ms");
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.lang))
+    .toBe("ms");
+  await expect(
+    page.getByRole("heading", {
+      name: "Memartabatkan Bola Keranjang Remaja di Malaysia",
+    }),
+  ).toBeVisible();
+});
+
+test("academy product copy renders in every supported locale", async ({
+  page,
+  viewport,
+}) => {
+  const expected = [
+    ["en", "The KHLIM development approach"],
+    ["ms", "Pendekatan pembangunan KHLIM"],
+    ["zh-Hans", "KHLIM 球员发展方法"],
+    ["zh-Hant", "KHLIM 球員發展方法"],
+    ["hi", "KHLIM का खिलाड़ी विकास दृष्टिकोण"],
+  ];
+
+  await page.goto("/academy", { waitUntil: "domcontentloaded" });
+  if (viewport && viewport.width <= 640) {
+    await openMobileMenu(page);
+  }
+
+  for (const [locale, title] of expected) {
+    await visibleLocaleSwitcher(page).selectOption(locale);
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.lang))
+      .toBe(locale);
+    await expect(page.getByRole("heading", { name: title })).toBeVisible();
+    await expect(page.locator("body")).not.toContainText(
+      /academy\.|portal\.|legal\./,
+    );
+  }
 });
 
 test("desktop header navigation reaches core public pages", async ({

@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
+const isManagedNextHost = Boolean(process.env.VERCEL || process.env.NETLIFY);
+
 const nextConfig: NextConfig = {
-  output: process.env.VERCEL ? undefined : "standalone",
+  output: isManagedNextHost ? undefined : "standalone",
   reactStrictMode: true,
 };
 

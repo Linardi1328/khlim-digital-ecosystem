@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { useI18n } from "../../lib/i18n-context";
 import { PublicHeader } from "../../components/layout/public-header";
 import { PublicFooter } from "../../components/layout/public-footer";
 import { Button } from "../../components/ui/button";
@@ -9,6 +10,8 @@ import { Card, CardContent } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
 
 export default function AboutPage() {
+  const { t } = useI18n();
+
   return (
     <div
       style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
@@ -28,7 +31,7 @@ export default function AboutPage() {
       >
         <div style={{ textAlign: "center", marginBottom: "48px" }}>
           <Badge variant="brand" size="md">
-            Our Direction & Vision
+            {t("about.eyebrow")}
           </Badge>
           <h1
             style={{
@@ -38,14 +41,12 @@ export default function AboutPage() {
               margin: "16px 0 12px",
             }}
           >
-            Building a Better Youth Sports Experience
+            {t("about.title")}
           </h1>
           <p
             style={{ fontSize: "1.125rem", color: "#71717A", lineHeight: 1.6 }}
           >
-            KHLIM is developing a connected basketball academy experience that
-            combines structured player development with clearer digital tools
-            for families.
+            {t("about.intro")}
           </p>
         </div>
 
@@ -70,18 +71,10 @@ export default function AboutPage() {
                   marginTop: 0,
                 }}
               >
-                🏀 The KHLIM Approach
+                🏀 {t("about.approachTitle")}
               </h2>
-              <p>
-                The academy is being designed around a practical goal: make
-                basketball development easier for families to understand and
-                easier for staff to operate consistently.
-              </p>
-              <p>
-                The digital platform supports that goal with one family account,
-                managed athlete profiles, programme information, memberships,
-                billing visibility, and future development records.
-              </p>
+              <p>{t("about.approachBody1")}</p>
+              <p>{t("about.approachBody2")}</p>
             </CardContent>
           </Card>
 
@@ -94,20 +87,16 @@ export default function AboutPage() {
                   color: "#18181B",
                 }}
               >
-                🌐 One Shared Ecosystem
+                🌐 {t("about.ecosystemTitle")}
               </h2>
-              <p>
-                The platform is designed so future KHLIM services can reuse the
-                same family identity and athlete history instead of creating
-                disconnected accounts for every programme or event.
-              </p>
+              <p>{t("about.ecosystemBody")}</p>
             </CardContent>
           </Card>
 
           <div style={{ textAlign: "center", marginTop: "24px" }}>
             <Link href="/programmes" style={{ textDecoration: "none" }}>
               <Button variant="primary" size="lg">
-                Explore Academy Programmes →
+                {t("about.cta")}
               </Button>
             </Link>
           </div>

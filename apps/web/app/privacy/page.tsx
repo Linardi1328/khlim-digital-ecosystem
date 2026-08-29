@@ -5,8 +5,11 @@ import { PublicHeader } from "../../components/layout/public-header";
 import { PublicFooter } from "../../components/layout/public-footer";
 import { Card, CardContent } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
+import { useI18n } from "../../lib/i18n-context";
 
 export default function PrivacyPage() {
+  const { t } = useI18n();
+
   return (
     <div
       style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
@@ -35,7 +38,7 @@ export default function PrivacyPage() {
               boxSizing: "border-box",
             }}
           >
-            [DRAFT — Subject to Final Owner & Legal Approval]
+            {t("legal.draftBadge")}
           </Badge>
           <h1
             style={{
@@ -45,10 +48,10 @@ export default function PrivacyPage() {
               margin: "12px 0 8px",
             }}
           >
-            Privacy Policy & Child Data Protection
+            {t("privacy.title")}
           </h1>
           <p style={{ fontSize: "0.875rem", color: "#71717A" }}>
-            Draft Copy • Malaysian PDPA Context & Child Protection Framework
+            {t("privacy.version")}
           </p>
         </div>
 
@@ -64,40 +67,23 @@ export default function PrivacyPage() {
                 marginTop: 0,
               }}
             >
-              1. Child Data Protection Principles
+              {t("privacy.section1.title")}
             </h2>
-            <p>
-              KHLIM models minor athletes as managed profiles linked to
-              authorized adult guardians. A child does not need a separate login
-              or email account to be managed by their guardian.
-            </p>
+            <p>{t("privacy.section1.body")}</p>
 
             <h2
               style={{ fontSize: "1.25rem", fontWeight: 800, color: "#18181B" }}
             >
-              2. MVP Data Scope
+              {t("privacy.section2.title")}
             </h2>
-            <p>
-              The current platform foundation supports guardian account details,
-              optional guardian phone information, athlete name and date of
-              birth, language preference, programme and membership records, and
-              payment or billing records returned through the KHLIM backend and
-              configured payment provider. Later capabilities such as attendance
-              or development records require separate implementation and review.
-            </p>
+            <p>{t("privacy.section2.body")}</p>
 
             <h2
               style={{ fontSize: "1.25rem", fontWeight: 800, color: "#18181B" }}
             >
-              3. Access, Correction & Requests
+              {t("privacy.section3.title")}
             </h2>
-            <p>
-              Guardians can access the managed athlete profiles linked to their
-              account and update supported profile fields. The final process for
-              privacy requests, deletion or account deactivation will be
-              documented and approved before public launch; the current portal
-              does not claim those unsupported requests have been submitted.
-            </p>
+            <p>{t("privacy.section3.body")}</p>
           </CardContent>
         </Card>
       </main>

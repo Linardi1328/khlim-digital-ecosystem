@@ -28,7 +28,9 @@ test("Admin notifications are targeted, persistent, and MFA protected", async ()
 test("portal exposes unread/read notification lifecycle", async () => {
   const page = await read("apps/web/app/portal/notifications/page.tsx");
   const api = await read("apps/web/lib/api-service.ts");
-  assert.match(page, /Mark as read/);
+  const catalogue = await read("packages/i18n/src/messages/portal-web.ts");
+  assert.match(page, /t\("portal\.notifications\.markRead"\)/);
+  assert.match(catalogue, /"portal\.notifications\.markRead": "Mark as read"/);
   assert.match(page, /unread/);
   assert.match(api, /listMyNotifications/);
   assert.match(api, /markNotificationRead/);

@@ -64,13 +64,12 @@ test("Phase 5 checkout never renders KHLIM-owned card or CVV fields", async () =
 
 test("Phase 5 confirmation requires verified backend state and has an explicit verification error state", async () => {
   const confirmation = await read("apps/web/app/enrol/confirmation/page.tsx");
+  const catalogue = await read("packages/i18n/src/messages/enrol-web.ts");
   assert.match(confirmation, /getMembershipBilling/);
   assert.match(confirmation, /listAthleteMemberships/);
   assert.match(confirmation, /"error"/);
-  assert.match(
-    confirmation,
-    /No payment or membership success is being assumed/,
-  );
+  assert.match(confirmation, /t\("enrol\.confirmation\.safetyNotice"\)/);
+  assert.match(catalogue, /No payment or membership success is being assumed/);
   assert.doesNotMatch(confirmation, /memberships\[0\]/);
 });
 
@@ -87,9 +86,12 @@ test("Phase 5 Supabase session handling refreshes expiring sessions and refuses 
 test("Phase 5 registration handles email-confirmation mode without pretending the user is signed in", async () => {
   const authContext = await read("apps/web/lib/auth-context.tsx");
   const register = await read("apps/web/app/auth/register/page.tsx");
+  const catalogue = await read("packages/i18n/src/messages/auth-web.ts");
   assert.match(authContext, /emailConfirmationRequired/);
   assert.match(authContext, /authenticated:\s*false/);
-  assert.match(register, /Verify your email to continue/);
+  assert.match(register, /t\("auth\.register\.verifyTitle"\)/);
+  assert.match(register, /t\("auth\.register\.verifyBody"/);
+  assert.match(catalogue, /Verify your email to continue/);
 });
 
 test("Phase 5 recovery includes an actual reset-password page", async () => {
@@ -113,7 +115,13 @@ test("Phase 5 managed-athlete forms collect only fields supported by the family 
 
 test("Phase 5 account UI never claims unsupported deactivation was queued", async () => {
   const account = await read("apps/web/app/portal/account/page.tsx");
-  assert.match(account, /Not yet available/);
+  const catalogue = await read("packages/i18n/src/messages/portal-web.ts");
+  assert.match(account, /t\("portal\.account\.notAvailable"\)/);
+  assert.match(
+    catalogue,
+    /"portal\.account\.notAvailable": "Not yet available"/,
+  );
+  assert.match(account, /t\("portal\.account\.deactivationBody"\)/);
   assert.doesNotMatch(account, /queued for administrative review/i);
 });
 
@@ -122,17 +130,17 @@ test("Phase 5 public copy does not hard-code unverified venues or programme tier
   const about = await read("apps/web/app/about/page.tsx");
   const privacy = await read("apps/web/app/privacy/page.tsx");
   const terms = await read("apps/web/app/terms/page.tsx");
+  const legal = await read("packages/i18n/src/messages/legal-web.ts");
 
   assert.doesNotMatch(footer, /Seri Kembangan|Cyberjaya|Advanced Elite/i);
   assert.doesNotMatch(about, /Founded by passionate basketball coaches/i);
+  assert.match(privacy, /t\("privacy\.section2\.body"\)/);
+  assert.match(terms, /t\("terms\.section3\.body"\)/);
   assert.match(
-    privacy,
-    /Later capabilities such as attendance\s+or development records require separate implementation/,
+    legal,
+    /New data categories require separate implementation and review/,
   );
-  assert.match(
-    terms,
-    /Detailed session scheduling, cancellations, replacement sessions,\s+attendance, and term-adjustment rules are later operational\s+capabilities/,
-  );
+  assert.match(legal, /require final management and legal approval/);
 });
 
 test("Phase 5 responsive rules separate desktop and mobile navigation", async () => {
@@ -150,8 +158,10 @@ test("Phase 5 responsive rules separate desktop and mobile navigation", async ()
 test("Phase 5 legal pages remain clearly draft content", async () => {
   const terms = await read("apps/web/app/terms/page.tsx");
   const privacy = await read("apps/web/app/privacy/page.tsx");
-  assert.match(terms, /DRAFT/);
-  assert.match(privacy, /DRAFT/);
+  const legal = await read("packages/i18n/src/messages/legal-web.ts");
+  assert.match(terms, /t\("legal\.draftBadge"\)/);
+  assert.match(privacy, /t\("legal\.draftBadge"\)/);
+  assert.match(legal, /\[DRAFT — Subject to Final Owner & Legal Approval\]/);
   assert.doesNotMatch(privacy, />\s*Malaysian PDPA Compliant\s*</i);
 });
 

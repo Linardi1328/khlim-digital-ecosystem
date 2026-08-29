@@ -1,6 +1,7 @@
 "use client";
 
 import React, { type ReactNode, useEffect, useRef, useId } from "react";
+import { useI18n } from "../../lib/i18n-context";
 
 export interface SheetProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export function Sheet({
   children,
   position = "bottom",
 }: SheetProps) {
+  const { t } = useI18n();
   const sheetRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
   const titleId = useId();
@@ -127,7 +129,7 @@ export function Sheet({
             )}
             <button
               onClick={onClose}
-              aria-label="Close navigation sheet"
+              aria-label={t("layout.closeNavigation")}
               style={{
                 background: "none",
                 border: "none",

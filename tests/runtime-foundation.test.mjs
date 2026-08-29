@@ -24,12 +24,29 @@ test("website and admin have executable Next.js runtime scaffolds", async () => 
     assert.equal(manifest.dependencies["react-dom"], "19.2.8");
     assert.equal(manifest.scripts.build, "next build");
     assert.equal(manifest.scripts.typecheck, "tsc --noEmit");
-    assert.match(
-      nextConfig,
-      /output: process\.env\.VERCEL \? undefined : "standalone"/,
-    );
+    if (app === "web") {
+      assert.match(
+        nextConfig,
+        /process\.env\.VERCEL \|\| process\.env\.NETLIFY/,
+      );
+      assert.match(
+        nextConfig,
+        /output: isManagedNextHost \? undefined : "standalone"/,
+      );
+    } else {
+      assert.match(
+        nextConfig,
+        /output: process\.env\.VERCEL \? undefined : "standalone"/,
+      );
+    }
     assert.match(layout, /<html lang="en">/);
-    assert.match(page, /KHLIM/);
+
+    if (app === "web") {
+      assert.match(page, /useI18n/);
+      assert.match(page, /t\("brand\.academy"\)/);
+    } else {
+      assert.match(page, /KHLIM/);
+    }
   }
 });
 

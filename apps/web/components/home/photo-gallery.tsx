@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useI18n } from "../../lib/i18n-context";
 
 export interface PhotoStoryItem {
   id: string;
@@ -20,6 +21,7 @@ export interface PhotoGalleryItem {
 }
 
 export function PhotoStorySection({ item }: { item: PhotoStoryItem }) {
+  const { t } = useI18n();
   const backgroundImage = item.imageUrl
     ? `linear-gradient(90deg, rgba(9, 9, 11, 0.76), rgba(9, 9, 11, 0.24)), url("${item.imageUrl}")`
     : `linear-gradient(90deg, rgba(9, 9, 11, 0.78), rgba(9, 9, 11, 0.3)), ${item.placeholderGradient}`;
@@ -28,7 +30,7 @@ export function PhotoStorySection({ item }: { item: PhotoStoryItem }) {
     <section className="home-photo-story" style={{ backgroundImage }}>
       {!item.imageUrl && (
         <div className="home-photo-placeholder-label home-photo-story-placeholder">
-          Photo slot · {item.photoLabel}
+          {t("home.photoSlot", { label: item.photoLabel })}
         </div>
       )}
       <div className="home-photo-story-content">
@@ -41,18 +43,17 @@ export function PhotoStorySection({ item }: { item: PhotoStoryItem }) {
 }
 
 export function PhotoGallery({ items }: { items: PhotoGalleryItem[] }) {
+  const { t } = useI18n();
+
   return (
     <section
       className="home-gallery-section"
       aria-labelledby="home-gallery-title"
     >
       <div className="home-gallery-heading">
-        <span>Gallery</span>
-        <h2 id="home-gallery-title">Inside KHLIM</h2>
-        <p>
-          Approved academy photography can be dropped into these slots without
-          changing the page structure.
-        </p>
+        <span>{t("home.gallery.eyebrow")}</span>
+        <h2 id="home-gallery-title">{t("home.gallery.title")}</h2>
+        <p>{t("home.gallery.description")}</p>
       </div>
       <div className="home-gallery-grid">
         {items.map((item, index) => {
@@ -68,12 +69,12 @@ export function PhotoGallery({ items }: { items: PhotoGalleryItem[] }) {
               aria-label={
                 item.imageUrl
                   ? item.photoLabel
-                  : `Future photo slot: ${item.photoLabel}`
+                  : t("home.futurePhotoSlot", { label: item.photoLabel })
               }
             >
               {!item.imageUrl && (
                 <div className="home-gallery-placeholder">
-                  Photo slot · {item.photoLabel}
+                  {t("home.photoSlot", { label: item.photoLabel })}
                 </div>
               )}
             </div>

@@ -55,7 +55,9 @@ export function I18nProvider({
         ? localStorage.getItem("khlim_locale")
         : null;
     if (saved) {
-      setLocaleState(resolveLocale(saved));
+      const resolved = resolveLocale(saved);
+      setLocaleState(resolved);
+      document.documentElement.lang = resolved;
     }
   }, []);
 
@@ -64,6 +66,7 @@ export function I18nProvider({
     if (typeof window !== "undefined") {
       localStorage.setItem("khlim_locale", newLocale);
       document.documentElement.lang = newLocale;
+      document.cookie = `khlim_locale=${encodeURIComponent(newLocale)}; Path=/; Max-Age=31536000; SameSite=Lax`;
     }
   };
 

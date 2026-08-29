@@ -5,21 +5,25 @@ import { PortalShell } from "../../../components/portal/portal-shell";
 import { Badge } from "../../../components/ui/badge";
 import { Card } from "../../../components/ui/card";
 import { apiService } from "../../../lib/api-service";
+import { notificationTypeLabel } from "../../../lib/display-labels";
+import { useI18n } from "../../../lib/i18n-context";
 import type { PortalNotificationItem } from "../../../lib/types";
 
 export default function NotificationsPage() {
+  const { t, formatDate, formatTime } = useI18n();
   const [items, setItems] = useState<PortalNotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const load = useCallback(async () => {
     try {
+      setError("");
       setItems(await apiService.listMyNotifications());
     } catch {
-      setError("Could not load notifications right now.");
+      setError(t("portal.notifications.error"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -34,20 +38,21 @@ export default function NotificationsPage() {
     <PortalShell>
       <div>
         <div style={{ marginBottom: 24 }}>
-          <h1>Notifications</h1>
+          <h1>{t("portal.notifications.title")}</h1>
           <p style={{ color: "#64748B" }}>
-            Official announcements, schedule changes, billing notices and other
-            KHLIM updates.{" "}
-            {unread > 0 ? `${unread} unread.` : "You are all caught up."}
+            {t("portal.notifications.description")}{" "}
+            {unread > 0
+              ? t("portal.notifications.unread", { count: unread })
+              : t("portal.notifications.caughtUp")}
           </p>
         </div>
         {loading ? (
-          <p>Loading notifications…</p>
+          <p>{t("portal.notifications.loading")}</p>
         ) : error ? (
           <Card style={{ padding: 24 }}>{error}</Card>
         ) : items.length === 0 ? (
           <Card style={{ padding: 40, textAlign: "center" }}>
-            No notifications yet.
+            {t("portal.notifications.emptyAlt")}
           </Card>
         ) : (
           <div style={{ display: "grid", gap: 12 }}>
@@ -68,11 +73,13 @@ export default function NotificationsPage() {
                 >
                   <div>
                     <Badge variant={item.readAt ? "neutral" : "brand"}>
-                      {item.type.replaceAll("_", " ")}
+                      {notificationTypeLabel(item.type, t)}
                     </Badge>
                     <h2 style={{ marginBottom: 6 }}>{item.title}</h2>
                   </div>
-                  <small>{new Date(item.createdAt).toLocaleString()}</small>
+                  <small>
+                    {formatDate(item.createdAt)} · {formatTime(item.createdAt)}
+                  </small>
                 </div>
                 <p>{item.body}</p>
                 {!item.readAt && (
@@ -87,7 +94,7 @@ export default function NotificationsPage() {
                       cursor: "pointer",
                     }}
                   >
-                    Mark as read
+                    {t("portal.notifications.markRead")}
                   </button>
                 )}
               </Card>

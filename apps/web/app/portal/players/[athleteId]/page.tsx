@@ -3,6 +3,8 @@
 import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { apiService } from "../../../../lib/api-service";
+import { membershipStatusLabel } from "../../../../lib/display-labels";
+import { useI18n } from "../../../../lib/i18n-context";
 import type {
   AthleteMembershipItem,
   AthleteProfileResponse,
@@ -17,12 +19,21 @@ import {
   CardTitle,
 } from "../../../../components/ui/card";
 
+const localeNames: Record<string, string> = {
+  en: "English",
+  ms: "Bahasa Melayu",
+  "zh-Hans": "简体中文",
+  "zh-Hant": "繁體中文",
+  hi: "हिन्दी",
+};
+
 export default function PlayerProfilePage({
   params,
 }: {
   params: Promise<{ athleteId: string }>;
 }) {
   const { athleteId } = use(params);
+  const { t, formatDate } = useI18n();
   const [athlete, setAthlete] = useState<AthleteProfileResponse | null>(null);
   const [memberships, setMemberships] = useState<AthleteMembershipItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,33 +58,42 @@ export default function PlayerProfilePage({
     <PortalShell>
       <div>
         <p>
-          <Link href="/portal/players">← Back to players</Link>
+          <Link href="/portal/players">{t("portal.player.back")}</Link>
         </p>
         {loading ? (
-          <p>Loading player profile…</p>
+          <p>{t("portal.player.loading")}</p>
         ) : !athlete ? (
-          <p>Athlete not found or not authorized for this account.</p>
+          <p>{t("portal.player.notFound")}</p>
         ) : (
           <>
             <Card style={{ marginBottom: 24 }}>
               <CardContent>
                 <h1>{athlete.displayName}</h1>
-                <p>Date of birth: {athlete.dateOfBirth}</p>
-                <p>Preferred language: {athlete.preferredLocale}</p>
+                <p>
+                  {t("portal.players.dateOfBirth")}:{" "}
+                  {formatDate(athlete.dateOfBirth)}
+                </p>
+                <p>
+                  {t("portal.player.preferredLanguage")}:{" "}
+                  {localeNames[athlete.preferredLocale] ??
+                    athlete.preferredLocale}
+                </p>
                 <Link
                   href={`/enrol?athleteId=${encodeURIComponent(athlete.id)}`}
                 >
-                  <Button variant="primary">Enrol in programme</Button>
+                  <Button variant="primary">
+                    {t("portal.player.enrolProgramme")}
+                  </Button>
                 </Link>
               </CardContent>
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle>Memberships</CardTitle>
+                <CardTitle>{t("portal.player.memberships")}</CardTitle>
               </CardHeader>
               <CardContent>
                 {memberships.length === 0 ? (
-                  <p>No memberships recorded.</p>
+                  <p>{t("portal.player.noMemberships")}</p>
                 ) : (
                   memberships.map((membership) => (
                     <div
@@ -87,7 +107,7 @@ export default function PlayerProfilePage({
                         }
                         size="sm"
                       >
-                        {membership.status}
+                        {membershipStatusLabel(membership.status, t)}
                       </Badge>
                       <div>{membership.membershipPlan.name}</div>
                     </div>

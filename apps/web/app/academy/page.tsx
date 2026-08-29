@@ -7,8 +7,11 @@ import { PublicHeader } from "../../components/layout/public-header";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
+import { useI18n } from "../../lib/i18n-context";
 
 export default function AcademyPage() {
+  const { t } = useI18n();
+
   return (
     <div
       style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
@@ -25,11 +28,10 @@ export default function AcademyPage() {
         }}
       >
         <div style={{ textAlign: "center", marginBottom: 40 }}>
-          <Badge variant="brand">KHLIM Basketball Academy</Badge>
-          <h1>The KHLIM development approach</h1>
+          <Badge variant="brand">{t("academy.badge")}</Badge>
+          <h1>{t("academy.title")}</h1>
           <p style={{ color: "#71717a", maxWidth: 680, margin: "0 auto" }}>
-            A structured academy experience focused on basketball fundamentals,
-            team habits and clear communication with families.
+            {t("academy.intro")}
           </p>
         </div>
         <div
@@ -40,41 +42,25 @@ export default function AcademyPage() {
           }}
         >
           <Card>
-            <h2>Player development</h2>
-            <p>
-              Training is organized around progressive skill development and
-              age-appropriate learning.
-            </p>
+            <h2>{t("academy.playerDevelopment.title")}</h2>
+            <p>{t("academy.playerDevelopment.body")}</p>
           </Card>
           <Card>
-            <h2>Team standards</h2>
-            <p>
-              Players are expected to practise respect, responsibility, effort
-              and sportsmanship.
-            </p>
+            <h2>{t("academy.teamStandards.title")}</h2>
+            <p>{t("academy.teamStandards.body")}</p>
           </Card>
           <Card>
-            <h2>Family visibility</h2>
-            <p>
-              The KHLIM platform is designed to make memberships, billing and
-              programme information easier for guardians to understand.
-            </p>
+            <h2>{t("academy.familyVisibility.title")}</h2>
+            <p>{t("academy.familyVisibility.body")}</p>
           </Card>
         </div>
         <Card style={{ marginTop: 32 }}>
-          <h2>Coaching team</h2>
-          <p>
-            Individual coach names, qualifications and assignments will be
-            published only after they are verified and approved by KHLIM
-            management.
-          </p>
-          <h2>Training venues</h2>
-          <p>
-            Current venue information comes from active programme offerings in
-            the KHLIM backend.
-          </p>
+          <h2>{t("academy.coaching.title")}</h2>
+          <p>{t("academy.coaching.body")}</p>
+          <h2>{t("academy.venues.title")}</h2>
+          <p>{t("academy.venues.body")}</p>
           <Link href="/programmes">
-            <Button variant="primary">View current programmes</Button>
+            <Button variant="primary">{t("academy.programmesCta")}</Button>
           </Link>
         </Card>
       </main>

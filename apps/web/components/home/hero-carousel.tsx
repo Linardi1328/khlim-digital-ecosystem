@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useI18n } from "../../lib/i18n-context";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 
@@ -32,6 +33,7 @@ export function HeroCarousel({
   primaryCtaLabel,
   secondaryCtaLabel,
 }: HeroCarouselProps) {
+  const { t } = useI18n();
   const safeSlides = useMemo(() => (slides.length > 0 ? slides : []), [slides]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -66,7 +68,7 @@ export function HeroCarousel({
     <section
       className="home-hero-carousel"
       aria-roledescription="carousel"
-      aria-label="KHLIM academy photo highlights"
+      aria-label={t("home.hero.carouselLabel")}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       onFocusCapture={() => setIsPaused(true)}
@@ -99,7 +101,7 @@ export function HeroCarousel({
             >
               {!slide.imageUrl && (
                 <div className="home-photo-placeholder-label">
-                  Photo slot · {slide.photoLabel}
+                  {t("home.photoSlot", { label: slide.photoLabel })}
                 </div>
               )}
             </div>
@@ -134,7 +136,7 @@ export function HeroCarousel({
           <button
             type="button"
             className="home-carousel-arrow home-carousel-arrow-left"
-            aria-label="Show previous academy photo"
+            aria-label={t("home.hero.previousPhoto")}
             onClick={() => goTo(activeIndex - 1)}
           >
             ‹
@@ -142,7 +144,7 @@ export function HeroCarousel({
           <button
             type="button"
             className="home-carousel-arrow home-carousel-arrow-right"
-            aria-label="Show next academy photo"
+            aria-label={t("home.hero.nextPhoto")}
             onClick={() => goTo(activeIndex + 1)}
           >
             ›
@@ -150,14 +152,17 @@ export function HeroCarousel({
           <div
             className="home-carousel-dots"
             role="group"
-            aria-label="Choose academy photo"
+            aria-label={t("home.hero.choosePhoto")}
           >
             {safeSlides.map((slide, index) => (
               <button
                 key={slide.id}
                 type="button"
                 className={`home-carousel-dot${index === activeIndex ? " is-active" : ""}`}
-                aria-label={`Show academy photo ${index + 1}: ${slide.photoLabel}`}
+                aria-label={t("home.hero.showPhoto", {
+                  count: index + 1,
+                  label: slide.photoLabel,
+                })}
                 aria-current={index === activeIndex ? "true" : undefined}
                 onClick={() => goTo(index)}
               />

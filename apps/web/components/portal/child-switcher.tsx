@@ -2,12 +2,14 @@
 
 import React, { useState } from "react";
 import { useFamily } from "../../lib/family-context";
+import { useI18n } from "../../lib/i18n-context";
 import { Alert } from "../ui/alert";
 import { Dialog } from "../ui/dialog";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 
 export function ChildSwitcher() {
+  const { t } = useI18n();
   const { athletes, activeChild, setActiveChild, addChild } = useFamily();
   const [modalOpen, setModalOpen] = useState(false);
   const [newChildName, setNewChildName] = useState("");
@@ -18,7 +20,7 @@ export function ChildSwitcher() {
   const handleAddChild = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newChildName.trim() || !newChildDob) {
-      setError("Enter the child's name and date of birth.");
+      setError(t("enrol.error.childRequired"));
       return;
     }
 
@@ -36,7 +38,7 @@ export function ChildSwitcher() {
       setError(
         caught instanceof Error
           ? caught.message
-          : "Unable to create the athlete profile.",
+          : t("enrol.error.createAthlete"),
       );
     } finally {
       setIsSaving(false);
@@ -46,7 +48,7 @@ export function ChildSwitcher() {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
       <div style={{ fontSize: "0.8125rem", color: "#71717A", fontWeight: 600 }}>
-        Active Player:
+        {t("portal.dashboard.selectChild")}:
       </div>
 
       <div
@@ -99,17 +101,17 @@ export function ChildSwitcher() {
             fontSize: "0.8125rem",
             cursor: "pointer",
           }}
-          title="Add another child"
+          title={t("portal.child.addAnother")}
         >
-          + Add Child
+          {t("portal.child.add")}
         </button>
       </div>
 
       <Dialog
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        title="Add Child / Athlete Profile"
-        description="Create a managed athlete profile linked to your guardian account."
+        title={t("portal.child.dialogTitle")}
+        description={t("portal.child.dialogDescription")}
       >
         {error ? <Alert variant="danger">{error}</Alert> : null}
         <form
@@ -122,14 +124,14 @@ export function ChildSwitcher() {
           }}
         >
           <Input
-            label="Child Full Name"
+            label={t("enrol.player.fullName")}
             required
             value={newChildName}
             onChange={(e) => setNewChildName(e.target.value)}
-            placeholder="e.g. Maya Lim"
+            placeholder={t("portal.child.nameExample")}
           />
           <Input
-            label="Date of Birth"
+            label={t("enrol.player.dob")}
             type="date"
             required
             value={newChildDob}
@@ -149,7 +151,7 @@ export function ChildSwitcher() {
               type="button"
               onClick={() => setModalOpen(false)}
             >
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button
               variant="primary"
@@ -157,7 +159,7 @@ export function ChildSwitcher() {
               type="submit"
               isLoading={isSaving}
             >
-              Save Child Profile
+              {t("portal.child.save")}
             </Button>
           </div>
         </form>

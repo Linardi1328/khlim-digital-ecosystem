@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  achievementArchiveSlots,
+  getLocalizedAchievementArchiveSlots,
   publishedAchievements,
   type AchievementStory,
 } from "../../lib/editorial-content";
 import { fetchPublishedAchievements } from "../../lib/editorial-api";
+import { useI18n } from "../../lib/i18n-context";
 
 function AchievementCard({
   story,
@@ -15,6 +16,7 @@ function AchievementCard({
   story: AchievementStory;
   preview: boolean;
 }) {
+  const { t } = useI18n();
   const backgroundImage = story.imageUrl
     ? `linear-gradient(180deg, rgba(9, 9, 11, 0.08), rgba(9, 9, 11, 0.84)), url("${story.imageUrl}")`
     : `linear-gradient(180deg, rgba(9, 9, 11, 0.1), rgba(9, 9, 11, 0.84)), ${story.placeholderGradient}`;
@@ -26,12 +28,14 @@ function AchievementCard({
         style={{ backgroundImage }}
         role="img"
         aria-label={
-          story.imageUrl ? story.photoLabel : `Photo slot: ${story.photoLabel}`
+          story.imageUrl
+            ? story.photoLabel
+            : t("home.photoSlot", { label: story.photoLabel })
         }
       >
         {!story.imageUrl && (
           <span className="home-achievement-photo-label">
-            Photo slot · {story.photoLabel}
+            {t("home.photoSlot", { label: story.photoLabel })}
           </span>
         )}
         <div className="home-achievement-photo-copy">
@@ -40,7 +44,11 @@ function AchievementCard({
         </div>
       </div>
       <div className="home-achievement-copy">
-        {preview && <span className="home-editorial-state">Archive slot</span>}
+        {preview && (
+          <span className="home-editorial-state">
+            {t("home.achievements.archiveSlot")}
+          </span>
+        )}
         <h3>{story.title}</h3>
         <p>{story.description}</p>
       </div>
@@ -49,6 +57,7 @@ function AchievementCard({
 }
 
 export function AchievementsSection() {
+  const { t, locale } = useI18n();
   const [remote, setRemote] = useState<AchievementStory[]>([]);
   useEffect(() => {
     void fetchPublishedAchievements()
@@ -56,7 +65,11 @@ export function AchievementsSection() {
       .catch(() => undefined);
   }, []);
   const live = remote.length > 0 ? remote : publishedAchievements;
-  const stories = live.length > 0 ? live : achievementArchiveSlots;
+  const localizedArchiveSlots = useMemo(
+    () => getLocalizedAchievementArchiveSlots(t),
+    [locale, t],
+  );
+  const stories = live.length > 0 ? live : localizedArchiveSlots;
   const preview = live.length === 0;
 
   return (
@@ -66,24 +79,15 @@ export function AchievementsSection() {
       aria-labelledby="home-achievements-title"
     >
       <div className="home-section-heading">
-        <span>Club history</span>
-        <h2 id="home-achievements-title">Achievements that shaped KHLIM.</h2>
-        <p>
-          A visual archive for the club&apos;s highest competitive results,
-          representative milestones and defining moments. Every published entry
-          is intended to pair a verified result with the photo and short story
-          behind it.
-        </p>
+        <span>{t("home.achievements.eyebrow")}</span>
+        <h2 id="home-achievements-title">{t("home.achievements.title")}</h2>
+        <p>{t("home.achievements.description")}</p>
       </div>
 
       {preview && (
         <div className="home-editorial-notice" role="note">
-          <strong>Archive ready for verified club history.</strong>
-          <span>
-            These three preview slots do not claim a result. Replace them with
-            confirmed event names, years, descriptions and approved photos
-            before publication.
-          </span>
+          <strong>{t("home.achievements.previewTitle")}</strong>
+          <span>{t("home.achievements.previewBody")}</span>
         </div>
       )}
 
