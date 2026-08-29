@@ -24,11 +24,11 @@ test("mobile public header keeps language, tagline, and primary account actions 
   assert.match(styles, /\.locale\s*\{\s*display:\s*block\s*!important;/);
   assert.match(
     styles,
-    /\.brandTagline\s*\{[\s\S]*?display:\s*block\s*!important;/,
+    /\.brandTagline\s*\{[^}]*display:\s*block\s*!important;/,
   );
   assert.doesNotMatch(
     styles,
-    /\.brandTagline\s*\{[\s\S]*?display:\s*none\s*!important;/,
+    /\.brandTagline\s*\{[^}]*display:\s*none\s*!important;/,
   );
   assert.match(
     styles,
@@ -36,20 +36,22 @@ test("mobile public header keeps language, tagline, and primary account actions 
   );
 });
 
-test("public logo is materialized as a browser-safe WebP before build and dev", async () => {
+test("public logo is materialized as a browser-safe WebP without changing runtime scripts", async () => {
   const logo = await read("apps/web/components/layout/brand-logo.tsx");
   const manifest = JSON.parse(await read("apps/web/package.json"));
-  const materializer = await read("apps/web/scripts/materialize-logo.mjs");
+  const nextConfig = await read("apps/web/next.config.ts");
   const gitignore = await read(".gitignore");
 
   assert.match(logo, /src="\/khlim-logo\.webp"/);
   assert.match(logo, /onError=\{\(\) => setImageFailed\(true\)\}/);
-  assert.match(manifest.scripts.build, /materialize-logo\.mjs/);
-  assert.match(manifest.scripts.dev, /materialize-logo\.mjs/);
+  assert.equal(manifest.scripts.build, "next build");
+  assert.equal(manifest.scripts.dev, "next dev");
   assert.equal(manifest.scripts.start, "next start");
-  assert.match(materializer, /data:image\\\/webp;base64/);
-  assert.match(materializer, /khlim-logo\.webp/);
-  assert.match(materializer, /riff !== "RIFF"/);
-  assert.match(materializer, /webp !== "WEBP"/);
+  assert.match(nextConfig, /khlim-logo\.svg/);
+  assert.match(nextConfig, /khlim-logo\.webp/);
+  assert.match(nextConfig, /data:image\\\/webp;base64/);
+  assert.match(nextConfig, /riff !== "RIFF"/);
+  assert.match(nextConfig, /webp !== "WEBP"/);
+  assert.match(nextConfig, /writeFileSync\(logoTargetPath, bytes\)/);
   assert.match(gitignore, /apps\/web\/public\/khlim-logo\.webp/);
 });
