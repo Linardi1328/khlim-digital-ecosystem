@@ -10,7 +10,8 @@ const logoTargetPath = resolve(publicDir, "khlim-logo.webp");
 function ensureBrowserSafeLogo() {
   const sourceMtime = statSync(logoSourcePath).mtimeMs;
   const targetIsFresh =
-    existsSync(logoTargetPath) && statSync(logoTargetPath).mtimeMs >= sourceMtime;
+    existsSync(logoTargetPath) &&
+    statSync(logoTargetPath).mtimeMs >= sourceMtime;
 
   if (targetIsFresh) return;
 
