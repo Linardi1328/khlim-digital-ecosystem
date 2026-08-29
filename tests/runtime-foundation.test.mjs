@@ -64,6 +64,8 @@ test("API scaffold exposes a versioned health boundary and OpenAPI", async () =>
   assert.equal(tsconfig.compilerOptions.emitDecoratorMetadata, true);
   assert.equal(tsconfig.compilerOptions.noEmit, false);
   assert.match(main, /setGlobalPrefix\("v1"\)/);
+  assert.match(main, /CORS_ALLOWED_ORIGINS/);
+  assert.match(main, /enableCors\(\{ origin: corsAllowedOrigins \}\)/);
   assert.match(main, /SwaggerModule\.setup\("docs"/);
   assert.match(health, /@Controller\("health"\)/);
   assert.match(health, /status: "ok"/);
@@ -77,6 +79,7 @@ test("development environment contract contains placeholders rather than product
   for (const key of [
     "NODE_ENV=development",
     "PORT=3001",
+    "CORS_ALLOWED_ORIGINS=http://localhost:3000",
     "NEXT_PUBLIC_API_BASE_URL=",
     "DATABASE_URL=",
     "SUPABASE_URL=",
