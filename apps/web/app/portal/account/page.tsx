@@ -48,12 +48,10 @@ export default function AccountPage() {
         displayName: displayName.trim(),
         phone: phone.trim() || null,
       });
-      setNotice("Guardian profile saved to KHLIM.");
+      setNotice(t("portal.account.saved"));
     } catch (caught) {
       setError(
-        caught instanceof Error
-          ? caught.message
-          : "Unable to save guardian profile.",
+        caught instanceof Error ? caught.message : t("portal.account.saveError"),
       );
     } finally {
       setSaving(false);
@@ -71,27 +69,23 @@ export default function AccountPage() {
       setError(
         caught instanceof Error
           ? caught.message
-          : "Unable to save language preference.",
+          : t("portal.account.languageError"),
       );
     }
   };
 
   const sendReset = async () => {
     if (!account?.email) {
-      setError("No verified account email is available for password recovery.");
+      setError(t("portal.account.noEmail"));
       return;
     }
     setError("");
     try {
       await requestPasswordReset(account.email);
-      setNotice(
-        "Password recovery request accepted by Supabase Auth. Check your email for the reset link.",
-      );
+      setNotice(t("portal.account.resetAccepted"));
     } catch (caught) {
       setError(
-        caught instanceof Error
-          ? caught.message
-          : "Unable to request password recovery.",
+        caught instanceof Error ? caught.message : t("portal.account.resetError"),
       );
     }
   };
@@ -124,18 +118,18 @@ export default function AccountPage() {
                 style={{ display: "flex", flexDirection: "column", gap: 16 }}
               >
                 <Input
-                  label="Registered email"
+                  label={t("portal.account.registeredEmail")}
                   disabled
-                  value={account?.email ?? "Email unavailable"}
+                  value={account?.email ?? t("portal.account.emailUnavailable")}
                 />
                 <Input
-                  label="Guardian display name"
+                  label={t("portal.account.displayName")}
                   required
                   value={displayName}
                   onChange={(event) => setDisplayName(event.target.value)}
                 />
                 <Input
-                  label="Contact phone"
+                  label={t("portal.account.contactPhone")}
                   value={phone}
                   onChange={(event) => setPhone(event.target.value)}
                 />
@@ -151,7 +145,7 @@ export default function AccountPage() {
             </CardHeader>
             <CardContent>
               <Select
-                label="Application language"
+                label={t("portal.account.applicationLanguage")}
                 value={locale}
                 onChange={(event) =>
                   changeLocale(event.target.value as SupportedLocale)
@@ -181,13 +175,13 @@ export default function AccountPage() {
                 }}
               >
                 <div>
-                  <strong>Password</strong>
+                  <strong>{t("portal.account.password")}</strong>
                   <div style={{ color: "#64748b", fontSize: "0.8125rem" }}>
-                    Managed by Supabase Auth
+                    {t("portal.account.managedBySupabase")}
                   </div>
                 </div>
                 <Button variant="outline" onClick={sendReset}>
-                  Send reset link
+                  {t("portal.account.sendReset")}
                 </Button>
               </div>
               <div
@@ -198,18 +192,17 @@ export default function AccountPage() {
                 }}
               >
                 <strong style={{ color: "#b91c1c" }}>
-                  Account deactivation
+                  {t("portal.account.deactivation")}
                 </strong>
                 <p style={{ color: "#64748b", fontSize: "0.875rem" }}>
-                  Self-service deactivation is not available yet. No request is
-                  recorded by this page.
+                  {t("portal.account.deactivationBody")}
                 </p>
                 <Button
                   variant="danger"
                   disabled
-                  title="Deactivation workflow is not yet implemented"
+                  title={t("portal.account.deactivationTitle")}
                 >
-                  Not yet available
+                  {t("portal.account.notAvailable")}
                 </Button>
               </div>
             </CardContent>
