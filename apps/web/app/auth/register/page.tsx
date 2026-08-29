@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { SupportedLocale } from "@khlim/i18n";
 import { useI18n } from "../../../lib/i18n-context";
 import { useAuth } from "../../../lib/auth-context";
+import { BrandLogo } from "../../../components/layout/brand-logo";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Select } from "../../../components/ui/select";
@@ -36,9 +37,7 @@ export default function RegisterPage() {
     event.preventDefault();
     setError("");
     if (!fullName.trim() || !email || password.length < 8) {
-      setError(
-        "Enter your name, a valid email, and a password of at least 8 characters.",
-      );
+      setError(t("auth.register.error.invalid"));
       return;
     }
 
@@ -59,7 +58,7 @@ export default function RegisterPage() {
       }
     } catch (caught) {
       setError(
-        caught instanceof Error ? caught.message : "Registration failed.",
+        caught instanceof Error ? caught.message : t("auth.register.error.failed"),
       );
     }
   };
@@ -75,6 +74,11 @@ export default function RegisterPage() {
       }}
     >
       <div style={{ width: "100%", maxWidth: 480 }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
+          <Link href="/" aria-label={t("brand.academy")}>
+            <BrandLogo size={76} priority />
+          </Link>
+        </div>
         <Card>
           <CardHeader>
             <CardTitle>{t("auth.register.title")}</CardTitle>
@@ -82,10 +86,8 @@ export default function RegisterPage() {
           </CardHeader>
           <CardContent>
             {confirmationEmail ? (
-              <Alert variant="success" title="Verify your email to continue">
-                Supabase requires email confirmation for {confirmationEmail}.
-                Open the verification email, then sign in to finish your
-                guardian profile.
+              <Alert variant="success" title={t("auth.register.verifyTitle")}>
+                {t("auth.register.verifyBody", { email: confirmationEmail })}
               </Alert>
             ) : (
               <>
@@ -121,7 +123,7 @@ export default function RegisterPage() {
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     autoComplete="new-password"
-                    helperText="Minimum 8 characters."
+                    helperText={t("auth.register.minimumPassword")}
                   />
                   <Select
                     label={t("auth.register.preferredLanguage")}
