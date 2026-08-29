@@ -159,6 +159,10 @@ export function PublicHeader() {
             aria-label={t("layout.openMobileMenu")}
             style={{
               display: "none",
+              minWidth: "44px",
+              minHeight: "44px",
+              alignItems: "center",
+              justifyContent: "center",
               background: "transparent",
               border: "1px solid #E4E4E7",
               borderRadius: "6px",
@@ -182,7 +186,11 @@ export function PublicHeader() {
             href="/portal/dashboard"
             style={{ textDecoration: "none", flex: 1 }}
           >
-            <Button variant="secondary" size="sm" style={{ width: "100%" }}>
+            <Button
+              variant="secondary"
+              size="sm"
+              style={{ width: "100%", minHeight: "44px" }}
+            >
               🏀 {t("nav.portal")}
             </Button>
           </Link>
@@ -192,12 +200,20 @@ export function PublicHeader() {
               href="/auth/login"
               style={{ textDecoration: "none", flex: 1 }}
             >
-              <Button variant="outline" size="sm" style={{ width: "100%" }}>
+              <Button
+                variant="outline"
+                size="sm"
+                style={{ width: "100%", minHeight: "44px" }}
+              >
                 {t("nav.login")}
               </Button>
             </Link>
             <Link href="/enrol" style={{ textDecoration: "none", flex: 1 }}>
-              <Button variant="primary" size="sm" style={{ width: "100%" }}>
+              <Button
+                variant="primary"
+                size="sm"
+                style={{ width: "100%", minHeight: "44px" }}
+              >
                 {t("nav.register")}
               </Button>
             </Link>
@@ -221,12 +237,16 @@ export function PublicHeader() {
               href={link.href}
               onClick={() => setMobileMenuOpen(false)}
               style={{
+                minHeight: "44px",
+                display: "flex",
+                alignItems: "center",
                 fontSize: "1.125rem",
                 fontWeight: 600,
                 color: "#18181B",
                 textDecoration: "none",
                 padding: "8px 0",
                 borderBottom: "1px solid #F4F4F5",
+                boxSizing: "border-box",
               }}
             >
               {link.label}

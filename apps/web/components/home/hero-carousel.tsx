@@ -138,6 +138,7 @@ export function HeroCarousel({
             className="home-carousel-arrow home-carousel-arrow-left"
             aria-label={t("home.hero.previousPhoto")}
             onClick={() => goTo(activeIndex - 1)}
+            style={{ minWidth: "44px", minHeight: "44px" }}
           >
             ‹
           </button>
@@ -146,6 +147,7 @@ export function HeroCarousel({
             className="home-carousel-arrow home-carousel-arrow-right"
             aria-label={t("home.hero.nextPhoto")}
             onClick={() => goTo(activeIndex + 1)}
+            style={{ minWidth: "44px", minHeight: "44px" }}
           >
             ›
           </button>
@@ -158,14 +160,29 @@ export function HeroCarousel({
               <button
                 key={slide.id}
                 type="button"
-                className={`home-carousel-dot${index === activeIndex ? " is-active" : ""}`}
                 aria-label={t("home.hero.showPhoto", {
                   count: index + 1,
                   label: slide.photoLabel,
                 })}
                 aria-current={index === activeIndex ? "true" : undefined}
                 onClick={() => goTo(index)}
-              />
+                style={{
+                  width: "44px",
+                  height: "44px",
+                  display: "inline-flex",
+                  alignItems: "flex-end",
+                  justifyContent: "center",
+                  padding: 0,
+                  border: 0,
+                  background: "transparent",
+                  cursor: "pointer",
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`home-carousel-dot${index === activeIndex ? " is-active" : ""}`}
+                />
+              </button>
             ))}
           </div>
         </>

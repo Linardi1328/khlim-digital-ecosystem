@@ -131,6 +131,11 @@ export function Sheet({
               onClick={onClose}
               aria-label={t("layout.closeNavigation")}
               style={{
+                minWidth: "44px",
+                minHeight: "44px",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
                 background: "none",
                 border: "none",
                 fontSize: "1.25rem",
