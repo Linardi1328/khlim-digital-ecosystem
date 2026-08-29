@@ -49,23 +49,38 @@ export function PublicHeader() {
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "10px",
+            gap: "12px",
             textDecoration: "none",
             minWidth: 0,
           }}
         >
-          <BrandLogo height={38} priority />
-          <div
-            style={{
-              fontSize: "0.6875rem",
-              color: "#71717A",
-              fontWeight: 600,
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-              lineHeight: 1.25,
-            }}
-          >
-            {t("brand.tagline")}
+          <BrandLogo height={42} priority />
+          <div style={{ minWidth: 0, lineHeight: 1.05 }}>
+            <div
+              style={{
+                color: "#18181B",
+                fontSize: "0.875rem",
+                fontWeight: 800,
+                letterSpacing: "0.04em",
+                whiteSpace: "nowrap",
+              }}
+            >
+              KHLIM
+            </div>
+            <div
+              style={{
+                marginTop: "4px",
+                fontSize: "0.625rem",
+                color: "#71717A",
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                lineHeight: 1.2,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {t("brand.tagline")}
+            </div>
           </div>
         </Link>
 
