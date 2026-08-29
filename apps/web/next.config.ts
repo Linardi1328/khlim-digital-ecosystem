@@ -19,14 +19,15 @@ function ensureBrowserSafeLogo() {
 
   const svg = readFileSync(logoSourcePath, "utf8");
   const match = svg.match(/href=["']data:image\/webp;base64,([^"']+)["']/i);
+  const payload = match?.[1];
 
-  if (!match) {
+  if (!payload) {
     throw new Error(
       "KHLIM logo source does not contain the expected embedded WebP payload.",
     );
   }
 
-  const bytes = Buffer.from(match[1].replace(/\s+/g, ""), "base64");
+  const bytes = Buffer.from(payload.replace(/\s+/g, ""), "base64");
   const riff = bytes.subarray(0, 4).toString("ascii");
   const webp = bytes.subarray(8, 12).toString("ascii");
 
