@@ -36,18 +36,20 @@ test("mobile public header keeps language, tagline, and primary account actions 
   );
 });
 
-test("public logo is materialized as a browser-safe WebP before web runtime tasks", async () => {
+test("public logo is materialized as a browser-safe WebP before build and dev", async () => {
   const logo = await read("apps/web/components/layout/brand-logo.tsx");
   const manifest = JSON.parse(await read("apps/web/package.json"));
   const materializer = await read("apps/web/scripts/materialize-logo.mjs");
+  const gitignore = await read(".gitignore");
 
   assert.match(logo, /src="\/khlim-logo\.webp"/);
   assert.match(logo, /onError=\{\(\) => setImageFailed\(true\)\}/);
   assert.match(manifest.scripts.build, /materialize-logo\.mjs/);
   assert.match(manifest.scripts.dev, /materialize-logo\.mjs/);
-  assert.match(manifest.scripts.start, /materialize-logo\.mjs/);
+  assert.equal(manifest.scripts.start, "next start");
   assert.match(materializer, /data:image\\\/webp;base64/);
   assert.match(materializer, /khlim-logo\.webp/);
   assert.match(materializer, /riff !== "RIFF"/);
   assert.match(materializer, /webp !== "WEBP"/);
+  assert.match(gitignore, /apps\/web\/public\/khlim-logo\.webp/);
 });
