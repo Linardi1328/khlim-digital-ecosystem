@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 320" role="img" aria-labelledby="title desc">
+  <title id="title">KHLIM</title>
+  <desc id="desc">KHLIM wordmark in white on a black field.</desc>
+  <rect width="640" height="320" fill="#000000"/>
+  <g fill="#ffffff" transform="translate(74 92)">
+    <path d="M0 0h22v136H0zM25 66L72 0h26L50 67l52 69H75z"/>
+    <path d="M108 0h22v55h57V0h22v136h-22V78h-57v58h-22z"/>
+    <path d="M225 0h22v113h62v23h-84z"/>
+    <path d="M323 0h22v136h-22z"/>
+    <path d="M364 0h27l39 61L469 0h27v136h-22V37l-44 68-44-68v99h-22z"/>
+  </g>
+</svg>
