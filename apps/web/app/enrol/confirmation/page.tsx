@@ -4,6 +4,7 @@ import React, { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { apiService } from "../../../lib/api-service";
+import { useI18n } from "../../../lib/i18n-context";
 import type {
   AthleteMembershipItem,
   MembershipBillingResponse,
@@ -21,6 +22,7 @@ interface VerifiedState {
 }
 
 function ConfirmationContent() {
+  const { t } = useI18n();
   const searchParams = useSearchParams();
   const athleteId = searchParams.get("athleteId");
   const membershipId = searchParams.get("membershipId");
@@ -44,7 +46,7 @@ function ConfirmationContent() {
       ]);
       const membership = memberships.find((item) => item.id === membershipId);
       if (!membership || billing.id !== membershipId) {
-        throw new Error("The requested membership could not be verified.");
+        throw new Error(t("enrol.confirmation.verifyMembershipError"));
       }
       setVerified({ membership, billing });
       setState("verified");
@@ -53,18 +55,32 @@ function ConfirmationContent() {
       setError(
         caught instanceof Error
           ? caught.message
-          : "Unable to verify enrolment state.",
+          : t("enrol.confirmation.verifyStateError"),
       );
       setState("error");
     }
-  }, [athleteId, membershipId]);
+  }, [athleteId, membershipId, t]);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
   const status = verified?.billing.status ?? verified?.membership.status;
   const active = status === "ACTIVE";
+  const statusLabel =
+    status === "ACTIVE"
+      ? t("status.active")
+      : status === "PENDING"
+        ? t("status.pending")
+        : status === "SUSPENDED"
+          ? t("status.suspended")
+          : status === "CANCELLED"
+            ? t("status.cancelled")
+            : status === "COMPLETED"
+              ? t("status.completed")
+              : status === "EXPIRED"
+                ? t("status.expired")
+                : status ?? t("common.noData");
 
   return (
     <div
@@ -83,24 +99,21 @@ function ConfirmationContent() {
       >
         <Card style={{ padding: "48px 32px", textAlign: "center" }}>
           {state === "loading" ? (
-            <p>
-              Verifying the current membership and billing state with KHLIM…
-            </p>
+            <p>{t("enrol.confirmation.verifying")}</p>
           ) : null}
           {state === "missing" ? (
-            <Alert variant="warning" title="Missing enrolment reference">
-              This page requires an athlete and membership reference. Open the
-              membership from your parent portal.
+            <Alert variant="warning" title={t("enrol.confirmation.missingTitle")}>
+              {t("enrol.confirmation.missingBody")}
             </Alert>
           ) : null}
           {state === "error" ? (
             <div>
-              <Alert variant="danger" title="Unable to verify enrolment state">
-                {error} No payment or membership success is being assumed.
+              <Alert variant="danger" title={t("enrol.confirmation.errorTitle")}>
+                {error} {t("enrol.confirmation.safetyNotice")}
               </Alert>
               <div style={{ marginTop: 20 }}>
-                <Button variant="outline" onClick={load}>
-                  Retry verification
+                <Button variant="outline" onClick={() => void load()}>
+                  {t("enrol.confirmation.retry")}
                 </Button>
               </div>
             </div>
@@ -108,17 +121,17 @@ function ConfirmationContent() {
           {state === "verified" && verified ? (
             <>
               <Badge variant={active ? "success" : "warning"} size="md">
-                {status}
+                {statusLabel}
               </Badge>
               <h1 style={{ fontSize: "2rem", marginBottom: 8 }}>
                 {active
-                  ? "Membership active"
-                  : "Membership recorded — activation pending"}
+                  ? t("enrol.confirmation.activeTitle")
+                  : t("enrol.confirmation.pendingTitle")}
               </h1>
               <p style={{ color: "#71717a", lineHeight: 1.6 }}>
                 {active
-                  ? "KHLIM has verified the backend membership as ACTIVE."
-                  : "The backend currently reports this membership as pending or otherwise not active. Payment is not treated as successful until verified provider processing updates backend state."}
+                  ? t("enrol.confirmation.activeBody")
+                  : t("enrol.confirmation.pendingBody")}
               </p>
               <div
                 style={{
@@ -131,18 +144,20 @@ function ConfirmationContent() {
                 }}
               >
                 <p>
-                  Membership ID: <strong>{verified.membership.id}</strong>
+                  {t("enrol.confirmation.membershipId")}: {" "}
+                  <strong>{verified.membership.id}</strong>
                 </p>
                 <p>
-                  Offering:{" "}
+                  {t("enrol.confirmation.offering")}: {" "}
                   <strong>{verified.membership.programmeOffering.name}</strong>
                 </p>
                 <p>
-                  Plan:{" "}
+                  {t("enrol.confirmation.plan")}: {" "}
                   <strong>{verified.membership.membershipPlan.name}</strong>
                 </p>
                 <p>
-                  Backend status: <strong>{status}</strong>
+                  {t("enrol.confirmation.backendStatus")}: {" "}
+                  <strong>{statusLabel}</strong>
                 </p>
               </div>
               <div
@@ -154,10 +169,14 @@ function ConfirmationContent() {
                 }}
               >
                 <Link href="/portal/dashboard">
-                  <Button variant="primary">Parent dashboard</Button>
+                  <Button variant="primary">
+                    {t("enrol.confirmation.parentDashboard")}
+                  </Button>
                 </Link>
                 <Link href="/portal/membership">
-                  <Button variant="outline">Membership details</Button>
+                  <Button variant="outline">
+                    {t("enrol.confirmation.membershipDetails")}
+                  </Button>
                 </Link>
               </div>
             </>
@@ -170,11 +189,12 @@ function ConfirmationContent() {
 }
 
 export default function EnrolmentConfirmationPage() {
+  const { t } = useI18n();
   return (
     <Suspense
       fallback={
         <div style={{ padding: 40, textAlign: "center" }}>
-          Loading confirmation…
+          {t("enrol.confirmation.loading")}
         </div>
       }
     >
