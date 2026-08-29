@@ -208,7 +208,7 @@ test("login page exposes branded authentication controls", async ({ page }) => {
 
   const logo = page.locator(".auth-brand-logo");
   await expect(logo).toBeVisible();
-  await expect(logo).toHaveAttribute("src", "/khlim-logo.webp");
+  await expect(logo).toHaveAttribute("src", "/khlim-logo.jpg");
   await expect
     .poll(() =>
       logo.evaluate(
