@@ -179,11 +179,14 @@ test("Admin privileged access is denied unless explicit demo mode is enabled", a
   assert.match(api, /Promise\.reject\(integrationPending\(method\)\)/);
 });
 
-test("Web and admin Vercel builds disable standalone output only on Vercel", async () => {
+test("managed hosts disable standalone output without changing Admin deployment semantics", async () => {
   const adminConfig = await read("apps/admin/next.config.ts");
   const webConfig = await read("apps/web/next.config.ts");
 
-  for (const config of [adminConfig, webConfig]) {
-    assert.match(config, /process\.env\.VERCEL \? undefined : "standalone"/);
-  }
+  assert.match(adminConfig, /process\.env\.VERCEL \? undefined : "standalone"/);
+  assert.match(webConfig, /process\.env\.VERCEL \|\| process\.env\.NETLIFY/);
+  assert.match(
+    webConfig,
+    /output: isManagedNextHost \? undefined : "standalone"/,
+  );
 });
