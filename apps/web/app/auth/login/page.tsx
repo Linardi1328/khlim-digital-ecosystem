@@ -64,6 +64,26 @@ function LoginContent() {
       }}
     >
       <div style={{ width: "100%", maxWidth: 440 }}>
+        <Link
+          href="/"
+          className="auth-home-link"
+          style={{
+            minHeight: 44,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            marginBottom: 10,
+            padding: "0 10px",
+            borderRadius: 8,
+            color: "#3F3F46",
+            fontSize: "0.9375rem",
+            fontWeight: 700,
+            textDecoration: "none",
+          }}
+        >
+          <span aria-hidden="true">←</span>
+          <span>{t("nav.home")}</span>
+        </Link>
         <Card>
           <CardHeader
             style={{
@@ -85,11 +105,7 @@ function LoginContent() {
                 marginBottom: 8,
               }}
             >
-              <BrandLogo
-                size={72}
-                priority
-                className="auth-brand-logo"
-              />
+              <BrandLogo size={72} priority className="auth-brand-logo" />
               <div>
                 <div
                   style={{
