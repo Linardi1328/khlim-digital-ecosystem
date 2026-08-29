@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "../../lib/i18n-context";
 import { useAuth } from "../../lib/auth-context";
+import { BrandLogo } from "../layout/brand-logo";
 import { LocaleSwitcher } from "../layout/locale-switcher";
 import { ChildSwitcher } from "./child-switcher";
 
@@ -37,7 +38,7 @@ export function PortalShell({ children }: PortalShellProps) {
       >
         <div style={{ textAlign: "center", color: "#64748B" }}>
           <div style={{ fontSize: "2rem", marginBottom: "8px" }}>🏀</div>
-          <div>Loading authenticated parent portal...</div>
+          <div>{t("layout.loadingPortal")}</div>
         </div>
       </div>
     );
@@ -70,7 +71,7 @@ export function PortalShell({ children }: PortalShellProps) {
       }}
     >
       <aside
-        aria-label="Parent Portal Sidebar"
+        aria-label={t("layout.parentPortalSidebar")}
         style={{
           width: "260px",
           backgroundColor: "#18181B",
@@ -97,49 +98,22 @@ export function PortalShell({ children }: PortalShellProps) {
               gap: "10px",
             }}
           >
+            <BrandLogo height={34} />
             <div
               style={{
-                width: "36px",
-                height: "36px",
-                borderRadius: "8px",
-                backgroundColor: "#F59E0B",
-                color: "#18181B",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontWeight: 900,
-                fontSize: "1.25rem",
+                fontSize: "0.6875rem",
+                color: "#A1A1AA",
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
               }}
             >
-              K
-            </div>
-            <div>
-              <div
-                style={{
-                  fontWeight: 900,
-                  fontSize: "1.125rem",
-                  color: "#FFFFFF",
-                  letterSpacing: "0.04em",
-                }}
-              >
-                KHLIM
-              </div>
-              <div
-                style={{
-                  fontSize: "0.6875rem",
-                  color: "#A1A1AA",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                }}
-              >
-                Parent Member Portal
-              </div>
+              {t("layout.parentMemberPortal")}
             </div>
           </Link>
         </div>
 
         <nav
-          aria-label="Portal Desktop Navigation"
+          aria-label={t("layout.portalDesktopNavigation")}
           style={{
             flex: 1,
             padding: "16px 12px",
@@ -197,16 +171,16 @@ export function PortalShell({ children }: PortalShellProps) {
                   color: "#FFFFFF",
                 }}
               >
-                {guardianProfile?.displayName || "Guardian Account"}
+                {guardianProfile?.displayName || t("layout.guardianAccount")}
               </div>
               <div style={{ fontSize: "0.75rem", color: "#71717A" }}>
-                Authorized Guardian
+                {t("layout.authorizedGuardian")}
               </div>
             </div>
             <button
               onClick={() => void logout()}
-              title="Sign Out"
-              aria-label="Sign Out"
+              title={t("nav.logout")}
+              aria-label={t("nav.logout")}
               style={{
                 background: "none",
                 border: "none",
@@ -261,7 +235,7 @@ export function PortalShell({ children }: PortalShellProps) {
                 textDecoration: "none",
               }}
             >
-              + Enrol Player
+              {t("layout.enrolPlayer")}
             </Link>
           </div>
         </header>
@@ -281,7 +255,7 @@ export function PortalShell({ children }: PortalShellProps) {
       </div>
 
       <nav
-        aria-label="Mobile Bottom Navigation"
+        aria-label={t("layout.mobileBottomNavigation")}
         style={{
           display: "flex",
           position: "fixed",
