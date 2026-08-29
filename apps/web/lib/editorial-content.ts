@@ -30,6 +30,11 @@ export interface PlayerSpotlightArticle {
   aiAssisted: true;
 }
 
+type Translate = (
+  key: string,
+  params?: Record<string, string | number>,
+) => string;
+
 /**
  * Historical achievement records belong here only after the club has verified
  * the event, result, date/year and photo rights. Keeping publication status and
@@ -85,6 +90,23 @@ export const achievementArchiveSlots: AchievementStory[] = [
   },
 ];
 
+export function getLocalizedAchievementArchiveSlots(
+  t: Translate,
+): AchievementStory[] {
+  const keys = ["signature", "national", "legacy"] as const;
+  return achievementArchiveSlots.map((story, index) => {
+    const key = keys[index]!;
+    return {
+      ...story,
+      yearLabel: t("home.achievements.archiveLabel"),
+      title: t(`home.achievements.${key}.title`),
+      eventName: t(`home.achievements.${key}.event`),
+      description: t(`home.achievements.${key}.description`),
+      photoLabel: t(`home.achievements.${key}.photoLabel`),
+    };
+  });
+}
+
 /**
  * Player Spotlight stories are AI-assisted editorial drafts built from verified
  * source facts. Do not place a real player story in published state until the
@@ -120,6 +142,27 @@ export const playerSpotlightEditorialPreview: PlayerSpotlightArticle = {
   status: "draft",
   aiAssisted: true,
 };
+
+export function getLocalizedSpotlightPreview(
+  t: Translate,
+): PlayerSpotlightArticle {
+  return {
+    ...playerSpotlightEditorialPreview,
+    playerName: t("spotlight.preview.playerName"),
+    headline: t("spotlight.preview.headline"),
+    eventName: t("spotlight.preview.eventName"),
+    achievement: t("spotlight.preview.achievement"),
+    achievedOnLabel: t("spotlight.preview.date"),
+    excerpt: t("spotlight.preview.excerpt"),
+    articleParagraphs: [
+      t("spotlight.preview.paragraph1"),
+      t("spotlight.preview.paragraph2"),
+      t("spotlight.preview.paragraph3"),
+      t("spotlight.preview.paragraph4"),
+    ],
+    photoLabel: t("spotlight.preview.photoLabel"),
+  };
+}
 
 export const publishedAchievements = achievementStories.filter(
   (story) => story.status === "published" && story.factsVerified,
