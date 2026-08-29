@@ -9,6 +9,9 @@ import { authWebMessages } from "./messages/auth-web";
 import { publicPageMessages } from "./messages/public-pages";
 import { enrolWebMessages } from "./messages/enrol-web";
 import { portalWebMessages } from "./messages/portal-web";
+import { academyWebMessages } from "./messages/academy-web";
+import { legalWebMessages } from "./messages/legal-web";
+import { spotlightWebMessages } from "./messages/spotlight-web";
 
 export const messages: Record<SupportedLocale, Record<string, string>> = {
   en: {
@@ -18,6 +21,9 @@ export const messages: Record<SupportedLocale, Record<string, string>> = {
     ...publicPageMessages.en,
     ...enrolWebMessages.en,
     ...portalWebMessages.en,
+    ...academyWebMessages.en,
+    ...legalWebMessages.en,
+    ...spotlightWebMessages.en,
   },
   ms: {
     ...ms,
@@ -26,6 +32,9 @@ export const messages: Record<SupportedLocale, Record<string, string>> = {
     ...publicPageMessages.ms,
     ...enrolWebMessages.ms,
     ...portalWebMessages.ms,
+    ...academyWebMessages.ms,
+    ...legalWebMessages.ms,
+    ...spotlightWebMessages.ms,
   },
   "zh-Hans": {
     ...zhHans,
@@ -34,6 +43,9 @@ export const messages: Record<SupportedLocale, Record<string, string>> = {
     ...publicPageMessages["zh-Hans"],
     ...enrolWebMessages["zh-Hans"],
     ...portalWebMessages["zh-Hans"],
+    ...academyWebMessages["zh-Hans"],
+    ...legalWebMessages["zh-Hans"],
+    ...spotlightWebMessages["zh-Hans"],
   },
   "zh-Hant": {
     ...zhHant,
@@ -42,6 +54,9 @@ export const messages: Record<SupportedLocale, Record<string, string>> = {
     ...publicPageMessages["zh-Hant"],
     ...enrolWebMessages["zh-Hant"],
     ...portalWebMessages["zh-Hant"],
+    ...academyWebMessages["zh-Hant"],
+    ...legalWebMessages["zh-Hant"],
+    ...spotlightWebMessages["zh-Hant"],
   },
   hi: {
     ...hi,
@@ -50,6 +65,9 @@ export const messages: Record<SupportedLocale, Record<string, string>> = {
     ...publicPageMessages.hi,
     ...enrolWebMessages.hi,
     ...portalWebMessages.hi,
+    ...academyWebMessages.hi,
+    ...legalWebMessages.hi,
+    ...spotlightWebMessages.hi,
   },
 };
 
