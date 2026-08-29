@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { apiService } from "../../../lib/api-service";
+import { installmentStatusLabel } from "../../../lib/display-labels";
 import { useFamily } from "../../../lib/family-context";
 import { useI18n } from "../../../lib/i18n-context";
 import type {
@@ -26,7 +27,7 @@ import {
 } from "../../../components/ui/table";
 
 export default function PaymentsPage() {
-  const { t, formatCurrency } = useI18n();
+  const { t, formatCurrency, formatDate } = useI18n();
   const { activeChild } = useFamily();
   const [billings, setBillings] = useState<MembershipBillingResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,21 +85,23 @@ export default function PaymentsPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <p>Loading authoritative billing state…</p>
+              <p>{t("portal.payments.loading")}</p>
             ) : installments.length === 0 ? (
               <p>
-                No payment schedule is currently recorded for{" "}
-                {activeChild?.displayName ?? "this athlete"}.
+                {t("portal.payments.empty", {
+                  name:
+                    activeChild?.displayName ?? t("portal.common.thisAthlete"),
+                })}
               </p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Installment</TableHead>
-                    <TableHead>Due</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Attempts</TableHead>
+                    <TableHead>{t("portal.payments.installment")}</TableHead>
+                    <TableHead>{t("portal.payments.due")}</TableHead>
+                    <TableHead>{t("portal.payments.amount")}</TableHead>
+                    <TableHead>{t("portal.payments.status")}</TableHead>
+                    <TableHead>{t("portal.payments.attempts")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -109,7 +112,7 @@ export default function PaymentsPage() {
                         <br />
                         <small>{membershipId}</small>
                       </TableCell>
-                      <TableCell>{installment.dueAt}</TableCell>
+                      <TableCell>{formatDate(installment.dueAt)}</TableCell>
                       <TableCell>
                         {formatCurrency(
                           installment.amountMinor / 100,
@@ -127,7 +130,7 @@ export default function PaymentsPage() {
                                 : "warning"
                           }
                         >
-                          {installment.status}
+                          {installmentStatusLabel(installment.status, t)}
                         </Badge>
                       </TableCell>
                       <TableCell>{installment.payments.length}</TableCell>
