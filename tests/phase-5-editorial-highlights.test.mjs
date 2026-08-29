@@ -37,7 +37,7 @@ test("Player Spotlight keeps AI drafting subordinate to verified facts", async (
   const section = await read(
     "apps/web/components/home/player-spotlight-section.tsx",
   );
-  const english = await read("packages/i18n/src/messages/en.ts");
+  const webCatalogue = await read("packages/i18n/src/messages/web.ts");
 
   assert.match(content, /aiAssisted: true/);
   assert.match(
@@ -47,8 +47,8 @@ test("Player Spotlight keeps AI drafting subordinate to verified facts", async (
   assert.match(section, /t\("spotlight\.previewNoticeTitle"\)/);
   assert.match(section, /t\("spotlight\.previewNoticeBody"\)/);
   assert.match(section, /getLocalizedSpotlightPreview\(t\)/);
-  assert.match(english, /AI-assisted example, not a real player claim/);
-  assert.match(english, /player, event, result and timing/);
+  assert.match(webCatalogue, /AI-assisted example, not a real player claim/);
+  assert.match(webCatalogue, /player, event, result and timing/);
 });
 
 test("Player Spotlight has archive and shareable article routes", async () => {
