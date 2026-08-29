@@ -1,6 +1,7 @@
 "use client";
 
 import React, { type ReactNode, useEffect, useRef, useId } from "react";
+import { useI18n } from "../../lib/i18n-context";
 
 export interface DialogProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export function Dialog({
   description,
   children,
 }: DialogProps) {
+  const { t } = useI18n();
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
   const titleId = useId();
@@ -34,7 +36,6 @@ export function Dialog({
         document.activeElement as HTMLElement | null;
       document.body.style.overflow = "hidden";
       window.addEventListener("keydown", handleKeyDown);
-      // Move focus inside dialog
       setTimeout(() => {
         const focusable = dialogRef.current?.querySelector<HTMLElement>(
           'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
@@ -123,7 +124,7 @@ export function Dialog({
           </div>
           <button
             onClick={onClose}
-            aria-label="Close dialog"
+            aria-label={t("layout.closeDialog")}
             style={{
               background: "none",
               border: "none",
