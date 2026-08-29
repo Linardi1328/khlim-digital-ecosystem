@@ -1,5 +1,9 @@
 import { Injectable } from "@nestjs/common";
-import type { AiCapability, AiPlatformStatus, AiToolDefinition } from "./ai.types";
+import type {
+  AiCapability,
+  AiPlatformStatus,
+  AiToolDefinition,
+} from "./ai.types";
 
 const INITIAL_CAPABILITIES: AiCapability[] = [
   "assistant",
@@ -29,11 +33,15 @@ export class AiService {
       (tool.risk === "mutate" || tool.risk === "restricted") &&
       !status.writeActionsEnabled
     ) {
-      throw new Error(`AI tool ${tool.name} requires write actions to be explicitly enabled`);
+      throw new Error(
+        `AI tool ${tool.name} requires write actions to be explicitly enabled`,
+      );
     }
 
     if (tool.risk === "restricted") {
-      throw new Error(`AI tool ${tool.name} is restricted and cannot execute autonomously`);
+      throw new Error(
+        `AI tool ${tool.name} is restricted and cannot execute autonomously`,
+      );
     }
   }
 }
