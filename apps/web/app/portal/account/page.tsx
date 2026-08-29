@@ -51,7 +51,9 @@ export default function AccountPage() {
       setNotice(t("portal.account.saved"));
     } catch (caught) {
       setError(
-        caught instanceof Error ? caught.message : t("portal.account.saveError"),
+        caught instanceof Error
+          ? caught.message
+          : t("portal.account.saveError"),
       );
     } finally {
       setSaving(false);
@@ -85,7 +87,9 @@ export default function AccountPage() {
       setNotice(t("portal.account.resetAccepted"));
     } catch (caught) {
       setError(
-        caught instanceof Error ? caught.message : t("portal.account.resetError"),
+        caught instanceof Error
+          ? caught.message
+          : t("portal.account.resetError"),
       );
     }
   };

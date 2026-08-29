@@ -117,7 +117,10 @@ test("Phase 5 account UI never claims unsupported deactivation was queued", asyn
   const account = await read("apps/web/app/portal/account/page.tsx");
   const catalogue = await read("packages/i18n/src/messages/portal-web.ts");
   assert.match(account, /t\("portal\.account\.notAvailable"\)/);
-  assert.match(catalogue, /"portal\.account\.notAvailable": "Not yet available"/);
+  assert.match(
+    catalogue,
+    /"portal\.account\.notAvailable": "Not yet available"/,
+  );
   assert.match(account, /t\("portal\.account\.deactivationBody"\)/);
   assert.doesNotMatch(account, /queued for administrative review/i);
 });
@@ -133,7 +136,10 @@ test("Phase 5 public copy does not hard-code unverified venues or programme tier
   assert.doesNotMatch(about, /Founded by passionate basketball coaches/i);
   assert.match(privacy, /t\("privacy\.section2\.body"\)/);
   assert.match(terms, /t\("terms\.section3\.body"\)/);
-  assert.match(legal, /New data categories require separate implementation and review/);
+  assert.match(
+    legal,
+    /New data categories require separate implementation and review/,
+  );
   assert.match(legal, /require final management and legal approval/);
 });
 

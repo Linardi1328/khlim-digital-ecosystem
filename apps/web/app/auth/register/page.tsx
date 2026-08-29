@@ -58,7 +58,9 @@ export default function RegisterPage() {
       }
     } catch (caught) {
       setError(
-        caught instanceof Error ? caught.message : t("auth.register.error.failed"),
+        caught instanceof Error
+          ? caught.message
+          : t("auth.register.error.failed"),
       );
     }
   };
@@ -74,7 +76,13 @@ export default function RegisterPage() {
       }}
     >
       <div style={{ width: "100%", maxWidth: 480 }}>
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            marginBottom: 24,
+          }}
+        >
           <Link href="/" aria-label={t("brand.academy")}>
             <BrandLogo size={76} priority />
           </Link>

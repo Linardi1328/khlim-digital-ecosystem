@@ -70,10 +70,13 @@ export default function PlayerProfilePage({
               <CardContent>
                 <h1>{athlete.displayName}</h1>
                 <p>
-                  {t("portal.players.dateOfBirth")}: {formatDate(athlete.dateOfBirth)}
+                  {t("portal.players.dateOfBirth")}:{" "}
+                  {formatDate(athlete.dateOfBirth)}
                 </p>
                 <p>
-                  {t("portal.player.preferredLanguage")}: {localeNames[athlete.preferredLocale] ?? athlete.preferredLocale}
+                  {t("portal.player.preferredLanguage")}:{" "}
+                  {localeNames[athlete.preferredLocale] ??
+                    athlete.preferredLocale}
                 </p>
                 <Link
                   href={`/enrol?athleteId=${encodeURIComponent(athlete.id)}`}

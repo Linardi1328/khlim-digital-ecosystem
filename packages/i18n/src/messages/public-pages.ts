@@ -1,12 +1,14 @@
 const en = {
   "contact.title": "Contact KHLIM Basketball Academy",
-  "contact.info": "Submitting opens your email application. The website does not claim the message was delivered.",
+  "contact.info":
+    "Submitting opens your email application. The website does not claim the message was delivered.",
   "contact.name": "Name",
   "contact.email": "Email",
   "contact.message": "Message",
   "contact.openEmail": "Open email application",
   "contact.notConfiguredTitle": "Contact channel not configured",
-  "contact.notConfiguredBody": "A public academy contact address will be published before launch. No placeholder address is presented as a real KHLIM inbox.",
+  "contact.notConfiguredBody":
+    "A public academy contact address will be published before launch. No placeholder address is presented as a real KHLIM inbox.",
   "contact.emailSubject": "KHLIM Academy enquiry from {name}",
   "contact.emailBody": "Name: {name}\nEmail: {email}\n\n{message}",
 
@@ -36,13 +38,15 @@ type Catalogue = Record<Key, string>;
 
 const ms: Catalogue = {
   "contact.title": "Hubungi Akademi Bola Keranjang KHLIM",
-  "contact.info": "Penghantaran akan membuka aplikasi emel anda. Laman web tidak mendakwa mesej telah dihantar.",
+  "contact.info":
+    "Penghantaran akan membuka aplikasi emel anda. Laman web tidak mendakwa mesej telah dihantar.",
   "contact.name": "Nama",
   "contact.email": "Emel",
   "contact.message": "Mesej",
   "contact.openEmail": "Buka aplikasi emel",
   "contact.notConfiguredTitle": "Saluran hubungan belum dikonfigurasi",
-  "contact.notConfiguredBody": "Alamat hubungan awam akademi akan diterbitkan sebelum pelancaran. Tiada alamat sementara dipaparkan sebagai peti masuk KHLIM yang sebenar.",
+  "contact.notConfiguredBody":
+    "Alamat hubungan awam akademi akan diterbitkan sebelum pelancaran. Tiada alamat sementara dipaparkan sebagai peti masuk KHLIM yang sebenar.",
   "contact.emailSubject": "Pertanyaan Akademi KHLIM daripada {name}",
   "contact.emailBody": "Nama: {name}\nEmel: {email}\n\n{message}",
   "programmes.catalogue": "Katalog akademi",
@@ -68,13 +72,15 @@ const ms: Catalogue = {
 
 const zhHans: Catalogue = {
   "contact.title": "联系 KHLIM 篮球学院",
-  "contact.info": "提交后会打开您的电子邮件应用。网站不会声称邮件已经成功送达。",
+  "contact.info":
+    "提交后会打开您的电子邮件应用。网站不会声称邮件已经成功送达。",
   "contact.name": "姓名",
   "contact.email": "电子邮箱",
   "contact.message": "留言",
   "contact.openEmail": "打开电子邮件应用",
   "contact.notConfiguredTitle": "联系渠道尚未配置",
-  "contact.notConfiguredBody": "学院公开联系地址将在正式上线前发布。网站不会把占位地址展示为真实 KHLIM 邮箱。",
+  "contact.notConfiguredBody":
+    "学院公开联系地址将在正式上线前发布。网站不会把占位地址展示为真实 KHLIM 邮箱。",
   "contact.emailSubject": "来自 {name} 的 KHLIM 学院咨询",
   "contact.emailBody": "姓名：{name}\n电子邮箱：{email}\n\n{message}",
   "programmes.catalogue": "学院课程目录",
@@ -100,13 +106,15 @@ const zhHans: Catalogue = {
 
 const zhHant: Catalogue = {
   "contact.title": "聯絡 KHLIM 籃球學院",
-  "contact.info": "提交後會開啟您的電子郵件應用程式。網站不會聲稱郵件已成功送達。",
+  "contact.info":
+    "提交後會開啟您的電子郵件應用程式。網站不會聲稱郵件已成功送達。",
   "contact.name": "姓名",
   "contact.email": "電子郵箱",
   "contact.message": "留言",
   "contact.openEmail": "開啟電子郵件應用程式",
   "contact.notConfiguredTitle": "聯絡渠道尚未設定",
-  "contact.notConfiguredBody": "學院公開聯絡地址將在正式上線前發布。網站不會把佔位地址展示為真實 KHLIM 郵箱。",
+  "contact.notConfiguredBody":
+    "學院公開聯絡地址將在正式上線前發布。網站不會把佔位地址展示為真實 KHLIM 郵箱。",
   "contact.emailSubject": "來自 {name} 的 KHLIM 學院查詢",
   "contact.emailBody": "姓名：{name}\n電子郵箱：{email}\n\n{message}",
   "programmes.catalogue": "學院課程目錄",
@@ -132,13 +140,15 @@ const zhHant: Catalogue = {
 
 const hi: Catalogue = {
   "contact.title": "KHLIM बास्केटबॉल अकादमी से संपर्क करें",
-  "contact.info": "सबमिट करने पर आपका ईमेल ऐप खुलेगा। वेबसाइट यह दावा नहीं करती कि संदेश पहुँच गया है।",
+  "contact.info":
+    "सबमिट करने पर आपका ईमेल ऐप खुलेगा। वेबसाइट यह दावा नहीं करती कि संदेश पहुँच गया है।",
   "contact.name": "नाम",
   "contact.email": "ईमेल",
   "contact.message": "संदेश",
   "contact.openEmail": "ईमेल ऐप खोलें",
   "contact.notConfiguredTitle": "संपर्क चैनल अभी कॉन्फ़िगर नहीं है",
-  "contact.notConfiguredBody": "सार्वजनिक अकादमी संपर्क पता लॉन्च से पहले प्रकाशित किया जाएगा। किसी प्लेसहोल्डर पते को वास्तविक KHLIM इनबॉक्स के रूप में नहीं दिखाया जाता।",
+  "contact.notConfiguredBody":
+    "सार्वजनिक अकादमी संपर्क पता लॉन्च से पहले प्रकाशित किया जाएगा। किसी प्लेसहोल्डर पते को वास्तविक KHLIM इनबॉक्स के रूप में नहीं दिखाया जाता।",
   "contact.emailSubject": "{name} से KHLIM अकादमी पूछताछ",
   "contact.emailBody": "नाम: {name}\nईमेल: {email}\n\n{message}",
   "programmes.catalogue": "अकादमी कैटलॉग",
@@ -162,4 +172,10 @@ const hi: Catalogue = {
   "programmes.selectPlan": "योजना चुनें",
 };
 
-export const publicPageMessages = { en, ms, "zh-Hans": zhHans, "zh-Hant": zhHant, hi } as const;
+export const publicPageMessages = {
+  en,
+  ms,
+  "zh-Hans": zhHans,
+  "zh-Hant": zhHant,
+  hi,
+} as const;

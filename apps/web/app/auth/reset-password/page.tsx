@@ -72,7 +72,7 @@ export default function ResetPasswordPage() {
         <CardContent>
           {complete ? (
             <Alert variant="success" title={t("auth.reset.updatedTitle")}>
-              {t("auth.reset.updatedBody")} {" "}
+              {t("auth.reset.updatedBody")}{" "}
               <Link href="/auth/login">{t("auth.reset.returnSignIn")}</Link>
             </Alert>
           ) : !recoveryReady ? (

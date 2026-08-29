@@ -181,7 +181,9 @@ test("academy product copy renders in every supported locale", async ({
       .poll(() => page.evaluate(() => document.documentElement.lang))
       .toBe(locale);
     await expect(page.getByRole("heading", { name: title })).toBeVisible();
-    await expect(page.locator("body")).not.toContainText(/academy\.|portal\.|legal\./);
+    await expect(page.locator("body")).not.toContainText(
+      /academy\.|portal\.|legal\./,
+    );
   }
 });
 

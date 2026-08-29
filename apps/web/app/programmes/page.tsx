@@ -98,7 +98,9 @@ export default function ProgrammesPage() {
           </div>
         ) : null}
         {loading ? (
-          <p style={{ textAlign: "center" }}>{t("programmes.loadingCurrent")}</p>
+          <p style={{ textAlign: "center" }}>
+            {t("programmes.loadingCurrent")}
+          </p>
         ) : visible.length === 0 ? (
           <Card style={{ padding: 32, textAlign: "center" }}>
             {t("programmes.noMatching")}
@@ -121,13 +123,19 @@ export default function ProgrammesPage() {
                 </CardHeader>
                 <CardContent>
                   <p>
-                    {t("programmes.levelLabel")}: {offering.programme.level ?? t("programmes.openDevelopment")}
+                    {t("programmes.levelLabel")}:{" "}
+                    {offering.programme.level ??
+                      t("programmes.openDevelopment")}
                   </p>
                   <p>
-                    {t("programmes.venueLabel")}: {offering.venue?.name ?? t("common.toBeConfirmed")}
+                    {t("programmes.venueLabel")}:{" "}
+                    {offering.venue?.name ?? t("common.toBeConfirmed")}
                   </p>
                   <p>
-                    {t("programmes.termStartLabel")}: {offering.startsOn ? formatDate(offering.startsOn) : t("common.toBeConfirmed")}
+                    {t("programmes.termStartLabel")}:{" "}
+                    {offering.startsOn
+                      ? formatDate(offering.startsOn)
+                      : t("common.toBeConfirmed")}
                   </p>
                   <Badge variant="neutral" size="sm">
                     {t("programmes.capacity")} {offering.capacity}

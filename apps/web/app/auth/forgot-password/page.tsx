@@ -51,7 +51,13 @@ export default function ForgotPasswordPage() {
       }}
     >
       <div style={{ width: "100%", maxWidth: "440px" }}>
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            marginBottom: 24,
+          }}
+        >
           <Link href="/" aria-label={t("brand.academy")}>
             <BrandLogo size={76} priority />
           </Link>

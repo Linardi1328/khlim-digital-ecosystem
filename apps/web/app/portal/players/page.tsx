@@ -97,10 +97,13 @@ export default function PlayersPage() {
                       </Badge>
                     </div>
                     <p style={{ color: "#64748b" }}>
-                      {t("portal.players.dateOfBirth")}: {formatDate(athlete.dateOfBirth)}
+                      {t("portal.players.dateOfBirth")}:{" "}
+                      {formatDate(athlete.dateOfBirth)}
                     </p>
                     <p style={{ color: "#64748b" }}>
-                      {t("portal.players.relationship")}: {link?.relationshipType ?? t("portal.players.guardianRelationship")}
+                      {t("portal.players.relationship")}:{" "}
+                      {link?.relationshipType ??
+                        t("portal.players.guardianRelationship")}
                     </p>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       <Link href={`/portal/players/${athlete.id}`}>

@@ -48,9 +48,7 @@ function LoginContent() {
       router.push(redirectPath);
     } catch (caught) {
       setError(
-        caught instanceof Error
-          ? caught.message
-          : t("auth.login.error.failed"),
+        caught instanceof Error ? caught.message : t("auth.login.error.failed"),
       );
     }
   };
@@ -66,7 +64,13 @@ function LoginContent() {
       }}
     >
       <div style={{ width: "100%", maxWidth: 440 }}>
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 28 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            marginBottom: 28,
+          }}
+        >
           <Link href="/" aria-label={t("brand.academy")}>
             <BrandLogo size={78} priority />
           </Link>

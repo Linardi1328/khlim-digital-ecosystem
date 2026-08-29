@@ -69,12 +69,16 @@ export function SpotlightArticleContent({
             aria-label={
               article.imageUrl
                 ? article.photoLabel
-                : t("spotlight.archive.photoSlot", { label: article.photoLabel })
+                : t("spotlight.archive.photoSlot", {
+                    label: article.photoLabel,
+                  })
             }
           >
             {!article.imageUrl && (
               <span>
-                {t("spotlight.article.photoSlot", { label: article.photoLabel })}
+                {t("spotlight.article.photoSlot", {
+                  label: article.photoLabel,
+                })}
               </span>
             )}
           </div>

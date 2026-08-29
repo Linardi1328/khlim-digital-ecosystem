@@ -329,7 +329,8 @@ function EnrolmentWizardContent() {
                           <strong>{athlete.displayName}</strong>
                           <br />
                           <small>
-                            {t("enrol.dateOfBirthLabel")}: {formatDate(athlete.dateOfBirth)}
+                            {t("enrol.dateOfBirthLabel")}:{" "}
+                            {formatDate(athlete.dateOfBirth)}
                           </small>
                         </span>
                       </label>
@@ -446,7 +447,9 @@ function EnrolmentWizardContent() {
                           ? t("enrol.upfrontPayment")
                           : t("enrol.monthlyInstallments", {
                               count:
-                                plan.commitmentCycles ?? plan.durationMonths ?? 1,
+                                plan.commitmentCycles ??
+                                plan.durationMonths ??
+                                1,
                             });
                       return {
                         value: plan.id,
@@ -463,7 +466,9 @@ function EnrolmentWizardContent() {
               <section>
                 <CardHeader>
                   <CardTitle>{t("enrol.terms.title")}</CardTitle>
-                  <CardDescription>{t("enrol.review.subtitle")}</CardDescription>
+                  <CardDescription>
+                    {t("enrol.review.subtitle")}
+                  </CardDescription>
                 </CardHeader>
                 <div
                   style={{
@@ -474,21 +479,21 @@ function EnrolmentWizardContent() {
                   }}
                 >
                   <div>
-                    {t("enrol.review.player")}: {" "}
+                    {t("enrol.review.player")}:{" "}
                     <strong>
                       {selectedAthlete?.displayName ?? newChildName}
                     </strong>
                   </div>
                   <div>
-                    {t("enrol.review.offering")}: {" "}
+                    {t("enrol.review.offering")}:{" "}
                     <strong>{selectedOffering?.name}</strong>
                   </div>
                   <div>
-                    {t("enrol.review.plan")}: {" "}
+                    {t("enrol.review.plan")}:{" "}
                     <strong>{selectedPlan?.name}</strong>
                   </div>
                   <div>
-                    {t("enrol.review.amount")}: {" "}
+                    {t("enrol.review.amount")}:{" "}
                     <strong>
                       {selectedPlan && chargeMinor !== null
                         ? formatCurrency(
@@ -499,7 +504,7 @@ function EnrolmentWizardContent() {
                     </strong>
                   </div>
                   <div>
-                    {t("enrol.review.billing")}: {" "}
+                    {t("enrol.review.billing")}:{" "}
                     <strong>
                       {selectedPlan?.billingFrequency === "UPFRONT"
                         ? t("enrol.plan.upfront")
@@ -522,11 +527,11 @@ function EnrolmentWizardContent() {
                     onChange={(event) => setTermsAccepted(event.target.checked)}
                     label={
                       <span>
-                        {t("enrol.terms.acceptPrefix")} {" "}
+                        {t("enrol.terms.acceptPrefix")}{" "}
                         <Link href="/terms" target="_blank">
                           {t("enrol.terms.membershipLink")}
                         </Link>{" "}
-                        {t("enrol.terms.and")} {" "}
+                        {t("enrol.terms.and")}{" "}
                         <Link href="/privacy" target="_blank">
                           {t("enrol.terms.privacyLink")}
                         </Link>
@@ -542,7 +547,9 @@ function EnrolmentWizardContent() {
               <section>
                 <CardHeader>
                   <CardTitle>{t("enrol.steps.payment")}</CardTitle>
-                  <CardDescription>{t("enrol.payment.description")}</CardDescription>
+                  <CardDescription>
+                    {t("enrol.payment.description")}
+                  </CardDescription>
                 </CardHeader>
                 <Alert variant="info" title={t("enrol.payment.handoffTitle")}>
                   {t("enrol.payment.handoffBody")}
@@ -590,26 +597,26 @@ function EnrolmentWizardContent() {
             <Card>
               <h3 style={{ marginTop: 0 }}>{t("enrol.summary.title")}</h3>
               <p>
-                {t("enrol.review.player")}: {" "}
+                {t("enrol.review.player")}:{" "}
                 <strong>
                   {(selectedAthlete?.displayName ?? newChildName) ||
                     t("enrol.summary.notSelected")}
                 </strong>
               </p>
               <p>
-                {t("enrol.review.offering")}: {" "}
+                {t("enrol.review.offering")}:{" "}
                 <strong>
                   {selectedOffering?.name ?? t("enrol.summary.notSelected")}
                 </strong>
               </p>
               <p>
-                {t("enrol.review.plan")}: {" "}
+                {t("enrol.review.plan")}:{" "}
                 <strong>
                   {selectedPlan?.name ?? t("enrol.summary.notSelected")}
                 </strong>
               </p>
               <p>
-                {t("enrol.review.amount")}: {" "}
+                {t("enrol.review.amount")}:{" "}
                 <strong>
                   {selectedPlan && chargeMinor !== null
                     ? formatCurrency(chargeMinor / 100, selectedPlan.currency)

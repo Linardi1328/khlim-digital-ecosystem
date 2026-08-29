@@ -20,7 +20,9 @@ export default function ContactPage() {
     event.preventDefault();
     if (!contactEmail) return;
     const subject = encodeURIComponent(t("contact.emailSubject", { name }));
-    const body = encodeURIComponent(t("contact.emailBody", { name, email, message }));
+    const body = encodeURIComponent(
+      t("contact.emailBody", { name, email, message }),
+    );
     window.location.assign(
       `mailto:${contactEmail}?subject=${subject}&body=${body}`,
     );
@@ -70,7 +72,9 @@ export default function ContactPage() {
                     onChange={(event) => setEmail(event.target.value)}
                   />
                   <div>
-                    <label htmlFor="contact-message">{t("contact.message")}</label>
+                    <label htmlFor="contact-message">
+                      {t("contact.message")}
+                    </label>
                     <textarea
                       id="contact-message"
                       required

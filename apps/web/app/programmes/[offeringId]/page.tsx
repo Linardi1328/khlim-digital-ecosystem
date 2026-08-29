@@ -96,7 +96,9 @@ export default function OfferingDetailPage({
             <div>
               <small>{t("programmes.venueLabel")}</small>
               <p>
-                <strong>{offering.venue?.name ?? t("common.toBeConfirmed")}</strong>
+                <strong>
+                  {offering.venue?.name ?? t("common.toBeConfirmed")}
+                </strong>
               </p>
             </div>
             <div>
@@ -156,7 +158,9 @@ export default function OfferingDetailPage({
                     <Link
                       href={`/enrol?offeringId=${encodeURIComponent(offering.id)}&planId=${encodeURIComponent(plan.id)}`}
                     >
-                      <Button variant="primary">{t("programmes.selectPlan")}</Button>
+                      <Button variant="primary">
+                        {t("programmes.selectPlan")}
+                      </Button>
                     </Link>
                   </CardContent>
                 </Card>

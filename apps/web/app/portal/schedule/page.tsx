@@ -29,9 +29,7 @@ export default function SchedulePage() {
     <PortalShell>
       <div>
         <h1>{t("portal.schedule.titleAlt")}</h1>
-        <p style={{ color: "#64748b" }}>
-          {t("portal.schedule.description")}
-        </p>
+        <p style={{ color: "#64748b" }}>{t("portal.schedule.description")}</p>
         {loading ? (
           <p>{t("portal.schedule.loading")}</p>
         ) : error ? (
@@ -53,7 +51,8 @@ export default function SchedulePage() {
                   <div>
                     <h2 style={{ marginBottom: 4 }}>{session.title}</h2>
                     <strong>
-                      {formatDate(session.startsAt)} · {formatTime(session.startsAt)}
+                      {formatDate(session.startsAt)} ·{" "}
+                      {formatTime(session.startsAt)}
                     </strong>
                     <p>
                       {session.venueName}
@@ -84,7 +83,7 @@ export default function SchedulePage() {
                 {session.notes && <p>{session.notes}</p>}
                 {session.attendances.length > 0 && (
                   <small>
-                    {t("portal.schedule.attendance")}: {" "}
+                    {t("portal.schedule.attendance")}:{" "}
                     {session.attendances
                       .map(
                         (item) =>

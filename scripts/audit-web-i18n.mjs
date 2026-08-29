@@ -56,7 +56,9 @@ for (const file of roots.flatMap(walkDirectory)) {
   function add(node, kind, value) {
     const text = normalize(value);
     if (!isCandidate(text)) return;
-    const { line } = source.getLineAndCharacterOfPosition(node.getStart(source));
+    const { line } = source.getLineAndCharacterOfPosition(
+      node.getStart(source),
+    );
     findings.push({ file, line: line + 1, kind, text });
   }
 
@@ -67,7 +69,10 @@ for (const file of roots.flatMap(walkDirectory)) {
 
     if (ts.isJsxAttribute(node) && node.initializer) {
       const name = node.name.getText(source);
-      if (userFacingAttributes.has(name) && ts.isStringLiteral(node.initializer)) {
+      if (
+        userFacingAttributes.has(name) &&
+        ts.isStringLiteral(node.initializer)
+      ) {
         add(node, `attribute:${name}`, node.initializer.text);
       }
     }
@@ -76,7 +81,10 @@ for (const file of roots.flatMap(walkDirectory)) {
       const callee = node.expression.getText(source);
       if (messageSetterNames.has(callee) && node.arguments[0]) {
         const first = node.arguments[0];
-        if (ts.isStringLiteral(first) || ts.isNoSubstitutionTemplateLiteral(first)) {
+        if (
+          ts.isStringLiteral(first) ||
+          ts.isNoSubstitutionTemplateLiteral(first)
+        ) {
           add(first, `message:${callee}`, first.text);
         }
       }
@@ -100,11 +108,15 @@ for (const file of roots.flatMap(walkDirectory)) {
 findings.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
 
 if (findings.length === 0) {
-  console.log("Web i18n audit passed: no obvious hard-coded user-facing strings found.");
+  console.log(
+    "Web i18n audit passed: no obvious hard-coded user-facing strings found.",
+  );
   process.exit(0);
 }
 
-console.error(`Web i18n audit found ${findings.length} potential hard-coded strings:\n`);
+console.error(
+  `Web i18n audit found ${findings.length} potential hard-coded strings:\n`,
+);
 for (const finding of findings) {
   console.error(
     `${finding.file}:${finding.line} [${finding.kind}] ${JSON.stringify(finding.text)}`,

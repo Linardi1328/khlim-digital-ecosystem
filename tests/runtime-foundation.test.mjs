@@ -25,8 +25,14 @@ test("website and admin have executable Next.js runtime scaffolds", async () => 
     assert.equal(manifest.scripts.build, "next build");
     assert.equal(manifest.scripts.typecheck, "tsc --noEmit");
     if (app === "web") {
-      assert.match(nextConfig, /process\.env\.VERCEL \|\| process\.env\.NETLIFY/);
-      assert.match(nextConfig, /output: isManagedNextHost \? undefined : "standalone"/);
+      assert.match(
+        nextConfig,
+        /process\.env\.VERCEL \|\| process\.env\.NETLIFY/,
+      );
+      assert.match(
+        nextConfig,
+        /output: isManagedNextHost \? undefined : "standalone"/,
+      );
     } else {
       assert.match(
         nextConfig,

@@ -80,7 +80,7 @@ function ConfirmationContent() {
               ? t("status.completed")
               : status === "EXPIRED"
                 ? t("status.expired")
-                : status ?? t("common.noData");
+                : (status ?? t("common.noData"));
 
   return (
     <div
@@ -102,13 +102,19 @@ function ConfirmationContent() {
             <p>{t("enrol.confirmation.verifying")}</p>
           ) : null}
           {state === "missing" ? (
-            <Alert variant="warning" title={t("enrol.confirmation.missingTitle")}>
+            <Alert
+              variant="warning"
+              title={t("enrol.confirmation.missingTitle")}
+            >
               {t("enrol.confirmation.missingBody")}
             </Alert>
           ) : null}
           {state === "error" ? (
             <div>
-              <Alert variant="danger" title={t("enrol.confirmation.errorTitle")}>
+              <Alert
+                variant="danger"
+                title={t("enrol.confirmation.errorTitle")}
+              >
                 {error} {t("enrol.confirmation.safetyNotice")}
               </Alert>
               <div style={{ marginTop: 20 }}>
@@ -144,19 +150,19 @@ function ConfirmationContent() {
                 }}
               >
                 <p>
-                  {t("enrol.confirmation.membershipId")}: {" "}
+                  {t("enrol.confirmation.membershipId")}:{" "}
                   <strong>{verified.membership.id}</strong>
                 </p>
                 <p>
-                  {t("enrol.confirmation.offering")}: {" "}
+                  {t("enrol.confirmation.offering")}:{" "}
                   <strong>{verified.membership.programmeOffering.name}</strong>
                 </p>
                 <p>
-                  {t("enrol.confirmation.plan")}: {" "}
+                  {t("enrol.confirmation.plan")}:{" "}
                   <strong>{verified.membership.membershipPlan.name}</strong>
                 </p>
                 <p>
-                  {t("enrol.confirmation.backendStatus")}: {" "}
+                  {t("enrol.confirmation.backendStatus")}:{" "}
                   <strong>{statusLabel}</strong>
                 </p>
               </div>

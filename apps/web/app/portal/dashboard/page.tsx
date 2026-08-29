@@ -79,15 +79,12 @@ export default function DashboardPage() {
       <div>
         <h1>
           {t("portal.dashboard.welcome", {
-            name:
-              guardianProfile?.displayName ?? t("portal.common.guardian"),
+            name: guardianProfile?.displayName ?? t("portal.common.guardian"),
           })}
         </h1>
         <p style={{ color: "#64748b" }}>
-          {t("portal.dashboard.selectedAthlete")}: {" "}
-          <strong>
-            {activeChild?.displayName ?? t("portal.common.none")}
-          </strong>{" "}
+          {t("portal.dashboard.selectedAthlete")}:{" "}
+          <strong>{activeChild?.displayName ?? t("portal.common.none")}</strong>{" "}
           • {t("portal.dashboard.managedAthletes", { count: athletes.length })}
         </p>
         {loading ? <p>{t("portal.dashboard.loadingMembership")}</p> : null}
@@ -165,7 +162,7 @@ export default function DashboardPage() {
                 <p>{t("portal.dashboard.noUnpaidInstallment")}</p>
               ) : current && planAmount !== null ? (
                 <p>
-                  {t("portal.dashboard.billingScheduleNotCreated")} {" "}
+                  {t("portal.dashboard.billingScheduleNotCreated")}{" "}
                   <strong>
                     {formatCurrency(
                       planAmount / 100,

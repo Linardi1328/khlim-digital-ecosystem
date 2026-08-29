@@ -40,7 +40,7 @@ export default function NotificationsPage() {
         <div style={{ marginBottom: 24 }}>
           <h1>{t("portal.notifications.title")}</h1>
           <p style={{ color: "#64748B" }}>
-            {t("portal.notifications.description")} {" "}
+            {t("portal.notifications.description")}{" "}
             {unread > 0
               ? t("portal.notifications.unread", { count: unread })
               : t("portal.notifications.caughtUp")}

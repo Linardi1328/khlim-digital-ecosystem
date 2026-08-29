@@ -93,7 +93,9 @@ export function PlayerSpotlightSection() {
   }, []);
   const live = remote.length > 0 ? remote : publishedPlayerSpotlights;
   const preview = live.length === 0;
-  const stories = preview ? [getLocalizedSpotlightPreview(t)] : live.slice(0, 3);
+  const stories = preview
+    ? [getLocalizedSpotlightPreview(t)]
+    : live.slice(0, 3);
 
   return (
     <section

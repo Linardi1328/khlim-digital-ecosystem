@@ -52,7 +52,8 @@ export default function MembershipPage() {
             <p style={{ color: "#64748b" }}>
               {t("portal.membership.forAthlete", {
                 name:
-                  activeChild?.displayName ?? t("portal.common.selectedAthlete"),
+                  activeChild?.displayName ??
+                  t("portal.common.selectedAthlete"),
               })}
             </p>
           </div>

@@ -182,10 +182,12 @@ export default function HomePage() {
                   </CardHeader>
                   <CardContent>
                     <p>
-                      {t("programmes.venueLabel")}: {offering.venue?.name ?? t("common.toBeConfirmed")}
+                      {t("programmes.venueLabel")}:{" "}
+                      {offering.venue?.name ?? t("common.toBeConfirmed")}
                     </p>
                     <p>
-                      {t("programmes.termStartLabel")}: {offering.startsOn ?? t("common.toBeConfirmed")}
+                      {t("programmes.termStartLabel")}:{" "}
+                      {offering.startsOn ?? t("common.toBeConfirmed")}
                     </p>
                   </CardContent>
                   <CardFooter>
