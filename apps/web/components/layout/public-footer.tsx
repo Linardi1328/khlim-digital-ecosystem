@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { useI18n } from "../../lib/i18n-context";
+import { BrandLogo } from "./brand-logo";
 
 export function PublicFooter() {
   const { t } = useI18n();
@@ -27,35 +28,8 @@ export function PublicFooter() {
         }}
       >
         <div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              marginBottom: "16px",
-            }}
-          >
-            <div
-              style={{
-                width: "32px",
-                height: "32px",
-                borderRadius: "8px",
-                backgroundColor: "#F59E0B",
-                color: "#18181B",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontWeight: 900,
-                fontSize: "1.125rem",
-              }}
-            >
-              K
-            </div>
-            <span
-              style={{ fontWeight: 900, fontSize: "1.25rem", color: "#FFFFFF" }}
-            >
-              KHLIM
-            </span>
+          <div style={{ marginBottom: "16px" }}>
+            <BrandLogo height={36} />
           </div>
           <p
             style={{ fontSize: "0.875rem", lineHeight: 1.6, color: "#A1A1AA" }}
@@ -69,8 +43,7 @@ export function PublicFooter() {
               color: "#71717A",
             }}
           >
-            Malaysia • Current venue details are published with active programme
-            offerings.
+            {t("footer.locationNote")}
           </div>
         </div>
 
@@ -97,19 +70,19 @@ export function PublicFooter() {
               href="/programmes"
               style={{ color: "#A1A1AA", textDecoration: "none" }}
             >
-              Current Programme Offerings
+              {t("footer.currentOfferings")}
             </Link>
             <Link
               href="/enrol"
               style={{ color: "#A1A1AA", textDecoration: "none" }}
             >
-              Academy Enrolment
+              {t("footer.academyEnrolment")}
             </Link>
             <Link
               href="/academy"
               style={{ color: "#A1A1AA", textDecoration: "none" }}
             >
-              Academy Approach
+              {t("footer.academyApproach")}
             </Link>
           </div>
         </div>
@@ -137,13 +110,13 @@ export function PublicFooter() {
               href="/academy"
               style={{ color: "#A1A1AA", textDecoration: "none" }}
             >
-              Development Approach
+              {t("footer.developmentApproach")}
             </Link>
             <Link
               href="/programmes"
               style={{ color: "#A1A1AA", textDecoration: "none" }}
             >
-              Venues & Programme Terms
+              {t("footer.venuesTerms")}
             </Link>
             <Link
               href="/about"
@@ -195,13 +168,13 @@ export function PublicFooter() {
               href="/terms"
               style={{ color: "#A1A1AA", textDecoration: "none" }}
             >
-              Draft Terms
+              {t("footer.draftTerms")}
             </Link>
             <Link
               href="/privacy"
               style={{ color: "#A1A1AA", textDecoration: "none" }}
             >
-              Draft Privacy Notice
+              {t("footer.draftPrivacy")}
             </Link>
           </div>
         </div>
@@ -222,8 +195,8 @@ export function PublicFooter() {
           color: "#71717A",
         }}
       >
-        <div>© 2026 KHLIM Digital Sports Ecosystem.</div>
-        <div>Basketball academy platform for families and staff.</div>
+        <div>{t("footer.copyright")}</div>
+        <div>{t("footer.description")}</div>
       </div>
     </footer>
   );
