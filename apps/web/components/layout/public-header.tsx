@@ -174,14 +174,20 @@ export function PublicHeader() {
         className={`public-header-mobile-quick-actions ${styles.mobileQuickActions}`}
       >
         {isAuthenticated ? (
-          <Link href="/portal/dashboard" style={{ textDecoration: "none", flex: 1 }}>
+          <Link
+            href="/portal/dashboard"
+            style={{ textDecoration: "none", flex: 1 }}
+          >
             <Button variant="secondary" size="sm" style={{ width: "100%" }}>
               🏀 {t("nav.portal")}
             </Button>
           </Link>
         ) : (
           <>
-            <Link href="/auth/login" style={{ textDecoration: "none", flex: 1 }}>
+            <Link
+              href="/auth/login"
+              style={{ textDecoration: "none", flex: 1 }}
+            >
               <Button variant="outline" size="sm" style={{ width: "100%" }}>
                 {t("nav.login")}
               </Button>
