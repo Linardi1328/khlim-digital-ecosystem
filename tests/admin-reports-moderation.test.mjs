@@ -57,7 +57,8 @@ test("operations reports are bounded, persisted, MFA gated, and finance aware", 
   assert.match(page, /persisted academy activity/);
   assert.match(page, /Financial totals are hidden for this role/);
   assert.match(page, /min-height:\s*44px/);
-  assert.doesNotMatch(page, /synthetic trend|estimated revenue/i);
+  assert.doesNotMatch(page, /trend=\{/);
+  assert.doesNotMatch(page, /\+8\.4%|\+3\.2%|estimated revenue/i);
 });
 
 test("editorial moderation separates draft preparation from final publication", async () => {
