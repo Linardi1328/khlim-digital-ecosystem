@@ -1,167 +1,221 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { AdminShell } from "../components/layout/AdminShell";
 import { PageHeader } from "../components/ui/PageHeader";
 import { MetricCard } from "../components/ui/MetricCard";
-import { StatusBadge } from "../components/ui/StatusBadge";
 import { Button } from "../components/ui/Button";
 import { useAdminAuth } from "../lib/auth-context";
-import { adminApi } from "../lib/admin-api";
-import type {
-  DashboardMetrics,
-  OfferingItem,
-  MembershipItem,
-  PaymentItem,
-  AuditLogItem,
-} from "../lib/types";
+import { adminApi, getAdminOverview } from "../lib/admin-api";
+import type { DashboardMetrics } from "../lib/types";
+
+interface QuickAction {
+  href: string;
+  title: string;
+  description: string;
+  roles?: Parameters<ReturnType<typeof useAdminAuth>["hasRole"]>[0];
+}
+
+const QUICK_ACTIONS: QuickAction[] = [
+  {
+    href: "/offerings",
+    title: "Programme offerings",
+    description: "Open or close academy intakes and manage capacity.",
+    roles: ["SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN"],
+  },
+  {
+    href: "/scheduling",
+    title: "Scheduling & attendance",
+    description:
+      "Create sessions, handle cancellations, and record attendance.",
+    roles: [
+      "SUPER_ADMIN",
+      "MANAGEMENT",
+      "ACADEMY_ADMIN",
+      "HEAD_COACH",
+      "COACH",
+      "EVENT_STAFF",
+    ],
+  },
+  {
+    href: "/notifications",
+    title: "Family notifications",
+    description: "Send persistent announcements and operational notices.",
+    roles: ["SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN"],
+  },
+  {
+    href: "/users",
+    title: "Accounts & access",
+    description: "Search accounts, review roles, and manage account status.",
+    roles: ["SUPER_ADMIN", "MANAGEMENT"],
+  },
+  {
+    href: "/editorial",
+    title: "Editorial Studio",
+    description: "Prepare verified achievements and Player Spotlight content.",
+    roles: ["SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN"],
+  },
+  {
+    href: "/payments",
+    title: "Payment operations",
+    description: "Review payment records requiring staff attention.",
+    roles: ["SUPER_ADMIN", "MANAGEMENT", "FINANCE_ADMIN", "FINANCE"],
+  },
+];
 
 export default function AdminDashboardPage() {
-  const { canAccessFinance } = useAdminAuth();
+  const { canAccessFinance, hasRole, isDemoMode, user } = useAdminAuth();
   const canViewFinance = canAccessFinance();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
-  const [offerings, setOfferings] = useState<OfferingItem[]>([]);
-  const [memberships, setMemberships] = useState<MembershipItem[]>([]);
-  const [payments, setPayments] = useState<PaymentItem[]>([]);
-  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
-  const [_loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-
-    if (!canViewFinance) {
-      setPayments([]);
-    }
-
     setLoading(true);
+    setError(null);
 
-    async function loadData() {
-      try {
-        const paymentRequest: Promise<PaymentItem[]> = canViewFinance
-          ? adminApi.listPayments()
-          : Promise.resolve([]);
-        const [m, off, mem, pay, aud] = await Promise.all([
-          adminApi.getDashboardMetrics(),
-          adminApi.listOfferings(),
-          adminApi.listMemberships(),
-          paymentRequest,
-          adminApi.listAuditLogs(),
-        ]);
+    const request = isDemoMode
+      ? adminApi.getDashboardMetrics()
+      : getAdminOverview();
 
-        if (cancelled) return;
-
-        setMetrics(m);
-        setOfferings(off);
-        setMemberships(mem);
-        setPayments(canViewFinance ? pay : []);
-        setAuditLogs(aud);
-      } catch (err) {
-        if (!cancelled) console.warn("Failed to load dashboard data:", err);
-      } finally {
+    void request
+      .then((result) => {
+        if (!cancelled) setMetrics(result);
+      })
+      .catch((reason) => {
+        if (!cancelled) {
+          setMetrics(null);
+          setError(
+            reason instanceof Error
+              ? reason.message
+              : "The operations snapshot could not be loaded.",
+          );
+        }
+      })
+      .finally(() => {
         if (!cancelled) setLoading(false);
-      }
-    }
-
-    loadData();
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [canViewFinance]);
+  }, [isDemoMode]);
 
-  const attentionPayments = canViewFinance
-    ? payments.filter((p) => p.status === "FAILED" || p.status === "PROCESSING")
-    : [];
+  const availableActions = QUICK_ACTIONS.filter(
+    (action) => !action.roles || hasRole(action.roles),
+  );
 
   return (
     <AdminShell>
       <div>
         <PageHeader
           title="KHLIM Operations Command Centre"
-          subtitle="Real-time academy performance, capacity utilisation, and active member contracts."
+          subtitle="Current academy membership, capacity, and operational status from the KHLIM backend."
           badge={
             <span
               style={{
                 fontSize: "0.75rem",
                 fontWeight: 700,
-                backgroundColor: "#ECFDF5",
-                color: "#065F46",
-                border: "1px solid #A7F3D0",
-                padding: "3px 8px",
+                backgroundColor: error ? "#FEF2F2" : "#ECFDF5",
+                color: error ? "#991B1B" : "#065F46",
+                border: `1px solid ${error ? "#FECACA" : "#A7F3D0"}`,
+                padding: "4px 9px",
                 borderRadius: "9999px",
               }}
             >
-              ● LIVE OPS FEED
+              {isDemoMode
+                ? "● DEMO DATA"
+                : error
+                  ? "● API ATTENTION"
+                  : loading
+                    ? "● CONNECTING"
+                    : "● LIVE API SNAPSHOT"}
             </span>
           }
           actions={
-            <div style={{ display: "flex", gap: "10px" }}>
+            hasRole(["SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN"]) ? (
               <Link href="/offerings">
-                <Button variant="outline" size="sm">
-                  + Create Offering
-                </Button>
-              </Link>
-              <Link href="/programmes">
                 <Button variant="primary" size="sm">
-                  Manage Programmes
+                  Manage Offerings
                 </Button>
               </Link>
-            </div>
+            ) : undefined
           }
         />
 
-        {/* 6 Key Operational Metric Cards */}
+        {error && (
+          <div
+            role="alert"
+            style={{
+              marginBottom: 20,
+              padding: 14,
+              background: "#FEF2F2",
+              border: "1px solid #FECACA",
+              borderRadius: 10,
+              color: "#991B1B",
+            }}
+          >
+            <strong>Operations data is temporarily unavailable.</strong>
+            <div style={{ marginTop: 4 }}>{error}</div>
+          </div>
+        )}
+
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
             gap: "16px",
-            marginBottom: "32px",
+            marginBottom: "28px",
           }}
         >
           <MetricCard
             title="Active Members"
-            value={metrics?.activeMembers ?? "—"}
-            subtitle="Verified paying players"
-            trend={{ value: "+8.4%", isPositive: true }}
+            value={loading ? "…" : (metrics?.activeMembers ?? "—")}
+            subtitle="Active membership contracts"
             variant="success"
             icon="🏅"
           />
           <MetricCard
             title="Pending Memberships"
-            value={metrics?.pendingMemberships ?? "—"}
-            subtitle="Awaiting payment event"
+            value={loading ? "…" : (metrics?.pendingMemberships ?? "—")}
+            subtitle="Awaiting activation or payment"
             variant="warning"
             icon="⏳"
           />
           <MetricCard
             title="Total Athletes"
-            value={metrics?.totalAthletes ?? "—"}
-            subtitle="Linked managed profiles"
+            value={loading ? "…" : (metrics?.totalAthletes ?? "—")}
+            subtitle="Managed athlete profiles"
             icon="👦"
           />
           <MetricCard
             title="Open Offerings"
-            value={metrics?.openOfferings ?? "—"}
-            subtitle="Active academy terms"
+            value={loading ? "…" : (metrics?.openOfferings ?? "—")}
+            subtitle="Offerings accepting members"
             icon="🏟️"
           />
           <MetricCard
             title="Capacity Utilisation"
-            value={`${metrics?.capacityUtilisationRate ?? 0}%`}
-            subtitle="Court slot occupancy"
-            trend={{ value: "+3.2%", isPositive: true }}
+            value={
+              loading
+                ? "…"
+                : metrics
+                  ? `${metrics.capacityUtilisationRate}%`
+                  : "—"
+            }
+            subtitle="Seats held across open offerings"
             variant="success"
             icon="📈"
           />
           {canViewFinance ? (
             <MetricCard
               title="Payments Requiring Action"
-              value={metrics?.paymentsAttentionCount ?? "—"}
-              subtitle="Declined / Processing"
+              value={loading ? "…" : (metrics?.paymentsAttentionCount ?? "—")}
+              subtitle="Failed or processing payments"
               variant={
-                metrics && metrics.paymentsAttentionCount > 0
+                metrics && (metrics.paymentsAttentionCount ?? 0) > 0
                   ? "danger"
                   : "default"
               }
@@ -177,435 +231,119 @@ export default function AdminDashboardPage() {
           )}
         </div>
 
-        {/* Grid Layout: Capacity & Memberships */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
-            gap: "24px",
-            marginBottom: "32px",
+            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+            gap: 20,
           }}
         >
-          {/* Capacity Utilisation by Offering */}
-          <div
+          <section
             style={{
-              backgroundColor: "#FFFFFF",
-              borderRadius: "12px",
+              background: "#FFFFFF",
               border: "1px solid #E2E8F0",
-              padding: "24px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+              borderRadius: 12,
+              padding: 20,
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "16px",
-              }}
-            >
-              <div>
-                <h3
-                  style={{
-                    margin: 0,
-                    fontSize: "1.125rem",
-                    fontWeight: 800,
-                    color: "#0F172A",
-                  }}
-                >
-                  Programme Offering Capacity
-                </h3>
-                <div style={{ fontSize: "0.8125rem", color: "#64748B" }}>
-                  Enrolled headcount vs max court quota
-                </div>
-              </div>
-              <Link
-                href="/offerings"
-                style={{
-                  fontSize: "0.8125rem",
-                  color: "#D97706",
-                  fontWeight: 600,
-                }}
-              >
-                View All →
-              </Link>
-            </div>
-
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "16px" }}
-            >
-              {offerings.slice(0, 4).map((off) => {
-                const percent = Math.min(
-                  100,
-                  Math.round((off.enrolledCount / off.capacity) * 100),
-                );
-                const isFull = off.enrolledCount >= off.capacity;
-
-                return (
-                  <div key={off.id}>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        fontSize: "0.8125rem",
-                        marginBottom: "6px",
-                      }}
-                    >
-                      <span style={{ fontWeight: 600, color: "#0F172A" }}>
-                        {off.name}
-                      </span>
-                      <span style={{ color: "#64748B" }}>
-                        <strong>{off.enrolledCount}</strong> / {off.capacity} (
-                        {percent}%)
-                      </span>
-                    </div>
-                    <div
-                      style={{
-                        height: "8px",
-                        backgroundColor: "#F1F5F9",
-                        borderRadius: "4px",
-                        overflow: "hidden",
-                      }}
-                    >
-                      <div
-                        style={{
-                          height: "100%",
-                          width: `${percent}%`,
-                          backgroundColor: isFull
-                            ? "#EF4444"
-                            : percent > 80
-                              ? "#F59E0B"
-                              : "#10B981",
-                          borderRadius: "4px",
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Membership Status Overview */}
-          <div
-            style={{
-              backgroundColor: "#FFFFFF",
-              borderRadius: "12px",
-              border: "1px solid #E2E8F0",
-              padding: "24px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "16px",
-              }}
-            >
-              <div>
-                <h3
-                  style={{
-                    margin: 0,
-                    fontSize: "1.125rem",
-                    fontWeight: 800,
-                    color: "#0F172A",
-                  }}
-                >
-                  Recent Membership Enrolments
-                </h3>
-                <div style={{ fontSize: "0.8125rem", color: "#64748B" }}>
-                  Server-authoritative membership contracts
-                </div>
-              </div>
-              <Link
-                href="/memberships"
-                style={{
-                  fontSize: "0.8125rem",
-                  color: "#D97706",
-                  fontWeight: 600,
-                }}
-              >
-                View All →
-              </Link>
-            </div>
-
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "10px" }}
-            >
-              {memberships.slice(0, 4).map((m) => (
-                <div
-                  key={m.id}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "10px 12px",
-                    backgroundColor: "#F8FAFC",
-                    borderRadius: "8px",
-                    border: "1px solid #E2E8F0",
-                  }}
-                >
-                  <div>
-                    <div
-                      style={{
-                        fontWeight: 700,
-                        fontSize: "0.875rem",
-                        color: "#0F172A",
-                      }}
-                    >
-                      {m.athleteName}
-                    </div>
-                    <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
-                      {m.programmeName} • {m.planName}
-                    </div>
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "flex-end",
-                      gap: "4px",
-                    }}
-                  >
-                    <StatusBadge status={m.status} size="sm" />
-                    <span style={{ fontSize: "0.6875rem", color: "#64748B" }}>
-                      Pay: {m.paymentIndicator}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Lower Grid: Payment Attention Queue & Recent Audit Activity */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))",
-            gap: "24px",
-          }}
-        >
-          {/* Payment Attention Queue */}
-          <div
-            style={{
-              backgroundColor: "#FFFFFF",
-              borderRadius: "12px",
-              border: "1px solid #E2E8F0",
-              padding: "24px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "16px",
-              }}
-            >
-              <div>
-                <h3
-                  style={{
-                    margin: 0,
-                    fontSize: "1.125rem",
-                    fontWeight: 800,
-                    color: "#0F172A",
-                  }}
-                >
-                  Payment Attention Queue
-                </h3>
-                <div style={{ fontSize: "0.8125rem", color: "#64748B" }}>
-                  {canViewFinance
-                    ? "Declined mandates & unconfirmed charges"
-                    : "Finance roles only"}
-                </div>
-              </div>
-              {canViewFinance && (
+            <h2 style={{ margin: 0, fontSize: "1.05rem" }}>Quick operations</h2>
+            <p style={{ color: "#64748B", fontSize: "0.875rem" }}>
+              Only tools permitted for your current staff roles are shown.
+            </p>
+            <div style={{ display: "grid", gap: 10 }}>
+              {availableActions.map((action) => (
                 <Link
-                  href="/payments"
+                  key={action.href}
+                  href={action.href}
                   style={{
-                    fontSize: "0.8125rem",
-                    color: "#D97706",
-                    fontWeight: 600,
-                  }}
-                >
-                  Manage Payments →
-                </Link>
-              )}
-            </div>
-
-            {!canViewFinance ? (
-              <div
-                style={{
-                  padding: "20px",
-                  textAlign: "center",
-                  color: "#64748B",
-                  fontSize: "0.875rem",
-                  backgroundColor: "#F8FAFC",
-                  borderRadius: "8px",
-                  border: "1px solid #E2E8F0",
-                }}
-              >
-                🔒 Payment operations are hidden for the current staff role.
-              </div>
-            ) : attentionPayments.length === 0 ? (
-              <div
-                style={{
-                  padding: "20px",
-                  textAlign: "center",
-                  color: "#64748B",
-                  fontSize: "0.875rem",
-                }}
-              >
-                ✓ No payment issues currently require attention.
-              </div>
-            ) : (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "10px",
-                }}
-              >
-                {attentionPayments.map((p) => (
-                  <div
-                    key={p.id}
-                    style={{
-                      padding: "12px",
-                      borderRadius: "8px",
-                      border:
-                        p.status === "FAILED"
-                          ? "1px solid #FECACA"
-                          : "1px solid #FDE68A",
-                      backgroundColor:
-                        p.status === "FAILED" ? "#FEF2F2" : "#FFFBEB",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "flex-start",
-                      }}
-                    >
-                      <div>
-                        <div
-                          style={{
-                            fontWeight: 700,
-                            fontSize: "0.875rem",
-                            color: "#0F172A",
-                          }}
-                        >
-                          {p.payerName} ({p.athleteName})
-                        </div>
-                        <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
-                          {p.paymentId} • Provider: {p.provider}
-                        </div>
-                      </div>
-                      <StatusBadge status={p.status} size="sm" />
-                    </div>
-                    {p.failureReason && (
-                      <div
-                        style={{
-                          fontSize: "0.75rem",
-                          color: "#991B1B",
-                          marginTop: "6px",
-                          fontWeight: 500,
-                        }}
-                      >
-                        ⚠️ Reason: {p.failureReason}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Recent Operational Audit Activity */}
-          <div
-            style={{
-              backgroundColor: "#FFFFFF",
-              borderRadius: "12px",
-              border: "1px solid #E2E8F0",
-              padding: "24px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "16px",
-              }}
-            >
-              <div>
-                <h3
-                  style={{
-                    margin: 0,
-                    fontSize: "1.125rem",
-                    fontWeight: 800,
+                    minHeight: 58,
+                    display: "block",
+                    padding: 12,
+                    boxSizing: "border-box",
+                    textDecoration: "none",
+                    background: "#F8FAFC",
+                    border: "1px solid #E2E8F0",
+                    borderRadius: 9,
                     color: "#0F172A",
                   }}
                 >
-                  Recent Audit Activity
-                </h3>
-                <div style={{ fontSize: "0.8125rem", color: "#64748B" }}>
-                  Immutable operational trail
-                </div>
-              </div>
-              <Link
-                href="/audit"
-                style={{
-                  fontSize: "0.8125rem",
-                  color: "#D97706",
-                  fontWeight: 600,
-                }}
-              >
-                Full Audit Log →
-              </Link>
-            </div>
-
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "12px" }}
-            >
-              {auditLogs.slice(0, 4).map((log) => (
-                <div
-                  key={log.id}
-                  style={{
-                    display: "flex",
-                    gap: "12px",
-                    paddingBottom: "10px",
-                    borderBottom: "1px solid #F1F5F9",
-                    fontSize: "0.8125rem",
-                  }}
-                >
-                  <span style={{ fontSize: "1rem" }} aria-hidden="true">
-                    📜
-                  </span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ color: "#0F172A", fontWeight: 600 }}>
-                      {log.summary}
-                    </div>
-                    <div
-                      style={{
-                        color: "#64748B",
-                        fontSize: "0.75rem",
-                        marginTop: "2px",
-                      }}
-                    >
-                      By <strong>{log.actorName}</strong> • {log.timestamp}
-                    </div>
+                  <strong>{action.title}</strong>
+                  <div
+                    style={{
+                      color: "#64748B",
+                      fontSize: "0.78rem",
+                      marginTop: 3,
+                    }}
+                  >
+                    {action.description}
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
-          </div>
+          </section>
+
+          <section
+            style={{
+              background: "#FFFFFF",
+              border: "1px solid #E2E8F0",
+              borderRadius: 12,
+              padding: 20,
+            }}
+          >
+            <h2 style={{ margin: 0, fontSize: "1.05rem" }}>Session security</h2>
+            <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
+              <div>
+                <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+                  Signed in as
+                </div>
+                <strong>{user?.displayName ?? "KHLIM Staff"}</strong>
+              </div>
+              <div>
+                <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+                  Access model
+                </div>
+                <strong>
+                  {isDemoMode
+                    ? "Demo permission preview"
+                    : "Backend RBAC + MFA"}
+                </strong>
+              </div>
+              <div>
+                <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+                  Snapshot generated
+                </div>
+                <strong>
+                  {metrics?.generatedAt
+                    ? new Date(metrics.generatedAt).toLocaleString()
+                    : isDemoMode
+                      ? "Synthetic demo data"
+                      : "Waiting for backend"}
+                </strong>
+              </div>
+            </div>
+          </section>
         </div>
+
+        {isDemoMode && (
+          <section
+            style={{
+              marginTop: 20,
+              background: "#FFFBEB",
+              border: "1px solid #FDE68A",
+              borderRadius: 12,
+              padding: 18,
+              color: "#78350F",
+            }}
+          >
+            <strong>Demo-only operational previews</strong>
+            <p style={{ marginBottom: 0 }}>
+              Programme Offering Capacity, Recent Membership Enrolments, Payment
+              Attention Queue, and Recent Audit Activity remain available on the
+              dedicated demo pages. They are not presented as live data until
+              each persisted feed is connected.
+            </p>
+          </section>
+        )}
       </div>
     </AdminShell>
   );

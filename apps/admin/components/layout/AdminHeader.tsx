@@ -13,8 +13,7 @@ export interface AdminHeaderProps {
 const DEMO_ROLES: StaffRole[] = [
   "SUPER_ADMIN",
   "MANAGEMENT",
-  "FINANCE",
-  "ADMIN",
+  "FINANCE_ADMIN",
   "ACADEMY_ADMIN",
   "HEAD_COACH",
   "COACH",
@@ -23,7 +22,7 @@ const DEMO_ROLES: StaffRole[] = [
 
 export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
   const pathname = usePathname();
-  const { user, role, setRole, isDemoMode } = useAdminAuth();
+  const { user, role, setRole, isDemoMode, logout } = useAdminAuth();
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -40,6 +39,9 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
     if (pathname.startsWith("/payments")) return "Payment Operations";
     if (pathname.startsWith("/venues")) return "Venues & Courts";
     if (pathname.startsWith("/scheduling")) return "Scheduling & Sessions";
+    if (pathname.startsWith("/editorial")) return "Editorial Studio";
+    if (pathname.startsWith("/notifications")) return "Notifications";
+    if (pathname.startsWith("/users")) return "Accounts & Access";
     if (pathname.startsWith("/staff")) return "Staff & Roles";
     if (pathname.startsWith("/audit")) return "Audit Trail";
     if (pathname.startsWith("/settings")) return "Settings";
@@ -52,11 +54,11 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
         minHeight: "64px",
         backgroundColor: "#FFFFFF",
         borderBottom: "1px solid #E2E8F0",
-        padding: "0 24px",
+        padding: "0 16px",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        gap: "16px",
+        gap: "12px",
         position: "sticky",
         top: 0,
         zIndex: 30,
@@ -66,7 +68,7 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "16px",
+          gap: "12px",
           minWidth: 0,
         }}
       >
@@ -76,10 +78,11 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
           className="admin-mobile-header-btn"
           aria-label="Open navigation menu"
           style={{
+            minWidth: 44,
+            minHeight: 44,
             background: "none",
             border: "1px solid #CBD5E1",
-            borderRadius: "6px",
-            padding: "6px 10px",
+            borderRadius: "8px",
             fontSize: "1.125rem",
             cursor: "pointer",
             color: "#0F172A",
@@ -107,7 +110,7 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
           display: "flex",
           alignItems: "center",
           justifyContent: "flex-end",
-          gap: "10px",
+          gap: "8px",
           flexShrink: 0,
         }}
       >
@@ -116,27 +119,28 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
           style={{
             fontSize: "0.6875rem",
             fontWeight: 800,
-            color: isDemoMode ? "#92400E" : "#475569",
-            backgroundColor: isDemoMode ? "#FEF3C7" : "#F1F5F9",
-            border: `1px solid ${isDemoMode ? "#FDE68A" : "#CBD5E1"}`,
-            padding: "3px 8px",
-            borderRadius: "4px",
+            color: isDemoMode ? "#92400E" : "#166534",
+            backgroundColor: isDemoMode ? "#FEF3C7" : "#F0FDF4",
+            border: `1px solid ${isDemoMode ? "#FDE68A" : "#BBF7D0"}`,
+            padding: "4px 8px",
+            borderRadius: "999px",
             letterSpacing: "0.04em",
           }}
         >
-          {isDemoMode ? "DEMO" : "STAFF"}
+          {isDemoMode ? "DEMO" : "MFA VERIFIED"}
         </span>
 
         <div className="hide-on-mobile" style={{ position: "relative" }}>
           <button
             type="button"
             onClick={() => setShowNotifications((current) => !current)}
-            aria-label="View notifications"
+            aria-label="View operational alerts"
             style={{
+              minWidth: 44,
+              minHeight: 44,
               background: "none",
               border: "1px solid #E2E8F0",
               borderRadius: "8px",
-              padding: "7px 10px",
               cursor: "pointer",
               fontSize: "1rem",
             }}
@@ -149,7 +153,7 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
               style={{
                 position: "absolute",
                 right: 0,
-                top: "42px",
+                top: "48px",
                 width: "280px",
                 backgroundColor: "#FFFFFF",
                 borderRadius: "10px",
@@ -172,7 +176,7 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
               >
                 {isDemoMode
                   ? "Demo mode does not display live operational alerts."
-                  : "Notification integration is pending backend support."}
+                  : "Use Notifications for persistent guardian and programme communications."}
               </p>
             </div>
           )}
@@ -185,6 +189,7 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
               onClick={() => setShowRoleMenu((current) => !current)}
               aria-label="Switch demo role"
               style={{
+                minHeight: 44,
                 display: "flex",
                 alignItems: "center",
                 gap: "8px",
@@ -210,7 +215,7 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
                 style={{
                   position: "absolute",
                   right: 0,
-                  top: "42px",
+                  top: "48px",
                   width: "220px",
                   maxHeight: "70vh",
                   overflowY: "auto",
@@ -242,6 +247,7 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
                     }}
                     style={{
                       width: "100%",
+                      minHeight: 44,
                       textAlign: "left",
                       padding: "8px",
                       fontSize: "0.8125rem",
@@ -264,9 +270,10 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
 
         <div
           title={user?.displayName ?? "Staff user"}
+          aria-label={user?.displayName ?? "Staff user"}
           style={{
-            width: "34px",
-            height: "34px",
+            width: "38px",
+            height: "38px",
             borderRadius: "50%",
             backgroundColor: "#18181B",
             color: "#F59E0B",
@@ -279,6 +286,25 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
         >
           {user?.displayName?.[0] ?? "?"}
         </div>
+
+        {!isDemoMode && (
+          <button
+            type="button"
+            onClick={() => void logout()}
+            style={{
+              minHeight: 44,
+              border: "1px solid #CBD5E1",
+              borderRadius: 8,
+              background: "#FFFFFF",
+              color: "#334155",
+              padding: "0 12px",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            Sign out
+          </button>
+        )}
       </div>
     </header>
   );

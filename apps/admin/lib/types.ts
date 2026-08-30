@@ -1,12 +1,15 @@
 export type StaffRole =
   | "SUPER_ADMIN"
   | "MANAGEMENT"
+  | "FINANCE_ADMIN"
   | "FINANCE"
   | "ADMIN"
   | "ACADEMY_ADMIN"
   | "HEAD_COACH"
   | "COACH"
   | "EVENT_STAFF";
+
+export type AccountRole = StaffRole | "GUARDIAN" | "ATHLETE";
 
 export interface AdminUser {
   id: string;
@@ -15,6 +18,36 @@ export interface AdminUser {
   role: StaffRole;
   roles: StaffRole[];
   mfaEnabled: boolean;
+  mfaSatisfied?: boolean;
+  preferredLocale?: string;
+  authenticatorAssuranceLevel?: "aal1" | "aal2" | null;
+}
+
+export interface AdminSession {
+  id: string;
+  email: string | null;
+  displayName: string;
+  preferredLocale: string;
+  roles: string[];
+  authenticatorAssuranceLevel: "aal1" | "aal2" | null;
+  mfaSatisfied: boolean;
+}
+
+export interface AdminAccountItem {
+  id: string;
+  email: string | null;
+  displayName: string;
+  status: AccountStatus;
+  preferredLocale: string;
+  roles: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminAccountListResponse {
+  items: AdminAccountItem[];
+  total: number;
+  limit: number;
 }
 
 export interface ProgrammeItem {
@@ -222,5 +255,6 @@ export interface DashboardMetrics {
   totalAthletes: number;
   openOfferings: number;
   capacityUtilisationRate: number;
-  paymentsAttentionCount: number;
+  paymentsAttentionCount: number | null;
+  generatedAt?: string;
 }

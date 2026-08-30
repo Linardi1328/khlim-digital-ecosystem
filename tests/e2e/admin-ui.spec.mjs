@@ -11,6 +11,7 @@ const adminRoutes = [
   "/payments",
   "/venues",
   "/scheduling",
+  "/users",
   "/staff",
   "/audit",
   "/settings",
@@ -64,6 +65,7 @@ test("desktop navigation reaches every core operations domain", async ({
     ["Payments", "/payments"],
     ["Venues", "/venues"],
     ["Scheduling", "/scheduling"],
+    ["Accounts & Access", "/users"],
     ["Staff", "/staff"],
     ["Audit Log", "/audit"],
     ["Settings", "/settings"],
@@ -85,7 +87,7 @@ test("mobile drawer navigation opens and reaches programmes", async ({
   await expect(page).toHaveURL(/\/programmes$/);
 });
 
-test("demo role preview hides finance data from coach role", async ({
+test("demo role preview hides management and finance tools from coach role", async ({
   page,
   viewport,
 }) => {
@@ -97,6 +99,9 @@ test("demo role preview hides finance data from coach role", async ({
   await expect(
     page.getByRole("link", { name: "Payments", exact: true }),
   ).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "Accounts & Access", exact: true }),
+  ).toHaveCount(0);
   await expect(page.getByText("Restricted Financial Ledger")).toBeVisible();
 
   await page.getByRole("link", { name: "Dashboard", exact: true }).click();
@@ -104,9 +109,6 @@ test("demo role preview hides finance data from coach role", async ({
   await expect(page.getByText("Finance roles only").first()).toBeVisible();
   await expect(
     page.getByText("Declined mandates & unconfirmed charges"),
-  ).toHaveCount(0);
-  await expect(
-    page.getByRole("link", { name: "Manage Payments →" }),
   ).toHaveCount(0);
 });
 

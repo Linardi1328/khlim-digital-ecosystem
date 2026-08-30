@@ -1,5 +1,18 @@
-import { Body, Controller, Get, Param, Patch, Put } from "@nestjs/common";
-import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Put,
+  Query,
+} from "@nestjs/common";
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from "@nestjs/swagger";
 import type { AuthenticatedUserContext } from "../auth/authenticated-user";
 import { RequireAnyRole, RequireMfa } from "../auth/authorization.decorators";
 import { CurrentUser } from "../auth/current-user.decorator";
@@ -13,6 +26,21 @@ import { UpdateAccountStatusDto, UpdateStaffRolesDto } from "./admin.dto";
 @Controller("admin/users")
 export class AdminController {
   constructor(private readonly admin: AdminService) {}
+
+  @Get()
+  @ApiOperation({ summary: "List accounts for identity administration" })
+  @ApiQuery({ name: "q", required: false, type: String })
+  @ApiQuery({ name: "status", required: false, type: String })
+  @ApiQuery({ name: "role", required: false, type: String })
+  @ApiQuery({ name: "take", required: false, type: String })
+  listUsers(
+    @Query("q") q?: string,
+    @Query("status") status?: string,
+    @Query("role") role?: string,
+    @Query("take") take?: string,
+  ) {
+    return this.admin.listUsers({ q, status, role, take });
+  }
 
   @Get(":userId")
   @ApiOperation({ summary: "Get an account for identity administration" })

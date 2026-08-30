@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import type { AuthenticatedUserContext } from "../auth/authenticated-user";
-import type { KhlimUserRole } from "../auth/roles";
+import { KHLIM_USER_ROLES, type KhlimUserRole } from "../auth/roles";
 import { PrismaService } from "../database/prisma.service";
 import type { UpdateAccountStatusDto, UpdateStaffRolesDto } from "./admin.dto";
 
@@ -18,12 +18,241 @@ const STAFF_ROLES: readonly KhlimUserRole[] = [
   "HEAD_COACH",
   "EVENT_STAFF",
 ];
+const FINANCE_ROLES = new Set<KhlimUserRole>([
+  "SUPER_ADMIN",
+  "MANAGEMENT",
+  "FINANCE_ADMIN",
+]);
+const CAPACITY_HOLDING_MEMBERSHIP_STATUSES = [
+  "PENDING",
+  "ACTIVE",
+  "SUSPENDED",
+] as const;
 const staffRoleSet = new Set<string>(STAFF_ROLES);
+const allRoleSet = new Set<string>(KHLIM_USER_ROLES);
 const accountStatuses = new Set(["ACTIVE", "SUSPENDED", "DEACTIVATED"]);
+
+interface ListUsersQuery {
+  q?: string;
+  status?: string;
+  role?: string;
+  take?: string;
+}
 
 @Injectable()
 export class AdminService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async getSession(actor: AuthenticatedUserContext) {
+    const user = await this.prisma.client.user.findUnique({
+      where: { id: actor.id },
+      select: {
+        id: true,
+        email: true,
+        preferredLocale: true,
+        guardianProfile: { select: { displayName: true } },
+        coachProfile: { select: { displayName: true } },
+        athleteProfile: { select: { displayName: true } },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException("Staff account not found");
+    }
+
+    const displayName =
+      user.coachProfile?.displayName ??
+      user.guardianProfile?.displayName ??
+      user.athleteProfile?.displayName ??
+      user.email?.split("@")[0] ??
+      "KHLIM Staff";
+
+    return {
+      id: user.id,
+      email: user.email,
+      displayName,
+      preferredLocale: user.preferredLocale,
+      roles: actor.roles,
+      authenticatorAssuranceLevel: actor.authenticatorAssuranceLevel,
+      mfaSatisfied: actor.authenticatorAssuranceLevel === "aal2",
+    };
+  }
+
+  async getOverview(actor: AuthenticatedUserContext) {
+    const canViewFinance = actor.roles.some((role) =>
+      FINANCE_ROLES.has(role as KhlimUserRole),
+    );
+
+    const [
+      activeMembers,
+      pendingMemberships,
+      totalAthletes,
+      offerings,
+      payments,
+    ] = await Promise.all([
+      this.prisma.client.membership.count({ where: { status: "ACTIVE" } }),
+      this.prisma.client.membership.count({ where: { status: "PENDING" } }),
+      this.prisma.client.athleteProfile.count(),
+      this.prisma.client.programmeOffering.findMany({
+        where: { status: "OPEN" },
+        select: {
+          capacity: true,
+          _count: {
+            select: {
+              memberships: {
+                where: {
+                  status: {
+                    in: [...CAPACITY_HOLDING_MEMBERSHIP_STATUSES],
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+      canViewFinance
+        ? this.prisma.client.payment.count({
+            where: { status: { in: ["FAILED", "PROCESSING"] } },
+          })
+        : Promise.resolve(null),
+    ]);
+
+    const totalCapacity = offerings.reduce(
+      (total, offering) => total + offering.capacity,
+      0,
+    );
+    const occupiedCapacity = offerings.reduce(
+      (total, offering) => total + offering._count.memberships,
+      0,
+    );
+
+    return {
+      activeMembers,
+      pendingMemberships,
+      totalAthletes,
+      openOfferings: offerings.length,
+      capacityUtilisationRate:
+        totalCapacity === 0
+          ? 0
+          : Math.round((occupiedCapacity / totalCapacity) * 100),
+      paymentsAttentionCount: payments,
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  async listUsers(query: ListUsersQuery) {
+    const q = query.q?.trim().slice(0, 120) || undefined;
+    const status = query.status?.trim().toUpperCase() || undefined;
+    const role = query.role?.trim().toUpperCase() || undefined;
+    const requestedTake = query.take ? Number.parseInt(query.take, 10) : 25;
+
+    if (status && !accountStatuses.has(status)) {
+      throw new BadRequestException("status is invalid");
+    }
+    if (role && !allRoleSet.has(role)) {
+      throw new BadRequestException("role is invalid");
+    }
+    if (!Number.isFinite(requestedTake) || requestedTake < 1) {
+      throw new BadRequestException("take must be a positive integer");
+    }
+
+    const take = Math.min(requestedTake, 50);
+    const where = {
+      ...(status
+        ? {
+            status: status as "ACTIVE" | "SUSPENDED" | "DEACTIVATED",
+          }
+        : {}),
+      ...(role
+        ? {
+            roleAssignments: {
+              some: { role: role as KhlimUserRole },
+            },
+          }
+        : {}),
+      ...(q
+        ? {
+            OR: [
+              { email: { contains: q, mode: "insensitive" as const } },
+              {
+                guardianProfile: {
+                  is: {
+                    displayName: {
+                      contains: q,
+                      mode: "insensitive" as const,
+                    },
+                  },
+                },
+              },
+              {
+                coachProfile: {
+                  is: {
+                    displayName: {
+                      contains: q,
+                      mode: "insensitive" as const,
+                    },
+                  },
+                },
+              },
+              {
+                athleteProfile: {
+                  is: {
+                    displayName: {
+                      contains: q,
+                      mode: "insensitive" as const,
+                    },
+                  },
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+
+    const [users, total] = await Promise.all([
+      this.prisma.client.user.findMany({
+        where,
+        take,
+        orderBy: [{ updatedAt: "desc" }, { email: "asc" }],
+        select: {
+          id: true,
+          email: true,
+          status: true,
+          preferredLocale: true,
+          createdAt: true,
+          updatedAt: true,
+          roleAssignments: {
+            select: { role: true },
+            orderBy: { role: "asc" },
+          },
+          guardianProfile: { select: { displayName: true } },
+          coachProfile: { select: { displayName: true } },
+          athleteProfile: { select: { displayName: true } },
+        },
+      }),
+      this.prisma.client.user.count({ where }),
+    ]);
+
+    return {
+      items: users.map((user) => ({
+        id: user.id,
+        email: user.email,
+        displayName:
+          user.coachProfile?.displayName ??
+          user.guardianProfile?.displayName ??
+          user.athleteProfile?.displayName ??
+          user.email?.split("@")[0] ??
+          "KHLIM User",
+        status: user.status,
+        preferredLocale: user.preferredLocale,
+        roles: user.roleAssignments.map((assignment) => assignment.role),
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      })),
+      total,
+      limit: take,
+    };
+  }
 
   async getUser(userId: string) {
     const user = await this.prisma.client.user.findUnique({
