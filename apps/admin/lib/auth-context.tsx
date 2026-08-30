@@ -179,7 +179,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await loadRealStaffSession();
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Staff session refresh failed.";
+        error instanceof Error
+          ? error.message
+          : "Staff session refresh failed.";
       setAuthError(message);
       throw error;
     } finally {
