@@ -27,7 +27,8 @@ const QUICK_ACTIONS: QuickAction[] = [
   {
     href: "/scheduling",
     title: "Scheduling & attendance",
-    description: "Create sessions, handle cancellations, and record attendance.",
+    description:
+      "Create sessions, handle cancellations, and record attendance.",
     roles: [
       "SUPER_ADMIN",
       "MANAGEMENT",
@@ -211,11 +212,7 @@ export default function AdminDashboardPage() {
           {canViewFinance ? (
             <MetricCard
               title="Payments Requiring Action"
-              value={
-                loading
-                  ? "…"
-                  : (metrics?.paymentsAttentionCount ?? "—")
-              }
+              value={loading ? "…" : (metrics?.paymentsAttentionCount ?? "—")}
               subtitle="Failed or processing payments"
               variant={
                 metrics && (metrics.paymentsAttentionCount ?? 0) > 0
@@ -306,7 +303,9 @@ export default function AdminDashboardPage() {
                   Access model
                 </div>
                 <strong>
-                  {isDemoMode ? "Demo permission preview" : "Backend RBAC + MFA"}
+                  {isDemoMode
+                    ? "Demo permission preview"
+                    : "Backend RBAC + MFA"}
                 </strong>
               </div>
               <div>
