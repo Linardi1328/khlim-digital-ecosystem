@@ -28,6 +28,16 @@ const CAPACITY_HOLDING_MEMBERSHIP_STATUSES = [
   "ACTIVE",
   "SUSPENDED",
 ] as const;
+const MEMBERSHIP_STATUSES = [
+  "PENDING",
+  "ACTIVE",
+  "SUSPENDED",
+  "CANCELLED",
+  "COMPLETED",
+  "EXPIRED",
+] as const;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const REPORT_MAX_DAYS = 366;
 const staffRoleSet = new Set<string>(STAFF_ROLES);
 const allRoleSet = new Set<string>(KHLIM_USER_ROLES);
 const accountStatuses = new Set(["ACTIVE", "SUSPENDED", "DEACTIVATED"]);
@@ -37,6 +47,57 @@ interface ListUsersQuery {
   status?: string;
   role?: string;
   take?: string;
+}
+
+interface OperationsReportQuery {
+  from?: string;
+  to?: string;
+}
+
+function toDateOnly(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function parseDateOnly(
+  value: string,
+  label: "from" | "to",
+  endOfDay: boolean,
+): Date {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new BadRequestException(`${label} must use YYYY-MM-DD`);
+  }
+
+  const suffix = endOfDay ? "T23:59:59.999Z" : "T00:00:00.000Z";
+  const parsed = new Date(`${value}${suffix}`);
+  if (Number.isNaN(parsed.getTime()) || toDateOnly(parsed) !== value) {
+    throw new BadRequestException(`${label} is not a valid calendar date`);
+  }
+  return parsed;
+}
+
+function resolveReportRange(query: OperationsReportQuery) {
+  const now = new Date();
+  const today = toDateOnly(now);
+  const defaultFromDate = new Date(`${today}T00:00:00.000Z`);
+  defaultFromDate.setUTCDate(defaultFromDate.getUTCDate() - 29);
+
+  const fromLabel = query.from?.trim() || toDateOnly(defaultFromDate);
+  const toLabel = query.to?.trim() || today;
+  const from = parseDateOnly(fromLabel, "from", false);
+  const to = parseDateOnly(toLabel, "to", true);
+
+  if (from.getTime() > to.getTime()) {
+    throw new BadRequestException("from must be on or before to");
+  }
+
+  const days = Math.floor((to.getTime() - from.getTime()) / DAY_MS) + 1;
+  if (days > REPORT_MAX_DAYS) {
+    throw new BadRequestException(
+      `report range cannot exceed ${REPORT_MAX_DAYS} days`,
+    );
+  }
+
+  return { from, to, fromLabel, toLabel, days };
 }
 
 @Injectable()
@@ -136,6 +197,241 @@ export class AdminService {
           ? 0
           : Math.round((occupiedCapacity / totalCapacity) * 100),
       paymentsAttentionCount: payments,
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  async getOperationsReport(
+    actor: AuthenticatedUserContext,
+    query: OperationsReportQuery,
+  ) {
+    const range = resolveReportRange(query);
+    const canViewFinance = actor.roles.some((role) =>
+      FINANCE_ROLES.has(role as KhlimUserRole),
+    );
+
+    const [
+      membershipStatusCounts,
+      createdMemberships,
+      activatedMemberships,
+      cancelledMemberships,
+      scheduledSessions,
+      completedSessions,
+      cancelledSessions,
+      attendancePresent,
+      attendanceLate,
+      attendanceAbsent,
+      attendanceExcused,
+      offerings,
+      editorialReadyForReview,
+      editorialVerificationBlocked,
+      editorialPublished,
+    ] = await Promise.all([
+      Promise.all(
+        MEMBERSHIP_STATUSES.map((status) =>
+          this.prisma.client.membership.count({ where: { status } }),
+        ),
+      ),
+      this.prisma.client.membership.count({
+        where: { createdAt: { gte: range.from, lte: range.to } },
+      }),
+      this.prisma.client.membership.count({
+        where: { activatedAt: { gte: range.from, lte: range.to } },
+      }),
+      this.prisma.client.membership.count({
+        where: { cancelledAt: { gte: range.from, lte: range.to } },
+      }),
+      this.prisma.client.trainingSession.count({
+        where: {
+          status: "SCHEDULED",
+          startsAt: { gte: range.from, lte: range.to },
+        },
+      }),
+      this.prisma.client.trainingSession.count({
+        where: {
+          status: "COMPLETED",
+          startsAt: { gte: range.from, lte: range.to },
+        },
+      }),
+      this.prisma.client.trainingSession.count({
+        where: {
+          status: "CANCELLED",
+          startsAt: { gte: range.from, lte: range.to },
+        },
+      }),
+      this.prisma.client.attendanceRecord.count({
+        where: {
+          status: "PRESENT",
+          markedAt: { gte: range.from, lte: range.to },
+        },
+      }),
+      this.prisma.client.attendanceRecord.count({
+        where: {
+          status: "LATE",
+          markedAt: { gte: range.from, lte: range.to },
+        },
+      }),
+      this.prisma.client.attendanceRecord.count({
+        where: {
+          status: "ABSENT",
+          markedAt: { gte: range.from, lte: range.to },
+        },
+      }),
+      this.prisma.client.attendanceRecord.count({
+        where: {
+          status: "EXCUSED",
+          markedAt: { gte: range.from, lte: range.to },
+        },
+      }),
+      this.prisma.client.programmeOffering.findMany({
+        where: { status: "OPEN" },
+        select: {
+          capacity: true,
+          _count: {
+            select: {
+              memberships: {
+                where: {
+                  status: {
+                    in: [...CAPACITY_HOLDING_MEMBERSHIP_STATUSES],
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.client.editorialEntry.count({
+        where: { status: "DRAFT", factsVerified: true },
+      }),
+      this.prisma.client.editorialEntry.count({
+        where: { status: "DRAFT", factsVerified: false },
+      }),
+      this.prisma.client.editorialEntry.count({
+        where: { status: "PUBLISHED", factsVerified: true },
+      }),
+    ]);
+
+    const membershipsByStatus = Object.fromEntries(
+      MEMBERSHIP_STATUSES.map((status, index) => [
+        status,
+        membershipStatusCounts[index] ?? 0,
+      ]),
+    );
+
+    const totalCapacity = offerings.reduce(
+      (total, offering) => total + offering.capacity,
+      0,
+    );
+    const occupiedPlaces = offerings.reduce(
+      (total, offering) => total + offering._count.memberships,
+      0,
+    );
+    const attendanceRecorded =
+      attendancePresent + attendanceLate + attendanceAbsent + attendanceExcused;
+    const attendanceRateDenominator =
+      attendancePresent + attendanceLate + attendanceAbsent;
+    const attendanceRate =
+      attendanceRateDenominator === 0
+        ? 0
+        : Math.round(
+            ((attendancePresent + attendanceLate) /
+              attendanceRateDenominator) *
+              100,
+          );
+
+    let finance: null | {
+      paidPayments: number;
+      failedPayments: number;
+      currencyBreakdown: Array<{
+        currency: string;
+        paidAmountMinor: number;
+        paidPayments: number;
+      }>;
+    } = null;
+
+    if (canViewFinance) {
+      const [paidRows, failedPayments] = await Promise.all([
+        this.prisma.client.payment.findMany({
+          where: {
+            status: "PAID",
+            settledAt: { gte: range.from, lte: range.to },
+          },
+          select: { amountMinor: true, currency: true },
+        }),
+        this.prisma.client.payment.count({
+          where: {
+            status: "FAILED",
+            attemptedAt: { gte: range.from, lte: range.to },
+          },
+        }),
+      ]);
+
+      const currencyMap = new Map<
+        string,
+        { currency: string; paidAmountMinor: number; paidPayments: number }
+      >();
+      for (const payment of paidRows) {
+        const current = currencyMap.get(payment.currency) ?? {
+          currency: payment.currency,
+          paidAmountMinor: 0,
+          paidPayments: 0,
+        };
+        current.paidAmountMinor += payment.amountMinor;
+        current.paidPayments += 1;
+        currencyMap.set(payment.currency, current);
+      }
+
+      finance = {
+        paidPayments: paidRows.length,
+        failedPayments,
+        currencyBreakdown: [...currencyMap.values()].sort((a, b) =>
+          a.currency.localeCompare(b.currency),
+        ),
+      };
+    }
+
+    return {
+      period: {
+        from: range.fromLabel,
+        to: range.toLabel,
+        days: range.days,
+      },
+      memberships: {
+        byStatus: membershipsByStatus,
+        createdInPeriod: createdMemberships,
+        activatedInPeriod: activatedMemberships,
+        cancelledInPeriod: cancelledMemberships,
+      },
+      sessions: {
+        scheduled: scheduledSessions,
+        completed: completedSessions,
+        cancelled: cancelledSessions,
+        total: scheduledSessions + completedSessions + cancelledSessions,
+      },
+      attendance: {
+        present: attendancePresent,
+        late: attendanceLate,
+        absent: attendanceAbsent,
+        excused: attendanceExcused,
+        recorded: attendanceRecorded,
+        attendanceRate,
+      },
+      capacity: {
+        openOfferings: offerings.length,
+        totalCapacity,
+        occupiedPlaces,
+        availablePlaces: Math.max(0, totalCapacity - occupiedPlaces),
+        utilisationRate:
+          totalCapacity === 0
+            ? 0
+            : Math.round((occupiedPlaces / totalCapacity) * 100),
+      },
+      editorial: {
+        readyForReview: editorialReadyForReview,
+        verificationBlocked: editorialVerificationBlocked,
+        published: editorialPublished,
+      },
+      finance,
       generatedAt: new Date().toISOString(),
     };
   }
