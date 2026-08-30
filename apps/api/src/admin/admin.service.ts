@@ -83,34 +83,39 @@ export class AdminService {
       FINANCE_ROLES.has(role as KhlimUserRole),
     );
 
-    const [activeMembers, pendingMemberships, totalAthletes, offerings, payments] =
-      await Promise.all([
-        this.prisma.client.membership.count({ where: { status: "ACTIVE" } }),
-        this.prisma.client.membership.count({ where: { status: "PENDING" } }),
-        this.prisma.client.athleteProfile.count(),
-        this.prisma.client.programmeOffering.findMany({
-          where: { status: "OPEN" },
-          select: {
-            capacity: true,
-            _count: {
-              select: {
-                memberships: {
-                  where: {
-                    status: {
-                      in: [...CAPACITY_HOLDING_MEMBERSHIP_STATUSES],
-                    },
+    const [
+      activeMembers,
+      pendingMemberships,
+      totalAthletes,
+      offerings,
+      payments,
+    ] = await Promise.all([
+      this.prisma.client.membership.count({ where: { status: "ACTIVE" } }),
+      this.prisma.client.membership.count({ where: { status: "PENDING" } }),
+      this.prisma.client.athleteProfile.count(),
+      this.prisma.client.programmeOffering.findMany({
+        where: { status: "OPEN" },
+        select: {
+          capacity: true,
+          _count: {
+            select: {
+              memberships: {
+                where: {
+                  status: {
+                    in: [...CAPACITY_HOLDING_MEMBERSHIP_STATUSES],
                   },
                 },
               },
             },
           },
-        }),
-        canViewFinance
-          ? this.prisma.client.payment.count({
-              where: { status: { in: ["FAILED", "PROCESSING"] } },
-            })
-          : Promise.resolve(null),
-      ]);
+        },
+      }),
+      canViewFinance
+        ? this.prisma.client.payment.count({
+            where: { status: { in: ["FAILED", "PROCESSING"] } },
+          })
+        : Promise.resolve(null),
+    ]);
 
     const totalCapacity = offerings.reduce(
       (total, offering) => total + offering.capacity,
