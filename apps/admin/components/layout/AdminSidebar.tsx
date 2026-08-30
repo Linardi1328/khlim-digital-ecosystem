@@ -20,6 +20,14 @@ const ACADEMY_MANAGEMENT: StaffRole[] = [
   "MANAGEMENT",
   "ACADEMY_ADMIN",
 ];
+const REPORTING: StaffRole[] = [
+  "SUPER_ADMIN",
+  "MANAGEMENT",
+  "FINANCE_ADMIN",
+  "FINANCE",
+  "ACADEMY_ADMIN",
+  "HEAD_COACH",
+];
 const PLAYER_OPERATIONS: StaffRole[] = [
   "SUPER_ADMIN",
   "MANAGEMENT",
@@ -44,6 +52,7 @@ const FINANCE: StaffRole[] = [
 
 export const ADMIN_NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Dashboard", icon: "📊" },
+  { href: "/reports", label: "Reports", icon: "📈", roles: REPORTING },
   {
     href: "/programmes",
     label: "Programmes",
@@ -98,6 +107,12 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     label: "Editorial Studio",
     icon: "📰",
     roles: ACADEMY_MANAGEMENT,
+  },
+  {
+    href: "/moderation",
+    label: "Moderation",
+    icon: "🛡️",
+    roles: MANAGEMENT,
   },
   {
     href: "/notifications",
