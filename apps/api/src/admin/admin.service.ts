@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import type { AuthenticatedUserContext } from "../auth/authenticated-user";
-import type { KhlimUserRole } from "../auth/roles";
+import { KHLIM_USER_ROLES, type KhlimUserRole } from "../auth/roles";
 import { PrismaService } from "../database/prisma.service";
 import type { UpdateAccountStatusDto, UpdateStaffRolesDto } from "./admin.dto";
 
@@ -18,11 +18,6 @@ const STAFF_ROLES: readonly KhlimUserRole[] = [
   "HEAD_COACH",
   "EVENT_STAFF",
 ];
-const ALL_ROLES: readonly KhlimUserRole[] = [
-  "GUARDIAN",
-  "ATHLETE",
-  ...STAFF_ROLES,
-];
 const FINANCE_ROLES = new Set<KhlimUserRole>([
   "SUPER_ADMIN",
   "MANAGEMENT",
@@ -34,7 +29,7 @@ const CAPACITY_HOLDING_MEMBERSHIP_STATUSES = [
   "SUSPENDED",
 ] as const;
 const staffRoleSet = new Set<string>(STAFF_ROLES);
-const allRoleSet = new Set<string>(ALL_ROLES);
+const allRoleSet = new Set<string>(KHLIM_USER_ROLES);
 const accountStatuses = new Set(["ACTIVE", "SUSPENDED", "DEACTIVATED"]);
 
 interface ListUsersQuery {
