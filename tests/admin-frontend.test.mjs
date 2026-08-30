@@ -218,7 +218,9 @@ test("Admin API exposes staff session, MFA-protected overview, and management ac
   const accessController = await read(
     "apps/api/src/admin/admin-access.controller.ts",
   );
-  const identityController = await read("apps/api/src/admin/admin.controller.ts");
+  const identityController = await read(
+    "apps/api/src/admin/admin.controller.ts",
+  );
   const service = await read("apps/api/src/admin/admin.service.ts");
 
   assert.match(accessController, /@Get\("session"\)/);
