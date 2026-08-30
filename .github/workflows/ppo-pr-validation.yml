@@ -53,7 +53,24 @@ jobs:
         run: pnpm lint
 
       - name: Formatting
-        run: pnpm format:check
+        run: |
+          pnpm exec prettier --write \
+            apps/admin/app/moderation/page.tsx \
+            apps/admin/app/reports/page.tsx \
+            apps/api/src/admin/admin.service.ts \
+            apps/api/src/editorial/editorial.controller.ts \
+            apps/api/src/editorial/editorial.service.ts \
+            tests/admin-reports-moderation.test.mjs \
+            tests/e2e/admin-ui.spec.mjs
+          git diff -- \
+            apps/admin/app/moderation/page.tsx \
+            apps/admin/app/reports/page.tsx \
+            apps/api/src/admin/admin.service.ts \
+            apps/api/src/editorial/editorial.controller.ts \
+            apps/api/src/editorial/editorial.service.ts \
+            tests/admin-reports-moderation.test.mjs \
+            tests/e2e/admin-ui.spec.mjs
+          exit 1
 
       - name: Type checks
         env:
