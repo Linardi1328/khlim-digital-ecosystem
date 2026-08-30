@@ -42,9 +42,24 @@ export function Button({
   }
 
   const sizeStyles = {
-    sm: { padding: "6px 12px", fontSize: "0.8125rem", borderRadius: "6px" },
-    md: { padding: "8px 16px", fontSize: "0.875rem", borderRadius: "8px" },
-    lg: { padding: "12px 20px", fontSize: "1rem", borderRadius: "8px" },
+    sm: {
+      minHeight: "44px",
+      padding: "6px 12px",
+      fontSize: "0.8125rem",
+      borderRadius: "6px",
+    },
+    md: {
+      minHeight: "44px",
+      padding: "8px 16px",
+      fontSize: "0.875rem",
+      borderRadius: "8px",
+    },
+    lg: {
+      minHeight: "44px",
+      padding: "12px 20px",
+      fontSize: "1rem",
+      borderRadius: "8px",
+    },
   };
 
   const isDisabled = disabled || isLoading;

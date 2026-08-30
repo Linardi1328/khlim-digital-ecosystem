@@ -24,6 +24,21 @@ export interface EditorialInput {
   aiAssisted?: boolean;
 }
 
+interface ModerationCandidate {
+  type: EditorialType;
+  slug: string | null;
+  title: string;
+  eventName: string;
+  summary: string;
+  yearLabel: string | null;
+  playerName: string | null;
+  achievement: string | null;
+  achievedOnLabel: string | null;
+  articleParagraphs: unknown;
+  photoLabel: string;
+  factsVerified: boolean;
+}
+
 @Injectable()
 export class EditorialService {
   constructor(private readonly prisma: PrismaService) {}
@@ -31,6 +46,27 @@ export class EditorialService {
   listAdmin() {
     return this.prisma.client.editorialEntry.findMany({
       orderBy: { updatedAt: "desc" },
+    });
+  }
+
+  async listModeration() {
+    const entries = await this.prisma.client.editorialEntry.findMany({
+      where: { status: { in: ["DRAFT", "PUBLISHED"] } },
+      orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
+    });
+
+    return entries.map((entry) => {
+      const blockers = this.moderationBlockers(entry);
+      return {
+        ...entry,
+        moderationState:
+          entry.status === "PUBLISHED"
+            ? ("LIVE" as const)
+            : blockers.length === 0
+              ? ("READY" as const)
+              : ("BLOCKED" as const),
+        moderationBlockers: blockers,
+      };
     });
   }
 
@@ -76,6 +112,12 @@ export class EditorialService {
 
   async update(id: string, input: Partial<EditorialInput>) {
     const existing = await this.requireEntry(id);
+    if (existing.status === "PUBLISHED") {
+      throw new BadRequestException(
+        "Published content must be unpublished by management before editing",
+      );
+    }
+
     const merged = {
       type: existing.type,
       slug: input.slug ?? existing.slug ?? undefined,
@@ -122,6 +164,9 @@ export class EditorialService {
 
   async publish(id: string) {
     const entry = await this.requireEntry(id);
+    if (entry.status !== "DRAFT") {
+      throw new BadRequestException("Only draft content can be published");
+    }
     if (!entry.factsVerified)
       throw new BadRequestException(
         "Facts must be verified before publication",
@@ -156,7 +201,12 @@ export class EditorialService {
   }
 
   async unpublish(id: string) {
-    await this.requireEntry(id);
+    const entry = await this.requireEntry(id);
+    if (entry.status !== "PUBLISHED") {
+      throw new BadRequestException(
+        "Only published content can be unpublished",
+      );
+    }
     return this.prisma.client.editorialEntry.update({
       where: { id },
       data: { status: "DRAFT", publishedAt: null },
@@ -203,6 +253,48 @@ export class EditorialService {
     });
     if (!entry) throw new NotFoundException("Editorial entry not found");
     return entry;
+  }
+
+  private moderationBlockers(entry: ModerationCandidate): string[] {
+    const blockers: string[] = [];
+    if (!entry.factsVerified) {
+      blockers.push("Facts and photo rights still require staff verification.");
+    }
+    if (
+      !entry.title?.trim() ||
+      !entry.eventName?.trim() ||
+      !entry.summary?.trim() ||
+      !entry.photoLabel?.trim()
+    ) {
+      blockers.push(
+        "Required headline, event, summary, or photo details are missing.",
+      );
+    }
+    if (entry.type === "ACHIEVEMENT" && !entry.yearLabel?.trim()) {
+      blockers.push("Achievement year or season label is missing.");
+    }
+    if (entry.type === "PLAYER_SPOTLIGHT") {
+      if (
+        !entry.slug?.trim() ||
+        !entry.playerName?.trim() ||
+        !entry.achievement?.trim() ||
+        !entry.achievedOnLabel?.trim()
+      ) {
+        blockers.push(
+          "Player Spotlight identity or achievement details are incomplete.",
+        );
+      }
+      const paragraphCount = Array.isArray(entry.articleParagraphs)
+        ? entry.articleParagraphs.filter((item) => typeof item === "string")
+            .length
+        : 0;
+      if (paragraphCount < 2) {
+        blockers.push(
+          "Player Spotlight article requires at least two paragraphs.",
+        );
+      }
+    }
+    return blockers;
   }
 
   private assertComplete(input: EditorialInput) {

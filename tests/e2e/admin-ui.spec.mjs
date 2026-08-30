@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 const adminRoutes = [
   "/",
+  "/reports",
   "/programmes",
   "/offerings",
   "/plans",
@@ -11,6 +12,7 @@ const adminRoutes = [
   "/payments",
   "/venues",
   "/scheduling",
+  "/moderation",
   "/users",
   "/staff",
   "/audit",
@@ -56,6 +58,7 @@ test("desktop navigation reaches every core operations domain", async ({
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
   for (const [label, path] of [
+    ["Reports", "/reports"],
     ["Programmes", "/programmes"],
     ["Offerings", "/offerings"],
     ["Membership Plans", "/plans"],
@@ -65,6 +68,7 @@ test("desktop navigation reaches every core operations domain", async ({
     ["Payments", "/payments"],
     ["Venues", "/venues"],
     ["Scheduling", "/scheduling"],
+    ["Moderation", "/moderation"],
     ["Accounts & Access", "/users"],
     ["Staff", "/staff"],
     ["Audit Log", "/audit"],
@@ -87,6 +91,52 @@ test("mobile drawer navigation opens and reaches programmes", async ({
   await expect(page).toHaveURL(/\/programmes$/);
 });
 
+test("reports expose explicit date, refresh, and export controls", async ({
+  page,
+}) => {
+  await page.goto("/reports", { waitUntil: "domcontentloaded" });
+
+  await expect(
+    page.getByRole("heading", { name: "Operations Reports" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("From")).toBeVisible();
+  await expect(page.getByLabel("To")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Refresh report" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Export CSV" })).toBeVisible();
+  await expect(page.getByText("Active Memberships")).toBeVisible();
+  await expect(page.getByText("Attendance Rate")).toBeVisible();
+
+  for (const control of [
+    page.getByLabel("From"),
+    page.getByLabel("To"),
+    page.getByRole("button", { name: "Refresh report" }),
+    page.getByRole("button", { name: "Export CSV" }),
+  ]) {
+    const box = await control.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box.height).toBeGreaterThanOrEqual(44);
+  }
+});
+
+test("moderation shows explicit publication decisions and safety blockers", async ({
+  page,
+}) => {
+  await page.goto("/moderation", { waitUntil: "domcontentloaded" });
+
+  await expect(
+    page.getByRole("heading", { name: "Editorial Moderation" }),
+  ).toBeVisible();
+  await expect(page.getByText("Publication safety rule:")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Approve & publish" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: /Needs verification/ }).click();
+  await expect(page.getByText("Resolve before publication:")).toBeVisible();
+  await expect(page.getByText(/Facts and photo rights/)).toBeVisible();
+});
+
 test("demo role preview hides management and finance tools from coach role", async ({
   page,
   viewport,
@@ -101,6 +151,12 @@ test("demo role preview hides management and finance tools from coach role", asy
   ).toHaveCount(0);
   await expect(
     page.getByRole("link", { name: "Accounts & Access", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "Moderation", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "Reports", exact: true }),
   ).toHaveCount(0);
   await expect(page.getByText("Restricted Financial Ledger")).toBeVisible();
 

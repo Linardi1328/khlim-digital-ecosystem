@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import { AdminShell } from "../../components/layout/AdminShell";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Button } from "../../components/ui/Button";
+import { useAdminAuth } from "../../lib/auth-context";
 import { getAdminAccessToken } from "../../lib/admin-api";
 
 const API = (
@@ -58,9 +60,12 @@ async function api(path: string, init?: RequestInit) {
 }
 
 export default function EditorialStudioPage() {
+  const { hasRole } = useAdminAuth();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [form, setForm] = useState({ ...empty });
   const [message, setMessage] = useState("");
+  const managementCanModerate = hasRole(["SUPER_ADMIN", "MANAGEMENT"]);
+
   const load = async () => {
     try {
       setEntries(await api("/admin/editorial"));
@@ -127,19 +132,10 @@ export default function EditorialStudioPage() {
         body: JSON.stringify(payload),
       });
       setForm({ ...empty, type: form.type });
-      setMessage("Draft saved.");
-      await load();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
-    }
-  }
-  async function transition(id: string, action: "publish" | "unpublish") {
-    try {
-      await api(`/admin/editorial/${id}/${action}`, { method: "POST" });
       setMessage(
-        action === "publish"
-          ? "Published to public website."
-          : "Removed from public website.",
+        form.factsVerified
+          ? "Draft saved and ready for Management moderation."
+          : "Draft saved. Verify facts and photo rights before publication review.",
       );
       await load();
     } catch (error) {
@@ -167,6 +163,22 @@ export default function EditorialStudioPage() {
             { label: "Editorial Studio" },
           ]}
         />
+
+        <div className="moderation-rule">
+          <div>
+            <strong>Drafting and publishing are separate.</strong>
+            <span>
+              Academy staff prepare and verify drafts here. Only Management or
+              Super Admin can approve public publication with MFA.
+            </span>
+          </div>
+          {managementCanModerate && (
+            <Link className="moderation-link" href="/moderation">
+              Open Moderation Queue
+            </Link>
+          )}
+        </div>
+
         <div className="editorial-grid">
           <section className="editorial-panel">
             <h2>New editorial draft</h2>
@@ -253,23 +265,18 @@ export default function EditorialStudioPage() {
                     ? "Facts verified"
                     : "Verification required"}
                 </p>
+                <div className="review-state">
+                  {entry.status === "PUBLISHED"
+                    ? "Published content is locked from editing until Management unpublishes it."
+                    : entry.factsVerified
+                      ? "Ready for Management moderation and publication review."
+                      : "Complete staff verification before this draft can be published."}
+                </div>
                 <div className="actions">
-                  {entry.status === "PUBLISHED" ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => transition(entry.id, "unpublish")}
-                    >
-                      Unpublish
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      disabled={!entry.factsVerified}
-                      onClick={() => transition(entry.id, "publish")}
-                    >
-                      Publish
-                    </Button>
+                  {managementCanModerate && (
+                    <Link className="moderation-link" href="/moderation">
+                      Review in Moderation
+                    </Link>
                   )}
                   {entry.type === "PLAYER_SPOTLIGHT" && entry.slug && (
                     <a
@@ -286,6 +293,42 @@ export default function EditorialStudioPage() {
           </section>
         </div>
         <style jsx>{`
+          .moderation-rule {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 14px 16px;
+            border-radius: 10px;
+            border: 1px solid #fde68a;
+            background: #fffbeb;
+            color: #92400e;
+          }
+          .moderation-rule div {
+            display: grid;
+            gap: 3px;
+          }
+          .moderation-rule span {
+            font-size: 0.8125rem;
+            line-height: 1.45;
+          }
+          .moderation-link {
+            min-height: 44px;
+            box-sizing: border-box;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 8px 12px;
+            background: #ffffff;
+            color: #0f172a;
+            font-size: 0.8125rem;
+            font-weight: 700;
+            text-decoration: none;
+            flex-shrink: 0;
+          }
           .editorial-grid {
             display: grid;
             grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
@@ -311,6 +354,16 @@ export default function EditorialStudioPage() {
           }
           .actions {
             justify-content: flex-start;
+            flex-wrap: wrap;
+          }
+          .review-state {
+            margin: 10px 0 12px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: #f8fafc;
+            color: #475569;
+            font-size: 0.8125rem;
+            line-height: 1.45;
           }
           label {
             display: block;
@@ -330,6 +383,10 @@ export default function EditorialStudioPage() {
             border-radius: 8px;
             font: inherit;
           }
+          input,
+          select {
+            min-height: 44px;
+          }
           .check {
             display: flex;
             gap: 8px;
@@ -337,11 +394,20 @@ export default function EditorialStudioPage() {
           }
           .check input {
             width: auto;
+            min-height: auto;
             margin: 0;
           }
           @media (max-width: 900px) {
+            .moderation-rule,
             .editorial-grid {
               grid-template-columns: 1fr;
+            }
+            .moderation-rule {
+              flex-direction: column;
+              align-items: stretch;
+            }
+            .moderation-link {
+              width: 100%;
             }
           }
         `}</style>
