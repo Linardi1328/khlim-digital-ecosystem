@@ -1,5 +1,10 @@
 import { Controller, Get, Query } from "@nestjs/common";
-import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from "@nestjs/swagger";
 import type { AuthenticatedUserContext } from "../auth/authenticated-user";
 import { RequireAnyRole, RequireMfa } from "../auth/authorization.decorators";
 import { CurrentUser } from "../auth/current-user.decorator";
@@ -48,6 +53,8 @@ export class AdminAccessController {
   @Get("reports/operations")
   @RequireAnyRole(...REPORT_ROLES)
   @RequireMfa()
+  @ApiQuery({ name: "from", required: false, example: "2026-08-01" })
+  @ApiQuery({ name: "to", required: false, example: "2026-08-30" })
   @ApiOperation({
     summary: "Get a bounded operational report from persisted academy data",
   })
