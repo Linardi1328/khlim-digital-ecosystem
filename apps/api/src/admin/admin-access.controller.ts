@@ -23,7 +23,9 @@ export class AdminAccessController {
   constructor(private readonly admin: AdminService) {}
 
   @Get("session")
-  @ApiOperation({ summary: "Resolve the current staff session and permissions" })
+  @ApiOperation({
+    summary: "Resolve the current staff session and permissions",
+  })
   getSession(@CurrentUser() actor: AuthenticatedUserContext) {
     return this.admin.getSession(actor);
   }
