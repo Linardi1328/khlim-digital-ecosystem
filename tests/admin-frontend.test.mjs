@@ -62,37 +62,50 @@ test("Admin console implements all required reusable UI components", async () =>
   assert.match(formSection, /FormSection/);
 });
 
-test("Admin sidebar routes include all required operations domains", async () => {
+test("Admin sidebar routes include the operations and access-control domains", async () => {
   const sidebar = await read("apps/admin/components/layout/AdminSidebar.tsx");
 
-  assert.match(sidebar, /label:\s*"Dashboard"/);
-  assert.match(sidebar, /label:\s*"Programmes"/);
-  assert.match(sidebar, /label:\s*"Offerings"/);
-  assert.match(sidebar, /label:\s*"Membership Plans"/);
-  assert.match(sidebar, /label:\s*"Memberships"/);
-  assert.match(sidebar, /label:\s*"Athletes"/);
-  assert.match(sidebar, /label:\s*"Guardians"/);
-  assert.match(sidebar, /label:\s*"Payments"/);
-  assert.match(sidebar, /label:\s*"Venues"/);
-  assert.match(sidebar, /label:\s*"Scheduling"/);
-  assert.match(sidebar, /label:\s*"Staff"/);
-  assert.match(sidebar, /label:\s*"Audit Log"/);
-  assert.match(sidebar, /label:\s*"Settings"/);
+  for (const label of [
+    "Dashboard",
+    "Programmes",
+    "Offerings",
+    "Membership Plans",
+    "Memberships",
+    "Athletes",
+    "Guardians",
+    "Payments",
+    "Venues",
+    "Scheduling",
+    "Editorial Studio",
+    "Notifications",
+    "Accounts & Access",
+    "Staff",
+    "Audit Log",
+    "Settings",
+  ]) {
+    assert.match(sidebar, new RegExp(`label:\\s*"${label}"`));
+  }
+
+  assert.match(sidebar, /roles:\s*MANAGEMENT/);
+  assert.match(sidebar, /roles:\s*FINANCE/);
+  assert.match(sidebar, /roles:\s*SESSION_OPERATIONS/);
+  assert.match(sidebar, /minHeight:\s*44/);
 });
 
-test("Admin dashboard renders all 6 key operational overview cards and sections", async () => {
+test("Admin dashboard renders persisted snapshot metrics without fake trends", async () => {
   const dashboard = await read("apps/admin/app/page.tsx");
 
+  assert.match(dashboard, /getAdminOverview/);
   assert.match(dashboard, /title="Active Members"/);
   assert.match(dashboard, /title="Pending Memberships"/);
   assert.match(dashboard, /title="Total Athletes"/);
   assert.match(dashboard, /title="Open Offerings"/);
   assert.match(dashboard, /title="Capacity Utilisation"/);
   assert.match(dashboard, /title="Payments Requiring Action"/);
-  assert.match(dashboard, /Programme Offering Capacity/);
-  assert.match(dashboard, /Recent Membership Enrolments/);
-  assert.match(dashboard, /Payment Attention Queue/);
-  assert.match(dashboard, /Recent Audit Activity/);
+  assert.match(dashboard, /LIVE API SNAPSHOT/);
+  assert.match(dashboard, /Quick operations/);
+  assert.match(dashboard, /Session security/);
+  assert.doesNotMatch(dashboard, /\+8\.4%|\+3\.2%/);
 });
 
 test("Admin operations console preserves strict domain rules", async () => {
@@ -124,12 +137,13 @@ test("Admin operations console preserves strict domain rules", async () => {
   );
 });
 
-test("Admin finance visibility gates payment fetching and rendering", async () => {
+test("Admin finance visibility remains role gated", async () => {
   const authContext = await read("apps/admin/lib/auth-context.tsx");
   const payments = await read("apps/admin/app/payments/page.tsx");
   const dashboard = await read("apps/admin/app/page.tsx");
 
   assert.match(authContext, /canAccessFinance/);
+  assert.match(authContext, /FINANCE_ADMIN/);
   assert.match(payments, /Restricted Financial Ledger/);
   assert.match(payments, /const canViewFinance = canAccessFinance\(\)/);
   assert.match(payments, /\[canViewFinance\]/);
@@ -140,11 +154,7 @@ test("Admin finance visibility gates payment fetching and rendering", async () =
   assert.ok(paymentFetchIndex > paymentGuardIndex);
 
   assert.match(dashboard, /const canViewFinance = canAccessFinance\(\)/);
-  assert.match(dashboard, /canViewFinance\s*\?\s*adminApi\.listPayments\(\)/);
-  assert.match(
-    dashboard,
-    /Payment operations are hidden for the current staff role/,
-  );
+  assert.match(dashboard, /paymentsAttentionCount/);
   assert.match(dashboard, /Finance roles only/);
 });
 
@@ -161,8 +171,9 @@ test("Admin shared data interactions remain keyboard and pagination safe", async
   assert.match(pagination, /onPageChange\(displayPage\)/);
 });
 
-test("Admin privileged access is denied unless explicit demo mode is enabled", async () => {
+test("Real staff authentication restores a distinct Supabase session and remains MFA gated", async () => {
   const demoMode = await read("apps/admin/lib/demo-mode.ts");
+  const supabaseAuth = await read("apps/admin/lib/supabase-auth.ts");
   const authContext = await read("apps/admin/lib/auth-context.tsx");
   const shell = await read("apps/admin/components/layout/AdminShell.tsx");
   const header = await read("apps/admin/components/layout/AdminHeader.tsx");
@@ -170,13 +181,57 @@ test("Admin privileged access is denied unless explicit demo mode is enabled", a
 
   assert.match(demoMode, /NEXT_PUBLIC_ADMIN_DEMO_MODE/);
   assert.match(demoMode, /Changes are not persisted/);
-  assert.match(authContext, /ADMIN_DEMO_MODE \? DEMO_ADMIN_USER : null/);
-  assert.match(authContext, /if \(!ADMIN_DEMO_MODE \|\| !user\) return/);
-  assert.match(shell, /Staff authentication is not configured/);
-  assert.match(shell, /DEMO MODE/);
+  assert.match(supabaseAuth, /khlim_admin_supabase_session/);
+  assert.match(supabaseAuth, /grant_type=password/);
+  assert.match(supabaseAuth, /grant_type=refresh_token/);
+  assert.match(authContext, /restoreAdminSupabaseSession/);
+  assert.match(authContext, /getAdminSession/);
+  assert.match(authContext, /mfaSatisfied/);
+  assert.match(shell, /Sign in to Admin Console/);
+  assert.match(shell, /MFA verification required/);
+  assert.match(shell, /No privileged admin data is shown before MFA succeeds/);
+  assert.match(shell, /minHeight:\s*46/);
+  assert.match(header, /MFA VERIFIED/);
+  assert.match(header, /Sign out/);
   assert.match(header, /isDemoMode && role/);
-  assert.doesNotMatch(api, /mock-admin-token/);
-  assert.match(api, /Promise\.reject\(integrationPending\(method\)\)/);
+  assert.doesNotMatch(api, /mock-admin-token|khlim_admin_access_token/);
+  assert.match(api, /getValidAdminAccessToken/);
+});
+
+test("Accounts and Access UI manages staff roles separately from family roles", async () => {
+  const accounts = await read("apps/admin/app/users/page.tsx");
+  const api = await read("apps/admin/lib/admin-api.ts");
+
+  assert.match(accounts, /Accounts & Access/);
+  assert.match(accounts, /SUPER_ADMIN/);
+  assert.match(accounts, /FINANCE_ADMIN/);
+  assert.match(accounts, /Family\/profile roles were preserved/);
+  assert.match(accounts, /Your own roles and account status cannot be changed/);
+  assert.match(accounts, /window\.confirm/);
+  assert.match(accounts, /min-height:\s*44px/);
+  assert.match(api, /\/admin\/users/);
+  assert.match(api, /staff-roles/);
+  assert.match(api, /updateAdminAccountStatus/);
+});
+
+test("Admin API exposes staff session, MFA-protected overview, and management account search", async () => {
+  const accessController = await read(
+    "apps/api/src/admin/admin-access.controller.ts",
+  );
+  const identityController = await read("apps/api/src/admin/admin.controller.ts");
+  const service = await read("apps/api/src/admin/admin.service.ts");
+
+  assert.match(accessController, /@Get\("session"\)/);
+  assert.match(accessController, /@Get\("overview"\)/);
+  assert.match(accessController, /@RequireAnyRole\(\.\.\.STAFF_ROLES\)/);
+  assert.match(accessController, /@RequireMfa\(\)/);
+  assert.match(identityController, /@Get\(\)/);
+  assert.match(identityController, /@Query\("q"\)/);
+  assert.match(service, /getSession\(/);
+  assert.match(service, /getOverview\(/);
+  assert.match(service, /listUsers\(/);
+  assert.match(service, /paymentsAttentionCount/);
+  assert.match(service, /Math\.min\(requestedTake, 50\)/);
 });
 
 test("managed hosts disable standalone output without changing Admin deployment semantics", async () => {
