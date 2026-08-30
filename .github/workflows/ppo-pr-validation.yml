@@ -53,11 +53,7 @@ jobs:
         run: pnpm lint
 
       - name: Formatting
-        run: |
-          # Baseline gate remains: pnpm format:check
-          pnpm exec prettier --write apps/admin/app/users/page.tsx
-          git diff -- apps/admin/app/users/page.tsx
-          exit 1
+        run: pnpm format:check
 
       - name: Type checks
         env:
