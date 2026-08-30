@@ -34,7 +34,10 @@ function StaffSignIn() {
           against KHLIM roles on every session.
         </p>
 
-        <label htmlFor="admin-email" style={{ textAlign: "left", display: "block" }}>
+        <label
+          htmlFor="admin-email"
+          style={{ textAlign: "left", display: "block" }}
+        >
           Staff email
         </label>
         <input
@@ -139,8 +142,9 @@ function MfaGate() {
           multi-factor assurance level 2 before the console can open.
         </p>
         <p className="admin-access-note">
-          Complete MFA for your Supabase-authenticated staff account, then choose
-          “Check again”. No privileged admin data is shown before MFA succeeds.
+          Complete MFA for your Supabase-authenticated staff account, then
+          choose “Check again”. No privileged admin data is shown before MFA
+          succeeds.
         </p>
         {authError && <p role="alert">{authError}</p>}
         <div
