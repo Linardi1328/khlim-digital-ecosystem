@@ -189,7 +189,10 @@ test("Real staff authentication restores a distinct Supabase session and remains
   assert.match(authContext, /mfaSatisfied/);
   assert.match(shell, /Sign in to Admin Console/);
   assert.match(shell, /MFA verification required/);
-  assert.match(shell, /No privileged admin data is shown before MFA succeeds/);
+  assert.match(
+    shell,
+    /No privileged admin data is shown before MFA\s+succeeds/,
+  );
   assert.match(shell, /minHeight:\s*46/);
   assert.match(header, /MFA VERIFIED/);
   assert.match(header, /Sign out/);
