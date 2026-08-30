@@ -44,8 +44,7 @@ export default function AccountsAccessPage() {
   const [roleFilter, setRoleFilter] = useState("");
   const [selected, setSelected] = useState<AdminAccountItem | null>(null);
   const [selectedRoles, setSelectedRoles] = useState<StaffRole[]>([]);
-  const [selectedStatus, setSelectedStatus] =
-    useState<AccountStatus>("ACTIVE");
+  const [selectedStatus, setSelectedStatus] = useState<AccountStatus>("ACTIVE");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -110,7 +109,9 @@ export default function AccountsAccessPage() {
       await load();
     } catch (reason) {
       setError(
-        reason instanceof Error ? reason.message : "Staff roles were not updated.",
+        reason instanceof Error
+          ? reason.message
+          : "Staff roles were not updated.",
       );
     } finally {
       setSaving(false);
@@ -228,15 +229,25 @@ export default function AccountsAccessPage() {
               </Button>
             </form>
 
-            {message && <p role="status" className="message">{message}</p>}
-            {error && <p role="alert" className="error">{error}</p>}
+            {message && (
+              <p role="status" className="message">
+                {message}
+              </p>
+            )}
+            {error && (
+              <p role="alert" className="error">
+                {error}
+              </p>
+            )}
 
             <div className="layout">
               <section className="panel">
                 <div className="section-head">
                   <div>
                     <h2>Account directory</h2>
-                    <p>{loading ? "Loading…" : `${total} matching account(s)`}</p>
+                    <p>
+                      {loading ? "Loading…" : `${total} matching account(s)`}
+                    </p>
                   </div>
                   <Button
                     variant="outline"
@@ -300,8 +311,8 @@ export default function AccountsAccessPage() {
                     <fieldset disabled={saving || editingSelf}>
                       <legend>Staff roles</legend>
                       <p className="help">
-                        Choose only the work roles this person needs. Super Admin
-                        assignment is restricted to existing Super Admins.
+                        Choose only the work roles this person needs. Super
+                        Admin assignment is restricted to existing Super Admins.
                       </p>
                       <div className="role-grid">
                         {STAFF_ROLE_OPTIONS.map((role) => (
@@ -372,7 +383,10 @@ export default function AccountsAccessPage() {
           }
           .filters {
             display: grid;
-            grid-template-columns: minmax(220px, 2fr) minmax(150px, 1fr) minmax(160px, 1fr) auto;
+            grid-template-columns: minmax(220px, 2fr) minmax(150px, 1fr) minmax(
+                160px,
+                1fr
+              ) auto;
             align-items: end;
             gap: 12px;
             padding: 16px;
