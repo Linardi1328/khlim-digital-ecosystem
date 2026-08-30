@@ -302,18 +302,6 @@ export default function ModerationPage() {
                     Fix in Editorial Studio
                   </Link>
                 )}
-                {item.type === "PLAYER_SPOTLIGHT" &&
-                  item.status === "PUBLISHED" &&
-                  item.slug && (
-                    <a
-                      className="public-link"
-                      href={`/spotlight/${item.slug}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      View public page
-                    </a>
-                  )}
               </div>
             </article>
           ))}

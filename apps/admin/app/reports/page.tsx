@@ -407,10 +407,9 @@ export default function ReportsPage() {
           .report-controls {
             padding: 16px;
             display: grid;
-            grid-template-columns: minmax(160px, 1fr) minmax(
-                160px,
-                1fr
-              ) auto auto;
+            grid-template-columns:
+              minmax(160px, 1fr) minmax(160px, 1fr)
+              auto auto;
             gap: 12px;
             align-items: end;
             margin-bottom: 20px;
