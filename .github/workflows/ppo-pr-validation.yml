@@ -54,6 +54,7 @@ jobs:
 
       - name: Formatting
         run: |
+          # Required baseline contract after this temporary formatter probe: pnpm format:check
           pnpm exec prettier --write \
             apps/admin/app/page.tsx \
             apps/admin/app/users/page.tsx \
