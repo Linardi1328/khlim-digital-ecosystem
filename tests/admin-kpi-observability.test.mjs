@@ -13,10 +13,7 @@ test("KPI and health navigation is limited to reporting roles", async () => {
 
   assert.match(sidebar, /href:\s*"\/insights"/);
   assert.match(sidebar, /label:\s*"KPI & Health"/);
-  assert.match(
-    sidebar,
-    /href:\s*"\/insights"[\s\S]*?roles:\s*REPORTING/,
-  );
+  assert.match(sidebar, /href:\s*"\/insights"[\s\S]*?roles:\s*REPORTING/);
 });
 
 test("operational health endpoint is persisted, MFA gated, and finance aware", async () => {
@@ -34,7 +31,10 @@ test("operational health endpoint is persisted, MFA gated, and finance aware", a
     /@Get\("insights\/operational-health"\)[\s\S]*?@RequireAnyRole\(\.\.\.REPORT_ROLES\)[\s\S]*?@RequireMfa\(\)/,
   );
   assert.match(controller, /AdminObservabilityService/);
-  assert.match(module, /providers:\s*\[AdminService, AdminObservabilityService\]/);
+  assert.match(
+    module,
+    /providers:\s*\[AdminService, AdminObservabilityService\]/,
+  );
 
   assert.match(service, /KPI_WINDOW_DAYS = 30/);
   assert.match(service, /STALE_PENDING_MEMBERSHIP_HOURS = 24/);

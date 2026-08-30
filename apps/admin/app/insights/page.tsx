@@ -45,7 +45,9 @@ function HealthSignal({
           <span className="signal-count">{value}</span>
         </div>
         <p>{explanation}</p>
-        <strong>{needsAttention ? "Needs review" : "No current backlog"}</strong>
+        <strong>
+          {needsAttention ? "Needs review" : "No current backlog"}
+        </strong>
       </div>
       <Link className="review-link" href={href}>
         {action}
@@ -105,12 +107,14 @@ export default function AdminInsightsPage() {
       {
         title: "Provider events needing action",
         value: health.finance.providerEventsActionRequired,
-        explanation: "Provider webhook events explicitly marked ACTION_REQUIRED.",
+        explanation:
+          "Provider webhook events explicitly marked ACTION_REQUIRED.",
       },
       {
         title: "Provider event failures",
         value: health.finance.providerEventsFailed,
-        explanation: "Provider webhook events whose processing status is FAILED.",
+        explanation:
+          "Provider webhook events whose processing status is FAILED.",
       },
       {
         title: "Provider events waiting too long",
@@ -180,9 +184,9 @@ export default function AdminInsightsPage() {
         />
 
         <div className="method-note">
-          <strong>What this page means:</strong> KPI values use the latest 30 days
-          of persisted records unless labelled as a current backlog. There are no
-          predicted, estimated, or synthetic trends in live mode.
+          <strong>What this page means:</strong> KPI values use the latest 30
+          days of persisted records unless labelled as a current backlog. There
+          are no predicted, estimated, or synthetic trends in live mode.
         </div>
 
         {error && (
@@ -239,7 +243,9 @@ export default function AdminInsightsPage() {
               }
               subtitle="Present + late, excluding excused records"
               variant={
-                health && health.kpis.attendanceRate < 80 ? "warning" : "success"
+                health && health.kpis.attendanceRate < 80
+                  ? "warning"
+                  : "success"
               }
             />
             <MetricCard
@@ -330,7 +336,10 @@ export default function AdminInsightsPage() {
           </div>
         </section>
 
-        <section className="section-card" aria-labelledby="finance-health-heading">
+        <section
+          className="section-card"
+          aria-labelledby="finance-health-heading"
+        >
           <div className="section-heading compact">
             <div>
               <h2 id="finance-health-heading">Payment processing health</h2>
@@ -350,7 +359,11 @@ export default function AdminInsightsPage() {
             <div className="finance-grid">
               {financeSignals.map((signal) => (
                 <article
-                  className={signal.value > 0 ? "finance-signal attention" : "finance-signal clear"}
+                  className={
+                    signal.value > 0
+                      ? "finance-signal attention"
+                      : "finance-signal clear"
+                  }
                   key={signal.title}
                 >
                   <span>{signal.title}</span>
@@ -362,7 +375,9 @@ export default function AdminInsightsPage() {
           ) : (
             <div className="restricted-inline">
               <strong>Financial processing signals are restricted.</strong>
-              <span>Finance Admin and Management roles can view this section.</span>
+              <span>
+                Finance Admin and Management roles can view this section.
+              </span>
             </div>
           )}
         </section>
@@ -381,7 +396,12 @@ export default function AdminInsightsPage() {
           <div>
             <strong>Fixed reliability thresholds</strong>
             <span>
-              Membership pending {health?.thresholds.stalePendingMembershipHours ?? 24}h · Payment processing {health?.thresholds.staleProcessingPaymentMinutes ?? 30}m · Provider event waiting {health?.thresholds.stuckProviderEventMinutes ?? 15}m
+              Membership pending{" "}
+              {health?.thresholds.stalePendingMembershipHours ?? 24}h · Payment
+              processing{" "}
+              {health?.thresholds.staleProcessingPaymentMinutes ?? 30}m ·
+              Provider event waiting{" "}
+              {health?.thresholds.stuckProviderEventMinutes ?? 15}m
             </span>
           </div>
         </footer>

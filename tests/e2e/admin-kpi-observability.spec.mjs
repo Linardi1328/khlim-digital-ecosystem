@@ -17,7 +17,9 @@ test("KPI health dashboard exposes explicit persisted operational signals", asyn
   await expect(page.getByText("Payment processing health")).toBeVisible();
   await expect(page.getByText("Active Memberships")).toBeVisible();
   await expect(page.getByText("Attendance Rate")).toBeVisible();
-  await expect(page.getByText(/no predicted, estimated, or synthetic trends/i)).toBeVisible();
+  await expect(
+    page.getByText(/no predicted, estimated, or synthetic trends/i),
+  ).toBeVisible();
 
   const refresh = page.getByRole("button", { name: "Refresh health data" });
   await expect(refresh).toBeVisible();

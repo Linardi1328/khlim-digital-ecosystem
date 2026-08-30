@@ -74,7 +74,8 @@ export class AdminAccessController {
   @RequireAnyRole(...REPORT_ROLES)
   @RequireMfa()
   @ApiOperation({
-    summary: "Get current KPI and operational health signals from persisted data",
+    summary:
+      "Get current KPI and operational health signals from persisted data",
   })
   getOperationalHealth(@CurrentUser() actor: AuthenticatedUserContext) {
     return this.observability.getOperationalHealth(actor);

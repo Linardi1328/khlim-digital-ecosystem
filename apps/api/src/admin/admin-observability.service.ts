@@ -33,9 +33,7 @@ export class AdminObservabilityService {
 
   async getOperationalHealth(actor: AuthenticatedUserContext) {
     const now = new Date();
-    const windowFrom = new Date(
-      now.getTime() - (KPI_WINDOW_DAYS - 1) * DAY_MS,
-    );
+    const windowFrom = new Date(now.getTime() - (KPI_WINDOW_DAYS - 1) * DAY_MS);
     const stalePendingBefore = new Date(
       now.getTime() - STALE_PENDING_MEMBERSHIP_HOURS * HOUR_MS,
     );
@@ -236,8 +234,7 @@ export class AdminObservabilityService {
         pendingMemberships,
         membershipActivations,
         membershipCancellations,
-        netMembershipMovement:
-          membershipActivations - membershipCancellations,
+        netMembershipMovement: membershipActivations - membershipCancellations,
         attendanceRate: percentage(
           attendancePresent + attendanceLate,
           attendanceDenominator,

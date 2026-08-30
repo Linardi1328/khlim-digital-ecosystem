@@ -433,6 +433,26 @@
         ]
       }
     },
+    "/v1/admin/insights/operational-health": {
+      "get": {
+        "operationId": "AdminAccessController_getOperationalHealth",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Get current KPI and operational health signals from persisted data",
+        "tags": [
+          "admin-access"
+        ]
+      }
+    },
     "/v1/admin/users": {
       "get": {
         "operationId": "AdminController_listUsers",
