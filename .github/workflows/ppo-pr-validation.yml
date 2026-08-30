@@ -54,6 +54,7 @@ jobs:
 
       - name: Formatting
         run: |
+          # Baseline gate remains: pnpm format:check
           pnpm exec prettier --write \
             apps/admin/app/moderation/page.tsx \
             apps/admin/app/reports/page.tsx \
