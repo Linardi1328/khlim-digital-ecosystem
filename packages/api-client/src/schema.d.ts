@@ -209,6 +209,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/reports/operations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a bounded operational report from persisted academy data */
+        get: operations["AdminAccessController_getOperationsReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/users": {
         parameters: {
             query?: never;
@@ -557,6 +574,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/editorial/moderation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List editorial content with management moderation readiness */
+        get: operations["EditorialController_listModeration"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/editorial/{id}": {
         parameters: {
             query?: never;
@@ -599,6 +633,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Approve a verified editorial draft and publish it */
         post: operations["EditorialController_publish"];
         delete?: never;
         options?: never;
@@ -615,6 +650,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** Remove published editorial content from public view */
         post: operations["EditorialController_unpublish"];
         delete?: never;
         options?: never;
@@ -1194,6 +1230,26 @@ export interface operations {
             };
         };
     };
+    AdminAccessController_getOperationsReport: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     AdminController_listUsers: {
         parameters: {
             query?: {
@@ -1649,6 +1705,23 @@ export interface operations {
         requestBody?: never;
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    EditorialController_listModeration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

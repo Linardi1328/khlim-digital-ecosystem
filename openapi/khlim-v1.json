@@ -394,6 +394,45 @@
         ]
       }
     },
+    "/v1/admin/reports/operations": {
+      "get": {
+        "operationId": "AdminAccessController_getOperationsReport",
+        "parameters": [
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "2026-08-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "2026-08-30",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Get a bounded operational report from persisted academy data",
+        "tags": [
+          "admin-access"
+        ]
+      }
+    },
     "/v1/admin/users": {
       "get": {
         "operationId": "AdminController_listUsers",
@@ -1061,6 +1100,26 @@
         ]
       }
     },
+    "/v1/admin/editorial/moderation": {
+      "get": {
+        "operationId": "EditorialController_listModeration",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "List editorial content with management moderation readiness",
+        "tags": [
+          "editorial"
+        ]
+      }
+    },
     "/v1/admin/editorial/{id}": {
       "patch": {
         "operationId": "EditorialController_update",
@@ -1132,6 +1191,7 @@
             "supabase": []
           }
         ],
+        "summary": "Approve a verified editorial draft and publish it",
         "tags": [
           "editorial"
         ]
@@ -1160,6 +1220,7 @@
             "supabase": []
           }
         ],
+        "summary": "Remove published editorial content from public view",
         "tags": [
           "editorial"
         ]
