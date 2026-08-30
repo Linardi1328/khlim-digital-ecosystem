@@ -37,6 +37,17 @@ export class EditorialController {
     return this.editorial.listAdmin();
   }
 
+  @Get("admin/editorial/moderation")
+  @ApiBearerAuth("supabase")
+  @RequireAnyRole("SUPER_ADMIN", "MANAGEMENT")
+  @RequireMfa()
+  @ApiOperation({
+    summary: "List editorial content with management moderation readiness",
+  })
+  listModeration() {
+    return this.editorial.listModeration();
+  }
+
   @Post("admin/editorial")
   @ApiBearerAuth("supabase")
   @RequireAnyRole("SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN")
@@ -66,16 +77,20 @@ export class EditorialController {
 
   @Post("admin/editorial/:id/publish")
   @ApiBearerAuth("supabase")
-  @RequireAnyRole("SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN")
+  @RequireAnyRole("SUPER_ADMIN", "MANAGEMENT")
   @RequireMfa()
+  @ApiOperation({
+    summary: "Approve a verified editorial draft and publish it",
+  })
   publish(@Param("id") id: string) {
     return this.editorial.publish(id);
   }
 
   @Post("admin/editorial/:id/unpublish")
   @ApiBearerAuth("supabase")
-  @RequireAnyRole("SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN")
+  @RequireAnyRole("SUPER_ADMIN", "MANAGEMENT")
   @RequireMfa()
+  @ApiOperation({ summary: "Remove published editorial content from public view" })
   unpublish(@Param("id") id: string) {
     return this.editorial.unpublish(id);
   }
