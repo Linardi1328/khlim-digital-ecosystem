@@ -8,6 +8,7 @@ import {
 import type { AuthenticatedUserContext } from "../auth/authenticated-user";
 import { RequireAnyRole, RequireMfa } from "../auth/authorization.decorators";
 import { CurrentUser } from "../auth/current-user.decorator";
+import { AdminObservabilityService } from "./admin-observability.service";
 import { AdminService } from "./admin.service";
 
 const STAFF_ROLES = [
@@ -33,7 +34,10 @@ const REPORT_ROLES = [
 @RequireAnyRole(...STAFF_ROLES)
 @Controller("admin")
 export class AdminAccessController {
-  constructor(private readonly admin: AdminService) {}
+  constructor(
+    private readonly admin: AdminService,
+    private readonly observability: AdminObservabilityService,
+  ) {}
 
   @Get("session")
   @ApiOperation({
@@ -64,5 +68,16 @@ export class AdminAccessController {
     @Query("to") to?: string,
   ) {
     return this.admin.getOperationsReport(actor, { from, to });
+  }
+
+  @Get("insights/operational-health")
+  @RequireAnyRole(...REPORT_ROLES)
+  @RequireMfa()
+  @ApiOperation({
+    summary:
+      "Get current KPI and operational health signals from persisted data",
+  })
+  getOperationalHealth(@CurrentUser() actor: AuthenticatedUserContext) {
+    return this.observability.getOperationalHealth(actor);
   }
 }

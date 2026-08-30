@@ -54,6 +54,12 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Dashboard", icon: "📊" },
   { href: "/reports", label: "Reports", icon: "📈", roles: REPORTING },
   {
+    href: "/insights",
+    label: "KPI & Health",
+    icon: "🩺",
+    roles: REPORTING,
+  },
+  {
     href: "/programmes",
     label: "Programmes",
     icon: "🏀",
