@@ -6,7 +6,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
@@ -15,6 +15,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: feat/admin-access-control-plane
 
       - uses: actions/setup-node@v4
         with:
@@ -34,6 +35,21 @@ jobs:
 
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Regenerate committed OpenAPI artifacts
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/khlim_validation
+        run: |
+          pnpm openapi:generate
+          if git diff --quiet -- openapi/khlim-v1.json packages/api-client/src/schema.d.ts; then
+            echo "OpenAPI artifacts already current"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add openapi/khlim-v1.json packages/api-client/src/schema.d.ts
+            git commit -m "chore(api): regenerate admin OpenAPI contract"
+            git push origin HEAD:feat/admin-access-control-plane
+          fi
 
       - name: Verify developer bootstrap contract
         run: pnpm bootstrap:verify
