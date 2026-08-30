@@ -383,10 +383,9 @@ export default function AccountsAccessPage() {
           }
           .filters {
             display: grid;
-            grid-template-columns: minmax(220px, 2fr) minmax(150px, 1fr) minmax(
-                160px,
-                1fr
-              ) auto;
+            grid-template-columns:
+              minmax(220px, 2fr) minmax(150px, 1fr) minmax(160px, 1fr)
+              auto;
             align-items: end;
             gap: 12px;
             padding: 16px;
