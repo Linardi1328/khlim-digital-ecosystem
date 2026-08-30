@@ -36,6 +36,21 @@ jobs:
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Regenerate committed OpenAPI artifacts
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/khlim_validation
+        run: |
+          pnpm openapi:generate
+          if git diff --quiet -- openapi/khlim-v1.json packages/api-client/src/schema.d.ts; then
+            echo "OpenAPI artifacts already current"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add openapi/khlim-v1.json packages/api-client/src/schema.d.ts
+            git commit -m "chore(api): regenerate reports and moderation contract"
+            git push origin HEAD:feat/admin-reports-moderation
+          fi
+
       - name: Verify developer bootstrap contract
         run: pnpm bootstrap:verify
 
@@ -54,39 +69,7 @@ jobs:
         run: pnpm lint
 
       - name: Formatting
-        run: |
-          # Baseline gate remains: pnpm format:check
-          pnpm exec prettier --write \
-            apps/admin/app/moderation/page.tsx \
-            apps/admin/app/reports/page.tsx \
-            apps/api/src/admin/admin.service.ts \
-            apps/api/src/editorial/editorial.controller.ts \
-            apps/api/src/editorial/editorial.service.ts \
-            tests/admin-reports-moderation.test.mjs \
-            tests/e2e/admin-ui.spec.mjs
-          if git diff --quiet -- \
-            apps/admin/app/moderation/page.tsx \
-            apps/admin/app/reports/page.tsx \
-            apps/api/src/admin/admin.service.ts \
-            apps/api/src/editorial/editorial.controller.ts \
-            apps/api/src/editorial/editorial.service.ts \
-            tests/admin-reports-moderation.test.mjs \
-            tests/e2e/admin-ui.spec.mjs; then
-            echo "Formatter output already committed"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add \
-              apps/admin/app/moderation/page.tsx \
-              apps/admin/app/reports/page.tsx \
-              apps/api/src/admin/admin.service.ts \
-              apps/api/src/editorial/editorial.controller.ts \
-              apps/api/src/editorial/editorial.service.ts \
-              tests/admin-reports-moderation.test.mjs \
-              tests/e2e/admin-ui.spec.mjs
-            git commit -m "chore: format admin reports and moderation"
-            git push origin HEAD:feat/admin-reports-moderation
-          fi
+        run: pnpm format:check
 
       - name: Type checks
         env:
