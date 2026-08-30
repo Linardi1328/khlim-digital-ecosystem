@@ -53,29 +53,7 @@ jobs:
         run: pnpm lint
 
       - name: Formatting
-        run: |
-          # Required baseline contract after this temporary formatter probe: pnpm format:check
-          pnpm exec prettier --write \
-            apps/admin/app/page.tsx \
-            apps/admin/app/users/page.tsx \
-            apps/admin/components/layout/AdminShell.tsx \
-            apps/admin/lib/auth-context.tsx \
-            apps/admin/lib/supabase-auth.ts \
-            apps/api/src/admin/admin-access.controller.ts \
-            apps/api/src/admin/admin.controller.ts \
-            apps/api/src/admin/admin.service.ts \
-            tests/admin-frontend.test.mjs
-          git diff -- \
-            apps/admin/app/page.tsx \
-            apps/admin/app/users/page.tsx \
-            apps/admin/components/layout/AdminShell.tsx \
-            apps/admin/lib/auth-context.tsx \
-            apps/admin/lib/supabase-auth.ts \
-            apps/api/src/admin/admin-access.controller.ts \
-            apps/api/src/admin/admin.controller.ts \
-            apps/api/src/admin/admin.service.ts \
-            tests/admin-frontend.test.mjs
-          exit 1
+        run: pnpm format:check
 
       - name: Type checks
         env:
