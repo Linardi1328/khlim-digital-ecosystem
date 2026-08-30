@@ -209,7 +209,8 @@ export async function adminSupabaseSignIn(
     body: JSON.stringify({ email, password }),
   });
   const session = normalizeSession(body);
-  if (!session) throw new Error("Supabase did not return a valid staff session");
+  if (!session)
+    throw new Error("Supabase did not return a valid staff session");
   storeSession(session);
   return session;
 }
