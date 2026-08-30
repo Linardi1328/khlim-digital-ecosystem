@@ -167,22 +167,24 @@ export default function ModerationPage() {
 
         <div className="toolbar">
           <div className="filters" role="group" aria-label="Moderation filters">
-            {(["READY", "BLOCKED", "LIVE", "ALL"] as Filter[]).map(
-              (state) => (
-                <button
-                  key={state}
-                  type="button"
-                  className={filter === state ? "filter active" : "filter"}
-                  aria-pressed={filter === state}
-                  onClick={() => setFilter(state)}
-                >
-                  {state === "ALL" ? "All" : stateLabel(state)} ({counts[state]})
-                </button>
-              ),
-            )}
+            {(["READY", "BLOCKED", "LIVE", "ALL"] as Filter[]).map((state) => (
+              <button
+                key={state}
+                type="button"
+                className={filter === state ? "filter active" : "filter"}
+                aria-pressed={filter === state}
+                onClick={() => setFilter(state)}
+              >
+                {state === "ALL" ? "All" : stateLabel(state)} ({counts[state]})
+              </button>
+            ))}
           </div>
           <div className="toolbar-actions">
-            <Button variant="outline" onClick={() => void load()} isLoading={loading}>
+            <Button
+              variant="outline"
+              onClick={() => void load()}
+              isLoading={loading}
+            >
               Refresh queue
             </Button>
             <Link className="editorial-link" href="/editorial">
@@ -212,7 +214,10 @@ export default function ModerationPage() {
           </div>
         )}
 
-        <section className="moderation-list" aria-label="Editorial moderation queue">
+        <section
+          className="moderation-list"
+          aria-label="Editorial moderation queue"
+        >
           {visibleItems.map((item) => (
             <article className="moderation-card" key={item.id}>
               <div className="card-head">
@@ -241,7 +246,11 @@ export default function ModerationPage() {
                 </div>
                 <div>
                   <dt>Draft method</dt>
-                  <dd>{item.aiAssisted ? "AI-assisted + staff reviewed" : "Staff authored"}</dd>
+                  <dd>
+                    {item.aiAssisted
+                      ? "AI-assisted + staff reviewed"
+                      : "Staff authored"}
+                  </dd>
                 </div>
                 {item.playerName && (
                   <div>

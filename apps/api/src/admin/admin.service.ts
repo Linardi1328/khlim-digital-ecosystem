@@ -334,8 +334,7 @@ export class AdminService {
       attendanceRateDenominator === 0
         ? 0
         : Math.round(
-            ((attendancePresent + attendanceLate) /
-              attendanceRateDenominator) *
+            ((attendancePresent + attendanceLate) / attendanceRateDenominator) *
               100,
           );
 

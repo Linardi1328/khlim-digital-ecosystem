@@ -97,7 +97,10 @@ export default function ReportsPage() {
       ["Available places", report.capacity.availablePlaces],
       ["Capacity utilisation percent", report.capacity.utilisationRate],
       ["Editorial ready for review", report.editorial.readyForReview],
-      ["Editorial blocked on verification", report.editorial.verificationBlocked],
+      [
+        "Editorial blocked on verification",
+        report.editorial.verificationBlocked,
+      ],
       ["Editorial published", report.editorial.published],
     ];
 
@@ -112,9 +115,13 @@ export default function ReportsPage() {
       }
     }
 
-    const csv = ["Metric,Value", ...rows.map(([label, value]) =>
-      `"${String(label).replaceAll('"', '""')}","${String(value).replaceAll('"', '""')}"`,
-    )].join("\n");
+    const csv = [
+      "Metric,Value",
+      ...rows.map(
+        ([label, value]) =>
+          `"${String(label).replaceAll('"', '""')}","${String(value).replaceAll('"', '""')}"`,
+      ),
+    ].join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     const link = document.createElement("a");
     link.href = url;
@@ -237,7 +244,9 @@ export default function ReportsPage() {
                 title="Editorial Review Queue"
                 value={report.editorial.readyForReview}
                 subtitle={`${report.editorial.verificationBlocked} blocked on verification`}
-                variant={report.editorial.readyForReview > 0 ? "warning" : "default"}
+                variant={
+                  report.editorial.readyForReview > 0 ? "warning" : "default"
+                }
               />
             </section>
 
@@ -348,7 +357,9 @@ export default function ReportsPage() {
                       title="Failed Payments"
                       value={report.finance.failedPayments}
                       variant={
-                        report.finance.failedPayments > 0 ? "warning" : "default"
+                        report.finance.failedPayments > 0
+                          ? "warning"
+                          : "default"
                       }
                     />
                   </div>
@@ -396,7 +407,10 @@ export default function ReportsPage() {
           .report-controls {
             padding: 16px;
             display: grid;
-            grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr) auto auto;
+            grid-template-columns: minmax(160px, 1fr) minmax(
+                160px,
+                1fr
+              ) auto auto;
             gap: 12px;
             align-items: end;
             margin-bottom: 20px;

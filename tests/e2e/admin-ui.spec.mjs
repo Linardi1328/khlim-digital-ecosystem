@@ -101,7 +101,9 @@ test("reports expose explicit date, refresh, and export controls", async ({
   ).toBeVisible();
   await expect(page.getByLabel("From")).toBeVisible();
   await expect(page.getByLabel("To")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Refresh report" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Refresh report" }),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "Export CSV" })).toBeVisible();
   await expect(page.getByText("Active Memberships")).toBeVisible();
   await expect(page.getByText("Attendance Rate")).toBeVisible();

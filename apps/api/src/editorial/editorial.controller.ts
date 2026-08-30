@@ -90,7 +90,9 @@ export class EditorialController {
   @ApiBearerAuth("supabase")
   @RequireAnyRole("SUPER_ADMIN", "MANAGEMENT")
   @RequireMfa()
-  @ApiOperation({ summary: "Remove published editorial content from public view" })
+  @ApiOperation({
+    summary: "Remove published editorial content from public view",
+  })
   unpublish(@Param("id") id: string) {
     return this.editorial.unpublish(id);
   }

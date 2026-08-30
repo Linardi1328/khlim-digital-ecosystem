@@ -203,7 +203,9 @@ export class EditorialService {
   async unpublish(id: string) {
     const entry = await this.requireEntry(id);
     if (entry.status !== "PUBLISHED") {
-      throw new BadRequestException("Only published content can be unpublished");
+      throw new BadRequestException(
+        "Only published content can be unpublished",
+      );
     }
     return this.prisma.client.editorialEntry.update({
       where: { id },
@@ -264,7 +266,9 @@ export class EditorialService {
       !entry.summary?.trim() ||
       !entry.photoLabel?.trim()
     ) {
-      blockers.push("Required headline, event, summary, or photo details are missing.");
+      blockers.push(
+        "Required headline, event, summary, or photo details are missing.",
+      );
     }
     if (entry.type === "ACHIEVEMENT" && !entry.yearLabel?.trim()) {
       blockers.push("Achievement year or season label is missing.");
@@ -276,13 +280,18 @@ export class EditorialService {
         !entry.achievement?.trim() ||
         !entry.achievedOnLabel?.trim()
       ) {
-        blockers.push("Player Spotlight identity or achievement details are incomplete.");
+        blockers.push(
+          "Player Spotlight identity or achievement details are incomplete.",
+        );
       }
       const paragraphCount = Array.isArray(entry.articleParagraphs)
-        ? entry.articleParagraphs.filter((item) => typeof item === "string").length
+        ? entry.articleParagraphs.filter((item) => typeof item === "string")
+            .length
         : 0;
       if (paragraphCount < 2) {
-        blockers.push("Player Spotlight article requires at least two paragraphs.");
+        blockers.push(
+          "Player Spotlight article requires at least two paragraphs.",
+        );
       }
     }
     return blockers;

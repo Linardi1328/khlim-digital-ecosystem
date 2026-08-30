@@ -36,10 +36,7 @@ test("operations reports are bounded, persisted, MFA gated, and finance aware", 
     controller,
     /@ApiQuery\(\{\s*name:\s*"from",\s*required:\s*false/,
   );
-  assert.match(
-    controller,
-    /@ApiQuery\(\{\s*name:\s*"to",\s*required:\s*false/,
-  );
+  assert.match(controller, /@ApiQuery\(\{\s*name:\s*"to",\s*required:\s*false/);
 
   assert.match(service, /REPORT_MAX_DAYS = 366/);
   assert.match(service, /getOperationsReport\(/);
