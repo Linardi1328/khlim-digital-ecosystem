@@ -31,10 +31,8 @@ test("operational health endpoint is persisted, MFA gated, and finance aware", a
     /@Get\("insights\/operational-health"\)[\s\S]*?@RequireAnyRole\(\.\.\.REPORT_ROLES\)[\s\S]*?@RequireMfa\(\)/,
   );
   assert.match(controller, /AdminObservabilityService/);
-  assert.match(
-    module,
-    /providers:\s*\[AdminService, AdminObservabilityService\]/,
-  );
+  assert.match(module, /providers:\s*\[[^\]]*AdminService/);
+  assert.match(module, /providers:\s*\[[^\]]*AdminObservabilityService/);
 
   assert.match(service, /KPI_WINDOW_DAYS = 30/);
   assert.match(service, /STALE_PENDING_MEMBERSHIP_HOURS = 24/);
