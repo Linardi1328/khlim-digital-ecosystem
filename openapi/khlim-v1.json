@@ -613,6 +613,126 @@
         ]
       }
     },
+    "/v1/admin/audit": {
+      "get": {
+        "operationId": "AdminGovernanceController_listAuditEvents",
+        "parameters": [
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entityType",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "2026-08-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "2026-08-31",
+              "type": "string"
+            }
+          },
+          {
+            "name": "take",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "example": "50",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "List immutable privileged audit events with bounded filters",
+        "tags": [
+          "admin-governance"
+        ]
+      }
+    },
+    "/v1/admin/settings": {
+      "get": {
+        "operationId": "AdminGovernanceController_getSettings",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Get persisted academy defaults and verified request boundaries",
+        "tags": [
+          "admin-governance"
+        ]
+      },
+      "put": {
+        "operationId": "AdminGovernanceController_updateSettings",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePlatformSettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Update persisted academy defaults and append an audit event",
+        "tags": [
+          "admin-governance"
+        ]
+      }
+    },
     "/v1/academy/offerings": {
       "get": {
         "operationId": "AcademyController_listPublicOfferings",
@@ -1697,6 +1817,31 @@
         },
         "required": [
           "status"
+        ]
+      },
+      "UpdatePlatformSettingsDto": {
+        "type": "object",
+        "properties": {
+          "currency": {
+            "type": "string",
+            "enum": [
+              "MYR",
+              "SGD",
+              "USD"
+            ]
+          },
+          "timezone": {
+            "type": "string",
+            "enum": [
+              "Asia/Kuala_Lumpur",
+              "Asia/Singapore",
+              "UTC"
+            ]
+          }
+        },
+        "required": [
+          "currency",
+          "timezone"
         ]
       },
       "CreatePendingMembershipDto": {

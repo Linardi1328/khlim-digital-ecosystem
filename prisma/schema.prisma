@@ -637,3 +637,33 @@ model NotificationReceipt {
   @@index([userId, readAt, createdAt])
   @@map("notification_receipts")
 }
+
+model AuditEvent {
+  id               String   @id @default(uuid()) @db.Uuid
+  actorUserId      String?  @map("actor_user_id") @db.Uuid
+  actorEmail       String?  @map("actor_email") @db.VarChar(320)
+  actorRoles       String   @map("actor_roles") @db.VarChar(320)
+  action           String   @db.VarChar(120)
+  entityType       String   @map("entity_type") @db.VarChar(120)
+  entityId         String   @map("entity_id") @db.VarChar(180)
+  summary          String   @db.Text
+  metadata         Json?
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([entityType, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_events")
+}
+
+model PlatformSetting {
+  id        String   @id @db.VarChar(80)
+  currency  String   @default("MYR") @db.VarChar(3)
+  timezone  String   @default("Asia/Kuala_Lumpur") @db.VarChar(80)
+  version   Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_settings")
+}

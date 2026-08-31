@@ -628,11 +628,29 @@ export class AdminService {
         });
       }
 
-      return transaction.userRoleAssignment.findMany({
+      const assignments = await transaction.userRoleAssignment.findMany({
         where: { userId },
         select: { role: true },
         orderBy: { role: "asc" },
       });
+
+      await transaction.auditEvent.create({
+        data: {
+          actorUserId: actor.id,
+          actorEmail: actor.email,
+          actorRoles: actor.roles.join(", ") || "STAFF",
+          action: "STAFF_ROLES_REPLACED",
+          entityType: "USER",
+          entityId: userId,
+          summary: `Staff roles for ${target.email ?? userId} changed from ${targetRoles.join(", ") || "none"} to ${roles.join(", ") || "none"}.`,
+          metadata: {
+            before: targetRoles,
+            after: assignments.map((assignment) => assignment.role),
+          },
+        },
+      });
+
+      return assignments;
     });
   }
 
@@ -664,14 +682,36 @@ export class AdminService {
       );
     }
 
-    return this.prisma.client.user.update({
-      where: { id: userId },
-      data: { status: body.status as "ACTIVE" | "SUSPENDED" | "DEACTIVATED" },
-      select: {
-        id: true,
-        status: true,
-        updatedAt: true,
-      },
+    return this.prisma.client.$transaction(async (transaction) => {
+      const updated = await transaction.user.update({
+        where: { id: userId },
+        data: {
+          status: body.status as "ACTIVE" | "SUSPENDED" | "DEACTIVATED",
+        },
+        select: {
+          id: true,
+          status: true,
+          updatedAt: true,
+        },
+      });
+
+      await transaction.auditEvent.create({
+        data: {
+          actorUserId: actor.id,
+          actorEmail: actor.email,
+          actorRoles: actor.roles.join(", ") || "STAFF",
+          action: "ACCOUNT_STATUS_UPDATED",
+          entityType: "USER",
+          entityId: userId,
+          summary: `Account status for ${target.email ?? userId} changed from ${target.status} to ${updated.status}.`,
+          metadata: {
+            before: { status: target.status },
+            after: { status: updated.status },
+          },
+        },
+      });
+
+      return updated;
     });
   }
 }

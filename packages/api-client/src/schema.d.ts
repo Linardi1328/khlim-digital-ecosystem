@@ -311,6 +311,41 @@ export interface paths {
         patch: operations["AdminController_updateAccountStatus"];
         trace?: never;
     };
+    "/v1/admin/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List immutable privileged audit events with bounded filters */
+        get: operations["AdminGovernanceController_listAuditEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get persisted academy defaults and verified request boundaries */
+        get: operations["AdminGovernanceController_getSettings"];
+        /** Update persisted academy defaults and append an audit event */
+        put: operations["AdminGovernanceController_updateSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/academy/offerings": {
         parameters: {
             query?: never;
@@ -883,6 +918,12 @@ export interface components {
             /** @enum {string} */
             status: "ACTIVE" | "SUSPENDED" | "DEACTIVATED";
         };
+        UpdatePlatformSettingsDto: {
+            /** @enum {string} */
+            currency: "MYR" | "SGD" | "USD";
+            /** @enum {string} */
+            timezone: "Asia/Kuala_Lumpur" | "Asia/Singapore" | "UTC";
+        };
         CreatePendingMembershipDto: {
             offeringId: string;
             planId: string;
@@ -1360,6 +1401,68 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UpdateAccountStatusDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminGovernanceController_listAuditEvents: {
+        parameters: {
+            query?: {
+                q?: string;
+                entityType?: string;
+                action?: string;
+                from?: string;
+                to?: string;
+                take?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminGovernanceController_getSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AdminGovernanceController_updateSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePlatformSettingsDto"];
             };
         };
         responses: {

@@ -2,7 +2,11 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  testMatch: ["admin-ui.spec.mjs", "admin-kpi-observability.spec.mjs"],
+  testMatch: [
+    "admin-ui.spec.mjs",
+    "admin-kpi-observability.spec.mjs",
+    "admin-governance.spec.mjs",
+  ],
   timeout: 15_000,
   expect: { timeout: 5_000 },
   fullyParallel: true,
