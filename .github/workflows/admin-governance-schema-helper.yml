@@ -19,19 +19,19 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
 
           path = Path("apps/api/src/admin/admin.service.ts")
           text = path.read_text()
-          if 'action: "STAFF_ROLES_REPLACED"' in text:
+          if 'action: "STAFF_ROLES_REPLACED"' in text and 'action: "ACCOUNT_STATUS_UPDATED"' in text:
               print("Identity audit events already wired")
               raise SystemExit(0)
 
-          old_roles = '''      return transaction.userRoleAssignment.findMany({
-                where: { userId },
-                select: { role: true },
-                orderBy: { role: "asc" },
-              });'''
-          new_roles = '''      const assignments = await transaction.userRoleAssignment.findMany({
+          role_pattern = re.compile(
+              r'return transaction\.userRoleAssignment\.findMany\(\{\s*where: \{ userId \},\s*select: \{ role: true \},\s*orderBy: \{ role: "asc" \},\s*\}\);',
+              re.MULTILINE,
+          )
+          role_replacement = '''const assignments = await transaction.userRoleAssignment.findMany({
                 where: { userId },
                 select: { role: true },
                 orderBy: { role: "asc" },
@@ -54,20 +54,16 @@ jobs:
               });
 
               return assignments;'''
-          if old_roles not in text:
-              raise SystemExit("Could not locate staff-role transaction block")
-          text = text.replace(old_roles, new_roles, 1)
+          if 'action: "STAFF_ROLES_REPLACED"' not in text:
+              text, role_count = role_pattern.subn(role_replacement, text, count=1)
+              if role_count != 1:
+                  raise SystemExit(f"Expected one staff-role block, found {role_count}")
 
-          old_status = '''    return this.prisma.client.user.update({
-              where: { id: userId },
-              data: { status: body.status as "ACTIVE" | "SUSPENDED" | "DEACTIVATED" },
-              select: {
-                id: true,
-                status: true,
-                updatedAt: true,
-              },
-            });'''
-          new_status = '''    return this.prisma.client.$transaction(async (transaction) => {
+          status_pattern = re.compile(
+              r'return this\.prisma\.client\.user\.update\(\{\s*where: \{ id: userId \},\s*data: \{ status: body\.status as "ACTIVE" \| "SUSPENDED" \| "DEACTIVATED" \},\s*select: \{\s*id: true,\s*status: true,\s*updatedAt: true,\s*\},\s*\}\);',
+              re.MULTILINE,
+          )
+          status_replacement = '''return this.prisma.client.$transaction(async (transaction) => {
               const updated = await transaction.user.update({
                 where: { id: userId },
                 data: {
@@ -98,9 +94,12 @@ jobs:
 
               return updated;
             });'''
-          if old_status not in text:
-              raise SystemExit("Could not locate account-status update block")
-          path.write_text(text.replace(old_status, new_status, 1))
+          if 'action: "ACCOUNT_STATUS_UPDATED"' not in text:
+              text, status_count = status_pattern.subn(status_replacement, text, count=1)
+              if status_count != 1:
+                  raise SystemExit(f"Expected one account-status block, found {status_count}")
+
+          path.write_text(text)
           PY
           if git diff --quiet -- apps/api/src/admin/admin.service.ts; then
             exit 0
