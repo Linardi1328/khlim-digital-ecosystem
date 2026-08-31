@@ -9,52 +9,104 @@ permissions:
   contents: write
 
 jobs:
-  append-models:
+  patch-governance:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: feat/admin-audit-settings
-      - name: Append governance models once
+      - name: Wire transactional identity audit events once
         run: |
-          if grep -q '^model AuditEvent {' prisma/schema.prisma; then
-            echo "Governance models already present"
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("apps/api/src/admin/admin.service.ts")
+          text = path.read_text()
+          if 'action: "STAFF_ROLES_REPLACED"' in text:
+              print("Identity audit events already wired")
+              raise SystemExit(0)
+
+          old_roles = '''      return transaction.userRoleAssignment.findMany({
+                where: { userId },
+                select: { role: true },
+                orderBy: { role: "asc" },
+              });'''
+          new_roles = '''      const assignments = await transaction.userRoleAssignment.findMany({
+                where: { userId },
+                select: { role: true },
+                orderBy: { role: "asc" },
+              });
+
+              await transaction.auditEvent.create({
+                data: {
+                  actorUserId: actor.id,
+                  actorEmail: actor.email,
+                  actorRoles: actor.roles.join(", ") || "STAFF",
+                  action: "STAFF_ROLES_REPLACED",
+                  entityType: "USER",
+                  entityId: userId,
+                  summary: `Staff roles for ${target.email ?? userId} changed from ${targetRoles.join(", ") || "none"} to ${roles.join(", ") || "none"}.`,
+                  metadata: {
+                    before: targetRoles,
+                    after: assignments.map((assignment) => assignment.role),
+                  },
+                },
+              });
+
+              return assignments;'''
+          if old_roles not in text:
+              raise SystemExit("Could not locate staff-role transaction block")
+          text = text.replace(old_roles, new_roles, 1)
+
+          old_status = '''    return this.prisma.client.user.update({
+              where: { id: userId },
+              data: { status: body.status as "ACTIVE" | "SUSPENDED" | "DEACTIVATED" },
+              select: {
+                id: true,
+                status: true,
+                updatedAt: true,
+              },
+            });'''
+          new_status = '''    return this.prisma.client.$transaction(async (transaction) => {
+              const updated = await transaction.user.update({
+                where: { id: userId },
+                data: {
+                  status: body.status as "ACTIVE" | "SUSPENDED" | "DEACTIVATED",
+                },
+                select: {
+                  id: true,
+                  status: true,
+                  updatedAt: true,
+                },
+              });
+
+              await transaction.auditEvent.create({
+                data: {
+                  actorUserId: actor.id,
+                  actorEmail: actor.email,
+                  actorRoles: actor.roles.join(", ") || "STAFF",
+                  action: "ACCOUNT_STATUS_UPDATED",
+                  entityType: "USER",
+                  entityId: userId,
+                  summary: `Account status for ${target.email ?? userId} changed from ${target.status} to ${updated.status}.`,
+                  metadata: {
+                    before: { status: target.status },
+                    after: { status: updated.status },
+                  },
+                },
+              });
+
+              return updated;
+            });'''
+          if old_status not in text:
+              raise SystemExit("Could not locate account-status update block")
+          path.write_text(text.replace(old_status, new_status, 1))
+          PY
+          if git diff --quiet -- apps/api/src/admin/admin.service.ts; then
             exit 0
           fi
-          cat >> prisma/schema.prisma <<'EOF'
-
-          model AuditEvent {
-            id               String   @id @default(uuid()) @db.Uuid
-            actorUserId      String?  @map("actor_user_id") @db.Uuid
-            actorEmail       String?  @map("actor_email") @db.VarChar(320)
-            actorRoles       String   @map("actor_roles") @db.VarChar(320)
-            action           String   @db.VarChar(120)
-            entityType       String   @map("entity_type") @db.VarChar(120)
-            entityId         String   @map("entity_id") @db.VarChar(180)
-            summary          String   @db.Text
-            metadata         Json?
-            createdAt        DateTime @default(now()) @map("created_at")
-
-            @@index([createdAt])
-            @@index([actorUserId, createdAt])
-            @@index([entityType, createdAt])
-            @@index([action, createdAt])
-            @@map("audit_events")
-          }
-
-          model PlatformSetting {
-            id        String   @id @db.VarChar(80)
-            currency  String   @default("MYR") @db.VarChar(3)
-            timezone  String   @default("Asia/Kuala_Lumpur") @db.VarChar(80)
-            version   Int      @default(1)
-            createdAt DateTime @default(now()) @map("created_at")
-            updatedAt DateTime @updatedAt @map("updated_at")
-
-            @@map("platform_settings")
-          }
-          EOF
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add prisma/schema.prisma
-          git commit -m "feat(governance): add audit and platform settings models"
+          git add apps/api/src/admin/admin.service.ts
+          git commit -m "feat(governance): audit privileged identity changes"
           git push origin HEAD:feat/admin-audit-settings
