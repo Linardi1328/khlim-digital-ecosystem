@@ -1,0 +1,48 @@
+name: Admin Cloudflare Export
+
+on:
+  pull_request:
+    paths:
+      - "apps/admin/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/admin-cloudflare-export.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/admin/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.0 --activate
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build static Admin export
+        env:
+          CLOUDFLARE_PAGES: "1"
+          NEXT_PUBLIC_ADMIN_DEMO_MODE: "true"
+        run: pnpm --filter @khlim/admin build
+      - name: Verify export artifact
+        run: |
+          test -f apps/admin/out/index.html
+          test -f apps/admin/out/settings/index.html
+          test -f apps/admin/out/audit/index.html
