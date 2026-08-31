@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
       ? "export"
       : "standalone",
   images: isCloudflarePages ? { unoptimized: true } : undefined,
+  trailingSlash: isCloudflarePages,
   reactStrictMode: true,
 };
 
