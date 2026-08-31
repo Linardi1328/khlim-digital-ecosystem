@@ -1,0 +1,53 @@
+name: Admin Governance Normalize
+
+on:
+  push:
+    branches:
+      - feat/admin-audit-settings
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/khlim_validation
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/admin-audit-settings
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: |
+          corepack enable
+          corepack prepare pnpm@10.15.0 --activate
+          pnpm install --frozen-lockfile
+      - name: Format and regenerate contracts
+        run: |
+          pnpm exec prettier --write \
+            apps/admin/app/audit/page.tsx \
+            apps/admin/app/settings/page.tsx \
+            apps/api/src/admin/admin.service.ts \
+            tests/admin-governance.test.mjs \
+            tests/e2e/admin-governance.spec.mjs \
+            tests/integration/admin-governance-persistence.test.mjs
+          pnpm openapi:generate
+          if git diff --quiet; then
+            echo "Governance artifacts already normalized"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            apps/admin/app/audit/page.tsx \
+            apps/admin/app/settings/page.tsx \
+            apps/api/src/admin/admin.service.ts \
+            tests/admin-governance.test.mjs \
+            tests/e2e/admin-governance.spec.mjs \
+            tests/integration/admin-governance-persistence.test.mjs \
+            openapi/khlim-v1.json \
+            packages/api-client/src/schema.d.ts
+          git commit -m "chore(governance): format code and refresh API contract"
+          git push origin HEAD:feat/admin-audit-settings
