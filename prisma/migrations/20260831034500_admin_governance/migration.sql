@@ -17,6 +17,17 @@ CREATE INDEX "audit_events_actor_user_id_created_at_idx" ON "audit_events"("acto
 CREATE INDEX "audit_events_entity_type_created_at_idx" ON "audit_events"("entity_type", "created_at");
 CREATE INDEX "audit_events_action_created_at_idx" ON "audit_events"("action", "created_at");
 
+CREATE FUNCTION "prevent_audit_event_mutation"()
+RETURNS trigger AS $$
+BEGIN
+  RAISE EXCEPTION 'audit_events are append-only and cannot be updated or deleted';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER "audit_events_append_only"
+BEFORE UPDATE OR DELETE ON "audit_events"
+FOR EACH ROW EXECUTE FUNCTION "prevent_audit_event_mutation"();
+
 CREATE TABLE "platform_settings" (
   "id" VARCHAR(80) NOT NULL,
   "currency" VARCHAR(3) NOT NULL DEFAULT 'MYR',
