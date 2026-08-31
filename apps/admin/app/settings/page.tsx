@@ -175,8 +175,8 @@ export default function SettingsPage() {
 
               <div className="notice warning">
                 <strong>No retroactive financial conversion.</strong> Changing
-                the default currency does not change amounts or currency codes on
-                existing plans, memberships, installments, or payments.
+                the default currency does not change amounts or currency codes
+                on existing plans, memberships, installments, or payments.
               </div>
 
               <div className="save-row">
@@ -211,7 +211,8 @@ export default function SettingsPage() {
                       : "Waiting for request"}
                   </strong>
                   <p>
-                    The API accepted this current Management/Super Admin session.
+                    The API accepted this current Management/Super Admin
+                    session.
                   </p>
                 </article>
                 <article>
@@ -230,11 +231,14 @@ export default function SettingsPage() {
                       ? "Settings row read succeeded"
                       : "Waiting for request"}
                   </strong>
-                  <p>This proves only the database operation used by this page.</p>
+                  <p>
+                    This proves only the database operation used by this page.
+                  </p>
                 </article>
               </div>
               <div className="boundary-time">
-                Last checked: {settings?.systemStatus.checkedAt
+                Last checked:{" "}
+                {settings?.systemStatus.checkedAt
                   ? new Date(settings.systemStatus.checkedAt).toLocaleString()
                   : "not yet checked"}
               </div>
@@ -245,10 +249,16 @@ export default function SettingsPage() {
               description="Sensitive infrastructure configuration belongs in managed deployment and secret stores, not in an application settings form."
             >
               <ul className="security-list">
-                <li>No API keys, passwords, database URLs, or webhook secrets.</li>
-                <li>No raw card details, payment credentials, or provider tokens.</li>
+                <li>
+                  No API keys, passwords, database URLs, or webhook secrets.
+                </li>
+                <li>
+                  No raw card details, payment credentials, or provider tokens.
+                </li>
                 <li>Every persisted settings change appends an audit event.</li>
-                <li>Allowed currencies and timezones are validated server-side.</li>
+                <li>
+                  Allowed currencies and timezones are validated server-side.
+                </li>
               </ul>
             </FormSection>
           </>

@@ -105,8 +105,8 @@ export default function AuditLogPage() {
           <>
             {isDemoMode && (
               <div className="notice demo" role="status">
-                Demo mode shows synthetic audit examples only. No persisted audit
-                records are read or changed.
+                Demo mode shows synthetic audit examples only. No persisted
+                audit records are read or changed.
               </div>
             )}
 
@@ -236,7 +236,8 @@ export default function AuditLogPage() {
                         <span>{event.entityType.replaceAll("_", " ")}</span>
                       </div>
                       <div className="audit-actor">
-                        {event.actorName} · {event.actorRole.replaceAll("_", " ")}
+                        {event.actorName} ·{" "}
+                        {event.actorRole.replaceAll("_", " ")}
                       </div>
                       <p>{event.summary}</p>
                       <code>{event.entityId}</code>
@@ -259,11 +260,19 @@ export default function AuditLogPage() {
         <Drawer
           isOpen={Boolean(selected)}
           onClose={() => setSelected(null)}
-          title={selected ? selected.action.replaceAll("_", " ") : "Audit event"}
-          subtitle={selected ? `${selected.entityType} · ${selected.entityId}` : ""}
+          title={
+            selected ? selected.action.replaceAll("_", " ") : "Audit event"
+          }
+          subtitle={
+            selected ? `${selected.entityType} · ${selected.entityId}` : ""
+          }
           width="560px"
           footer={
-            <Button type="button" variant="outline" onClick={() => setSelected(null)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSelected(null)}
+            >
               Close
             </Button>
           }
@@ -299,8 +308,8 @@ export default function AuditLogPage() {
                 <pre>{prettyMetadata(selected.metadata)}</pre>
               </section>
               <div className="notice immutable">
-                Audit records are permanent application evidence. This drawer has
-                no edit or delete controls.
+                Audit records are permanent application evidence. This drawer
+                has no edit or delete controls.
               </div>
             </div>
           )}
@@ -321,7 +330,10 @@ export default function AuditLogPage() {
           }
           .filters {
             display: grid;
-            grid-template-columns: minmax(230px, 2fr) repeat(4, minmax(145px, 1fr));
+            grid-template-columns: minmax(230px, 2fr) repeat(
+                4,
+                minmax(145px, 1fr)
+              );
             gap: 12px;
             align-items: end;
             padding: 16px;

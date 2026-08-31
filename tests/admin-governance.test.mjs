@@ -39,7 +39,9 @@ test("governance API is management plus MFA gated and filter bounded", async () 
 
 test("privileged identity and platform changes append audit evidence transactionally", async () => {
   const adminService = await read("apps/api/src/admin/admin.service.ts");
-  const governance = await read("apps/api/src/admin/admin-governance.service.ts");
+  const governance = await read(
+    "apps/api/src/admin/admin-governance.service.ts",
+  );
 
   assert.match(adminService, /STAFF_ROLES_REPLACED/);
   assert.match(adminService, /ACCOUNT_STATUS_UPDATED/);
@@ -71,7 +73,10 @@ test("settings UI persists only safe allowlisted defaults and avoids synthetic h
   assert.match(page, /window\.confirm/);
   assert.match(page, /No retroactive financial conversion/);
   assert.match(page, /not synthetic uptime/);
-  assert.match(page, /No API keys, passwords, database URLs, or webhook secrets/);
+  assert.match(
+    page,
+    /No API keys, passwords, database URLs, or webhook secrets/,
+  );
   assert.match(page, /min-height: 44px/);
   assert.doesNotMatch(page, /Save unavailable/);
   assert.doesNotMatch(page, /input[^>]+password/i);

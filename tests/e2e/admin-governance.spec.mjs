@@ -2,7 +2,9 @@ import { expect, test } from "@playwright/test";
 
 async function expectNoHorizontalOverflow(page) {
   const overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 2,
+    () =>
+      document.documentElement.scrollWidth >
+      document.documentElement.clientWidth + 2,
   );
   expect(overflow).toBe(false);
 }
@@ -17,11 +19,19 @@ test("audit trail exposes immutable read-only inspection and bounded filters", a
   page,
 }) => {
   await page.goto("/audit", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: "Operational Audit Trail" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Operational Audit Trail" }),
+  ).toBeVisible();
   await expect(page.getByText("Append-only invariant:")).toBeVisible();
-  await expect(page.getByText(/Showing \d+ of \d+ matching event/)).toBeVisible();
-  await expect(page.getByRole("button", { name: "Apply filters" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Inspect" }).first()).toBeVisible();
+  await expect(
+    page.getByText(/Showing \d+ of \d+ matching event/),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Apply filters" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Inspect" }).first(),
+  ).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   await page.getByRole("button", { name: "Inspect" }).first().click();
@@ -34,11 +44,17 @@ test("settings page distinguishes persisted defaults from historical financial r
 }) => {
   await page.goto("/settings", { waitUntil: "domcontentloaded" });
   await expect(
-    page.getByRole("heading", { name: "Platform Settings & Verified Boundaries" }),
+    page.getByRole("heading", {
+      name: "Platform Settings & Verified Boundaries",
+    }),
   ).toBeVisible();
-  await expect(page.getByText("No retroactive financial conversion.")).toBeVisible();
+  await expect(
+    page.getByText("No retroactive financial conversion."),
+  ).toBeVisible();
   await expect(page.getByText(/not synthetic uptime/i)).toBeVisible();
-  await expect(page.getByText(/No API keys, passwords, database URLs, or webhook secrets/)).toBeVisible();
+  await expect(
+    page.getByText(/No API keys, passwords, database URLs, or webhook secrets/),
+  ).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   const currency = page.getByLabel("Authoritative default currency");
@@ -49,7 +65,9 @@ test("settings page distinguishes persisted defaults from historical financial r
 
   page.once("dialog", (dialog) => dialog.accept());
   await save.click();
-  await expect(page.getByText(/Demo mode accepted the preview only/)).toBeVisible();
+  await expect(
+    page.getByText(/Demo mode accepted the preview only/),
+  ).toBeVisible();
 });
 
 test("governance pages remain mobile-safe", async ({ page, viewport }) => {

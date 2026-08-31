@@ -14,7 +14,9 @@ function databaseTestsEnabled() {
   if (process.env.KHLIM_TEST_DATABASE !== "1") return false;
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
-    throw new Error("DATABASE_URL is required for governance persistence tests");
+    throw new Error(
+      "DATABASE_URL is required for governance persistence tests",
+    );
   }
   const databaseName = new URL(databaseUrl).pathname.replace(/^\//, "");
   if (!databaseName.toLowerCase().includes("test")) {
