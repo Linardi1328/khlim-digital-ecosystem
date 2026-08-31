@@ -13,7 +13,10 @@ test("admin exposes an isolated Cloudflare Pages static export mode", async () =
 
   assert.match(config, /CLOUDFLARE_PAGES/);
   assert.match(config, /isCloudflarePages[\s\S]*?"export"/);
-  assert.match(config, /images:\s*isCloudflarePages\s*\?\s*\{\s*unoptimized:\s*true\s*\}/);
+  assert.match(
+    config,
+    /images:\s*isCloudflarePages\s*\?\s*\{\s*unoptimized:\s*true\s*\}/,
+  );
   assert.match(config, /trailingSlash:\s*isCloudflarePages/);
   assert.match(config, /process\.env\.VERCEL[\s\S]*?undefined/);
   assert.match(config, /"standalone"/);
@@ -28,5 +31,8 @@ test("Cloudflare export CI builds only the Admin artifact without deployment sec
   assert.match(workflow, /NEXT_PUBLIC_ADMIN_DEMO_MODE:\s*"true"/);
   assert.match(workflow, /pnpm --filter @khlim\/admin build/);
   assert.match(workflow, /apps\/admin\/out\/index\.html/);
-  assert.doesNotMatch(workflow, /CLOUDFLARE_API_TOKEN|wrangler deploy|pages deploy/i);
+  assert.doesNotMatch(
+    workflow,
+    /CLOUDFLARE_API_TOKEN|wrangler deploy|pages deploy/i,
+  );
 });
