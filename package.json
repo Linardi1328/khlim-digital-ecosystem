@@ -15,7 +15,7 @@
     "format:check": "prettier --check \"apps/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,mjs,json}\" \"tests/**/*.mjs\" \"scripts/**/*.mjs\" \"*.{json,mjs}\" \".github/workflows/*.yml\"",
     "test": "node --test tests/*.test.mjs",
     "test:pre-alpha": "pnpm prisma:generate && pnpm --filter @khlim/api build && node --test tests/integration/*.test.mjs",
-    "test:pre-alpha:persistence": "pnpm prisma:generate && pnpm exec prisma migrate deploy && pnpm --filter @khlim/api build && node --test tests/integration/pre-alpha-persistence-integrity.test.mjs",
+    "test:pre-alpha:persistence": "pnpm prisma:generate && pnpm exec prisma migrate deploy && pnpm --filter @khlim/api build && node --test tests/integration/pre-alpha-persistence-integrity.test.mjs tests/integration/admin-governance-persistence.test.mjs",
     "test:pre-alpha:admin": "pnpm prisma:generate && pnpm exec prisma migrate deploy && pnpm --filter @khlim/api build && node --test tests/integration/pre-alpha-admin-http-integration.test.mjs",
     "test:pre-alpha:payments": "pnpm prisma:generate && pnpm exec prisma migrate deploy && pnpm --filter @khlim/api build && node --test tests/integration/pre-alpha-payment-webhook-integration.test.mjs",
     "test:pre-alpha:billplz": "pnpm prisma:generate && pnpm --filter @khlim/api build && node --test tests/integration/pre-alpha-billplz-sandbox.test.mjs",
