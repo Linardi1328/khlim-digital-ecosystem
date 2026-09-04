@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useI18n } from "../../lib/i18n-context";
 import { Button } from "../ui/button";
@@ -45,10 +46,12 @@ export function KheroSection() {
             key={poster.id}
             className={`home-khero-poster home-khero-poster-${index + 1}`}
           >
-            <img
+            <Image
               src={poster.src}
               alt={t(poster.altKey)}
-              loading={index === 0 ? "eager" : "lazy"}
+              fill
+              sizes="(max-width: 640px) 50vw, (max-width: 900px) 50vw, 25vw"
+              priority={index === 0}
             />
           </figure>
         ))}
