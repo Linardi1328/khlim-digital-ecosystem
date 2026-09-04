@@ -3,7 +3,6 @@ import type { AuthenticatedUserContext } from "../auth/authenticated-user";
 import { PrismaService } from "../database/prisma.service";
 import {
   DEFAULT_ORGANIZATION_SLUG,
-  ORGANIZATION_STAFF_ROLES,
   type OrganizationStaffRole,
 } from "./organization.constants";
 
@@ -17,8 +16,6 @@ interface OrganizationRow {
 interface OrganizationRoleRow {
   role: OrganizationStaffRole;
 }
-
-const staffRoleSet = new Set<string>(ORGANIZATION_STAFF_ROLES);
 
 function normalizeRequestedSlug(value: string | undefined): string {
   const slug = (value || DEFAULT_ORGANIZATION_SLUG).trim().toLowerCase();
@@ -46,20 +43,17 @@ export class OrganizationService {
       throw new ForbiddenException("Organization is not available");
     }
 
-    let roles = await this.listActiveStaffRoles(organization.id, user.id);
-
-    // Compatibility bridge for users created by existing fixtures or older
-    // deployments after the migration ran. Legacy global staff assignments are
-    // copied only into Organization #001, then authorization reads the scoped
-    // assignments. This can be removed once all writers use organization roles.
-    if (
-      roles.length === 0 &&
-      organization.slug === DEFAULT_ORGANIZATION_SLUG &&
-      user.roles.some((role) => staffRoleSet.has(role))
-    ) {
-      await this.bootstrapLegacyStaffRoles(organization.id, user.id);
-      roles = await this.listActiveStaffRoles(organization.id, user.id);
+    // Compatibility bridge: existing Admin writers still mutate the legacy
+    // UserRoleAssignment table. For Organization #001 only, mirror those staff
+    // assignments into the new scoped tables on authentication. Authorization
+    // then reads organization_role_assignments rather than treating the legacy
+    // global staff role as authority. Organization #002+ never receives this
+    // bridge, so a KHLIM staff role cannot grant access to another tenant.
+    if (organization.slug === DEFAULT_ORGANIZATION_SLUG) {
+      await this.syncLegacyStaffRoles(organization.id, user.id);
     }
+
+    const roles = await this.listActiveStaffRoles(organization.id, user.id);
 
     return {
       id: organization.id,
@@ -86,7 +80,7 @@ export class OrganizationService {
     return rows.map((row) => row.role);
   }
 
-  private async bootstrapLegacyStaffRoles(
+  private async syncLegacyStaffRoles(
     organizationId: string,
     userId: string,
   ): Promise<void> {
@@ -127,6 +121,24 @@ export class OrganizationService {
             'ACADEMY_ADMIN', 'HEAD_COACH', 'EVENT_STAFF'
           )
         ON CONFLICT (organization_membership_id, role) DO NOTHING
+      `;
+
+      await transaction.$executeRaw`
+        DELETE FROM organization_role_assignments ora
+        USING organization_memberships om
+        WHERE ora.organization_membership_id = om.id
+          AND om.organization_id = ${organizationId}::uuid
+          AND om.user_id = ${userId}::uuid
+          AND NOT EXISTS (
+            SELECT 1
+            FROM user_role_assignments ura
+            WHERE ura.user_id = ${userId}::uuid
+              AND ura.role::text = ora.role
+              AND ura.role::text IN (
+                'COACH', 'SUPER_ADMIN', 'MANAGEMENT', 'FINANCE_ADMIN',
+                'ACADEMY_ADMIN', 'HEAD_COACH', 'EVENT_STAFF'
+              )
+          )
       `;
     });
   }
