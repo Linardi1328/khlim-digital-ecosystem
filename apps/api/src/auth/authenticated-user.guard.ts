@@ -1,12 +1,17 @@
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { IdentityService } from "../identity/identity.service";
-import { ORGANIZATION_HEADER } from "../organization/organization.constants";
+import {
+  DEFAULT_ORGANIZATION_SLUG,
+  MULTI_ORGANIZATION_RUNTIME_ENABLED,
+  ORGANIZATION_HEADER,
+} from "../organization/organization.constants";
 import { OrganizationService } from "../organization/organization.service";
 import { PUBLIC_ROUTE_KEY } from "./auth.constants";
 import type { AuthenticatedRequest } from "./authenticated-user";
@@ -41,6 +46,8 @@ export class AuthenticatedUserGuard implements CanActivate {
     const requestedOrganization = this.extractOrganizationHeader(
       request.headers[ORGANIZATION_HEADER],
     );
+    this.assertOrganizationRuntimeEnabled(requestedOrganization);
+
     const organization = await this.organizations.resolveContext(
       user,
       requestedOrganization,
@@ -90,6 +97,20 @@ export class AuthenticatedUserGuard implements CanActivate {
     if (typeof value !== "string") {
       throw new UnauthorizedException("Organization context is invalid");
     }
-    return value;
+    return value.trim().toLowerCase();
+  }
+
+  private assertOrganizationRuntimeEnabled(
+    requestedOrganization: string | undefined,
+  ): void {
+    if (
+      requestedOrganization &&
+      requestedOrganization !== DEFAULT_ORGANIZATION_SLUG &&
+      !MULTI_ORGANIZATION_RUNTIME_ENABLED
+    ) {
+      throw new ForbiddenException(
+        "External organization runtime is not enabled yet",
+      );
+    }
   }
 }
