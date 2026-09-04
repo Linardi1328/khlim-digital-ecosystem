@@ -11,6 +11,7 @@ export interface HeroCarouselSlide {
   imageUrl?: string;
   photoLabel: string;
   placeholderGradient: string;
+  showPlaceholderLabel?: boolean;
 }
 
 export interface HeroCarouselProps {
@@ -99,7 +100,7 @@ export function HeroCarousel({
               aria-hidden={!isActive}
               style={{ backgroundImage }}
             >
-              {!slide.imageUrl && (
+              {!slide.imageUrl && slide.showPlaceholderLabel !== false && (
                 <div className="home-photo-placeholder-label">
                   {t("home.photoSlot", { label: slide.photoLabel })}
                 </div>

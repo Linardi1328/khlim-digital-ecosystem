@@ -5,17 +5,13 @@ import Link from "next/link";
 import { apiService } from "../lib/api-service";
 import { useI18n } from "../lib/i18n-context";
 import type { PublicOfferingItem } from "../lib/types";
+import { AcademyPillarsSection } from "../components/home/academy-pillars-section";
 import { AchievementsSection } from "../components/home/achievements-section";
 import {
   HeroCarousel,
   type HeroCarouselSlide,
 } from "../components/home/hero-carousel";
-import {
-  PhotoGallery,
-  PhotoStorySection,
-  type PhotoGalleryItem,
-  type PhotoStoryItem,
-} from "../components/home/photo-gallery";
+import { KheroSection } from "../components/home/khero-section";
 import { PlayerSpotlightSection } from "../components/home/player-spotlight-section";
 import { PublicFooter } from "../components/layout/public-footer";
 import { PublicHeader } from "../components/layout/public-header";
@@ -58,82 +54,11 @@ export default function HomePage() {
 
   const heroSlides: HeroCarouselSlide[] = [
     {
-      id: "training-action",
+      id: "academy-first",
       photoLabel: t("home.hero.photo.training"),
+      showPlaceholderLabel: false,
       placeholderGradient:
-        "radial-gradient(circle at 72% 24%, rgba(245, 158, 11, 0.34), transparent 18%), linear-gradient(135deg, #27272a, #111827 50%, #3f2d0b)",
-    },
-    {
-      id: "coach-player",
-      photoLabel: t("home.hero.photo.coaching"),
-      placeholderGradient:
-        "radial-gradient(circle at 28% 42%, rgba(245, 158, 11, 0.28), transparent 22%), linear-gradient(125deg, #18181b, #292524 58%, #0f172a)",
-    },
-    {
-      id: "team-community",
-      photoLabel: t("home.hero.photo.community"),
-      placeholderGradient:
-        "radial-gradient(circle at 70% 55%, rgba(251, 191, 36, 0.24), transparent 24%), linear-gradient(145deg, #0f172a, #27272a 56%, #3f3f46)",
-    },
-    {
-      id: "game-energy",
-      photoLabel: t("home.hero.photo.gameDay"),
-      placeholderGradient:
-        "radial-gradient(circle at 34% 25%, rgba(245, 158, 11, 0.3), transparent 20%), linear-gradient(120deg, #18181b, #3f3f46 52%, #292524)",
-    },
-  ];
-
-  const photoStories: PhotoStoryItem[] = [
-    {
-      id: "purposeful-practice",
-      eyebrow: t("home.story.development.eyebrow"),
-      title: t("home.story.development.title"),
-      description: t("home.story.development.description"),
-      photoLabel: t("home.story.development.photoLabel"),
-      placeholderGradient:
-        "radial-gradient(circle at 68% 40%, rgba(245, 158, 11, 0.34), transparent 22%), linear-gradient(120deg, #18181b, #3f3f46 58%, #171717)",
-    },
-    {
-      id: "grow-through-game",
-      eyebrow: t("home.story.community.eyebrow"),
-      title: t("home.story.community.title"),
-      description: t("home.story.community.description"),
-      photoLabel: t("home.story.community.photoLabel"),
-      placeholderGradient:
-        "radial-gradient(circle at 28% 55%, rgba(251, 191, 36, 0.28), transparent 24%), linear-gradient(135deg, #0f172a, #27272a 58%, #3f2d0b)",
-    },
-  ];
-
-  const galleryItems: PhotoGalleryItem[] = [
-    {
-      id: "gallery-1",
-      photoLabel: t("home.gallery.photo.ballHandling"),
-      placeholderGradient: "linear-gradient(135deg, #27272a, #4b3520)",
-    },
-    {
-      id: "gallery-2",
-      photoLabel: t("home.gallery.photo.coaching"),
-      placeholderGradient: "linear-gradient(145deg, #18181b, #374151)",
-    },
-    {
-      id: "gallery-3",
-      photoLabel: t("home.gallery.photo.huddle"),
-      placeholderGradient: "linear-gradient(125deg, #3f3f46, #1f2937)",
-    },
-    {
-      id: "gallery-4",
-      photoLabel: t("home.gallery.photo.gameAction"),
-      placeholderGradient: "linear-gradient(140deg, #171717, #5b401c)",
-    },
-    {
-      id: "gallery-5",
-      photoLabel: t("home.gallery.photo.community"),
-      placeholderGradient: "linear-gradient(130deg, #1f2937, #3f3f46)",
-    },
-    {
-      id: "gallery-6",
-      photoLabel: t("home.gallery.photo.development"),
-      placeholderGradient: "linear-gradient(150deg, #292524, #111827)",
+        "radial-gradient(circle at 76% 24%, rgba(245, 158, 11, 0.36), transparent 18%), radial-gradient(circle at 78% 72%, rgba(245, 158, 11, 0.14), transparent 24%), linear-gradient(135deg, #09090b 0%, #18181b 48%, #2a1d08 100%)",
     },
   ];
 
@@ -146,11 +71,13 @@ export default function HomePage() {
         <HeroCarousel
           slides={heroSlides}
           eyebrow={t("brand.academy")}
-          title={t("hero.title")}
-          subtitle={t("hero.subtitle")}
+          title={t("home.academyHero.title")}
+          subtitle={t("home.academyHero.subtitle")}
           primaryCtaLabel={t("hero.cta.join")}
           secondaryCtaLabel={t("hero.cta.explore")}
         />
+
+        <AcademyPillarsSection />
 
         <section className="home-programmes-section">
           <div className="home-section-heading">
@@ -208,15 +135,9 @@ export default function HomePage() {
 
         <AchievementsSection />
 
-        {photoStories[0] && <PhotoStorySection item={photoStories[0]} />}
-
         <PlayerSpotlightSection />
 
-        {photoStories.slice(1).map((item) => (
-          <PhotoStorySection key={item.id} item={item} />
-        ))}
-
-        <PhotoGallery items={galleryItems} />
+        <KheroSection />
 
         <section className="home-join-cta">
           <div>

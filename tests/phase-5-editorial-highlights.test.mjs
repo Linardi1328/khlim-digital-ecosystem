@@ -7,17 +7,18 @@ async function read(path) {
   return readFile(new URL(path, root), "utf8");
 }
 
-test("homepage includes achievements and Player Spotlight between core journeys", async () => {
+test("homepage includes achievements and Player Spotlight before supporting Khero content", async () => {
   const page = await read("apps/web/app/page.tsx");
   assert.match(page, /<AchievementsSection\s*\/>/);
   assert.match(page, /<PlayerSpotlightSection\s*\/>/);
+  assert.match(page, /<KheroSection\s*\/>/);
   assert.ok(
     page.indexOf("<AchievementsSection />") <
       page.indexOf("<PlayerSpotlightSection />"),
   );
   assert.ok(
     page.indexOf("<PlayerSpotlightSection />") <
-      page.indexOf("<PhotoGallery items={galleryItems} />"),
+      page.indexOf("<KheroSection />"),
   );
 });
 
