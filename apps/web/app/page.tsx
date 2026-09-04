@@ -60,24 +60,28 @@ export default function HomePage() {
     {
       id: "training-action",
       photoLabel: t("home.hero.photo.training"),
+      imageUrl: "/media/khero/coming-soon.webp",
       placeholderGradient:
         "radial-gradient(circle at 72% 24%, rgba(245, 158, 11, 0.34), transparent 18%), linear-gradient(135deg, #27272a, #111827 50%, #3f2d0b)",
     },
     {
       id: "coach-player",
       photoLabel: t("home.hero.photo.coaching"),
+      imageUrl: "/media/khero/meet-khero.webp",
       placeholderGradient:
         "radial-gradient(circle at 28% 42%, rgba(245, 158, 11, 0.28), transparent 22%), linear-gradient(125deg, #18181b, #292524 58%, #0f172a)",
     },
     {
       id: "team-community",
       photoLabel: t("home.hero.photo.community"),
+      imageUrl: "/media/khero/khero-meaning.webp",
       placeholderGradient:
         "radial-gradient(circle at 70% 55%, rgba(251, 191, 36, 0.24), transparent 24%), linear-gradient(145deg, #0f172a, #27272a 56%, #3f3f46)",
     },
     {
       id: "game-energy",
       photoLabel: t("home.hero.photo.gameDay"),
+      imageUrl: "/media/khero/khero-way.webp",
       placeholderGradient:
         "radial-gradient(circle at 34% 25%, rgba(245, 158, 11, 0.3), transparent 20%), linear-gradient(120deg, #18181b, #3f3f46 52%, #292524)",
     },
@@ -90,6 +94,7 @@ export default function HomePage() {
       title: t("home.story.development.title"),
       description: t("home.story.development.description"),
       photoLabel: t("home.story.development.photoLabel"),
+      imageUrl: "/media/khero/khero-way.webp",
       placeholderGradient:
         "radial-gradient(circle at 68% 40%, rgba(245, 158, 11, 0.34), transparent 22%), linear-gradient(120deg, #18181b, #3f3f46 58%, #171717)",
     },
@@ -99,6 +104,7 @@ export default function HomePage() {
       title: t("home.story.community.title"),
       description: t("home.story.community.description"),
       photoLabel: t("home.story.community.photoLabel"),
+      imageUrl: "/media/khero/meet-khero.webp",
       placeholderGradient:
         "radial-gradient(circle at 28% 55%, rgba(251, 191, 36, 0.28), transparent 24%), linear-gradient(135deg, #0f172a, #27272a 58%, #3f2d0b)",
     },
@@ -108,31 +114,37 @@ export default function HomePage() {
     {
       id: "gallery-1",
       photoLabel: t("home.gallery.photo.ballHandling"),
+      imageUrl: "/media/khero/coming-soon.webp",
       placeholderGradient: "linear-gradient(135deg, #27272a, #4b3520)",
     },
     {
       id: "gallery-2",
       photoLabel: t("home.gallery.photo.coaching"),
+      imageUrl: "/media/khero/meet-khero.webp",
       placeholderGradient: "linear-gradient(145deg, #18181b, #374151)",
     },
     {
       id: "gallery-3",
       photoLabel: t("home.gallery.photo.huddle"),
+      imageUrl: "/media/khero/khero-meaning.webp",
       placeholderGradient: "linear-gradient(125deg, #3f3f46, #1f2937)",
     },
     {
       id: "gallery-4",
       photoLabel: t("home.gallery.photo.gameAction"),
+      imageUrl: "/media/khero/khero-way.webp",
       placeholderGradient: "linear-gradient(140deg, #171717, #5b401c)",
     },
     {
       id: "gallery-5",
       photoLabel: t("home.gallery.photo.community"),
+      imageUrl: "/media/khero/meet-khero.webp",
       placeholderGradient: "linear-gradient(130deg, #1f2937, #3f3f46)",
     },
     {
       id: "gallery-6",
       photoLabel: t("home.gallery.photo.development"),
+      imageUrl: "/media/khero/khero-meaning.webp",
       placeholderGradient: "linear-gradient(150deg, #292524, #111827)",
     },
   ];
