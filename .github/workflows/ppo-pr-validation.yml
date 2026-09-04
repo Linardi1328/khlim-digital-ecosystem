@@ -52,12 +52,6 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      - name: Print exact Phase 1B Prettier diff
-        run: |
-          pnpm exec prettier --write apps/api/src/notifications/notifications.service.ts apps/api/src/scheduling/scheduling.service.ts tests/integration/organization-tenancy-isolation.test.mjs tests/organization-phase-1b.test.mjs
-          git diff -- apps/api/src/notifications/notifications.service.ts apps/api/src/scheduling/scheduling.service.ts tests/integration/organization-tenancy-isolation.test.mjs tests/organization-phase-1b.test.mjs
-          git checkout -- apps/api/src/notifications/notifications.service.ts apps/api/src/scheduling/scheduling.service.ts tests/integration/organization-tenancy-isolation.test.mjs tests/organization-phase-1b.test.mjs
-
       - name: Formatting
         run: pnpm format:check
 
