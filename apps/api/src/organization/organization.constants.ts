@@ -1,5 +1,4 @@
-export const DEFAULT_ORGANIZATION_ID =
-  "00000000-0000-4000-8000-000000000001";
+export const DEFAULT_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001";
 
 export const DEFAULT_ORGANIZATION_SLUG =
   process.env.KHLIM_DEFAULT_ORGANIZATION_SLUG?.trim().toLowerCase() ||
@@ -18,7 +17,6 @@ export const ORGANIZATION_STAFF_ROLES = [
   "EVENT_STAFF",
 ] as const;
 
-export type OrganizationStaffRole =
-  (typeof ORGANIZATION_STAFF_ROLES)[number];
+export type OrganizationStaffRole = (typeof ORGANIZATION_STAFF_ROLES)[number];
 
 export const ORGANIZATION_HEADER = "x-khlim-organization";

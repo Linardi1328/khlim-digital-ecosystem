@@ -141,7 +141,8 @@ export class AcademyService {
 
   createVenue(organizationId: string, body: CreateVenueDto) {
     const name = requireTrimmedString(body?.name, "name", 160);
-    const address = optionalTrimmedString(body?.address, "address", 500) ?? null;
+    const address =
+      optionalTrimmedString(body?.address, "address", 500) ?? null;
     return this.prisma.client.venue.create({
       data: { organizationId, name, address },
     });
@@ -153,7 +154,8 @@ export class AcademyService {
     body: CreateCourtDto,
   ) {
     const name = requireTrimmedString(body?.name, "name", 120);
-    const capacity = optionalInteger(body?.capacity, "capacity", 1, 10000) ?? null;
+    const capacity =
+      optionalInteger(body?.capacity, "capacity", 1, 10000) ?? null;
 
     const venue = await this.prisma.client.venue.findFirst({
       where: { id: venueId, organizationId },
@@ -194,7 +196,9 @@ export class AcademyService {
         select: { active: true },
       });
     if (!organizationSport?.active) {
-      throw new BadRequestException("Sport is not active for this organization");
+      throw new BadRequestException(
+        "Sport is not active for this organization",
+      );
     }
 
     return this.prisma.client.programme.create({
@@ -220,7 +224,8 @@ export class AcademyService {
       "programmeId",
       100,
     );
-    const venueId = optionalTrimmedString(body?.venueId, "venueId", 100) ?? null;
+    const venueId =
+      optionalTrimmedString(body?.venueId, "venueId", 100) ?? null;
     const name = requireTrimmedString(body?.name, "name", 180);
     const capacity = requireInteger(body?.capacity, "capacity", 1, 10000);
     const startsOn =
@@ -269,10 +274,7 @@ export class AcademyService {
     });
   }
 
-  createMembershipPlan(
-    organizationId: string,
-    body: CreateMembershipPlanDto,
-  ) {
+  createMembershipPlan(organizationId: string, body: CreateMembershipPlanDto) {
     const name = requireTrimmedString(body?.name, "name", 160);
     const durationMonths =
       optionalInteger(body?.durationMonths, "durationMonths", 1, 120) ?? null;
@@ -337,10 +339,7 @@ export class AcademyService {
     });
   }
 
-  async linkPlanToOffering(
-    organizationId: string,
-    body: LinkPlanOfferingDto,
-  ) {
+  async linkPlanToOffering(organizationId: string, body: LinkPlanOfferingDto) {
     const planId = requireTrimmedString(body?.planId, "planId", 100);
     const offeringId = requireTrimmedString(
       body?.offeringId,
@@ -410,7 +409,9 @@ export class AcademyService {
     return this.prisma.client.$transaction(async (transaction) => {
       // Serialize membership creation per tenant-owned offering. The
       // organization predicate also makes a foreign tenant ID fail closed.
-      const lockedOfferings = await transaction.$queryRaw<Array<{ id: string }>>`
+      const lockedOfferings = await transaction.$queryRaw<
+        Array<{ id: string }>
+      >`
         SELECT id::text
         FROM programme_offerings
         WHERE id = ${offeringId}::uuid

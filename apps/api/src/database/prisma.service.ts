@@ -37,10 +37,7 @@ function withOrganizationCompatibility(client: PrismaClient): PrismaClient {
     query: {
       $allModels: {
         async $allOperations({ model, operation, args, query }) {
-          if (
-            model &&
-            COMPATIBILITY_TENANT_MODELS.has(model.toLowerCase())
-          ) {
+          if (model && COMPATIBILITY_TENANT_MODELS.has(model.toLowerCase())) {
             const mutableArgs = args as {
               create?: unknown;
               data?: unknown;
