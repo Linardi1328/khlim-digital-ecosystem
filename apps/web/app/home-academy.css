@@ -1,0 +1,444 @@
+.home-hero-carousel::before,
+.home-hero-carousel::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.home-hero-carousel::before {
+  z-index: 2;
+  inset: 0;
+  background:
+    linear-gradient(90deg, transparent 0 66%, rgba(245, 158, 11, 0.08) 66% 66.15%, transparent 66.15%),
+    linear-gradient(0deg, transparent 0 72%, rgba(255, 255, 255, 0.04) 72% 72.15%, transparent 72.15%);
+}
+
+.home-hero-carousel::after {
+  z-index: 2;
+  width: min(48vw, 640px);
+  aspect-ratio: 1;
+  right: max(-160px, -10vw);
+  bottom: min(-210px, -12vw);
+  border: 1px solid rgba(245, 158, 11, 0.22);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 80px rgba(245, 158, 11, 0.025),
+    0 0 0 160px rgba(245, 158, 11, 0.018);
+}
+
+.home-hero-content h1 {
+  max-width: 780px;
+  text-transform: none;
+}
+
+.home-academy-pillars {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 76px 20px 16px;
+  box-sizing: border-box;
+}
+
+.home-academy-pillars-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
+  gap: 24px 64px;
+  align-items: end;
+  margin-bottom: 34px;
+}
+
+.home-academy-pillars-heading > span,
+.home-khero-heading > span,
+.home-khero-points-copy > span {
+  color: #d97706;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.home-academy-pillars-heading h2 {
+  grid-column: 1;
+  margin: 8px 0 0;
+  color: #18181b;
+  font-size: clamp(2rem, 4vw, 3.35rem);
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+}
+
+.home-academy-pillars-heading p {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  max-width: 590px;
+  margin: 0;
+  color: #71717a;
+  font-size: 1.05rem;
+  line-height: 1.75;
+}
+
+.home-academy-pillar-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid #e4e4e7;
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 18px 50px rgba(24, 24, 27, 0.06);
+}
+
+.home-academy-pillar-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 18px;
+  min-height: 190px;
+  padding: 30px;
+  border-right: 1px solid #e4e4e7;
+  box-sizing: border-box;
+}
+
+.home-academy-pillar-card:last-child {
+  border-right: 0;
+}
+
+.home-academy-pillar-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(217, 119, 6, 0.28);
+  border-radius: 999px;
+  background: #fffbeb;
+  color: #b45309;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.home-academy-pillar-card h3 {
+  margin: 3px 0 10px;
+  color: #18181b;
+  font-size: 1.12rem;
+  line-height: 1.2;
+}
+
+.home-academy-pillar-card p {
+  margin: 0;
+  color: #71717a;
+  font-size: 0.93rem;
+  line-height: 1.65;
+}
+
+.home-khero-section {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 92px 20px 84px;
+  box-sizing: border-box;
+}
+
+.home-khero-heading {
+  max-width: 720px;
+  margin: 0 auto 38px;
+  text-align: center;
+}
+
+.home-khero-heading h2 {
+  margin: 8px 0 12px;
+  color: #18181b;
+  font-size: clamp(2.25rem, 5vw, 3.8rem);
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+
+.home-khero-heading p {
+  margin: 0;
+  color: #71717a;
+  font-size: 1.02rem;
+  line-height: 1.75;
+}
+
+.home-khero-poster-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.home-khero-poster {
+  position: relative;
+  overflow: hidden;
+  margin: 0;
+  aspect-ratio: 1135 / 1600;
+  border: 1px solid #f1f1f1;
+  border-radius: 20px;
+  background: #fffaf0;
+  box-shadow: 0 16px 38px rgba(63, 41, 10, 0.09);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.home-khero-poster:nth-child(even) {
+  margin-top: 28px;
+}
+
+.home-khero-poster:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 24px 48px rgba(63, 41, 10, 0.14);
+}
+
+.home-khero-poster img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.home-khero-points {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
+  gap: 52px;
+  align-items: center;
+  margin-top: 58px;
+  padding: 52px;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 84% 18%, rgba(245, 158, 11, 0.18), transparent 25%),
+    linear-gradient(135deg, #09090b, #18181b 58%, #211708);
+  color: #ffffff;
+  box-shadow: 0 28px 80px rgba(24, 24, 27, 0.18);
+}
+
+.home-khero-points-copy {
+  position: relative;
+  z-index: 2;
+}
+
+.home-khero-points-copy h3 {
+  max-width: 700px;
+  margin: 10px 0 14px;
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  line-height: 1.04;
+  letter-spacing: -0.04em;
+}
+
+.home-khero-points-copy > p {
+  max-width: 690px;
+  margin: 0 0 26px;
+  color: #d4d4d8;
+  line-height: 1.75;
+}
+
+.home-khero-points-list {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+}
+
+.home-khero-points-list > div {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.055);
+  color: #f4f4f5;
+  font-size: 0.82rem;
+}
+
+.home-khero-point-index {
+  color: #f59e0b;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.home-khero-points-visual {
+  position: relative;
+  min-height: 300px;
+}
+
+.home-khero-coin,
+.home-khero-orbit {
+  position: absolute;
+  border-radius: 50%;
+}
+
+.home-khero-coin {
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: linear-gradient(145deg, #fbbf24, #d97706);
+  box-shadow:
+    inset 0 0 0 7px rgba(255, 255, 255, 0.12),
+    0 18px 42px rgba(217, 119, 6, 0.3);
+}
+
+.home-khero-coin-main {
+  width: 160px;
+  height: 160px;
+  top: 66px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.home-khero-coin-main::before {
+  content: "K";
+  color: #18181b;
+  font-size: 4rem;
+  font-weight: 950;
+  letter-spacing: -0.08em;
+}
+
+.home-khero-coin-small {
+  width: 58px;
+  height: 58px;
+  top: 32px;
+  left: calc(50% + 78px);
+}
+
+.home-khero-coin-small::before {
+  content: "+";
+  color: #18181b;
+  font-size: 1.8rem;
+  font-weight: 900;
+}
+
+.home-khero-orbit {
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.home-khero-orbit-one {
+  width: 250px;
+  height: 250px;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.home-khero-orbit-two {
+  width: 320px;
+  height: 160px;
+  top: 84px;
+  left: 50%;
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateX(-50%) rotate(-18deg);
+}
+
+@media (max-width: 900px) {
+  .home-academy-pillars-heading {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .home-academy-pillars-heading p {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .home-academy-pillar-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-academy-pillar-card {
+    min-height: auto;
+    border-right: 0;
+    border-bottom: 1px solid #e4e4e7;
+  }
+
+  .home-academy-pillar-card:last-child {
+    border-bottom: 0;
+  }
+
+  .home-khero-poster-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-khero-poster:nth-child(even) {
+    margin-top: 18px;
+  }
+
+  .home-khero-points {
+    grid-template-columns: 1fr;
+    padding: 42px;
+  }
+
+  .home-khero-points-visual {
+    min-height: 250px;
+  }
+}
+
+@media (max-width: 640px) {
+  .home-academy-pillars {
+    padding-top: 58px;
+  }
+
+  .home-academy-pillar-card {
+    grid-template-columns: auto 1fr;
+    padding: 24px 20px;
+  }
+
+  .home-khero-section {
+    padding-top: 68px;
+    padding-bottom: 64px;
+  }
+
+  .home-khero-poster-grid {
+    gap: 10px;
+  }
+
+  .home-khero-poster {
+    border-radius: 14px;
+  }
+
+  .home-khero-poster:nth-child(even) {
+    margin-top: 12px;
+  }
+
+  .home-khero-points {
+    gap: 24px;
+    margin-top: 40px;
+    padding: 30px 22px;
+    border-radius: 22px;
+  }
+
+  .home-khero-points-list {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .home-khero-points-list > div {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .home-khero-points-visual {
+    min-height: 220px;
+  }
+
+  .home-khero-coin-main {
+    width: 132px;
+    height: 132px;
+  }
+
+  .home-khero-orbit-one {
+    width: 215px;
+    height: 215px;
+  }
+
+  .home-khero-orbit-two {
+    width: 265px;
+    height: 132px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-khero-poster {
+    transition: none;
+  }
+}
