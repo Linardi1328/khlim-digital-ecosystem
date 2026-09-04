@@ -32,7 +32,12 @@ test("authenticated staff roles are resolved from organization context", async (
   assert.match(service, /organization_memberships/);
   assert.match(service, /organization_role_assignments/);
   assert.match(service, /DEFAULT_ORGANIZATION_SLUG/);
-  assert.match(service, /bootstrapLegacyStaffRoles/);
+  assert.match(service, /syncLegacyStaffRoles/);
+  assert.match(
+    service,
+    /organization\.slug === DEFAULT_ORGANIZATION_SLUG/,
+    "legacy role synchronization must remain limited to Organization #001",
+  );
 });
 
 test("roadmap keeps Organization #001 as the active implementation milestone", async () => {
