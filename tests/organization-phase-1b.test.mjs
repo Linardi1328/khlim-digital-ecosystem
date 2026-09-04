@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
+const read = (path) =>
+  readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
 function modelBlock(schema, name) {
-  const match = schema.match(new RegExp(`model ${name} \\{[\\s\\S]*?\\n\\}`));
+  const match = schema.match(
+    new RegExp(`model ${name} \\{[\\s\\S]*?\\n\\}`),
+  );
   assert.ok(match, `${name} model is required`);
   return match[0];
 }
@@ -73,19 +76,15 @@ test("Phase 1B migration backfills Organization #001 and tenant-aware indexes", 
     );
     assert.match(
       migration,
-      new RegExp(`ALTER TABLE "${table}"[\\s\\S]*?"organization_id" SET NOT NULL`),
+      new RegExp(
+        `ALTER TABLE "${table}"[\\s\\S]*?"organization_id" SET NOT NULL`,
+      ),
     );
   }
 
-  assert.match(
-    migration,
-    /00000000-0000-4000-8000-000000000001/,
-  );
+  assert.match(migration, /00000000-0000-4000-8000-000000000001/);
   assert.match(migration, /DROP INDEX "programmes_code_key"/);
-  assert.match(
-    migration,
-    /programmes_organization_id_code_key/,
-  );
+  assert.match(migration, /programmes_organization_id_code_key/);
 });
 
 test("Academy reads and writes are scoped by active organization", async () => {
@@ -108,6 +107,21 @@ test("Academy reads and writes are scoped by active organization", async () => {
 
   assert.match(adminController, /organizationId\(user\)/);
   assert.match(memberController, /organizationId\(user\)/);
+});
+
+test("Phase 1B compatibility fallback is bounded to runtime-disabled Organization #001", async () => {
+  const prismaService = await read("apps/api/src/database/prisma.service.ts");
+
+  assert.match(prismaService, /COMPATIBILITY_TENANT_MODELS/);
+  assert.match(prismaService, /DEFAULT_ORGANIZATION_ID/);
+  assert.match(
+    prismaService,
+    /if \(MULTI_ORGANIZATION_RUNTIME_ENABLED\) return client;/,
+  );
+  assert.match(
+    prismaService,
+    /mutableRecord\.organizationId = DEFAULT_ORGANIZATION_ID/,
+  );
 });
 
 test("Phase 1B does not enable external multi-organization runtime", async () => {

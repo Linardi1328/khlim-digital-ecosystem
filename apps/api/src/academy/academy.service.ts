@@ -141,8 +141,7 @@ export class AcademyService {
 
   createVenue(organizationId: string, body: CreateVenueDto) {
     const name = requireTrimmedString(body?.name, "name", 160);
-    const address =
-      optionalTrimmedString(body?.address, "address", 500) ?? null;
+    const address = optionalTrimmedString(body?.address, "address", 500) ?? null;
     return this.prisma.client.venue.create({
       data: { organizationId, name, address },
     });
@@ -154,8 +153,7 @@ export class AcademyService {
     body: CreateCourtDto,
   ) {
     const name = requireTrimmedString(body?.name, "name", 120);
-    const capacity =
-      optionalInteger(body?.capacity, "capacity", 1, 10000) ?? null;
+    const capacity = optionalInteger(body?.capacity, "capacity", 1, 10000) ?? null;
 
     const venue = await this.prisma.client.venue.findFirst({
       where: { id: venueId, organizationId },
@@ -222,8 +220,7 @@ export class AcademyService {
       "programmeId",
       100,
     );
-    const venueId =
-      optionalTrimmedString(body?.venueId, "venueId", 100) ?? null;
+    const venueId = optionalTrimmedString(body?.venueId, "venueId", 100) ?? null;
     const name = requireTrimmedString(body?.name, "name", 180);
     const capacity = requireInteger(body?.capacity, "capacity", 1, 10000);
     const startsOn =
@@ -384,11 +381,25 @@ export class AcademyService {
   }
 
   async createPendingMembership(
-    organizationId: string,
-    purchaserUserId: string,
-    athleteId: string,
-    body: CreatePendingMembershipDto,
+    organizationIdOrPurchaserUserId: string,
+    purchaserUserIdOrAthleteId: string,
+    athleteIdOrBody: string | CreatePendingMembershipDto,
+    maybeBody?: CreatePendingMembershipDto,
   ) {
+    const usingCompatibilityFallback = maybeBody === undefined;
+    const organizationId = usingCompatibilityFallback
+      ? DEFAULT_ORGANIZATION_ID
+      : organizationIdOrPurchaserUserId;
+    const purchaserUserId = usingCompatibilityFallback
+      ? organizationIdOrPurchaserUserId
+      : purchaserUserIdOrAthleteId;
+    const athleteId = usingCompatibilityFallback
+      ? purchaserUserIdOrAthleteId
+      : (athleteIdOrBody as string);
+    const body = usingCompatibilityFallback
+      ? (athleteIdOrBody as CreatePendingMembershipDto)
+      : (maybeBody as CreatePendingMembershipDto);
+
     const offeringId = requireTrimmedString(
       body?.offeringId,
       "offeringId",

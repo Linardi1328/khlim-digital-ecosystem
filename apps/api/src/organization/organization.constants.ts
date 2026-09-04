@@ -18,6 +18,7 @@ export const ORGANIZATION_STAFF_ROLES = [
   "EVENT_STAFF",
 ] as const;
 
-export type OrganizationStaffRole = (typeof ORGANIZATION_STAFF_ROLES)[number];
+export type OrganizationStaffRole =
+  (typeof ORGANIZATION_STAFF_ROLES)[number];
 
 export const ORGANIZATION_HEADER = "x-khlim-organization";
