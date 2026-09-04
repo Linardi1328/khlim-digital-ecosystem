@@ -160,6 +160,8 @@ model Organization {
   programmeOfferings ProgrammeOffering[]
   membershipPlans    MembershipPlan[]
   academyMemberships Membership[]
+  trainingSessions   TrainingSession[]
+  notifications      Notification[]
   auditEvents        AuditEvent[]
 
   @@index([status])
@@ -668,6 +670,7 @@ enum AttendanceStatus {
 
 model TrainingSession {
   id                  String                @id @default(uuid()) @db.Uuid
+  organizationId      String                @map("organization_id") @db.Uuid
   programmeOfferingId String?               @map("programme_offering_id") @db.Uuid
   title               String                @db.VarChar(180)
   startsAt            DateTime              @map("starts_at")
@@ -680,10 +683,11 @@ model TrainingSession {
   cancellationReason  String?               @map("cancellation_reason") @db.Text
   createdAt           DateTime              @default(now()) @map("created_at")
   updatedAt           DateTime              @updatedAt @map("updated_at")
+  organization        Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   attendances         AttendanceRecord[]
 
-  @@index([programmeOfferingId, startsAt, status])
-  @@index([startsAt, status])
+  @@index([organizationId, programmeOfferingId, startsAt, status])
+  @@index([organizationId, startsAt, status])
   @@map("training_sessions")
 }
 
@@ -713,16 +717,18 @@ enum NotificationType {
 
 model Notification {
   id                  String                @id @default(uuid()) @db.Uuid
+  organizationId      String                @map("organization_id") @db.Uuid
   type                NotificationType      @default(ANNOUNCEMENT)
   title               String                @db.VarChar(180)
   body                String                @db.Text
   programmeOfferingId String?               @map("programme_offering_id") @db.Uuid
   createdByUserId     String?               @map("created_by_user_id") @db.Uuid
   createdAt           DateTime              @default(now()) @map("created_at")
+  organization        Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   receipts            NotificationReceipt[]
 
-  @@index([programmeOfferingId, createdAt])
-  @@index([type, createdAt])
+  @@index([organizationId, programmeOfferingId, createdAt])
+  @@index([organizationId, type, createdAt])
   @@map("notifications")
 }
 
