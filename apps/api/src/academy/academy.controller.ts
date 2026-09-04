@@ -28,7 +28,7 @@ export class AcademyController {
   @Get("academy/offerings")
   @Public()
   @ApiOperation({
-    summary: "List currently available KHLIM programme offerings and plans",
+    summary: "List currently available programme offerings and plans",
   })
   listPublicOfferings() {
     return this.academy.listPublicOfferings();
