@@ -36,7 +36,7 @@ export class AcademyAdminController {
   constructor(private readonly academy: AcademyService) {}
 
   @Post("sports")
-  @ApiOperation({ summary: "Create or activate a sport definition" })
+  @ApiOperation({ summary: "Create a sport definition" })
   createSport(
     @CurrentUser() user: AuthenticatedUserContext,
     @Body() body: CreateSportDto,
