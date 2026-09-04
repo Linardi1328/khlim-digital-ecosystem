@@ -7,11 +7,7 @@ import { PrismaService } from "../database/prisma.service";
 
 type SendInput = {
   type?:
-    | "ANNOUNCEMENT"
-    | "SCHEDULE_CHANGE"
-    | "BILLING"
-    | "EDITORIAL"
-    | "SYSTEM";
+    "ANNOUNCEMENT" | "SCHEDULE_CHANGE" | "BILLING" | "EDITORIAL" | "SYSTEM";
   title: string;
   body: string;
   audience: "ALL_GUARDIANS" | "OFFERING" | "USER";
@@ -98,11 +94,7 @@ export class NotificationsService {
     }));
   }
 
-  async markRead(
-    organizationId: string,
-    receiptId: string,
-    userId: string,
-  ) {
+  async markRead(organizationId: string, receiptId: string, userId: string) {
     const receipt = await this.prisma.client.notificationReceipt.findFirst({
       where: { id: receiptId, userId, notification: { organizationId } },
       select: { id: true },
