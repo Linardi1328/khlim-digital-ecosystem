@@ -10,6 +10,8 @@ const {
   AdminGovernanceService,
 } = require("../../apps/api/dist/admin/admin-governance.service.js");
 
+const KHLIM_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001";
+
 function databaseTestsEnabled() {
   if (process.env.KHLIM_TEST_DATABASE !== "1") return false;
   const databaseUrl = process.env.DATABASE_URL;
@@ -41,31 +43,43 @@ test(
       preferredLocale: "en",
       roles: ["SUPER_ADMIN"],
       authenticatorAssuranceLevel: "aal2",
+      organization: {
+        id: KHLIM_ORGANIZATION_ID,
+        slug: "khlim-basketball",
+        name: "KHLIM Basketball",
+        roles: ["SUPER_ADMIN"],
+      },
     };
 
     try {
-      const initial = await governance.getSettings();
-      assert.equal(initial.id, "academy-defaults");
+      const initial = await governance.getSettings(KHLIM_ORGANIZATION_ID);
+      assert.equal(initial.organizationId, KHLIM_ORGANIZATION_ID);
 
       const nextCurrency = initial.currency === "MYR" ? "SGD" : "MYR";
-      const updated = await governance.updateSettings(actor, {
-        currency: nextCurrency,
-        timezone: "Asia/Kuala_Lumpur",
-      });
+      const updated = await governance.updateSettings(
+        KHLIM_ORGANIZATION_ID,
+        actor,
+        {
+          currency: nextCurrency,
+          timezone: "Asia/Kuala_Lumpur",
+        },
+      );
+      assert.equal(updated.organizationId, KHLIM_ORGANIZATION_ID);
       assert.equal(updated.currency, nextCurrency);
       assert.equal(updated.changed, true);
       assert.equal(updated.version, initial.version + 1);
 
       const audit = await client.auditEvent.findFirst({
         where: {
-          action: "PLATFORM_SETTINGS_UPDATED",
-          entityId: "academy-defaults",
+          organizationId: KHLIM_ORGANIZATION_ID,
+          action: "ORGANIZATION_SETTINGS_UPDATED",
+          entityId: KHLIM_ORGANIZATION_ID,
           actorUserId: actor.id,
         },
         orderBy: { createdAt: "desc" },
       });
       assert.ok(audit);
-      assert.match(audit.summary, /Platform defaults changed/);
+      assert.match(audit.summary, /Organization defaults changed/);
 
       await assert.rejects(
         () =>
