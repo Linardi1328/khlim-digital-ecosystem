@@ -70,7 +70,7 @@ export default function HomePage() {
       <main style={{ flex: 1 }}>
         <HeroCarousel
           slides={heroSlides}
-          eyebrow={t("home.academyHero.eyebrow")}
+          eyebrow={t("brand.academy")}
           title={t("home.academyHero.title")}
           subtitle={t("home.academyHero.subtitle")}
           primaryCtaLabel={t("hero.cta.join")}
