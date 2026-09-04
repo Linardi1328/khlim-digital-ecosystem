@@ -109,7 +109,10 @@ test("Phase 1B gives scheduling and notification roots direct organization owner
     );
   }
 
-  assert.match(migration, /training_sessions_organization_id_starts_at_status_idx/);
+  assert.match(
+    migration,
+    /training_sessions_organization_id_starts_at_status_idx/,
+  );
   assert.match(migration, /notifications_organization_id_type_created_at_idx/);
 });
 
@@ -136,7 +139,9 @@ test("Academy reads and writes are scoped by active organization", async () => {
 });
 
 test("Scheduling and notifications fail closed on organization-owned data", async () => {
-  const scheduling = await read("apps/api/src/scheduling/scheduling.service.ts");
+  const scheduling = await read(
+    "apps/api/src/scheduling/scheduling.service.ts",
+  );
   const schedulingController = await read(
     "apps/api/src/scheduling/scheduling.controller.ts",
   );
@@ -149,13 +154,19 @@ test("Scheduling and notifications fail closed on organization-owned data", asyn
 
   assert.match(scheduling, /where: \{ organizationId \}/);
   assert.match(scheduling, /where: \{ id, organizationId \}/);
-  assert.match(scheduling, /where: \{ id: programmeOfferingId, organizationId \}/);
+  assert.match(
+    scheduling,
+    /where: \{ id: programmeOfferingId, organizationId \}/,
+  );
   assert.match(scheduling, /organizationId,\n\s+programmeOfferingId:/);
   assert.match(schedulingController, /organizationId\(user\)/);
 
   assert.match(notifications, /where: \{ organizationId \}/);
   assert.match(notifications, /notification: \{ organizationId \}/);
-  assert.match(notifications, /where: \{ id: programmeOfferingId, organizationId \}/);
+  assert.match(
+    notifications,
+    /where: \{ id: programmeOfferingId, organizationId \}/,
+  );
   assert.match(notifications, /organizationMembership\.findFirst/);
   assert.match(notificationsController, /organizationId\(user\)/);
 });
