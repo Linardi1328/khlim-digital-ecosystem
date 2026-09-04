@@ -51,7 +51,9 @@ const enabled = databaseTestsEnabled();
 
 test(
   "Organization #002 cannot inherit KHLIM legacy staff authority or operational data",
-  { skip: enabled ? false : "Set KHLIM_TEST_DATABASE=1 to run database tests" },
+  {
+    skip: enabled ? false : "Set KHLIM_TEST_DATABASE=1 to run database tests",
+  },
   async () => {
     const prisma = new PrismaService();
     const organizations = new OrganizationService(prisma);
