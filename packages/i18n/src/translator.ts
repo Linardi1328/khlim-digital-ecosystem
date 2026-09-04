@@ -10,6 +10,7 @@ import { publicPageMessages } from "./messages/public-pages";
 import { enrolWebMessages } from "./messages/enrol-web";
 import { portalWebMessages } from "./messages/portal-web";
 import { academyWebMessages } from "./messages/academy-web";
+import { homeAcademyWebMessages } from "./messages/home-academy-web";
 import { legalWebMessages } from "./messages/legal-web";
 import { spotlightWebMessages } from "./messages/spotlight-web";
 
@@ -22,6 +23,7 @@ export const messages: Record<SupportedLocale, Record<string, string>> = {
     ...enrolWebMessages.en,
     ...portalWebMessages.en,
     ...academyWebMessages.en,
+    ...homeAcademyWebMessages.en,
     ...legalWebMessages.en,
     ...spotlightWebMessages.en,
   },
@@ -33,6 +35,7 @@ export const messages: Record<SupportedLocale, Record<string, string>> = {
     ...enrolWebMessages.ms,
     ...portalWebMessages.ms,
     ...academyWebMessages.ms,
+    ...homeAcademyWebMessages.ms,
     ...legalWebMessages.ms,
     ...spotlightWebMessages.ms,
   },
@@ -44,6 +47,7 @@ export const messages: Record<SupportedLocale, Record<string, string>> = {
     ...enrolWebMessages["zh-Hans"],
     ...portalWebMessages["zh-Hans"],
     ...academyWebMessages["zh-Hans"],
+    ...homeAcademyWebMessages["zh-Hans"],
     ...legalWebMessages["zh-Hans"],
     ...spotlightWebMessages["zh-Hans"],
   },
@@ -55,6 +59,7 @@ export const messages: Record<SupportedLocale, Record<string, string>> = {
     ...enrolWebMessages["zh-Hant"],
     ...portalWebMessages["zh-Hant"],
     ...academyWebMessages["zh-Hant"],
+    ...homeAcademyWebMessages["zh-Hant"],
     ...legalWebMessages["zh-Hant"],
     ...spotlightWebMessages["zh-Hant"],
   },
@@ -66,6 +71,7 @@ export const messages: Record<SupportedLocale, Record<string, string>> = {
     ...enrolWebMessages.hi,
     ...portalWebMessages.hi,
     ...academyWebMessages.hi,
+    ...homeAcademyWebMessages.hi,
     ...legalWebMessages.hi,
     ...spotlightWebMessages.hi,
   },
