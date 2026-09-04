@@ -1,4 +1,11 @@
-import { Body, Controller, Get, Put, Query } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Put,
+  Query,
+} from "@nestjs/common";
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -10,6 +17,13 @@ import { RequireAnyRole, RequireMfa } from "../auth/authorization.decorators";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { UpdatePlatformSettingsDto } from "./admin.dto";
 import { AdminGovernanceService } from "./admin-governance.service";
+
+function organizationId(user: AuthenticatedUserContext): string {
+  if (!user.organization?.id) {
+    throw new ForbiddenException("Organization context is required");
+  }
+  return user.organization.id;
+}
 
 @ApiTags("admin-governance")
 @ApiBearerAuth("supabase")
@@ -30,6 +44,7 @@ export class AdminGovernanceController {
     summary: "List immutable privileged audit events with bounded filters",
   })
   listAuditEvents(
+    @CurrentUser() actor: AuthenticatedUserContext,
     @Query("q") q?: string,
     @Query("entityType") entityType?: string,
     @Query("action") action?: string,
@@ -37,7 +52,7 @@ export class AdminGovernanceController {
     @Query("to") to?: string,
     @Query("take") take?: string,
   ) {
-    return this.governance.listAuditEvents({
+    return this.governance.listAuditEvents(organizationId(actor), {
       q,
       entityType,
       action,
@@ -51,8 +66,8 @@ export class AdminGovernanceController {
   @ApiOperation({
     summary: "Get persisted academy defaults and verified request boundaries",
   })
-  getSettings() {
-    return this.governance.getSettings();
+  getSettings(@CurrentUser() actor: AuthenticatedUserContext) {
+    return this.governance.getSettings(organizationId(actor));
   }
 
   @Put("settings")
@@ -63,6 +78,6 @@ export class AdminGovernanceController {
     @CurrentUser() actor: AuthenticatedUserContext,
     @Body() body: UpdatePlatformSettingsDto,
   ) {
-    return this.governance.updateSettings(actor, body);
+    return this.governance.updateSettings(organizationId(actor), actor, body);
   }
 }
