@@ -1,10 +1,24 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common";
+import {
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  Post,
+  Body,
+} from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import type { AuthenticatedUserContext } from "../auth/authenticated-user";
 import { Public, RequireAthleteAccess } from "../auth/authorization.decorators";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { AcademyService } from "./academy.service";
 import { CreatePendingMembershipDto } from "./academy.dto";
+
+function organizationId(user: AuthenticatedUserContext): string {
+  if (!user.organization?.id) {
+    throw new ForbiddenException("Organization context is required");
+  }
+  return user.organization.id;
+}
 
 @ApiTags("academy")
 @Controller()
@@ -14,7 +28,7 @@ export class AcademyController {
   @Get("academy/offerings")
   @Public()
   @ApiOperation({
-    summary: "List currently available programme offerings and plans",
+    summary: "List currently available KHLIM programme offerings and plans",
   })
   listPublicOfferings() {
     return this.academy.listPublicOfferings();
@@ -23,8 +37,14 @@ export class AcademyController {
   @Get("athletes/:athleteId/memberships")
   @ApiBearerAuth("supabase")
   @RequireAthleteAccess("read")
-  listAthleteMemberships(@Param("athleteId") athleteId: string) {
-    return this.academy.listAthleteMemberships(athleteId);
+  listAthleteMemberships(
+    @CurrentUser() user: AuthenticatedUserContext,
+    @Param("athleteId") athleteId: string,
+  ) {
+    return this.academy.listAthleteMemberships(
+      organizationId(user),
+      athleteId,
+    );
   }
 
   @Post("athletes/:athleteId/memberships")
@@ -35,6 +55,11 @@ export class AcademyController {
     @Param("athleteId") athleteId: string,
     @Body() body: CreatePendingMembershipDto,
   ) {
-    return this.academy.createPendingMembership(user.id, athleteId, body);
+    return this.academy.createPendingMembership(
+      organizationId(user),
+      user.id,
+      athleteId,
+      body,
+    );
   }
 }
