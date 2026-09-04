@@ -11,14 +11,17 @@ const {
 } = require("../../apps/api/dist/organization/organization.service.js");
 
 const KHLIM_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001";
-const SYNTHETIC_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000002";
+const SYNTHETIC_ORGANIZATION_ID =
+  "00000000-0000-4000-8000-000000000002";
 const TEST_USER_ID = "20000000-0000-4000-8000-000000000001";
 
 function databaseTestsEnabled() {
   if (process.env.KHLIM_TEST_DATABASE !== "1") return false;
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
-    throw new Error("DATABASE_URL is required for organization isolation tests");
+    throw new Error(
+      "DATABASE_URL is required for organization isolation tests",
+    );
   }
   const databaseName = new URL(databaseUrl).pathname.replace(/^\//, "");
   if (!databaseName.toLowerCase().includes("test")) {
