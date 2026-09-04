@@ -12,6 +12,8 @@ const COMPATIBILITY_TENANT_MODELS = new Set([
   "programmeoffering",
   "membershipplan",
   "membership",
+  "trainingsession",
+  "notification",
 ]);
 
 function applyCompatibilityOrganization(data: unknown): void {
