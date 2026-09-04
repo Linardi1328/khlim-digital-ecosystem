@@ -160,3 +160,20 @@ WHERE "organization_id" IS NULL;
 
 CREATE INDEX "audit_events_organization_id_created_at_idx"
   ON "audit_events"("organization_id", "created_at");
+
+-- Transitional compatibility only: existing audit writers do not yet expose
+-- organization_id through the Prisma model. Default their new rows to KHLIM
+-- Organization #001 unless a future tenant-aware writer supplies another org.
+CREATE FUNCTION "default_audit_event_organization"()
+RETURNS trigger AS $$
+BEGIN
+  IF NEW."organization_id" IS NULL THEN
+    NEW."organization_id" := '00000000-0000-4000-8000-000000000001'::uuid;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER "audit_events_default_organization"
+BEFORE INSERT ON "audit_events"
+FOR EACH ROW EXECUTE FUNCTION "default_audit_event_organization"();
