@@ -81,14 +81,10 @@ export function KheroSection() {
         </div>
 
         <div className="home-khero-points-visual" aria-hidden="true">
-          <div className="home-khero-coin home-khero-coin-main">K</div>
-          <div className="home-khero-coin home-khero-coin-small">+</div>
+          <div className="home-khero-coin home-khero-coin-main" />
+          <div className="home-khero-coin home-khero-coin-small" />
           <div className="home-khero-orbit home-khero-orbit-one" />
           <div className="home-khero-orbit home-khero-orbit-two" />
-          <div className="home-khero-points-wordmark">
-            <strong>KHERO</strong>
-            <span>POINTS</span>
-          </div>
         </div>
       </div>
     </section>
