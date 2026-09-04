@@ -44,11 +44,7 @@ export class SchedulingService {
     });
   }
 
-  async updateSession(
-    organizationId: string,
-    id: string,
-    input: SessionInput,
-  ) {
+  async updateSession(organizationId: string, id: string, input: SessionInput) {
     await this.requireSession(organizationId, id);
     const data = this.normalizeSession(input);
     await this.requireOffering(organizationId, data.programmeOfferingId);
