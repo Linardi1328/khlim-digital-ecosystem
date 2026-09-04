@@ -67,25 +67,22 @@ for (const path of publicRoutes) {
   });
 }
 
-test("homepage carousel controls change the active slide", async ({ page }) => {
+test("homepage keeps academy actions primary without inactive carousel controls", async ({
+  page,
+}) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
-  const carousel = page.getByRole("region", {
-    name: "KHLIM academy photo highlights",
-  });
-  await expect(carousel).toBeVisible();
-
-  const firstDot = page.getByRole("button", {
-    name: /Show academy photo 1:/,
-  });
-  const thirdDot = page.getByRole("button", {
-    name: /Show academy photo 3:/,
-  });
-
-  await expect(firstDot).toHaveAttribute("aria-current", "true");
-  await thirdDot.click();
-  await expect(thirdDot).toHaveAttribute("aria-current", "true");
-  await expect(firstDot).not.toHaveAttribute("aria-current", "true");
+  const hero = page.locator(".home-hero-carousel");
+  await expect(hero).toBeVisible();
+  await expect(
+    page.getByRole("heading", {
+      name: "Developing players. Building futures.",
+    }),
+  ).toBeVisible();
+  await expect(hero.locator('a[href="/enrol"]')).toBeVisible();
+  await expect(hero.locator('a[href="/programmes"]')).toBeVisible();
+  await expect(hero.locator(".home-carousel-arrow")).toHaveCount(0);
+  await expect(hero.locator(".home-carousel-dots")).toHaveCount(0);
 });
 
 test("homepage exposes achievements and a publication-safe Player Spotlight preview", async ({
@@ -129,7 +126,7 @@ test("language choice persists after reload and restores document language", asy
     .toBe("ms");
   await expect(
     page.getByRole("heading", {
-      name: "Memartabatkan Bola Keranjang Remaja di Malaysia",
+      name: "Membangunkan pemain. Membina masa depan.",
     }),
   ).toBeVisible();
 
@@ -141,7 +138,7 @@ test("language choice persists after reload and restores document language", asy
     .toBe("ms");
   await expect(
     page.getByRole("heading", {
-      name: "Memartabatkan Bola Keranjang Remaja di Malaysia",
+      name: "Membangunkan pemain. Membina masa depan.",
     }),
   ).toBeVisible();
 });
