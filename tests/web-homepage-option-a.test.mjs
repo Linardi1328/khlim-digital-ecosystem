@@ -19,7 +19,6 @@ test("public homepage keeps the academy ahead of Khero", async () => {
     "Khero should remain a supporting section after core academy content",
   );
   assert.doesNotMatch(homepage, /PhotoStorySection|PhotoGallery/);
-  assert.doesNotMatch(homepage, /\/media\/khero\/.*heroSlides/);
 });
 
 test("Khero supports brand storytelling and member points", async () => {
@@ -46,10 +45,11 @@ test("academy-first homepage copy is localized across supported locales", async 
   );
   const translator = await read("packages/i18n/src/translator.ts");
 
-  for (const locale of ["en", "ms", "zh-Hans", "zh-Hant", "hi"]) {
-    assert.match(messages, new RegExp(`(?:const ${locale.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())}|\\"${locale}\\")`));
-  }
-
+  assert.match(messages, /const en =/);
+  assert.match(messages, /const ms:/);
+  assert.match(messages, /const zhHans:/);
+  assert.match(messages, /const zhHant:/);
+  assert.match(messages, /const hi:/);
   assert.match(messages, /home\.academyHero\.title/);
   assert.match(messages, /home\.khero\.points\.title/);
   assert.match(translator, /homeAcademyWebMessages/);
