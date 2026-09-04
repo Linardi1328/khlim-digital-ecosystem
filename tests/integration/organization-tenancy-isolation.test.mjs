@@ -174,7 +174,8 @@ test(
         true,
       );
       await assert.rejects(
-        () => scheduling.completeSession(KHLIM_ORGANIZATION_ID, FOREIGN_SESSION_ID),
+        () =>
+          scheduling.completeSession(KHLIM_ORGANIZATION_ID, FOREIGN_SESSION_ID),
         expectNotFound,
       );
 
