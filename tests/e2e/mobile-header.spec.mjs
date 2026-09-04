@@ -74,7 +74,7 @@ test("compact 320px header keeps tagline and controls without overflow", async (
   expect(overflow).toBe(false);
 });
 
-test("mobile drawer and carousel controls stay finger-friendly", async ({
+test("mobile drawer and academy hero actions stay finger-friendly", async ({
   page,
   viewport,
 }) => {
@@ -94,17 +94,10 @@ test("mobile drawer and carousel controls stay finger-friendly", async ({
 
   await dialog.getByRole("button", { name: /close/i }).click();
 
-  const carousel = page.getByRole("region", {
-    name: "KHLIM academy photo highlights",
-  });
-  await expectMinimumHeight(
-    carousel.getByRole("button", { name: /previous/i }),
-  );
-  await expectMinimumHeight(carousel.getByRole("button", { name: /next/i }));
-
-  const slideButtons = carousel.getByRole("group").getByRole("button");
-  const count = await slideButtons.count();
-  for (let index = 0; index < count; index += 1) {
-    await expectMinimumHeight(slideButtons.nth(index));
-  }
+  const hero = page.locator(".home-hero-carousel");
+  await expect(hero).toBeVisible();
+  await expectMinimumHeight(hero.locator('a[href="/enrol"]'));
+  await expectMinimumHeight(hero.locator('a[href="/programmes"]'));
+  await expect(hero.locator(".home-carousel-arrow")).toHaveCount(0);
+  await expect(hero.locator(".home-carousel-dots")).toHaveCount(0);
 });
