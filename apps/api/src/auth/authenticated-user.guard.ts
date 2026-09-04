@@ -48,8 +48,9 @@ export class AuthenticatedUserGuard implements CanActivate {
     const participantRoles = user.roles.filter((role) =>
       PLATFORM_PARTICIPANT_ROLES.has(role),
     );
-    const effectiveRoles = [...new Set([...participantRoles, ...organization.roles])]
-      .sort();
+    const effectiveRoles = [
+      ...new Set([...participantRoles, ...organization.roles]),
+    ].sort();
 
     request.authenticatedUser = {
       ...user,
