@@ -20,17 +20,23 @@ test(
     assert.match(migration, /CREATE TABLE "organization_sports"/);
     assert.match(migration, /FROM "user_role_assignments"/);
     assert.match(migration, /audit_events_organization_id_created_at_idx/);
+    assert.match(migration, /audit_events_default_organization/);
   },
 );
 
 test("authenticated staff roles are resolved from organization context", async () => {
   const guard = await read("apps/api/src/auth/authenticated-user.guard.ts");
   const service = await read("apps/api/src/organization/organization.service.ts");
+  const constants = await read(
+    "apps/api/src/organization/organization.constants.ts",
+  );
 
   assert.match(guard, /OrganizationService/);
   assert.match(guard, /organizationRoles/);
   assert.match(guard, /PLATFORM_PARTICIPANT_ROLES/);
   assert.match(guard, /x-khlim-organization|ORGANIZATION_HEADER/);
+  assert.match(guard, /assertOrganizationRuntimeEnabled/);
+  assert.match(constants, /KHLIM_MULTI_ORGANIZATION_ENABLED/);
 
   assert.match(service, /organization_memberships/);
   assert.match(service, /organization_role_assignments/);
