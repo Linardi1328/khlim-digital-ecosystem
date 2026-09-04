@@ -174,11 +174,7 @@ test(
         true,
       );
       await assert.rejects(
-        () =>
-          scheduling.completeSession(
-            KHLIM_ORGANIZATION_ID,
-            FOREIGN_SESSION_ID,
-          ),
+        () => scheduling.completeSession(KHLIM_ORGANIZATION_ID, FOREIGN_SESSION_ID),
         expectNotFound,
       );
 
@@ -197,17 +193,14 @@ test(
         },
       });
       assert.equal(
-        (await notifications.listMine(KHLIM_ORGANIZATION_ID, TEST_USER_ID)).some(
-          (receipt) => receipt.id === FOREIGN_RECEIPT_ID,
-        ),
+        (
+          await notifications.listMine(KHLIM_ORGANIZATION_ID, TEST_USER_ID)
+        ).some((receipt) => receipt.id === FOREIGN_RECEIPT_ID),
         false,
       );
       assert.equal(
         (
-          await notifications.listMine(
-            SYNTHETIC_ORGANIZATION_ID,
-            TEST_USER_ID,
-          )
+          await notifications.listMine(SYNTHETIC_ORGANIZATION_ID, TEST_USER_ID)
         ).some((receipt) => receipt.id === FOREIGN_RECEIPT_ID),
         true,
       );
