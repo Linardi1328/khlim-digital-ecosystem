@@ -1,393 +1,649 @@
 # Development Roadmap
 
-**Status:** Accepted current planning baseline
+**Status:** Accepted revised strategic baseline
 
-**Current milestone:** Post-Phase 6 pre-alpha integration and testing
+**Current implementation milestone:** **Organization #001 Compatibility Slice**
 
-**Objective:** Launch a reliable KHLIM website/member platform that can acquire families, manage academy memberships, collect recurring revenue, and support club operations on a shared backend that later powers the native Super App and wider KHLIM sports ecosystem.
+**Objective:** Evolve the existing KHLIM Digital Ecosystem into a reliable, multi-organization sports operating platform while preserving the current KHLIM Academy website/member/admin foundation, one durable athlete identity, strong family/privacy boundaries, backend-authoritative commercial state, and the modular-monolith architecture.
 
-This roadmap supersedes the earlier player-first/mobile-first delivery order. Basketball still launches first and the core remains sport-aware, but the first production client is the **website/member portal**, supported by the **admin web application** and shared API.
+The platform remains **basketball-first and sport-aware**. KHLIM is the first operating organization and becomes **Organization #001**. External organizations are introduced only through the same codebase and security model after tenant isolation is proven.
 
-> Sequence and launch gates matter more than fixed dates. No calendar target overrides security, payment integrity, data protection, or unresolved P0/P1 defects.
+> Sequence and launch gates matter more than fixed dates. No calendar target overrides tenant isolation, payment integrity, data protection, evidence integrity, auditability, or unresolved P0/P1 defects.
+
+See also:
+
+- `docs/architecture/platform-expansion-backend.md`;
+- `docs/decisions/0009-organization-tenancy-and-ownership.md`;
+- `docs/decisions/0010-organization-scoped-authorization.md`;
+- `docs/decisions/0011-evidence-provenance-and-corrections.md`.
+
+---
 
 ## Roadmap principles
 
-1. **Website/member portal first.** The first public product handles discovery, registration, family accounts, memberships, payments, schedules, and basic member self-service.
-2. **One shared platform.** Website, admin, future Super App, KHLIM Assist, and later KHLIM services consume shared backend/domain services rather than recreating business logic.
-3. **Basketball first, sport-aware core.** Basketball is the only required live sport for MVP, while `Sport` and `Athlete` remain durable platform concepts.
-4. **Revenue and operations before engagement extras.** Registration, recurring billing, membership lifecycle, scheduling, and admin efficiency precede KHERO, advanced analytics, and native mobile polish.
-5. **Configuration over hard-coding.** Programmes, programme offerings, packages, prices, venues, capacities, benefits, billing policies, and schedules are configurable where safe.
-6. **Backend-authoritative rules.** Clients do not become the source of truth for price, eligibility, membership status, payment state, authorization, or entitlements.
-7. **Production readiness is continuous.** Testing, auditability, monitoring, backups, rollback, and recovery are developed throughout the project rather than added at the end.
-8. **Controlled rollout is mandatory.** Internal alpha, closed family beta, academy pilot, release candidate, limited production, and public launch are distinct stages.
-9. **Native mobile is activated by evidence.** The Expo client remains reserved but significant Super App development begins when academy scale or user behaviour justifies it.
+1. **Preserve the useful KHLIM foundation.** Do not rebuild identity, family, Academy, Billing, Scheduling, Admin, Audit, web, or API infrastructure simply because the commercial vision expanded.
+2. **Organization is now a first-class ownership/security boundary.** Establish tenancy before Events, Evidence, Media, and external-organization data scale.
+3. **One shared platform.** Public/member web, Admin, future Super App, Event OS, merchandise marketing, and later intelligence consume the same backend/domain truth.
+4. **Global athlete/family identity; scoped organization data.** A durable athlete identity can participate in multiple organizations without exposing one organization's private records to another.
+5. **Basketball first, sport-aware core.** Do not build a generic every-sport engine before real second-sport requirements exist.
+6. **Typed facts before AI.** Results, rosters, memberships, payments, attendance, achievements, and later statistics remain explicit domain records.
+7. **Evidence explains trust. Audit explains mutation.** Provenance and verification do not replace the immutable audit trail.
+8. **AI proposes; authorized workflows decide.** AI-assisted extraction produces candidates unless a future narrowly approved policy explicitly allows otherwise.
+9. **Configuration over code forks.** Organization branding, settings, programmes, merchandise marketing, events, and operational configuration use one shared codebase.
+10. **Marketing catalog is distinct from Commerce.** KHLIM can promote merchandise before building full inventory/order/fulfilment complexity.
+11. **Production readiness is continuous.** CI, tenant-adversarial tests, payment tests, backup/restore, monitoring, rollback, accessibility, and privacy evolve with each phase.
+12. **Organization #002 arrives before advanced AI/video.** External usage must challenge KHLIM-specific assumptions before they harden into the data model.
 
 ---
 
-## Delivery status at a glance
+# Existing foundation — preserve and continue hardening
 
-| Phase | Status | Notes |
+The following work is already implemented or substantially established and remains part of the platform rather than being discarded.
+
+| Existing phase | Status | Preserve / continue |
 | --- | --- | --- |
-| 0 — Product and architecture definition | Complete | Direction, ADRs and domain boundaries established |
-| 1 — Engineering foundation | Complete | Monorepo/runtime/CI/Prisma/OpenAPI/localization/observability foundations established |
-| 2 — Identity, family and authorization | Complete foundation | Auth verification, family relationships, invitations, staff role controls and server authorization implemented |
-| 3 — Programmes, venues and membership foundation | Complete foundation | Programmes, offerings, plans, memberships and configuration APIs implemented |
-| 4 — Payments and recurring billing | Complete provider-neutral foundation | Billing models and correctness controls implemented; real production gateway adapter still required |
-| 5 — Public website, registration and member portal | Implemented frontend/integration layer | Public/member surfaces and API/auth integration exist; staging integration must be proven |
-| 6 — Admin operations | Implemented UI; production integration pending | Broad operations console exists, with demo behavior isolated and privileged production behavior fail-closed |
-| 7 — Scheduling and basic notifications | Next implementation work | Minimum trustworthy scheduling and transactional communication remain required before beta |
-| 8 — Hardening, alpha, beta and academy pilot | Next major validation stage | Start with pre-alpha integration/testing before involving external families |
-| 9 — Website MVP public launch | Future gated release | Only after payment, security, recovery and operational gates are green |
+| Product and architecture definition | Complete foundation | modular monolith, domain boundaries, sport-aware core, localization |
+| Engineering foundation | Complete | monorepo, Next.js/NestJS, Prisma/PostgreSQL, OpenAPI, CI, observability |
+| Identity, family and authorization | Complete foundation | Supabase-backed identity, durable Athlete, Guardian ↔ Athlete many-to-many, deny-by-default authorization, MFA primitives |
+| Programmes, venues and memberships | Complete foundation | Programme/Offering separation, configurable plans/capacity/status, membership lifecycle |
+| Billing/payments | Strong provider-neutral foundation | server-authoritative amounts/states, provider abstraction, idempotency, signed webhook/deduplication principles |
+| Public website/member portal | Implemented integration layer | discovery, auth, family flows, enrolment, portal, localization, responsive web |
+| Admin operations | Broad UI/governance foundation | reports, moderation, audit, settings, staff/account controls; finish real persisted Academy configuration |
+| Scheduling/attendance/notifications | Implemented foundations, deeper integration required | sessions, attendance, notifications and operational workflows continue to mature |
+
+The original website/member MVP launch gates still apply to real KHLIM Academy production use: secure authentication, trustworthy payments, accurate membership/schedule state, backup/restore, monitoring, legal/privacy readiness, and no unresolved P0/P1 defects.
 
 ---
 
-## Phase 0 — Product and architecture definition
+# Phase 0 — Strategic alignment and ownership classification
 
-**Status:** Complete
+**Status:** Planning baseline accepted; documentation alignment begins immediately.
 
-Completed foundation includes:
+## Objective
 
-- modular-monolith backend direction;
-- TypeScript/Next.js/NestJS/PostgreSQL/Prisma stack;
-- Guardian ↔ Athlete many-to-many model;
-- basketball-first / sport-aware core;
-- localization-first architecture;
-- coach-confirmed attendance authority;
-- website-first shared commercial-platform decision;
-- one account / one backend / one database / shared payment and notification infrastructure principle.
+Make the expanded platform direction explicit without rewriting accepted historical architecture decisions.
 
----
+## Deliverables
 
-## Phase 1 — Engineering foundation
+- preserve the modular-monolith decision;
+- add Organization/Tenancy, organization authorization, and Evidence/Provenance ADRs;
+- classify current models as platform/global, organization-owned, or mixed/portable;
+- identify global uniqueness constraints that must become organization-scoped;
+- reconcile written roadmap/status with actual implemented Scheduling, Notifications, Billing, Admin, and governance capabilities;
+- preserve KHLIM's current URLs/branding as the default Organization #001 experience.
 
-**Status:** Complete
+## Exit criteria
 
-Implemented baseline includes:
+Every current persisted model and sensitive API operation has a documented intended ownership/security scope.
 
-- pnpm Workspaces + Turborepo;
-- pinned Node.js 24 / pnpm toolchain;
-- shared strict TypeScript configuration;
-- real Next.js scaffolds for `web` and `admin`;
-- real NestJS API scaffold;
-- PostgreSQL/Prisma runtime and versioned migrations;
-- development/staging/production configuration model;
-- Supabase Auth integration foundation;
-- REST `/v1` + OpenAPI export/generated types;
-- shared localization registry/resources;
-- design tokens;
-- structured logging and Sentry foundations;
-- CI covering lint, formatting, tests, type checks, Prisma validation, OpenAPI drift and runtime builds;
-- exact-commit Playwright browser QA for web and admin.
+## Do not build yet
+
+- external organization onboarding UI;
+- Event OS;
+- advanced Evidence UX;
+- AI ingestion;
+- deep white-label customization.
 
 ---
 
-## Phase 2 — Identity, family, and authorization
+# Phase 1 — Organization #001 Compatibility Slice
 
-**Status:** Complete foundation
+**Status:** **Next implementation milestone**
 
-Implemented capabilities include:
+## Objective
 
-- authenticated identity verification through Supabase JWTs;
-- `User`, Guardian and Athlete relationship foundation;
-- multiple children per guardian and multiple guardians per athlete;
-- guardian invitation lifecycle using token hashes rather than raw invitation tokens;
-- role-aware authorization and privileged staff controls;
-- MFA/AAL2 requirement for sensitive administration;
-- preferred locale/account foundations;
-- server-side relationship-aware access tests;
-- account and family APIs.
+Convert KHLIM from the implicit platform owner into **KHLIM Basketball = Organization #001** while keeping the visible KHLIM product stable.
 
-Remaining production work is mostly environment/integration validation rather than redesigning the identity model.
+This is the highest-value architecture milestone before broad Event/Evidence expansion.
 
----
+## Backend/data deliverables
 
-## Phase 3 — Programmes, venues, and membership foundation
+Introduce the minimum organization kernel:
 
-**Status:** Complete foundation
+```text
+Organization
+OrganizationMembership
+OrganizationRoleAssignment
+OrganizationSetting
+OrganizationBranding
+OrganizationSport
+```
 
-Implemented capabilities include:
+Then migrate organization-owned current records using:
 
-- `Programme` and `ProgrammeOffering` as separate entities;
-- configurable capacities/statuses;
-- configurable `MembershipPlan` terms and pricing;
-- offering eligibility rules;
-- athlete membership lifecycle beginning in `PENDING` before verified billing activation;
-- academy administration APIs with scoped roles/MFA;
-- database migrations for programme/membership entities.
+```text
+expand
+→ create Organization #001
+→ backfill
+→ switch reads/writes
+→ validate
+→ constrain
+→ remove temporary implicit-KHLIM fallback
+```
 
-### Guardrail
+Initial organization ownership should cover directly or transitively:
 
-`Team` is not `Programme`. Competitive-team membership and academy programme enrolment remain separate concepts.
+- Programmes / Offerings;
+- Membership Plans / Memberships;
+- Venues / Courts;
+- Sessions / operational schedules;
+- organization notifications/content;
+- staff membership/permissions;
+- billing/payment attribution;
+- organization audit context.
 
----
+## Authorization deliverables
 
-## Phase 4 — Payments and recurring billing
+Move operational staff authority away from global roles toward:
 
-**Status:** Complete provider-neutral foundation; provider integration still required
+```text
+Authenticated User
++ active OrganizationMembership
++ organization role/permission
++ resource relationship
+= authorization
+```
 
-Implemented capabilities include:
+Rare true platform-operator roles remain separate.
 
-- provider-neutral `PaymentGateway` boundary;
-- provider customer/payment-method references only; no raw card/CVV storage;
-- payment schedules and installments;
-- payment transaction/attempt records;
-- webhook verification boundary;
-- provider-event deduplication;
-- idempotency protection;
-- server-authoritative financial/membership state;
-- browser redirects explicitly prevented from becoming payment authority;
-- test/production separation principles.
+## Testing
 
-### Critical remaining dependency
+Add release-critical adversarial tests for:
 
-A real sandbox/production payment provider adapter must be selected, implemented and validated. The current gateway boundary intentionally refuses to fake production success when no provider adapter is configured.
+- Org A role + Org B resource ID;
+- staff who belong to multiple organizations with different permissions;
+- stale/revoked organization membership;
+- suspended/deactivated accounts;
+- cross-tenant finance/reporting queries;
+- client-supplied foreign organization IDs.
 
-### Exit from integration testing
+## Exit criteria
 
-Before beta, prove that successful, failed, delayed, duplicated and retried provider events update state exactly once and cannot cause double activation or double charging.
+- current KHLIM Academy flows continue to work;
+- no tenant-owned operation depends on KHLIM being implicit;
+- a synthetic Organization #002 cannot read or mutate Organization #001 data;
+- organization-specific uniqueness/indexing is in place where required;
+- sensitive tenant actions include organization context in audit records.
 
----
+## Do not build
 
-## Phase 5 — Public website, registration, and member portal
-
-**Status:** Implemented frontend/integration layer
-
-Implemented surfaces include:
-
-- KHLIM/Academy public pages;
-- programmes/offerings discovery;
-- responsive homepage and gallery;
-- login/register/forgot-password/reset-password flows;
-- guardian onboarding;
-- child creation/selection;
-- enrolment and membership-plan selection;
-- provider-redirect checkout handoff;
-- confirmation that re-reads authoritative backend payment/membership state;
-- family/member portal for dashboard, players, membership, payments, schedule, notifications and account;
-- localization-ready public/member UI;
-- responsive web Playwright QA.
-
-### Remaining pre-alpha work
-
-- validate real Supabase staging configuration and account lifecycle end to end;
-- connect a real payment sandbox;
-- seed realistic offerings/plans/family records;
-- test real API/network failures and expired sessions;
-- finalize legal/privacy/recurring-payment copy before production launch.
+- database-per-tenant infrastructure;
+- per-organization code forks;
+- custom domains;
+- general multi-sport competition framework.
 
 ---
 
-## Phase 6 — Admin operations
+# Phase 2 — Tenantize and finish existing KHLIM operations
 
-**Status:** Implemented UI; real staff integration pending
+**Status:** Immediately after Organization #001 compatibility
 
-Implemented UI covers:
+## Objective
 
-- operations dashboard and capacity overview;
-- programmes and offerings;
-- membership plans and memberships;
-- athletes and guardians;
-- payments/financial attention views;
-- venues and scheduling surfaces;
-- staff administration surfaces;
-- audit log views;
-- settings;
-- responsive desktop/mobile navigation;
-- scoped finance visibility;
-- keyboard-accessible data-table interactions;
-- exact-commit Admin Playwright QA.
+Make the current Academy/Admin/Billing/Scheduling/Notifications stack trustworthy under the tenant boundary before adding major new domains.
 
-### Security truth
+## Deliverables
 
-The current Admin application intentionally isolates demo data. Outside explicit demo mode, unsupported privileged operations reject rather than pretending to persist changes. Real staff authentication and backend endpoints must be connected before internal alpha can treat Admin as an operational system.
+- connect real persisted Admin Programme/Offering/Plan/Venue/Court configuration;
+- remove live optimistic/fake-success fallbacks while keeping explicit demo mode isolated;
+- complete status-transition APIs and audit-sensitive mutations where currently missing;
+- make list/report APIs organization-scoped;
+- preserve minor-unit monetary handling and backend-authoritative price/state;
+- strengthen durable Venue/Court/Coach references where scheduling truth requires them;
+- verify organization-aware notifications and operational reporting;
+- reconcile Billplz/payment-provider sandbox behavior with documented launch status;
+- verify real staff session/MFA behavior in staging.
 
-### Pre-alpha exit criteria
+## Testing
 
-- real staff sign-in/session handling;
-- supported read/write operations use authenticated backend APIs;
-- role/MFA restrictions are verified server-side and through UI tests;
-- unsupported actions are disabled or fail closed;
-- audit-sensitive actions produce expected records;
-- finance data is inaccessible to unauthorized roles.
+- full KHLIM Academy CRUD/configuration flow;
+- tenant-aware capacity tests;
+- tenant-aware membership/payment tests;
+- finance/admin/coach separation;
+- audit persistence/immutability;
+- exact-commit Admin and public web browser QA.
 
----
+## Exit criteria
 
-## Immediate milestone — Pre-alpha integration and test hardening
-
-**Status:** Active next move
-
-This is the recommended bridge between Phase 6 implementation and formal Phase 8 internal alpha. It should be treated as a quality/integration sprint, not a broad feature sprint.
-
-### Priority 1 — Production-shaped integration
-
-- configure a staging Supabase project and realistic non-production users;
-- connect Admin staff authentication;
-- connect supported Admin operations to backend APIs;
-- implement/configure a sandbox payment gateway adapter;
-- validate environment separation and secrets;
-- confirm deployed web/admin/API origins and CORS/auth behavior.
-
-### Priority 2 — Minimum Phase 7 dependencies
-
-Complete only what is necessary for the MVP test journey:
-
-- recurring session rules / explicit upcoming session occurrences;
-- venue/court assignment and closures;
-- cancellations/rescheduling/replacement-session behavior required for accurate family schedules;
-- transactional email for registration/payment/material schedule events;
-- notification delivery records and basic failure observability.
-
-### Priority 3 — Deep testing
-
-Test the existing system through realistic workflows and failure modes:
-
-- family signup and email-confirmation paths;
-- guardian with multiple children;
-- relationship authorization and unauthorized child access;
-- programme/plan eligibility and capacity boundaries;
-- successful/failed/duplicate/delayed payment webhooks;
-- idempotency under retries;
-- membership activation only from verified financial state;
-- finance/admin/coach role separation;
-- database migration and rollback safety;
-- backup and restore;
-- logging, alerting and incident visibility;
-- browser/device accessibility and responsive behavior.
-
-See `docs/testing/pre-alpha-test-plan.md`.
+KHLIM can operate the existing Academy product without developer database edits or pretend persistence in live mode.
 
 ---
 
-## Phase 7 — Scheduling and basic notifications
+# Phase 3 — KHLIM Event OS vertical slice
 
-**Status:** Next implementation work, intentionally scoped to MVP needs
+**Status:** First major new product-learning phase
 
-### Deliverables
+## Objective
 
-- recurring session-series/schedule rules;
-- generated explicit session occurrences;
-- venue/court assignment;
-- session status/capacity;
-- venue/court closures;
-- holidays, cancellations, rescheduling and replacement sessions;
-- auditable term adjustments where interruptions require them;
-- email transactional notifications;
-- channel-neutral Notification service and delivery records;
-- payment/registration/schedule confirmation templates;
-- notification preference foundations.
+Run one real KHLIM basketball tournament through the platform end to end.
 
-### Exit criteria
+## Must-have domain capabilities
 
-Families can see accurate upcoming academy schedules and receive reliable transactional communication for registration, payment and material schedule changes.
+```text
+Event
+Division / Category only where required
+Team
+Registration / TeamEntry
+Roster / RosterEntry
+CheckInRecord
+Game / Fixture
+GameResult
+Placement / EventResult
+EventAnnouncement
+```
 
----
+## Product workflow
 
-## Phase 8 — Hardening, alpha, beta, and academy pilot
+```text
+registration
+→ athlete identity resolution
+→ team / roster
+→ check-in
+→ schedule / fixture
+→ result entry
+→ correction / confirmation
+→ placement
+→ evidence
+→ athlete history
+```
 
-**Status:** Next major validation stage after pre-alpha integration gates
+## Import
 
-### Stage A — Internal alpha
+CSV/Excel must be treated as a first-class grassroots migration/operations path:
 
-Participants:
+```text
+upload
+→ column mapping
+→ validation
+→ preview
+→ duplicate/conflict review
+→ human confirm
+→ commit
+→ evidence + audit
+```
 
-- developer(s);
-- KHLIM management;
-- selected admin/finance staff;
-- selected coaches using non-production or tightly controlled accounts.
+## Public/member surfaces
 
-Exercise normal and failure flows including authentication, family linking, pricing, capacity, successful/failed payments, duplicate/delayed webhooks, cancellations, schedule exceptions, permissions, backups and rollback.
+- event schedule;
+- team/roster information where policy allows;
+- current/final results;
+- announcements;
+- clear mobile-first event navigation.
 
-### Stage B — Closed family beta
+## Security
 
-Suggested first cohort: **5–10 trusted families**.
+`EVENT_STAFF` and event-specific operational authority remain organization-scoped and do not grant Academy finance or unrelated athlete access.
 
-Observe without hand-holding where possible:
+## Exit criteria
 
-- signup completion;
-- child/profile creation;
-- programme selection;
-- checkout clarity;
-- dashboard comprehension;
-- email delivery;
-- browser/device compatibility;
-- support burden.
+Core tournament operations can run without a spreadsheet becoming the normal source of truth and without developer DB intervention.
 
-### Stage C — Expanded academy pilot
+## Explicit non-goals
 
-Suggested cohort: **15–30 families**, using production-like operations and carefully controlled real-payment verification where appropriate.
-
-### Release gate
-
-- **P0/P1 open defect = NO LAUNCH**;
-- no known double-charge/data-loss/privacy/auth-bypass defects;
-- database backup and restore tested;
-- monitoring/alerts active;
-- rollback/forward-fix documented;
-- high-risk features can be disabled independently where practical;
-- privacy/terms/recurring-payment disclosures ready;
-- key browsers and common mobile screen sizes verified.
-
----
-
-## Phase 9 — Website MVP public launch
-
-**Status:** Future gated release
-
-### Recommended rollout
-
-1. Limited production cohort.
-2. Monitor login, registration, payments, webhook processing, API errors, notification delivery, database health, and support incidents for 24–72 hours.
-3. Expand cohort only while launch gates remain green.
-4. Open public registration broadly.
-
-### Planning target
-
-Current working target: **approximately 15 February 2027**, subject to real payment-provider integration and the Phase 8 production launch gate.
+- every tournament format;
+- live professional play-by-play;
+- individual player statistics unless a trustworthy source exists;
+- scouting/rankings;
+- video analytics;
+- autonomous AI operations.
 
 ---
 
-# Post-MVP growth roadmap
+# Phase 4 — Evidence Engine + Verified Athlete Record V1
 
-## V1 — approximately 30–60 active academy students
+**Status:** Build evidence primitives alongside Phase 3 facts; make them reusable here.
 
-Prioritize automation that improves collections and reduces admin work:
+## Objective
 
-- recurring-payment retry/dunning policy;
-- overdue → suspension → reactivation workflows;
-- renewal/expiry automation;
-- WhatsApp notification adapter where approved;
-- coach attendance workflow;
-- optional QR-assisted check-in with coach confirmation;
-- Benefits/Entitlements and starter-kit fulfilment;
-- jersey sizing/collection status;
-- improved operational analytics.
+Prove that operating an event once creates trustworthy reusable athlete history automatically.
 
-## V2 — approximately 60–100 students
+## Evidence model
 
-Connect athlete development and additional KHLIM services:
+Preserve explicit domain facts and add provenance around them:
 
-- coach evaluations/development profiles;
-- development pathway history;
-- KHLIM 3x3 tournament registrations and membership pricing rules;
-- camps and camp payments;
-- competitive-team/advanced-training pathways;
-- richer family portal;
-- stronger multi-venue tooling;
-- richer event/notification workflows.
+```text
+Typed fact
+  ↑
+EvidenceLink
+  ↑
+EvidenceSource
 
-## Super App — approximately 100+ students or when mobile demand justifies it
+VerificationDecision
+Correction / Supersession
+AuditEvent
+```
 
-Activate substantial development of `apps/mobile` over existing APIs for Home, Academy/Membership, Schedule, Athlete/Development, Payments/receipts, 3x3/Camps, KHERO/Rewards, Notifications and account/family management.
+## Required behavior
 
-Mobile release follows its own internal testing → TestFlight/Play closed beta → staged store rollout → public release gates.
+- self-submitted facts remain visibly unverified until approved;
+- AI-extracted facts remain candidates until authorized review;
+- material corrections preserve old values/source history;
+- conflicting evidence can remain unresolved;
+- missing player stats/video remain `unavailable`, never inferred or converted to zero;
+- verified roster/result/placement facts can project into Athlete history;
+- verification does not automatically grant cross-organization visibility.
 
-## Later capabilities — build only with evidence
+## Verified Athlete Record V1
 
-- private/small-group coaching booking and payments;
-- merchandise/pre-order commerce;
-- richer competition results/brackets;
-- advanced analytics/video/statistics;
-- cross-channel communications/CRM;
-- additional KHLIM sports;
-- AI/automation using structured authoritative data;
-- external-club/multi-tenant platform only after a validated commercial decision.
+The record is primarily a projection of authorized verified operational facts:
+
+- organization participation history;
+- team history;
+- event/competition participation;
+- verified team results/placements;
+- verified achievements;
+- approved stats only when available;
+- approved media later.
+
+## Exit criteria
+
+Finalizing the KHLIM tournament produces athlete competition history with traceable provenance and correction history, without re-entering the same facts into a separate profile/CV system.
+
+---
+
+# Phase 5 — Minimal white label + Organization #002 pilot
+
+**Status:** Earlier than advanced AI/video by design
+
+## Objective
+
+Test whether the platform genuinely serves another organization rather than merely storing a KHLIM `organizationId`.
+
+## Deliverables
+
+- organization name/logo/theme configuration;
+- organization-specific timezone/currency/default locale;
+- organization-scoped staff setup;
+- organization-specific programmes/events/content;
+- CSV migration/onboarding tooling;
+- strong tenant admin/audit boundaries;
+- workspace/host resolution without code forks.
+
+## Later, not required for the first external pilot
+
+- custom domains;
+- fully branded email infrastructure;
+- tenant-specific report templates;
+- bring-your-own payment merchant/provider accounts.
+
+## Exit criteria
+
+Organization #002 can be configured and operated without KHLIM-specific code changes and cannot access KHLIM data.
+
+---
+
+# Phase 6 — Merchandise Marketing
+
+**Status:** Planned growth capability; may be pulled forward after tenancy/branding are stable if KHLIM has real merchandise to promote.
+
+## Objective
+
+Allow KHLIM and later organizations to **market club merchandise** through the ecosystem without prematurely building a full commerce/logistics platform.
+
+## Initial marketing capabilities
+
+- organization-branded merchandise collections;
+- featured product cards;
+- product name/description;
+- approved images/media;
+- indicative price or price range where approved;
+- sizes/variants where useful;
+- availability/status messaging;
+- season/campaign collections;
+- public or member-only visibility;
+- enquiry, interest, or pre-order call-to-action;
+- analytics on approved marketing interactions where privacy policy allows.
+
+## Suggested backend concepts
+
+```text
+MerchandiseCollection
+MerchandiseProduct
+MerchandiseVariant          // only if real variant behavior is needed
+MerchandiseMedia
+MerchandiseInterest / PreorderIntent   // optional
+```
+
+All are organization-owned.
+
+## Guardrail
+
+**Marketing catalog ≠ transactional commerce.**
+
+The marketing feature must not invent stock, payment confirmation, or fulfilment state.
+
+## Exit criteria
+
+KHLIM can promote real club merchandise from the public/member ecosystem and capture demand through an approved low-friction CTA.
+
+---
+
+# Phase 7 — Media + AI-assisted ingestion
+
+**Status:** After Events/Evidence provide trustworthy review targets
+
+## Objective
+
+Reduce staff data-entry effort while preserving human/domain authority.
+
+## Deliverables
+
+- MediaAsset ownership/associations;
+- media rights/consent metadata;
+- document upload;
+- CSV mapping assistance;
+- roster/score-sheet OCR as candidate extraction;
+- coach voice candidate observations;
+- duplicate-athlete suggestions;
+- external evidence submissions where policy allows.
+
+## Required trust boundary
+
+```text
+raw source
+→ candidate interpretation
+→ validation / human review
+→ accepted typed fact
+→ evidence + audit
+```
+
+## Exit criteria
+
+AI saves operational effort without silently creating verified sporting history.
+
+---
+
+# Phase 8 — Development/performance intelligence
+
+**Status:** Only after enough longitudinal verified data exists
+
+Potential capabilities:
+
+- coach evaluations/development history;
+- family-approved development summaries;
+- athlete progress queries;
+- recommendation support;
+- better competition/development context;
+- organization analytics based on trusted operational data.
+
+AI may summarize or recommend but does not silently become the authority for payment, attendance, selection, official evaluation, eligibility, or child-safety decisions.
+
+---
+
+# Phase 9 — Twin / advanced video intelligence
+
+**Status:** Evidence-gated future capability
+
+Begin with deterministic/rules-based operational simulation before predictive branding.
+
+Example Event Twin use:
+
+```text
+court unavailable
+→ schedule/constraint model
+→ feasible alternatives
+→ ranked recommendation
+→ organizer approves
+```
+
+Later video/statistics intelligence is activated only when source quality, volume, consent, cost, and real user demand justify it.
+
+---
+
+# Phase 10 — Transactional Commerce, if validated
+
+**Status:** Later; separate from Merchandise Marketing
+
+If KHLIM decides to sell merchandise directly in-platform, extend the existing Billing infrastructure rather than creating another payment source of truth.
+
+Potential explicit models:
+
+```text
+Order
+OrderItem
+Inventory / stock policy if genuinely required
+Fulfilment / collection status
+Refund linkage
+```
+
+Reuse server-authoritative prices, idempotent payment behavior, audit, and organization attribution.
+
+Do not build a multi-seller marketplace, warehouse/logistics system, or speculative inventory platform without validated demand.
+
+---
+
+# KHLIM Academy production launch gate — remains active
+
+The broader platform direction does not relax the original KHLIM launch criteria.
+
+Before real public Academy launch:
+
+- real Supabase production/staging flows are proven;
+- payment provider sandbox/production behavior is validated;
+- duplicate/delayed/failed webhook behavior is tested;
+- membership activates only from trusted financial state;
+- Admin supported writes persist for real;
+- schedules/notifications are accurate;
+- backup/restore is tested;
+- monitoring/alerts are active;
+- privacy/terms/recurring-payment disclosures match reality;
+- common mobile/browser flows pass QA;
+- no unresolved P0/P1 defects exist.
+
+The previous approximate **15 February 2027** target remains only a planning target and must move if the quality/security gates are not met.
+
+---
+
+# First KHLIM tournament pilot gate
+
+## Before the event
+
+- Organization #001 migration is complete;
+- tournament, courts, divisions, staff, teams, rosters, and schedule are configured;
+- CSV import/duplicate review is tested;
+- event staff permissions are verified;
+- public schedule/results are available;
+- check-in/result correction/announcement flows are dry-run;
+- a print/export connectivity fallback exists;
+- media consent policy is clear before athlete-linked publication.
+
+## During the event
+
+Use the platform for normal operations:
+
+```text
+check-in
+→ roster correction
+→ game status
+→ result entry
+→ result confirmation/correction
+→ schedule change
+→ announcement
+→ approved media association where available
+```
+
+## After the event
+
+- finalize placements;
+- resolve disputes/corrections;
+- generate verified athlete history from accepted facts;
+- review audit/evidence coverage;
+- export operational data;
+- measure duplicate entry, correction volume, spreadsheet fallback, support burden, and developer intervention.
+
+## Pilot success criteria
+
+- zero invented statistics;
+- zero cross-tenant leakage;
+- no developer database edits required for normal operations;
+- one athlete identity reused throughout;
+- corrections are auditable;
+- accepted tournament facts generate athlete history automatically;
+- organizers do not fall back to spreadsheets as the primary operational truth.
+
+---
+
+# Release-critical test strategy for the expanded platform
+
+## Tenant isolation
+
+Automate malicious cross-organization access attempts for athletes, events, rosters, payments, sessions, media, merchandise, reports, and imports.
+
+## Evidence integrity
+
+Test verification transitions, AI/self-submitted candidates, conflicts, corrections, provenance projection, and unavailable-data behavior.
+
+## Full event fixture
+
+Maintain an automated journey:
+
+```text
+guardian / athlete
+→ organization
+→ team
+→ event
+→ roster
+→ check-in
+→ game
+→ result
+→ corrected result
+→ placement
+→ evidence
+→ athlete history
+```
+
+## Existing commercial/security tests
+
+Continue payment idempotency/webhook, family relationship authorization, finance-role separation, audit immutability, migration safety, backup/restore, accessibility, and responsive browser tests.
+
+---
+
+# Explicit early-platform non-goals
+
+Do not build before evidence justifies them:
+
+- microservices solely because of multi-tenancy;
+- database per organization;
+- arbitrary tenant-specific code/hooks;
+- generic all-sport competition engine;
+- autonomous verified AI writes;
+- talent/scouting ranking marketplace;
+- professional tracking/video/statistics stack;
+- blockchain identity;
+- hardware tracking;
+- full offline synchronization engine;
+- enterprise inventory/logistics platform;
+- multi-seller merchandise marketplace;
+- major native Super App development before usage justifies it.
+
+---
+
+# Next single implementation milestone
+
+The next implementation milestone is deliberately narrow:
+
+## **Organization #001 Compatibility Slice**
+
+Complete when the same KHLIM website/member/admin platform continues to operate, but every organization-owned operation has an explicit tenant boundary, KHLIM is represented as Organization #001, organization-scoped staff authorization exists, and a synthetic Organization #002 cannot read or mutate KHLIM data.
+
+Only after this should broad Event OS and Evidence implementation accelerate.
