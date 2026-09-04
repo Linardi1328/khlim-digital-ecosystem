@@ -39,24 +39,20 @@ test("Khero supports brand storytelling and member points", async () => {
   assert.match(section, /from "next\/image"/);
 });
 
-test(
-  "academy-first homepage copy is localized across supported locales",
-  async () => {
-    const messages = await read(
-      "packages/i18n/src/messages/home-academy-web.ts",
-    );
-    const translator = await read("packages/i18n/src/translator.ts");
+test("academy-first copy localizes across supported locales", async () => {
+  const messagesPath = "packages/i18n/src/messages/home-academy-web.ts";
+  const messages = await read(messagesPath);
+  const translator = await read("packages/i18n/src/translator.ts");
 
-    assert.match(messages, /const en =/);
-    assert.match(messages, /const ms:/);
-    assert.match(messages, /const zhHans:/);
-    assert.match(messages, /const zhHant:/);
-    assert.match(messages, /const hi:/);
-    assert.match(messages, /home\.academyHero\.title/);
-    assert.match(messages, /home\.khero\.points\.title/);
-    assert.match(translator, /homeAcademyWebMessages/);
-  },
-);
+  assert.match(messages, /const en =/);
+  assert.match(messages, /const ms:/);
+  assert.match(messages, /const zhHans:/);
+  assert.match(messages, /const zhHant:/);
+  assert.match(messages, /const hi:/);
+  assert.match(messages, /home\.academyHero\.title/);
+  assert.match(messages, /home\.khero\.points\.title/);
+  assert.match(translator, /homeAcademyWebMessages/);
+});
 
 test("academy-first visual system is loaded by the public app", async () => {
   const layout = await read("apps/web/app/layout.tsx");
