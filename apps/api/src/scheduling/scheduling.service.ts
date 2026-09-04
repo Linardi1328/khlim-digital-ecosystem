@@ -28,26 +28,35 @@ type AttendanceInput = {
 export class SchedulingService {
   constructor(private readonly prisma: PrismaService) {}
 
-  listAdminSessions() {
+  listAdminSessions(organizationId: string) {
     return this.prisma.client.trainingSession.findMany({
+      where: { organizationId },
       include: { _count: { select: { attendances: true } } },
       orderBy: { startsAt: "asc" },
     });
   }
 
-  async createSession(input: SessionInput) {
+  async createSession(organizationId: string, input: SessionInput) {
     const data = this.normalizeSession(input);
-    return this.prisma.client.trainingSession.create({ data });
+    await this.requireOffering(organizationId, data.programmeOfferingId);
+    return this.prisma.client.trainingSession.create({
+      data: { organizationId, ...data },
+    });
   }
 
-  async updateSession(id: string, input: SessionInput) {
-    await this.requireSession(id);
+  async updateSession(
+    organizationId: string,
+    id: string,
+    input: SessionInput,
+  ) {
+    await this.requireSession(organizationId, id);
     const data = this.normalizeSession(input);
+    await this.requireOffering(organizationId, data.programmeOfferingId);
     return this.prisma.client.trainingSession.update({ where: { id }, data });
   }
 
-  async cancelSession(id: string, reason: string) {
-    await this.requireSession(id);
+  async cancelSession(organizationId: string, id: string, reason: string) {
+    await this.requireSession(organizationId, id);
     if (!reason?.trim())
       throw new BadRequestException("Cancellation reason is required");
     return this.prisma.client.trainingSession.update({
@@ -56,24 +65,28 @@ export class SchedulingService {
     });
   }
 
-  async completeSession(id: string) {
-    await this.requireSession(id);
+  async completeSession(organizationId: string, id: string) {
+    await this.requireSession(organizationId, id);
     return this.prisma.client.trainingSession.update({
       where: { id },
       data: { status: "COMPLETED" },
     });
   }
 
-  async listAttendance(id: string) {
-    await this.requireSession(id);
+  async listAttendance(organizationId: string, id: string) {
+    await this.requireSession(organizationId, id);
     return this.prisma.client.attendanceRecord.findMany({
       where: { sessionId: id },
       orderBy: [{ athleteName: "asc" }],
     });
   }
 
-  async markAttendance(id: string, input: AttendanceInput) {
-    await this.requireSession(id);
+  async markAttendance(
+    organizationId: string,
+    id: string,
+    input: AttendanceInput,
+  ) {
+    await this.requireSession(organizationId, id);
     if (!input.athleteName?.trim())
       throw new BadRequestException("Athlete name is required");
     const athleteId = input.athleteId?.trim() || randomUUID();
@@ -95,7 +108,7 @@ export class SchedulingService {
     });
   }
 
-  async listMySchedule(userId: string) {
+  async listMySchedule(organizationId: string, userId: string) {
     const user = await this.prisma.client.user.findUnique({
       where: { id: userId },
       include: {
@@ -115,6 +128,7 @@ export class SchedulingService {
 
     const memberships = await this.prisma.client.membership.findMany({
       where: {
+        organizationId,
         athleteId: { in: [...athleteIds] },
         status: { in: ["ACTIVE", "PENDING"] },
       },
@@ -127,6 +141,7 @@ export class SchedulingService {
 
     return this.prisma.client.trainingSession.findMany({
       where: {
+        organizationId,
         programmeOfferingId: { in: offeringIds },
         startsAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
       },
@@ -169,9 +184,21 @@ export class SchedulingService {
     };
   }
 
-  private async requireSession(id: string) {
-    const session = await this.prisma.client.trainingSession.findUnique({
-      where: { id },
+  private async requireOffering(
+    organizationId: string,
+    programmeOfferingId: string | null,
+  ) {
+    if (!programmeOfferingId) return;
+    const offering = await this.prisma.client.programmeOffering.findFirst({
+      where: { id: programmeOfferingId, organizationId },
+      select: { id: true },
+    });
+    if (!offering) throw new NotFoundException("Programme offering not found");
+  }
+
+  private async requireSession(organizationId: string, id: string) {
+    const session = await this.prisma.client.trainingSession.findFirst({
+      where: { id, organizationId },
     });
     if (!session) throw new NotFoundException("Training session not found");
     return session;
