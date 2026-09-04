@@ -11,8 +11,7 @@ const {
 } = require("../../apps/api/dist/organization/organization.service.js");
 
 const KHLIM_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001";
-const SYNTHETIC_ORGANIZATION_ID =
-  "00000000-0000-4000-8000-000000000002";
+const SYNTHETIC_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000002";
 const TEST_USER_ID = "20000000-0000-4000-8000-000000000001";
 
 function databaseTestsEnabled() {
@@ -34,9 +33,7 @@ const enabled = databaseTestsEnabled();
 
 test(
   "Organization #002 cannot inherit KHLIM legacy staff authority",
-  {
-    skip: enabled ? false : "Set KHLIM_TEST_DATABASE=1 to run database tests",
-  },
+  { skip: enabled ? false : "Set KHLIM_TEST_DATABASE=1 to run database tests" },
   async () => {
     const prisma = new PrismaService();
     const organizations = new OrganizationService(prisma);
