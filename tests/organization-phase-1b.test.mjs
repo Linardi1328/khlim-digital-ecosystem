@@ -84,6 +84,35 @@ test("Phase 1B migration backfills Organization #001 and tenant-aware indexes", 
   assert.match(migration, /programmes_organization_id_code_key/);
 });
 
+test("Phase 1B gives scheduling and notification roots direct organization ownership", async () => {
+  const schema = await read("prisma/schema.prisma");
+  const migration = await read(
+    "prisma/migrations/20260904224000_phase_1b_operations_ownership/migration.sql",
+  );
+
+  for (const model of ["TrainingSession", "Notification"]) {
+    const block = modelBlock(schema, model);
+    assert.match(block, /organizationId\s+String\s+@map\("organization_id"\)/);
+    assert.match(block, /organization\s+Organization\s+@relation/);
+  }
+
+  for (const table of ["training_sessions", "notifications"]) {
+    assert.match(
+      migration,
+      new RegExp(`ALTER TABLE "${table}" ADD COLUMN "organization_id" UUID`),
+    );
+    assert.match(
+      migration,
+      new RegExp(
+        `ALTER TABLE "${table}"[\\s\\S]*?"organization_id" SET NOT NULL`,
+      ),
+    );
+  }
+
+  assert.match(migration, /training_sessions_organization_id_starts_at_status_idx/);
+  assert.match(migration, /notifications_organization_id_type_created_at_idx/);
+});
+
 test("Academy reads and writes are scoped by active organization", async () => {
   const service = await read("apps/api/src/academy/academy.service.ts");
   const adminController = await read(
@@ -106,10 +135,37 @@ test("Academy reads and writes are scoped by active organization", async () => {
   assert.match(memberController, /organizationId\(user\)/);
 });
 
+test("Scheduling and notifications fail closed on organization-owned data", async () => {
+  const scheduling = await read("apps/api/src/scheduling/scheduling.service.ts");
+  const schedulingController = await read(
+    "apps/api/src/scheduling/scheduling.controller.ts",
+  );
+  const notifications = await read(
+    "apps/api/src/notifications/notifications.service.ts",
+  );
+  const notificationsController = await read(
+    "apps/api/src/notifications/notifications.controller.ts",
+  );
+
+  assert.match(scheduling, /where: \{ organizationId \}/);
+  assert.match(scheduling, /where: \{ id, organizationId \}/);
+  assert.match(scheduling, /where: \{ id: programmeOfferingId, organizationId \}/);
+  assert.match(scheduling, /organizationId,\n\s+programmeOfferingId:/);
+  assert.match(schedulingController, /organizationId\(user\)/);
+
+  assert.match(notifications, /where: \{ organizationId \}/);
+  assert.match(notifications, /notification: \{ organizationId \}/);
+  assert.match(notifications, /where: \{ id: programmeOfferingId, organizationId \}/);
+  assert.match(notifications, /organizationMembership\.findFirst/);
+  assert.match(notificationsController, /organizationId\(user\)/);
+});
+
 test("Phase 1B compatibility fallback is bounded to runtime-disabled Organization #001", async () => {
   const prismaService = await read("apps/api/src/database/prisma.service.ts");
 
   assert.match(prismaService, /COMPATIBILITY_TENANT_MODELS/);
+  assert.match(prismaService, /"trainingsession"/);
+  assert.match(prismaService, /"notification"/);
   assert.match(prismaService, /DEFAULT_ORGANIZATION_ID/);
   assert.match(
     prismaService,
