@@ -21,6 +21,6 @@ DROP INDEX IF EXISTS "editorial_entries_slug_key";
 CREATE UNIQUE INDEX "editorial_entries_organization_id_slug_key"
 ON "editorial_entries"("organization_id", "slug");
 
-DROP INDEX IF EXISTS "editorial_entries_type_status_published_at_idx";
-CREATE INDEX "editorial_entries_organization_id_type_status_published_at_idx"
-ON "editorial_entries"("organization_id", "type", "status", "published_at");
+DROP INDEX IF EXISTS "editorial_entries_type_status_publishedAt_idx";
+CREATE INDEX "editorial_entries_organization_id_type_status_publishedAt_idx"
+ON "editorial_entries"("organization_id", "type", "status", "publishedAt");
