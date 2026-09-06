@@ -1,4 +1,4 @@
-name: Temporary real Admin normalization
+name: Temporary PR55 owner-gate repair
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  normalize:
+  repair:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-24.04
     steps:
@@ -19,53 +19,24 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Apply canonical role and regression updates
+      - name: Align browser contracts with work-view semantics
         run: |
           node <<'NODE'
           const fs = require('node:fs');
 
-          function replace(path, before, after) {
+          for (const path of [
+            'tests/e2e/admin-kpi-observability.spec.mjs',
+            'tests/e2e/admin-ui.spec.mjs',
+          ]) {
             const source = fs.readFileSync(path, 'utf8');
-            if (!source.includes(before)) {
-              throw new Error(`Expected pattern missing in ${path}: ${before}`);
+            if (!source.includes('Switch demo role')) {
+              throw new Error(`Expected stale role-switch label missing in ${path}`);
             }
-            fs.writeFileSync(path, source.replace(before, after));
+            fs.writeFileSync(
+              path,
+              source.replaceAll('Switch demo role', 'Switch active work view'),
+            );
           }
-
-          replace(
-            'apps/admin/app/insights/page.tsx',
-            '  "FINANCE_ADMIN",\n  "FINANCE",\n',
-            '  "FINANCE_ADMIN",\n',
-          );
-          replace(
-            'apps/admin/app/reports/page.tsx',
-            '  "FINANCE_ADMIN",\n  "FINANCE",\n',
-            '  "FINANCE_ADMIN",\n',
-          );
-          replace(
-            'apps/admin/app/page.tsx',
-            '    roles: ["SUPER_ADMIN", "MANAGEMENT", "FINANCE_ADMIN", "FINANCE"],',
-            '    roles: ["SUPER_ADMIN", "MANAGEMENT", "FINANCE_ADMIN"],',
-          );
-          replace(
-            'apps/admin/app/staff/page.tsx',
-            '  "FINANCE",\n  "ADMIN",\n',
-            '  "FINANCE_ADMIN",\n',
-          );
-          let staff = fs.readFileSync('apps/admin/app/staff/page.tsx', 'utf8');
-          staff = staff.replaceAll('r === "FINANCE"', 'r === "FINANCE_ADMIN"');
-          staff = staff.replaceAll('{r === "FINANCE" &&', '{r === "FINANCE_ADMIN" &&');
-          fs.writeFileSync('apps/admin/app/staff/page.tsx', staff);
-          replace(
-            'apps/admin/lib/admin-api-legacy.ts',
-            '    roles: ["FINANCE"],',
-            '    roles: ["FINANCE_ADMIN"],',
-          );
-          replace(
-            'tests/admin-frontend.test.mjs',
-            '  assert.match(header, /isDemoMode && role/);',
-            '  assert.match(header, /availableWorkViews = isDemoMode/);\n  assert.match(header, /user\\?\\.roles/);\n  assert.match(header, /Changes navigation only/);\n  assert.match(authContext, /!ADMIN_DEMO_MODE && !user\\.roles\\.includes\\(newRole\\)/);',
-          );
           NODE
       - name: Enable pnpm
         run: |
@@ -73,22 +44,24 @@ jobs:
           corepack prepare pnpm@10.15.0 --activate
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
-      - name: Format normalized files
+      - name: Format PR55 gate files
         run: >-
           pnpm exec prettier --write
-          apps/admin/app/insights/page.tsx
-          apps/admin/app/page.tsx
-          apps/admin/app/reports/page.tsx
-          apps/admin/app/staff/page.tsx
-          apps/admin/lib/admin-api-legacy.ts
-          tests/admin-frontend.test.mjs
-      - name: Commit normalized output
+          apps/admin/lib/admin-api.ts
+          apps/admin/lib/types.ts
+          apps/api/src/admin/admin-operations-data.controller.ts
+          apps/api/src/admin/admin-operations-data.service.ts
+          tests/e2e/admin-kpi-observability.spec.mjs
+          tests/e2e/admin-ui.spec.mjs
+      - name: Remove temporary repair workflow
+        run: rm .github/workflows/temp-real-admin-normalize.yml
+      - name: Commit repaired owner-gate output
         run: |
-          if git diff --quiet; then
-            exit 0
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add apps/admin/app/insights/page.tsx apps/admin/app/page.tsx apps/admin/app/reports/page.tsx apps/admin/app/staff/page.tsx apps/admin/lib/admin-api-legacy.ts tests/admin-frontend.test.mjs
-          git commit -m "Align Admin UI with canonical organization roles"
+          git add -A
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Fix PR55 owner gates"
           git push origin HEAD:milestone-real-admin-multirole
