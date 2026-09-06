@@ -261,9 +261,13 @@ test(
       assert.equal(event?.organizationId, KHLIM_ORGANIZATION_ID);
       assert.equal(event?.processingStatus, "ACTION_REQUIRED");
     } finally {
-      await client.paymentProviderEvent.deleteMany({ where: { provider: PROVIDER } });
+      await client.paymentProviderEvent.deleteMany({
+        where: { provider: PROVIDER },
+      });
       await client.payment.deleteMany({ where: { id: PAYMENT_ID } });
-      await client.paymentInstallment.deleteMany({ where: { id: INSTALLMENT_ID } });
+      await client.paymentInstallment.deleteMany({
+        where: { id: INSTALLMENT_ID },
+      });
       await client.paymentSchedule.deleteMany({ where: { id: SCHEDULE_ID } });
       await client.membership.deleteMany({ where: { id: MEMBERSHIP_ID } });
       await client.membershipPlan.deleteMany({ where: { id: PLAN_ID } });
@@ -272,7 +276,9 @@ test(
       await client.sport.deleteMany({ where: { id: SPORT_ID } });
       await client.athleteProfile.deleteMany({ where: { id: ATHLETE_ID } });
       await client.user.deleteMany({ where: { id: USER_ID } });
-      await client.organization.deleteMany({ where: { id: FOREIGN_ORGANIZATION_ID } });
+      await client.organization.deleteMany({
+        where: { id: FOREIGN_ORGANIZATION_ID },
+      });
       await prisma.onModuleDestroy();
     }
   },
