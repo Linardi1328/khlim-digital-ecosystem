@@ -46,3 +46,10 @@ jobs:
           test -f apps/admin/out/index.html
           test -f apps/admin/out/settings/index.html
           test -f apps/admin/out/audit/index.html
+      - name: Upload Admin walkthrough artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-walkthrough-site
+          path: apps/admin/out/
+          if-no-files-found: error
+          retention-days: 7
