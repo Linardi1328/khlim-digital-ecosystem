@@ -113,13 +113,6 @@ function resolveOrganizationId(actor: AuthenticatedUserContext): string {
   );
 }
 
-function canReadLegacyEditorial(organizationId: string): boolean {
-  return (
-    !MULTI_ORGANIZATION_RUNTIME_ENABLED &&
-    organizationId === DEFAULT_ORGANIZATION_ID
-  );
-}
-
 @Injectable()
 export class AdminService {
   constructor(private readonly prisma: PrismaService) {}
@@ -242,7 +235,6 @@ export class AdminService {
     const canViewFinance = actor.roles.some((role) =>
       FINANCE_ROLES.has(role as KhlimUserRole),
     );
-    const includeLegacyEditorial = canReadLegacyEditorial(organizationId);
 
     const [
       membershipStatusCounts,
@@ -353,21 +345,27 @@ export class AdminService {
           },
         },
       }),
-      includeLegacyEditorial
-        ? this.prisma.client.editorialEntry.count({
-            where: { status: "DRAFT", factsVerified: true },
-          })
-        : Promise.resolve(0),
-      includeLegacyEditorial
-        ? this.prisma.client.editorialEntry.count({
-            where: { status: "DRAFT", factsVerified: false },
-          })
-        : Promise.resolve(0),
-      includeLegacyEditorial
-        ? this.prisma.client.editorialEntry.count({
-            where: { status: "PUBLISHED", factsVerified: true },
-          })
-        : Promise.resolve(0),
+      this.prisma.client.editorialEntry.count({
+        where: {
+          organizationId,
+          status: "DRAFT",
+          factsVerified: true,
+        },
+      }),
+      this.prisma.client.editorialEntry.count({
+        where: {
+          organizationId,
+          status: "DRAFT",
+          factsVerified: false,
+        },
+      }),
+      this.prisma.client.editorialEntry.count({
+        where: {
+          organizationId,
+          status: "PUBLISHED",
+          factsVerified: true,
+        },
+      }),
     ]);
 
     const membershipsByStatus = Object.fromEntries(
