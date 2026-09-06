@@ -8,9 +8,7 @@ const CAPACITY_HOLDING_MEMBERSHIP_STATUSES = [
   "SUSPENDED",
 ] as const;
 const STAFF_ROLES = new Set<KhlimUserRole>(
-  KHLIM_USER_ROLES.filter(
-    (role) => role !== "GUARDIAN" && role !== "ATHLETE",
-  ),
+  KHLIM_USER_ROLES.filter((role) => role !== "GUARDIAN" && role !== "ATHLETE"),
 );
 
 function dateOnly(value: Date | null): string | null {
@@ -558,7 +556,9 @@ export class AdminOperationsDataService {
           },
         })
       : [];
-    const offeringMap = new Map(offerings.map((offering) => [offering.id, offering]));
+    const offeringMap = new Map(
+      offerings.map((offering) => [offering.id, offering]),
+    );
     const timezone = setting?.timezone ?? "Asia/Kuala_Lumpur";
 
     return sessions.map((session) => {

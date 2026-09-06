@@ -143,7 +143,7 @@ test("demo role preview hides management and finance tools from coach role", asy
 }) => {
   test.skip(!viewport || viewport.width < 1024, "Desktop role preview only");
   await page.goto("/payments", { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "Switch demo role" }).click();
+  await page.getByRole("button", { name: "Switch active work view" }).click();
   await page.getByRole("button", { name: "COACH", exact: true }).click();
 
   await expect(

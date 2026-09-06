@@ -54,7 +54,7 @@ test("coach demo role cannot open reporting insights from navigation", async ({
 }) => {
   test.skip(!viewport || viewport.width < 1024, "Desktop role preview only");
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "Switch demo role" }).click();
+  await page.getByRole("button", { name: "Switch active work view" }).click();
   await page.getByRole("button", { name: "COACH", exact: true }).click();
 
   await expect(

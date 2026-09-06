@@ -344,8 +344,7 @@ const realAdminApi: LegacyAdminApi = {
   },
   listOfferings: () =>
     adminApiClient.get<OfferingItem[]>("/admin/operations-data/offerings"),
-  createOffering: (dto) =>
-    adminApiClient.post("/admin/academy/offerings", dto),
+  createOffering: (dto) => adminApiClient.post("/admin/academy/offerings", dto),
   listMembershipPlans: () =>
     adminApiClient.get<MembershipPlanItem[]>(
       "/admin/operations-data/membership-plans",
@@ -394,18 +393,16 @@ const realAdminApi: LegacyAdminApi = {
         summary: string;
       }>;
     }>("/admin/audit?take=100");
-    return response.items.map(
-      (item): AuditLogItem => ({
-        id: item.id,
-        timestamp: item.timestamp,
-        actorName: item.actorName,
-        actorRole: item.actorRole,
-        action: item.action,
-        entityType: item.entityType,
-        entityId: item.entityId,
-        summary: item.summary,
-      }),
-    );
+    return response.items.map((item): AuditLogItem => ({
+      id: item.id,
+      timestamp: item.timestamp,
+      actorName: item.actorName,
+      actorRole: item.actorRole,
+      action: item.action,
+      entityType: item.entityType,
+      entityId: item.entityId,
+      summary: item.summary,
+    }));
   },
 };
 
