@@ -33,6 +33,7 @@ function LoginContent() {
   const redirectPath = safeRedirect(searchParams.get("redirect"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -155,14 +156,36 @@ function LoginContent() {
                 onChange={(event) => setEmail(event.target.value)}
                 autoComplete="email"
               />
-              <Input
-                label={t("auth.login.password")}
-                type="password"
-                required
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                autoComplete="current-password"
-              />
+              <div>
+                <Input
+                  label={t("auth.login.password")}
+                  type={showPassword ? "text" : "password"}
+                  required
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((current) => !current)}
+                  aria-pressed={showPassword}
+                  style={{
+                    minHeight: 44,
+                    marginTop: 4,
+                    padding: "0 8px",
+                    border: 0,
+                    background: "transparent",
+                    color: "#92400E",
+                    cursor: "pointer",
+                    fontSize: "0.8125rem",
+                    fontWeight: 700,
+                  }}
+                >
+                  {showPassword
+                    ? t("auth.password.hide")
+                    : t("auth.password.show")}
+                </button>
+              </div>
               <div style={{ textAlign: "right" }}>
                 <Link
                   href="/auth/forgot-password"
