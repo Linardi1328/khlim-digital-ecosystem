@@ -25,6 +25,8 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
   const { user, role, setRole, isDemoMode, logout } = useAdminAuth();
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const availableWorkViews = isDemoMode ? DEMO_ROLES : (user?.roles ?? []);
+  const canSwitchWorkView = Boolean(role && availableWorkViews.length > 1);
 
   const getSectionTitle = () => {
     if (pathname === "/" || pathname === "/dashboard") {
@@ -182,12 +184,22 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
           )}
         </div>
 
-        {isDemoMode && role && (
+        {role && (
           <div style={{ position: "relative" }}>
             <button
               type="button"
-              onClick={() => setShowRoleMenu((current) => !current)}
-              aria-label="Switch demo role"
+              onClick={() => {
+                if (canSwitchWorkView) {
+                  setShowRoleMenu((current) => !current);
+                }
+              }}
+              aria-label={
+                canSwitchWorkView
+                  ? "Switch active work view"
+                  : `Active work view: ${role.replaceAll("_", " ")}`
+              }
+              aria-haspopup={canSwitchWorkView ? "menu" : undefined}
+              aria-expanded={canSwitchWorkView ? showRoleMenu : undefined}
               style={{
                 minHeight: 44,
                 display: "flex",
@@ -198,7 +210,7 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
                 color: "#FFFFFF",
                 borderRadius: "8px",
                 border: "none",
-                cursor: "pointer",
+                cursor: canSwitchWorkView ? "pointer" : "default",
                 fontSize: "0.75rem",
                 fontWeight: 600,
               }}
@@ -207,16 +219,20 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
               <span className="hide-on-mobile">
                 {role.replaceAll("_", " ")}
               </span>
-              <span style={{ fontSize: "0.625rem" }}>▼</span>
+              {canSwitchWorkView && (
+                <span style={{ fontSize: "0.625rem" }}>▼</span>
+              )}
             </button>
 
-            {showRoleMenu && (
+            {showRoleMenu && canSwitchWorkView && (
               <div
+                role="menu"
+                aria-label="Assigned staff work views"
                 style={{
                   position: "absolute",
                   right: 0,
                   top: "48px",
-                  width: "220px",
+                  width: "260px",
                   maxHeight: "70vh",
                   overflowY: "auto",
                   backgroundColor: "#FFFFFF",
@@ -232,17 +248,30 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
                     fontSize: "0.6875rem",
                     fontWeight: 700,
                     color: "#64748B",
-                    padding: "6px 8px",
+                    padding: "6px 8px 2px",
                   }}
                 >
-                  Demo permission preview only
+                  Active work view
                 </div>
-                {DEMO_ROLES.map((demoRole) => (
+                <p
+                  style={{
+                    fontSize: "0.6875rem",
+                    lineHeight: 1.4,
+                    color: "#64748B",
+                    margin: "2px 8px 8px",
+                  }}
+                >
+                  Changes navigation only. Your signed-in identity and assigned
+                  permissions do not change.
+                </p>
+                {availableWorkViews.map((workView) => (
                   <button
-                    key={demoRole}
+                    key={workView}
                     type="button"
+                    role="menuitemradio"
+                    aria-checked={role === workView}
                     onClick={() => {
-                      setRole(demoRole);
+                      setRole(workView);
                       setShowRoleMenu(false);
                     }}
                     style={{
@@ -251,16 +280,16 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
                       textAlign: "left",
                       padding: "8px",
                       fontSize: "0.8125rem",
-                      fontWeight: role === demoRole ? 700 : 500,
-                      color: role === demoRole ? "#92400E" : "#0F172A",
+                      fontWeight: role === workView ? 700 : 500,
+                      color: role === workView ? "#92400E" : "#0F172A",
                       backgroundColor:
-                        role === demoRole ? "#FEF3C7" : "transparent",
+                        role === workView ? "#FEF3C7" : "transparent",
                       border: "none",
                       borderRadius: "6px",
                       cursor: "pointer",
                     }}
                   >
-                    {demoRole.replaceAll("_", " ")}
+                    {workView.replaceAll("_", " ")}
                   </button>
                 ))}
               </div>
