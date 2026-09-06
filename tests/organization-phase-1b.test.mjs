@@ -231,7 +231,7 @@ test("Billing reads, writes, reconciliation, and provider events are organizatio
 
   assert.match(service, /where: \{ id: membershipId, athleteId, organizationId \}/);
   assert.match(service, /organizationId_userId_provider/);
-  assert.match(service, /data: \{\n\s+organizationId,\n\s+payerUserId,/);
+  assert.match(service, /create: \{\n\s+organizationId,\n\s+payerUserId,/);
   assert.match(service, /where: \{ organizationId, idempotencyKey:/);
   assert.match(
     service,

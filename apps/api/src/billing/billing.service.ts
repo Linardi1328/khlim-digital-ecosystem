@@ -309,7 +309,7 @@ export class BillingService {
   }
 
   async reconcileStaleCheckoutHolds(
-    organizationIdOrNow: string | Date = DEFAULT_ORGANIZATION_ID,
+    organizationIdOrNow?: string | Date,
     maybeNow?: Date,
   ) {
     const organizationId =
@@ -319,7 +319,7 @@ export class BillingService {
     const now =
       typeof organizationIdOrNow === "string"
         ? (maybeNow ?? new Date())
-        : organizationIdOrNow;
+        : (organizationIdOrNow ?? new Date());
     const cutoff = new Date(now.getTime() - checkoutHoldMinutes() * 60 * 1000);
     const stalePayments = await this.prisma.client.payment.findMany({
       where: {
@@ -406,6 +406,7 @@ export class BillingService {
     if (existing) return existing;
 
     const customer = await gateway.createCustomer({
+      organizationId,
       khlimUserId: userId,
       email,
       idempotencyKey: `billing-profile:${organizationId}:${userId}`,

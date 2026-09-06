@@ -122,13 +122,14 @@ test("Billplz checkout maps KHLIM billing data into the sandbox Bills API", asyn
   });
 
   const customer = await adapter.createCustomer({
+    organizationId: "00000000-0000-4000-8000-000000000001",
     khlimUserId: "70000000-0000-4000-8000-000000000010",
     email: "guardian@example.test",
     idempotencyKey: "billing-profile:guardian",
   });
   assert.equal(
     customer.providerCustomerId,
-    "khlim-user:70000000-0000-4000-8000-000000000010",
+    "khlim-org:00000000-0000-4000-8000-000000000001:user:70000000-0000-4000-8000-000000000010",
   );
 
   const checkout = await adapter.createCheckout(checkoutInput());
