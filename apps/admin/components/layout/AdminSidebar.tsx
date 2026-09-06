@@ -24,7 +24,6 @@ const REPORTING: StaffRole[] = [
   "SUPER_ADMIN",
   "MANAGEMENT",
   "FINANCE_ADMIN",
-  "FINANCE",
   "ACADEMY_ADMIN",
   "HEAD_COACH",
 ];
@@ -43,12 +42,7 @@ const SESSION_OPERATIONS: StaffRole[] = [
   "COACH",
   "EVENT_STAFF",
 ];
-const FINANCE: StaffRole[] = [
-  "SUPER_ADMIN",
-  "MANAGEMENT",
-  "FINANCE_ADMIN",
-  "FINANCE",
-];
+const FINANCE: StaffRole[] = ["SUPER_ADMIN", "MANAGEMENT", "FINANCE_ADMIN"];
 
 export const ADMIN_NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Dashboard", icon: "📊" },
@@ -149,11 +143,17 @@ export function AdminSidebar({
   onNavigate,
 }: AdminSidebarProps) {
   const pathname = usePathname();
-  const { hasRole, role } = useAdminAuth();
+  const { role } = useAdminAuth();
 
   const isRouteActive = (href: string) => {
     if (href === "/") return pathname === "/" || pathname === "/dashboard";
     return pathname.startsWith(href);
+  };
+
+  const isVisibleInWorkView = (item: NavItem) => {
+    if (!item.roles) return true;
+    if (role === "SUPER_ADMIN") return true;
+    return Boolean(role && item.roles.includes(role));
   };
 
   return (
@@ -274,7 +274,7 @@ export function AdminSidebar({
         }}
       >
         {ADMIN_NAV_ITEMS.map((item) => {
-          if (item.roles && !hasRole(item.roles)) return null;
+          if (!isVisibleInWorkView(item)) return null;
 
           const active = isRouteActive(item.href);
           return (
@@ -329,7 +329,7 @@ export function AdminSidebar({
               fontWeight: 700,
             }}
           >
-            Active Staff Role
+            Active Work View
           </div>
           <div
             style={{
@@ -340,6 +340,16 @@ export function AdminSidebar({
             }}
           >
             {role ? role.replaceAll("_", " ") : "Not authenticated"}
+          </div>
+          <div
+            style={{
+              marginTop: 4,
+              color: "#71717A",
+              fontSize: "0.6875rem",
+              lineHeight: 1.35,
+            }}
+          >
+            Navigation context only; permissions remain tied to your account.
           </div>
         </div>
       )}

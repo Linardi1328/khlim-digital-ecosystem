@@ -16,8 +16,20 @@ import type {
   AccountStatus,
   AdminAccountListResponse,
   AdminSession,
+  AthleteItem,
+  AuditLogItem,
   DashboardMetrics,
+  GuardianItem,
+  MembershipItem,
+  MembershipPlanItem,
+  OfferingItem,
+  PaymentItem,
+  ProgrammeItem,
+  SessionItem,
+  SportItem,
   StaffRole,
+  StaffUserItem,
+  VenueItem,
 } from "./types";
 
 const API_BASE_URL = (
@@ -170,6 +182,15 @@ export function getAdminOverview(): Promise<DashboardMetrics> {
   return adminApiClient.get<DashboardMetrics>("/admin/overview");
 }
 
+export function listAdminSports(): Promise<SportItem[]> {
+  if (ADMIN_DEMO_MODE) {
+    return Promise.resolve([
+      { id: "demo-basketball", code: "BASKETBALL", name: "Basketball" },
+    ]);
+  }
+  return adminApiClient.get<SportItem[]>("/admin/operations-data/sports");
+}
+
 export function getAdminOperationsReport(
   query: AdminOperationsReportQuery = {},
 ): Promise<AdminOperationsReport> {
@@ -272,22 +293,9 @@ export function updateAdminAccountStatus(
   }>(`/admin/users/${encodeURIComponent(userId)}/status`, { status });
 }
 
-const DEMO_READ_METHODS = new Set<keyof typeof generatedDemoApi>([
-  "getDashboardMetrics",
-  "listProgrammes",
-  "listOfferings",
-  "listMembershipPlans",
-  "listMemberships",
-  "listAthletes",
-  "listGuardians",
-  "listPayments",
-  "listVenues",
-  "listSessions",
-  "listStaff",
-  "listAuditLogs",
-]);
+type LegacyAdminApi = typeof generatedDemoApi;
 
-const DEMO_WRITE_METHODS = new Set<keyof typeof generatedDemoApi>([
+const DEMO_WRITE_METHODS = new Set<keyof LegacyAdminApi>([
   "createProgramme",
   "createOffering",
   "createMembershipPlan",
@@ -297,31 +305,13 @@ const DEMO_WRITE_METHODS = new Set<keyof typeof generatedDemoApi>([
   "updateAccountStatus",
 ]);
 
-function integrationPending(method: PropertyKey): Error {
-  return new Error(
-    `Admin operation ${String(method)} is unavailable until its persisted backend endpoint is connected.`,
-  );
-}
-
-export const adminApi: typeof generatedDemoApi = new Proxy(generatedDemoApi, {
+const demoAdminApi: LegacyAdminApi = new Proxy(generatedDemoApi, {
   get(target, property, receiver) {
     const value = Reflect.get(target, property, receiver);
     if (typeof value !== "function") return value;
 
     return (...args: unknown[]) => {
-      const method = property as keyof typeof generatedDemoApi;
-
-      if (!ADMIN_DEMO_MODE) {
-        if (method === "getDashboardMetrics") {
-          return getAdminOverview();
-        }
-        return Promise.reject(integrationPending(method));
-      }
-
-      if (DEMO_READ_METHODS.has(method)) {
-        return Reflect.apply(value, target, args);
-      }
-
+      const method = property as keyof LegacyAdminApi;
       if (DEMO_WRITE_METHODS.has(method)) {
         return Promise.resolve({
           demo: true,
@@ -329,8 +319,93 @@ export const adminApi: typeof generatedDemoApi = new Proxy(generatedDemoApi, {
           operation: String(method),
         });
       }
-
-      return Promise.reject(integrationPending(method));
+      return Reflect.apply(value, target, args);
     };
   },
 });
+
+const realAdminApi: LegacyAdminApi = {
+  getDashboardMetrics: () => getAdminOverview(),
+  listProgrammes: () =>
+    adminApiClient.get<ProgrammeItem[]>("/admin/operations-data/programmes"),
+  createProgramme: (dto) => {
+    if (!dto.sportId) {
+      return Promise.reject(new Error("Select an active organization sport."));
+    }
+    return adminApiClient.post("/admin/academy/programmes", {
+      sportId: dto.sportId,
+      code: dto.code,
+      name: dto.name,
+      description: dto.description,
+      minimumAge: dto.minimumAge,
+      maximumAge: dto.maximumAge,
+      level: dto.level,
+    });
+  },
+  listOfferings: () =>
+    adminApiClient.get<OfferingItem[]>("/admin/operations-data/offerings"),
+  createOffering: (dto) => adminApiClient.post("/admin/academy/offerings", dto),
+  listMembershipPlans: () =>
+    adminApiClient.get<MembershipPlanItem[]>(
+      "/admin/operations-data/membership-plans",
+    ),
+  createMembershipPlan: (dto) =>
+    adminApiClient.post("/admin/academy/membership-plans", dto),
+  listMemberships: () =>
+    adminApiClient.get<MembershipItem[]>("/admin/operations-data/memberships"),
+  listAthletes: () =>
+    adminApiClient.get<AthleteItem[]>("/admin/operations-data/athletes"),
+  listGuardians: () =>
+    adminApiClient.get<GuardianItem[]>("/admin/operations-data/guardians"),
+  listPayments: () =>
+    adminApiClient.get<PaymentItem[]>("/admin/operations-data/payments"),
+  listVenues: () =>
+    adminApiClient.get<VenueItem[]>("/admin/operations-data/venues"),
+  createVenue: (dto) => adminApiClient.post("/admin/academy/venues", dto),
+  createCourt: (venueId, dto) =>
+    adminApiClient.post(
+      `/admin/academy/venues/${encodeURIComponent(venueId)}/courts`,
+      dto,
+    ),
+  listSessions: () =>
+    adminApiClient.get<SessionItem[]>("/admin/operations-data/sessions"),
+  listStaff: () =>
+    adminApiClient.get<StaffUserItem[]>("/admin/operations-data/staff"),
+  updateStaffRoles: (userId, roles) =>
+    adminApiClient.put(
+      `/admin/users/${encodeURIComponent(userId)}/staff-roles`,
+      { roles },
+    ),
+  updateAccountStatus: (userId, status) =>
+    adminApiClient.patch(`/admin/users/${encodeURIComponent(userId)}/status`, {
+      status,
+    }),
+  listAuditLogs: async () => {
+    const response = await adminApiClient.get<{
+      items: Array<{
+        id: string;
+        timestamp: string;
+        actorName: string;
+        actorRole: string;
+        action: string;
+        entityType: string;
+        entityId: string;
+        summary: string;
+      }>;
+    }>("/admin/audit?take=100");
+    return response.items.map((item): AuditLogItem => ({
+      id: item.id,
+      timestamp: item.timestamp,
+      actorName: item.actorName,
+      actorRole: item.actorRole,
+      action: item.action,
+      entityType: item.entityType,
+      entityId: item.entityId,
+      summary: item.summary,
+    }));
+  },
+};
+
+export const adminApi: LegacyAdminApi = ADMIN_DEMO_MODE
+  ? demoAdminApi
+  : realAdminApi;

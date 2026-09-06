@@ -733,6 +733,226 @@
         ]
       }
     },
+    "/v1/admin/operations-data/sports": {
+      "get": {
+        "operationId": "AdminOperationsDataController_listSports",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "List active sports for the current organization",
+        "tags": [
+          "admin-operations-data"
+        ]
+      }
+    },
+    "/v1/admin/operations-data/programmes": {
+      "get": {
+        "operationId": "AdminOperationsDataController_listProgrammes",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "List persisted programmes for the current organization",
+        "tags": [
+          "admin-operations-data"
+        ]
+      }
+    },
+    "/v1/admin/operations-data/offerings": {
+      "get": {
+        "operationId": "AdminOperationsDataController_listOfferings",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "List persisted programme offerings for the current organization",
+        "tags": [
+          "admin-operations-data"
+        ]
+      }
+    },
+    "/v1/admin/operations-data/membership-plans": {
+      "get": {
+        "operationId": "AdminOperationsDataController_listMembershipPlans",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "List persisted membership plans for the current organization",
+        "tags": [
+          "admin-operations-data"
+        ]
+      }
+    },
+    "/v1/admin/operations-data/memberships": {
+      "get": {
+        "operationId": "AdminOperationsDataController_listMemberships",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "List persisted memberships for the current organization",
+        "tags": [
+          "admin-operations-data"
+        ]
+      }
+    },
+    "/v1/admin/operations-data/athletes": {
+      "get": {
+        "operationId": "AdminOperationsDataController_listAthletes",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "List athletes participating in the current organization",
+        "tags": [
+          "admin-operations-data"
+        ]
+      }
+    },
+    "/v1/admin/operations-data/guardians": {
+      "get": {
+        "operationId": "AdminOperationsDataController_listGuardians",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "List guardians linked to athletes in the current organization",
+        "tags": [
+          "admin-operations-data"
+        ]
+      }
+    },
+    "/v1/admin/operations-data/payments": {
+      "get": {
+        "operationId": "AdminOperationsDataController_listPayments",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "List persisted payments for the current organization",
+        "tags": [
+          "admin-operations-data"
+        ]
+      }
+    },
+    "/v1/admin/operations-data/venues": {
+      "get": {
+        "operationId": "AdminOperationsDataController_listVenues",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "List persisted venues for the current organization",
+        "tags": [
+          "admin-operations-data"
+        ]
+      }
+    },
+    "/v1/admin/operations-data/sessions": {
+      "get": {
+        "operationId": "AdminOperationsDataController_listSessions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "List persisted training sessions for the current organization",
+        "tags": [
+          "admin-operations-data"
+        ]
+      }
+    },
+    "/v1/admin/operations-data/staff": {
+      "get": {
+        "operationId": "AdminOperationsDataController_listStaff",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "List staff memberships and assigned roles for the current organization",
+        "tags": [
+          "admin-operations-data"
+        ]
+      }
+    },
     "/v1/academy/offerings": {
       "get": {
         "operationId": "AcademyController_listPublicOfferings",

@@ -17,8 +17,7 @@ import type { StaffUserItem, StaffRole } from "../../lib/types";
 const ALL_ROLES: StaffRole[] = [
   "SUPER_ADMIN",
   "MANAGEMENT",
-  "FINANCE",
-  "ADMIN",
+  "FINANCE_ADMIN",
   "ACADEMY_ADMIN",
   "HEAD_COACH",
   "COACH",
@@ -159,13 +158,13 @@ export default function StaffPage() {
                 backgroundColor:
                   r === "SUPER_ADMIN"
                     ? "#FEF3C7"
-                    : r === "FINANCE"
+                    : r === "FINANCE_ADMIN"
                       ? "#EFF6FF"
                       : "#F1F5F9",
                 color:
                   r === "SUPER_ADMIN"
                     ? "#92400E"
-                    : r === "FINANCE"
+                    : r === "FINANCE_ADMIN"
                       ? "#1E40AF"
                       : "#334155",
                 border: "1px solid #E2E8F0",
@@ -368,7 +367,7 @@ export default function StaffPage() {
                           >
                             {r === "SUPER_ADMIN" &&
                               "Full administrative control across all domains."}
-                            {r === "FINANCE" &&
+                            {r === "FINANCE_ADMIN" &&
                               "Exclusive access to payment reconciliation and gateway ledgers."}
                             {r === "ACADEMY_ADMIN" &&
                               "Manage programmes, offerings, and venue schedules."}

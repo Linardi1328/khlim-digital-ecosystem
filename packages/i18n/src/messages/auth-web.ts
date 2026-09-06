@@ -2,6 +2,8 @@ const en = {
   "auth.login.error.required": "Please enter both email and password.",
   "auth.login.error.failed": "Sign in failed. Please verify your credentials.",
   "auth.login.loading": "Loading login…",
+  "auth.password.show": "Show password",
+  "auth.password.hide": "Hide password",
   "auth.register.error.invalid":
     "Enter your name, a valid email, and a password of at least 8 characters.",
   "auth.register.error.failed": "Registration failed.",
@@ -41,6 +43,8 @@ const ms: Catalogue = {
   "auth.login.error.required": "Sila masukkan emel dan kata laluan.",
   "auth.login.error.failed": "Log masuk gagal. Sila semak kelayakan anda.",
   "auth.login.loading": "Memuatkan log masuk…",
+  "auth.password.show": "Tunjukkan kata laluan",
+  "auth.password.hide": "Sembunyikan kata laluan",
   "auth.register.error.invalid":
     "Masukkan nama, emel yang sah dan kata laluan sekurang-kurangnya 8 aksara.",
   "auth.register.error.failed": "Pendaftaran gagal.",
@@ -77,6 +81,8 @@ const zhHans: Catalogue = {
   "auth.login.error.required": "请输入电子邮箱和密码。",
   "auth.login.error.failed": "登录失败，请检查您的登录信息。",
   "auth.login.loading": "正在加载登录页面…",
+  "auth.password.show": "显示密码",
+  "auth.password.hide": "隐藏密码",
   "auth.register.error.invalid":
     "请输入姓名、有效电子邮箱以及至少 8 个字符的密码。",
   "auth.register.error.failed": "注册失败。",
@@ -112,6 +118,8 @@ const zhHant: Catalogue = {
   "auth.login.error.required": "請輸入電子郵箱和密碼。",
   "auth.login.error.failed": "登入失敗，請檢查您的登入資料。",
   "auth.login.loading": "正在載入登入頁面…",
+  "auth.password.show": "顯示密碼",
+  "auth.password.hide": "隱藏密碼",
   "auth.register.error.invalid":
     "請輸入姓名、有效電子郵箱以及至少 8 個字元的密碼。",
   "auth.register.error.failed": "註冊失敗。",
@@ -147,6 +155,8 @@ const hi: Catalogue = {
   "auth.login.error.required": "कृपया ईमेल और पासवर्ड दोनों दर्ज करें।",
   "auth.login.error.failed": "साइन इन विफल रहा। कृपया अपनी जानकारी जाँचें।",
   "auth.login.loading": "लॉगिन लोड हो रहा है…",
+  "auth.password.show": "पासवर्ड दिखाएँ",
+  "auth.password.hide": "पासवर्ड छिपाएँ",
   "auth.register.error.invalid":
     "अपना नाम, मान्य ईमेल और कम से कम 8 अक्षरों का पासवर्ड दर्ज करें।",
   "auth.register.error.failed": "पंजीकरण विफल रहा।",

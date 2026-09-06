@@ -14,7 +14,6 @@ const REPORTING_ROLES: StaffRole[] = [
   "SUPER_ADMIN",
   "MANAGEMENT",
   "FINANCE_ADMIN",
-  "FINANCE",
   "ACADEMY_ADMIN",
   "HEAD_COACH",
 ];

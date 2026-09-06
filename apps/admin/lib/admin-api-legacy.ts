@@ -694,7 +694,7 @@ const SAMPLE_STAFF: StaffUserItem[] = [
     id: "stf-002",
     email: "finance@khlim.com",
     displayName: "Jessica Lim (Finance Controller)",
-    roles: ["FINANCE"],
+    roles: ["FINANCE_ADMIN"],
     status: "ACTIVE",
     lastActiveAt: "2026-08-27 17:15",
     mfaEnabled: true,

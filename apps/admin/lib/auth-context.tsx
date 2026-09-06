@@ -36,8 +36,6 @@ const STAFF_ROLE_SET = new Set<StaffRole>([
   "SUPER_ADMIN",
   "MANAGEMENT",
   "FINANCE_ADMIN",
-  "FINANCE",
-  "ADMIN",
   "ACADEMY_ADMIN",
   "HEAD_COACH",
   "COACH",
@@ -121,7 +119,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setUser(adminUser);
-    setActiveRole(adminUser.role);
+    setActiveRole((current) =>
+      current && adminUser.roles.includes(current) ? current : adminUser.role,
+    );
   }
 
   useEffect(() => {
@@ -203,7 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const canAccessFinance = (): boolean =>
-    hasRole(["SUPER_ADMIN", "MANAGEMENT", "FINANCE_ADMIN", "FINANCE"]);
+    hasRole(["SUPER_ADMIN", "MANAGEMENT", "FINANCE_ADMIN"]);
 
   const logout = async (): Promise<void> => {
     if (!ADMIN_DEMO_MODE) {
@@ -215,7 +215,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const setRole = (newRole: StaffRole) => {
-    if (!ADMIN_DEMO_MODE || !user) return;
+    if (!user) return;
+    if (!ADMIN_DEMO_MODE && !user.roles.includes(newRole)) return;
+
     setActiveRole(newRole);
     setUser({ ...user, role: newRole });
   };
