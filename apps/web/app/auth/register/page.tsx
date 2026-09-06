@@ -27,6 +27,7 @@ export default function RegisterPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [selectedLocale, setSelectedLocale] = useState<SupportedLocale>(locale);
   const [error, setError] = useState("");
   const [confirmationEmail, setConfirmationEmail] = useState<string | null>(
@@ -124,15 +125,37 @@ export default function RegisterPage() {
                     onChange={(event) => setEmail(event.target.value)}
                     autoComplete="email"
                   />
-                  <Input
-                    label={t("auth.register.password")}
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    autoComplete="new-password"
-                    helperText={t("auth.register.minimumPassword")}
-                  />
+                  <div>
+                    <Input
+                      label={t("auth.register.password")}
+                      type={showPassword ? "text" : "password"}
+                      required
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      autoComplete="new-password"
+                      helperText={t("auth.register.minimumPassword")}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((current) => !current)}
+                      aria-pressed={showPassword}
+                      style={{
+                        minHeight: 44,
+                        marginTop: 4,
+                        padding: "0 8px",
+                        border: 0,
+                        background: "transparent",
+                        color: "#92400E",
+                        cursor: "pointer",
+                        fontSize: "0.8125rem",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {showPassword
+                        ? t("auth.password.hide")
+                        : t("auth.password.show")}
+                    </button>
+                  </div>
                   <Select
                     label={t("auth.register.preferredLanguage")}
                     value={selectedLocale}
