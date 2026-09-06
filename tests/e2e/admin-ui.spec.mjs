@@ -137,7 +137,10 @@ test("moderation shows explicit publication decisions and safety blockers", asyn
   await expect(page.getByText(/Facts and photo rights/)).toBeVisible();
 });
 
-test("coach work view hides privileged navigation", async ({ page, viewport }) => {
+test("coach work view hides privileged navigation", async ({
+  page,
+  viewport,
+}) => {
   test.skip(!viewport || viewport.width < 1024, "Desktop role preview only");
   await page.goto("/payments", { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Switch active work view" }).click();

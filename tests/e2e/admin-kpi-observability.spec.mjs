@@ -48,7 +48,10 @@ test("KPI health dashboard has no horizontal overflow", async ({ page }) => {
   expect(overflow).toBe(false);
 });
 
-test("coach work view hides reporting navigation", async ({ page, viewport }) => {
+test("coach work view hides reporting navigation", async ({
+  page,
+  viewport,
+}) => {
   test.skip(!viewport || viewport.width < 1024, "Desktop role preview only");
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Switch active work view" }).click();
