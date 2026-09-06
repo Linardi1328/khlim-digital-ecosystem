@@ -39,13 +39,6 @@ function resolveOrganizationId(actor: AuthenticatedUserContext): string {
   );
 }
 
-function canReadLegacyEditorial(organizationId: string): boolean {
-  return (
-    !MULTI_ORGANIZATION_RUNTIME_ENABLED &&
-    organizationId === DEFAULT_ORGANIZATION_ID
-  );
-}
-
 @Injectable()
 export class AdminObservabilityService {
   constructor(private readonly prisma: PrismaService) {}
@@ -183,11 +176,13 @@ export class AdminObservabilityService {
           endsAt: { lt: now },
         },
       }),
-      canReadLegacyEditorial(organizationId)
-        ? this.prisma.client.editorialEntry.count({
-            where: { status: "DRAFT", factsVerified: false },
-          })
-        : Promise.resolve(0),
+      this.prisma.client.editorialEntry.count({
+        where: {
+          organizationId,
+          status: "DRAFT",
+          factsVerified: false,
+        },
+      }),
     ]);
 
     const totalCapacity = offerings.reduce(
