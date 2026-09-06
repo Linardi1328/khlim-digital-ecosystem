@@ -41,7 +41,10 @@ test("authenticated staff roles are resolved only from organization context", as
   assert.match(service, /organization_role_assignments/);
   assert.match(service, /om\.status = 'ACTIVE'/);
   assert.doesNotMatch(service, /syncLegacyStaffRoles/);
-  assert.doesNotMatch(service, /FROM user_role_assignments|FROM "user_role_assignments"/);
+  assert.doesNotMatch(
+    service,
+    /FROM user_role_assignments|FROM "user_role_assignments"/,
+  );
 });
 
 test("roadmap keeps Organization #001 as the active implementation milestone", async () => {
