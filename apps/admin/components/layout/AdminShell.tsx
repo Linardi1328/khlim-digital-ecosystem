@@ -15,6 +15,7 @@ function StaffSignIn() {
   const { signIn, authError, isLoading } = useAdminAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -67,7 +68,7 @@ function StaffSignIn() {
         </label>
         <input
           id="admin-password"
-          type="password"
+          type={showPassword ? "text" : "password"}
           autoComplete="current-password"
           required
           value={password}
@@ -80,9 +81,28 @@ function StaffSignIn() {
             borderRadius: 8,
             padding: "10px 12px",
             font: "inherit",
-            margin: "6px 0 14px",
+            margin: "6px 0 4px",
           }}
         />
+        <button
+          type="button"
+          onClick={() => setShowPassword((current) => !current)}
+          aria-pressed={showPassword}
+          style={{
+            minHeight: 44,
+            display: "inline-flex",
+            alignItems: "center",
+            padding: "0 4px",
+            marginBottom: 10,
+            border: 0,
+            background: "transparent",
+            color: "#92400E",
+            cursor: "pointer",
+            fontWeight: 700,
+          }}
+        >
+          {showPassword ? "Hide password" : "Show password"}
+        </button>
 
         {authError && (
           <p
