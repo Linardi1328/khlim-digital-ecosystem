@@ -68,7 +68,10 @@ test("editorial moderation separates draft preparation from final publication", 
 
   assert.match(controller, /@Get\("admin\/editorial\/moderation"\)/);
   assert.match(controller, /listModeration\(@CurrentUser\(\)/);
-  assert.match(controller, /editorial\.listModeration\(organizationId\(user\)\)/);
+  assert.match(
+    controller,
+    /editorial\.listModeration\(organizationId\(user\)\)/,
+  );
   assert.match(
     controller,
     /@Post\("admin\/editorial\/:id\/publish"\)[\s\S]*?@RequireAnyRole\("SUPER_ADMIN",\s*"MANAGEMENT"\)[\s\S]*?@RequireMfa\(\)/,
