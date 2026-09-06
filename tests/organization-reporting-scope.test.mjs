@@ -43,7 +43,7 @@ test("operational health derives every tenant-owned signal from active organizat
   );
   assert.match(
     service,
-    /where: \{ organizationId, status: "DRAFT", factsVerified: false \}/,
+    /organizationId,\n\s+status: "DRAFT",\n\s+factsVerified: false/,
   );
 });
 
