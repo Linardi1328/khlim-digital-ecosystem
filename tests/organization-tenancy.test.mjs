@@ -21,7 +21,7 @@ test("Organization #001 migration creates the tenancy kernel and backfills staff
   assert.match(migration, /audit_events_default_organization/);
 });
 
-test("authenticated staff roles are resolved from organization context", async () => {
+test("authenticated staff roles are resolved only from organization context", async () => {
   const guard = await read("apps/api/src/auth/authenticated-user.guard.ts");
   const service = await read(
     "apps/api/src/organization/organization.service.ts",
@@ -39,13 +39,9 @@ test("authenticated staff roles are resolved from organization context", async (
 
   assert.match(service, /organization_memberships/);
   assert.match(service, /organization_role_assignments/);
-  assert.match(service, /DEFAULT_ORGANIZATION_SLUG/);
-  assert.match(service, /syncLegacyStaffRoles/);
-  assert.match(
-    service,
-    /organization\.slug === DEFAULT_ORGANIZATION_SLUG/,
-    "legacy role synchronization must remain limited to Organization #001",
-  );
+  assert.match(service, /om\.status = 'ACTIVE'/);
+  assert.doesNotMatch(service, /syncLegacyStaffRoles/);
+  assert.doesNotMatch(service, /FROM user_role_assignments|FROM "user_role_assignments"/);
 });
 
 test("roadmap keeps Organization #001 as the active implementation milestone", async () => {
