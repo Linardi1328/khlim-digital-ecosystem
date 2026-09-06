@@ -28,7 +28,7 @@ test("guardian invitation acceptance binds to authenticated email and user", asy
   assert.match(service, /role: "GUARDIAN"/);
 });
 
-test("privileged identity administration requires MFA", async () => {
+test("privileged organization access administration requires MFA", async () => {
   const controller = await read("apps/api/src/admin/admin.controller.ts");
   const guard = await read("apps/api/src/auth/authorization.guard.ts");
   const identity = await read("apps/api/src/identity/identity.service.ts");
@@ -36,15 +36,19 @@ test("privileged identity administration requires MFA", async () => {
   assert.match(controller, /@RequireMfa\(\)/);
   assert.match(controller, /SUPER_ADMIN/);
   assert.match(controller, /MANAGEMENT/);
+  assert.match(controller, /organizationId\(actor\)/);
   assert.match(guard, /authenticatorAssuranceLevel !== "aal2"/);
   assert.match(identity, /identity\.payload\.aal/);
 });
 
-test("staff role administration does not overwrite family roles", async () => {
-  const service = await read("apps/api/src/admin/admin.service.ts");
+test("organization staff administration cannot overwrite global family roles", async () => {
+  const service = await read(
+    "apps/api/src/admin/admin-organization-access.service.ts",
+  );
 
-  assert.match(service, /STAFF_ROLES/);
-  assert.match(service, /deleteMany/);
-  assert.match(service, /role: \{ in: \[\.\.\.STAFF_ROLES\] \}/);
+  assert.match(service, /ORGANIZATION_STAFF_ROLES/);
+  assert.match(service, /organizationRoleAssignment\.deleteMany/);
+  assert.match(service, /organizationRoleAssignment\.createMany/);
+  assert.doesNotMatch(service, /userRoleAssignment/);
   assert.doesNotMatch(service, /"GUARDIAN",\s*"ATHLETE"/);
 });
