@@ -52,12 +52,6 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      - name: Print exact remaining Phase 1B Prettier diff
-        run: |
-          pnpm exec prettier --write apps/admin/app/users/page.tsx apps/api/src/organization/organization.service.ts
-          git diff -- apps/admin/app/users/page.tsx apps/api/src/organization/organization.service.ts
-          git checkout -- apps/admin/app/users/page.tsx apps/api/src/organization/organization.service.ts
-
       - name: Formatting
         run: pnpm format:check
 
