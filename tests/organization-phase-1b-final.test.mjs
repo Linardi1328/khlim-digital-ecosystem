@@ -17,11 +17,17 @@ test("Phase 1B makes editorial entries organization-owned with tenant slug uniqu
   );
   const editorial = modelBlock(schema, "EditorialEntry");
 
-  assert.match(editorial, /organizationId\s+String\s+@map\("organization_id"\)/);
+  assert.match(
+    editorial,
+    /organizationId\s+String\s+@map\("organization_id"\)/,
+  );
   assert.match(editorial, /organization\s+Organization\s+@relation/);
   assert.doesNotMatch(editorial, /slug\s+String\?\s+@unique/);
   assert.match(editorial, /@@unique\(\[organizationId, slug\]\)/);
-  assert.match(editorial, /@@index\(\[organizationId, type, status, publishedAt\]\)/);
+  assert.match(
+    editorial,
+    /@@index\(\[organizationId, type, status, publishedAt\]\)/,
+  );
   assert.match(migration, /00000000-0000-4000-8000-000000000001/);
   assert.match(migration, /editorial_entries_organization_id_slug_key/);
   assert.match(
@@ -34,7 +40,9 @@ test("Phase 1B makes editorial entries organization-owned with tenant slug uniqu
 
 test("editorial admin operations are tenant scoped and public compatibility fails closed", async () => {
   const service = await read("apps/api/src/editorial/editorial.service.ts");
-  const controller = await read("apps/api/src/editorial/editorial.controller.ts");
+  const controller = await read(
+    "apps/api/src/editorial/editorial.controller.ts",
+  );
 
   assert.match(service, /where: \{ organizationId \}/);
   assert.match(service, /data: \{\n\s+organizationId,/);
