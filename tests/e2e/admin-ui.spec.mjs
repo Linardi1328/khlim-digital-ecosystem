@@ -137,14 +137,16 @@ test("moderation shows explicit publication decisions and safety blockers", asyn
   await expect(page.getByText(/Facts and photo rights/)).toBeVisible();
 });
 
-test("demo role preview hides management and finance tools from coach role", async ({
+test("coach work view hides management and finance navigation", async ({
   page,
   viewport,
 }) => {
   test.skip(!viewport || viewport.width < 1024, "Desktop role preview only");
   await page.goto("/payments", { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Switch active work view" }).click();
-  await page.getByRole("button", { name: "COACH", exact: true }).click();
+  await page
+    .getByRole("menuitemradio", { name: "COACH", exact: true })
+    .click();
 
   await expect(
     page.getByRole("link", { name: "Payments", exact: true }),
