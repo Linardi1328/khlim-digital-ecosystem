@@ -29,10 +29,7 @@ function normalizeRequestedSlug(value: string | undefined): string {
 export class OrganizationService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async resolveContext(
-    user: AuthenticatedUserContext,
-    requestedSlug?: string,
-  ) {
+  async resolveContext(user: AuthenticatedUserContext, requestedSlug?: string) {
     const slug = normalizeRequestedSlug(requestedSlug);
     const organizations = await this.prisma.client.$queryRaw<OrganizationRow[]>`
       SELECT id::text, slug, name, status
