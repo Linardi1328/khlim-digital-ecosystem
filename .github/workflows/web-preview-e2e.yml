@@ -54,6 +54,22 @@ jobs:
           cat /tmp/khlim-web.log
           exit 1
 
+      - name: Build public walkthrough snapshot
+        run: |
+          rm -rf walkthrough-web
+          mkdir -p walkthrough-web/_next walkthrough-web/about walkthrough-web/academy walkthrough-web/programmes walkthrough-web/contact walkthrough-web/privacy walkthrough-web/terms
+          cp -R apps/web/.next/static walkthrough-web/_next/static
+          cp -R apps/web/public/. walkthrough-web/
+          curl --fail --silent --show-error "$PLAYWRIGHT_BASE_URL/" -o walkthrough-web/index.html
+          curl --fail --silent --show-error "$PLAYWRIGHT_BASE_URL/about" -o walkthrough-web/about/index.html
+          curl --fail --silent --show-error "$PLAYWRIGHT_BASE_URL/academy" -o walkthrough-web/academy/index.html
+          curl --fail --silent --show-error "$PLAYWRIGHT_BASE_URL/programmes" -o walkthrough-web/programmes/index.html
+          curl --fail --silent --show-error "$PLAYWRIGHT_BASE_URL/contact" -o walkthrough-web/contact/index.html
+          curl --fail --silent --show-error "$PLAYWRIGHT_BASE_URL/privacy" -o walkthrough-web/privacy/index.html
+          curl --fail --silent --show-error "$PLAYWRIGHT_BASE_URL/terms" -o walkthrough-web/terms/index.html
+          test -s walkthrough-web/index.html
+          test -f walkthrough-web/media/khero/khero-meaning.webp
+
       - name: Run browser tests
         run: pnpm exec playwright test --config=playwright.preview.config.mjs
 
@@ -66,6 +82,15 @@ jobs:
             playwright-report/
             test-results/
           if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload public walkthrough site
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-walkthrough-site
+          path: walkthrough-web/
+          if-no-files-found: error
           retention-days: 7
 
   remote-preview-reachable:
