@@ -101,6 +101,25 @@ test(
         authenticatorAssuranceLevel: "aal2",
       };
 
+      const unassignedKhlim = await organizations.resolveContext(
+        legacyUser,
+        "khlim-basketball",
+      );
+      assert.deepEqual(
+        unassignedKhlim.roles,
+        [],
+        "legacy staff rows alone must not become KHLIM organization authority",
+      );
+
+      await client.organizationMembership.create({
+        data: {
+          organizationId: KHLIM_ORGANIZATION_ID,
+          userId: TEST_USER_ID,
+          status: "ACTIVE",
+          roleAssignments: { create: [{ role: "SUPER_ADMIN" }] },
+        },
+      });
+
       const khlim = await organizations.resolveContext(
         legacyUser,
         "khlim-basketball",
@@ -115,7 +134,7 @@ test(
       assert.deepEqual(
         unassignedOrg2.roles,
         [],
-        "legacy KHLIM staff role must not become Organization #002 authority",
+        "KHLIM staff authority must not become Organization #002 authority",
       );
 
       await client.$executeRaw`
@@ -246,8 +265,11 @@ test(
         .catch(() => undefined);
       await client.$executeRaw`
         DELETE FROM organization_memberships
-        WHERE organization_id = ${SYNTHETIC_ORGANIZATION_ID}::uuid
-          AND user_id = ${TEST_USER_ID}::uuid
+        WHERE user_id = ${TEST_USER_ID}::uuid
+          AND organization_id IN (
+            ${KHLIM_ORGANIZATION_ID}::uuid,
+            ${SYNTHETIC_ORGANIZATION_ID}::uuid
+          )
       `.catch(() => undefined);
       await client.$executeRaw`
         DELETE FROM organizations
