@@ -20,9 +20,7 @@ import {
 const CURRENT_MEMBERSHIP_TERMS_VERSION = "membership-mvp-v1";
 const DEFAULT_CHECKOUT_HOLD_MINUTES = 45;
 
-type WebhookHeaders = Readonly<
-  Record<string, string | string[] | undefined>
->;
+type WebhookHeaders = Readonly<Record<string, string | string[] | undefined>>;
 
 function checkoutHoldMinutes(): number {
   const configured = Number.parseInt(
