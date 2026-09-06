@@ -35,6 +35,32 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   outline-offset: 2px;
 }
 
+.admin-demo-banner {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid #fcd34d;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.admin-demo-banner strong {
+  flex: 0 0 auto;
+  padding: 2px 7px;
+  border: 1px solid #fbbf24;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #78350f;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
 /* Scrollbar styles */
 ::-webkit-scrollbar {
   width: 6px;
@@ -74,6 +100,16 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 
 @media (max-width: 768px) {
+  .admin-demo-banner {
+    align-items: flex-start;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    text-align: left;
+  }
+  .admin-demo-banner span {
+    flex: 1 1 220px;
+  }
   .hide-on-mobile {
     display: none !important;
   }
