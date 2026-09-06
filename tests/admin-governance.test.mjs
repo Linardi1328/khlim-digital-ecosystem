@@ -41,15 +41,26 @@ test("governance API is management plus MFA gated, tenant scoped, and filter bou
   assert.match(service, /allowedTimezones/);
 });
 
-test("privileged identity and organization settings changes append audit evidence transactionally", async () => {
-  const adminService = await read("apps/api/src/admin/admin.service.ts");
+test("organization access and settings changes append tenant-attributed audit evidence", async () => {
+  const controller = await read("apps/api/src/admin/admin.controller.ts");
+  const access = await read(
+    "apps/api/src/admin/admin-organization-access.service.ts",
+  );
   const governance = await read(
     "apps/api/src/admin/admin-governance.service.ts",
   );
 
-  assert.match(adminService, /STAFF_ROLES_REPLACED/);
-  assert.match(adminService, /ACCOUNT_STATUS_UPDATED/);
-  assert.match(adminService, /transaction\.auditEvent\.create/);
+  assert.match(controller, /AdminOrganizationAccessService/);
+  assert.match(controller, /organizationId\(actor\)/);
+  assert.match(access, /organizationMembership\.findMany/);
+  assert.match(access, /organizationRoleAssignment\.deleteMany/);
+  assert.match(access, /organizationRoleAssignment\.createMany/);
+  assert.match(access, /ORGANIZATION_STAFF_ROLES_REPLACED/);
+  assert.match(access, /ORGANIZATION_MEMBERSHIP_STATUS_UPDATED/);
+  assert.match(access, /organizationId,/);
+  assert.match(access, /transaction\.auditEvent\.create/);
+  assert.doesNotMatch(controller, /admin\.updateAccountStatus/);
+
   assert.match(governance, /ORGANIZATION_SETTINGS_UPDATED/);
   assert.match(governance, /this\.prisma\.client\.\$transaction/);
   assert.match(governance, /transaction\.organizationSetting\.update/);
