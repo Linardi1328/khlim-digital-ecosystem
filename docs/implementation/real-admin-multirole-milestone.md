@@ -31,3 +31,9 @@ Move the KHLIM Admin Console from demo-only review data to persisted staging dat
 - Demo data must never be returned when `NEXT_PUBLIC_ADMIN_DEMO_MODE` is disabled.
 - PPO validation, persistence/integration, Admin UI E2E, Web Preview E2E, payment and runtime gates must be green before owner review.
 - Implementation debrief and owner approval are required before merge.
+
+## Owner-gate re-review
+
+The PR was re-reviewed after the walkthrough deployment branches landed on `main`. The failures were gate-contract issues rather than tenant-isolation or authentication regressions: four new Admin/API files needed repository Prettier formatting, and two desktop browser tests still targeted the previous `Switch demo role` accessibility label after the UI moved to the safer `Switch active work view` wording.
+
+The repair keeps the security model unchanged: real authorization still uses the signed-in account's full organization role set, while the selected work view only filters Admin navigation. The temporary normalization workflow used during implementation was removed after formatting and browser-contract repair so it cannot land in the milestone merge.
