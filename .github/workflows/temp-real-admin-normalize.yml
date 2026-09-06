@@ -1,0 +1,94 @@
+name: Temporary real Admin normalization
+
+on:
+  push:
+    branches:
+      - milestone-real-admin-multirole
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: milestone-real-admin-multirole
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Apply canonical role and regression updates
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+
+          function replace(path, before, after) {
+            const source = fs.readFileSync(path, 'utf8');
+            if (!source.includes(before)) {
+              throw new Error(`Expected pattern missing in ${path}: ${before}`);
+            }
+            fs.writeFileSync(path, source.replace(before, after));
+          }
+
+          replace(
+            'apps/admin/app/insights/page.tsx',
+            '  "FINANCE_ADMIN",\n  "FINANCE",\n',
+            '  "FINANCE_ADMIN",\n',
+          );
+          replace(
+            'apps/admin/app/reports/page.tsx',
+            '  "FINANCE_ADMIN",\n  "FINANCE",\n',
+            '  "FINANCE_ADMIN",\n',
+          );
+          replace(
+            'apps/admin/app/page.tsx',
+            '    roles: ["SUPER_ADMIN", "MANAGEMENT", "FINANCE_ADMIN", "FINANCE"],',
+            '    roles: ["SUPER_ADMIN", "MANAGEMENT", "FINANCE_ADMIN"],',
+          );
+          replace(
+            'apps/admin/app/staff/page.tsx',
+            '  "FINANCE",\n  "ADMIN",\n',
+            '  "FINANCE_ADMIN",\n',
+          );
+          let staff = fs.readFileSync('apps/admin/app/staff/page.tsx', 'utf8');
+          staff = staff.replaceAll('r === "FINANCE"', 'r === "FINANCE_ADMIN"');
+          staff = staff.replaceAll('{r === "FINANCE" &&', '{r === "FINANCE_ADMIN" &&');
+          fs.writeFileSync('apps/admin/app/staff/page.tsx', staff);
+          replace(
+            'apps/admin/lib/admin-api-legacy.ts',
+            '    roles: ["FINANCE"],',
+            '    roles: ["FINANCE_ADMIN"],',
+          );
+          replace(
+            'tests/admin-frontend.test.mjs',
+            '  assert.match(header, /isDemoMode && role/);',
+            '  assert.match(header, /availableWorkViews = isDemoMode/);\n  assert.match(header, /user\\?\\.roles/);\n  assert.match(header, /Changes navigation only/);\n  assert.match(authContext, /!ADMIN_DEMO_MODE && !user\\.roles\\.includes\\(newRole\\)/);',
+          );
+          NODE
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.0 --activate
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Format normalized files
+        run: >-
+          pnpm exec prettier --write
+          apps/admin/app/insights/page.tsx
+          apps/admin/app/page.tsx
+          apps/admin/app/reports/page.tsx
+          apps/admin/app/staff/page.tsx
+          apps/admin/lib/admin-api-legacy.ts
+          tests/admin-frontend.test.mjs
+      - name: Commit normalized output
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/admin/app/insights/page.tsx apps/admin/app/page.tsx apps/admin/app/reports/page.tsx apps/admin/app/staff/page.tsx apps/admin/lib/admin-api-legacy.ts tests/admin-frontend.test.mjs
+          git commit -m "Align Admin UI with canonical organization roles"
+          git push origin HEAD:milestone-real-admin-multirole
