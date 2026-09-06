@@ -26,12 +26,7 @@ const STAFF_ROLE_OPTIONS: StaffRole[] = [
   "EVENT_STAFF",
 ];
 
-const FILTER_ROLE_OPTIONS = [
-  "",
-  "GUARDIAN",
-  "ATHLETE",
-  ...STAFF_ROLE_OPTIONS,
-] as const;
+const FILTER_ROLE_OPTIONS = ["", ...STAFF_ROLE_OPTIONS] as const;
 
 export default function AccountsAccessPage() {
   const { hasRole, isDemoMode, user } = useAdminAuth();
@@ -67,7 +62,7 @@ export default function AccountsAccessPage() {
       setError(
         reason instanceof Error
           ? reason.message
-          : "Accounts could not be loaded.",
+          : "Organization members could not be loaded.",
       );
     } finally {
       setLoading(false);
@@ -105,13 +100,15 @@ export default function AccountsAccessPage() {
     setMessage("");
     try {
       await replaceAdminStaffRoles(selected.id, selectedRoles);
-      setMessage("Staff roles updated. Family/profile roles were preserved.");
+      setMessage(
+        "Organization staff roles updated. Global identity and family relationships were not changed.",
+      );
       await load();
     } catch (reason) {
       setError(
         reason instanceof Error
           ? reason.message
-          : "Staff roles were not updated.",
+          : "Organization staff roles were not updated.",
       );
     } finally {
       setSaving(false);
@@ -123,7 +120,7 @@ export default function AccountsAccessPage() {
     if (
       selectedStatus !== "ACTIVE" &&
       !window.confirm(
-        `Change ${selected.displayName}'s account status to ${selectedStatus}? This can immediately block access.`,
+        `Change ${selected.displayName}'s organization access status to ${selectedStatus}? This can immediately block access to this organization, but does not suspend the global user account.`,
       )
     ) {
       return;
@@ -134,22 +131,19 @@ export default function AccountsAccessPage() {
     setMessage("");
     try {
       await updateAdminAccountStatus(selected.id, selectedStatus);
-      setMessage(`Account status changed to ${selectedStatus}.`);
+      setMessage(`Organization access changed to ${selectedStatus}.`);
       await load();
     } catch (reason) {
       setError(
         reason instanceof Error
           ? reason.message
-          : "Account status was not updated.",
+          : "Organization access status was not updated.",
       );
     } finally {
       setSaving(false);
     }
   }
 
-  const familyRoles = selected?.roles.filter(
-    (role) => !STAFF_ROLE_OPTIONS.includes(role as StaffRole),
-  );
   const editingSelf = selected?.id === user?.id;
 
   return (
@@ -157,7 +151,7 @@ export default function AccountsAccessPage() {
       <div>
         <PageHeader
           title="Accounts & Access"
-          subtitle="Search KHLIM accounts, review role assignments, and manage staff access without changing family relationships."
+          subtitle="Manage organization membership status and staff authority without changing global identity or family relationships."
           breadcrumbs={[
             { label: "Operations", href: "/" },
             { label: "Accounts & Access" },
@@ -168,16 +162,18 @@ export default function AccountsAccessPage() {
           <section className="panel restricted">
             <h2>Management access required</h2>
             <p>
-              Account status and staff-role administration is limited to
-              Management and Super Admin roles.
+              Organization membership status and staff-role administration is
+              limited to Management and Super Admin roles.
             </p>
           </section>
         ) : isDemoMode ? (
           <section className="panel">
-            <h2>Real account administration is disabled in demo mode</h2>
+            <h2>
+              Real organization access administration is disabled in demo mode
+            </h2>
             <p>
               Demo mode previews role-aware navigation only. It never reads or
-              modifies persisted user accounts.
+              modifies persisted organization memberships.
             </p>
           </section>
         ) : (
@@ -194,11 +190,11 @@ export default function AccountsAccessPage() {
                 <input
                   value={searchInput}
                   onChange={(event) => setSearchInput(event.target.value)}
-                  placeholder="e.g. parent@example.com"
+                  placeholder="e.g. coach@example.com"
                 />
               </label>
               <label>
-                Account status
+                Organization access status
                 <select
                   value={statusFilter}
                   onChange={(event) =>
@@ -212,20 +208,20 @@ export default function AccountsAccessPage() {
                 </select>
               </label>
               <label>
-                Role
+                Staff role
                 <select
                   value={roleFilter}
                   onChange={(event) => setRoleFilter(event.target.value)}
                 >
                   {FILTER_ROLE_OPTIONS.map((role) => (
                     <option key={role || "all"} value={role}>
-                      {role ? role.replaceAll("_", " ") : "All roles"}
+                      {role ? role.replaceAll("_", " ") : "All staff roles"}
                     </option>
                   ))}
                 </select>
               </label>
               <Button type="submit" variant="primary">
-                Search accounts
+                Search members
               </Button>
             </form>
 
@@ -244,9 +240,9 @@ export default function AccountsAccessPage() {
               <section className="panel">
                 <div className="section-head">
                   <div>
-                    <h2>Account directory</h2>
+                    <h2>Organization member directory</h2>
                     <p>
-                      {loading ? "Loading…" : `${total} matching account(s)`}
+                      {loading ? "Loading…" : `${total} matching member(s)`}
                     </p>
                   </div>
                   <Button
@@ -261,7 +257,7 @@ export default function AccountsAccessPage() {
 
                 <div className="account-list">
                   {!loading && items.length === 0 && (
-                    <p>No accounts match these filters.</p>
+                    <p>No organization members match these filters.</p>
                   )}
                   {items.map((item) => (
                     <article key={item.id} className="account-card">
@@ -272,7 +268,7 @@ export default function AccountsAccessPage() {
                           {item.status} · {item.preferredLocale} ·{" "}
                           {item.roles.length > 0
                             ? item.roles.join(", ").replaceAll("_", " ")
-                            : "No roles"}
+                            : "No staff roles"}
                         </small>
                       </div>
                       <Button
@@ -290,11 +286,11 @@ export default function AccountsAccessPage() {
               <section className="panel editor" aria-live="polite">
                 {!selected ? (
                   <>
-                    <h2>Select an account</h2>
+                    <h2>Select an organization member</h2>
                     <p>
-                      Choose “Manage access” to review staff roles and account
-                      status. Sensitive changes are always submitted to the
-                      backend authorization layer.
+                      Choose “Manage access” to review organization staff roles
+                      and membership status. Global account status and family
+                      relationships are outside this organization-level control.
                     </p>
                   </>
                 ) : (
@@ -303,16 +299,17 @@ export default function AccountsAccessPage() {
                     <p>{selected.email ?? "No email address"}</p>
                     {editingSelf && (
                       <p className="warning">
-                        Your own roles and account status cannot be changed from
-                        this console.
+                        Your own organization roles and membership status cannot
+                        be changed from this console.
                       </p>
                     )}
 
                     <fieldset disabled={saving || editingSelf}>
-                      <legend>Staff roles</legend>
+                      <legend>Organization staff roles</legend>
                       <p className="help">
-                        Choose only the work roles this person needs. Super
-                        Admin assignment is restricted to existing Super Admins.
+                        Choose only the work roles this person needs in the
+                        active organization. Super Admin assignment is
+                        restricted to existing Super Admins.
                       </p>
                       <div className="role-grid">
                         {STAFF_ROLE_OPTIONS.map((role) => (
@@ -332,21 +329,21 @@ export default function AccountsAccessPage() {
                         onClick={() => void saveRoles()}
                         disabled={saving || editingSelf}
                       >
-                        Save staff roles
+                        Save organization staff roles
                       </Button>
                     </fieldset>
 
-                    <div className="family-roles">
-                      <strong>Preserved profile/family roles</strong>
+                    <div className="identity-note">
+                      <strong>Global identity remains unchanged</strong>
                       <div>
-                        {familyRoles && familyRoles.length > 0
-                          ? familyRoles.join(", ")
-                          : "None"}
+                        This control does not modify guardian/athlete
+                        relationships or suspend the person&apos;s platform
+                        account.
                       </div>
                     </div>
 
                     <label>
-                      Account status
+                      Organization access status
                       <select
                         value={selectedStatus}
                         disabled={saving || editingSelf}
@@ -365,7 +362,7 @@ export default function AccountsAccessPage() {
                       onClick={() => void saveStatus()}
                       disabled={saving || editingSelf}
                     >
-                      Update account status
+                      Update organization access
                     </Button>
                   </>
                 )}
@@ -482,11 +479,11 @@ export default function AccountsAccessPage() {
             margin: 0;
           }
           .help,
-          .family-roles {
+          .identity-note {
             color: #64748b;
             font-size: 0.82rem;
           }
-          .family-roles {
+          .identity-note {
             padding: 10px;
             background: #f8fafc;
             border-radius: 8px;

@@ -13,13 +13,14 @@ test("governance schema and migration keep audit events append-only", async () =
 
   assert.match(schema, /model AuditEvent \{/);
   assert.match(schema, /model PlatformSetting \{/);
+  assert.match(schema, /model OrganizationSetting \{/);
   assert.match(migration, /CREATE TABLE "audit_events"/);
   assert.match(migration, /BEFORE UPDATE OR DELETE ON "audit_events"/);
   assert.match(migration, /audit_events are append-only/);
   assert.match(migration, /INSERT INTO "platform_settings"/);
 });
 
-test("governance API is management plus MFA gated and filter bounded", async () => {
+test("governance API is management plus MFA gated, tenant scoped, and filter bounded", async () => {
   const controller = await read(
     "apps/api/src/admin/admin-governance.controller.ts",
   );
@@ -27,28 +28,43 @@ test("governance API is management plus MFA gated and filter bounded", async () 
 
   assert.match(controller, /@RequireAnyRole\("SUPER_ADMIN", "MANAGEMENT"\)/);
   assert.match(controller, /@RequireMfa\(\)/);
+  assert.match(controller, /organizationId\(actor\)/);
   assert.match(controller, /@Get\("audit"\)/);
   assert.match(controller, /@Get\("settings"\)/);
   assert.match(controller, /@Put\("settings"\)/);
   assert.match(service, /AUDIT_MAX_DAYS = 366/);
   assert.match(service, /AUDIT_MAX_TAKE = 100/);
   assert.match(service, /Math\.min\(requestedTake, AUDIT_MAX_TAKE\)/);
+  assert.match(service, /const where = \{\n\s+organizationId,/);
+  assert.match(service, /organizationSetting\.upsert/);
   assert.match(service, /allowedCurrencies/);
   assert.match(service, /allowedTimezones/);
 });
 
-test("privileged identity and platform changes append audit evidence transactionally", async () => {
-  const adminService = await read("apps/api/src/admin/admin.service.ts");
+test("organization access and settings changes append tenant-attributed audit evidence", async () => {
+  const controller = await read("apps/api/src/admin/admin.controller.ts");
+  const access = await read(
+    "apps/api/src/admin/admin-organization-access.service.ts",
+  );
   const governance = await read(
     "apps/api/src/admin/admin-governance.service.ts",
   );
 
-  assert.match(adminService, /STAFF_ROLES_REPLACED/);
-  assert.match(adminService, /ACCOUNT_STATUS_UPDATED/);
-  assert.match(adminService, /transaction\.auditEvent\.create/);
-  assert.match(governance, /PLATFORM_SETTINGS_UPDATED/);
+  assert.match(controller, /AdminOrganizationAccessService/);
+  assert.match(controller, /organizationId\(actor\)/);
+  assert.match(access, /organizationMembership\.findMany/);
+  assert.match(access, /organizationRoleAssignment\.deleteMany/);
+  assert.match(access, /organizationRoleAssignment\.createMany/);
+  assert.match(access, /ORGANIZATION_STAFF_ROLES_REPLACED/);
+  assert.match(access, /ORGANIZATION_MEMBERSHIP_STATUS_UPDATED/);
+  assert.match(access, /organizationId,/);
+  assert.match(access, /transaction\.auditEvent\.create/);
+  assert.doesNotMatch(controller, /admin\.updateAccountStatus/);
+
+  assert.match(governance, /ORGANIZATION_SETTINGS_UPDATED/);
   assert.match(governance, /this\.prisma\.client\.\$transaction/);
-  assert.match(governance, /transaction\.platformSetting\.update/);
+  assert.match(governance, /transaction\.organizationSetting\.update/);
+  assert.match(governance, /organizationId,/);
   assert.match(governance, /transaction\.auditEvent\.create/);
 });
 

@@ -1,6 +1,7 @@
 import { Injectable, ServiceUnavailableException } from "@nestjs/common";
 
 export interface CreateGatewayCustomerInput {
+  organizationId: string;
   khlimUserId: string;
   email: string | null;
   idempotencyKey: string;

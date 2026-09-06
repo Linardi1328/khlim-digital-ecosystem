@@ -1,9 +1,23 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  Post,
+} from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import type { AuthenticatedUserContext } from "../auth/authenticated-user";
 import { RequireAnyRole, RequireMfa } from "../auth/authorization.decorators";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { NotificationsService } from "./notifications.service";
+
+function organizationId(user: AuthenticatedUserContext): string {
+  if (!user.organization?.id) {
+    throw new ForbiddenException("Organization context is required");
+  }
+  return user.organization.id;
+}
 
 @ApiTags("notifications")
 @ApiBearerAuth("supabase")
@@ -13,7 +27,7 @@ export class NotificationsController {
 
   @Get("me/notifications")
   listMine(@CurrentUser() user: AuthenticatedUserContext) {
-    return this.notifications.listMine(user.id);
+    return this.notifications.listMine(organizationId(user), user.id);
   }
 
   @Post("me/notifications/:receiptId/read")
@@ -21,13 +35,17 @@ export class NotificationsController {
     @CurrentUser() user: AuthenticatedUserContext,
     @Param("receiptId") receiptId: string,
   ) {
-    return this.notifications.markRead(receiptId, user.id);
+    return this.notifications.markRead(
+      organizationId(user),
+      receiptId,
+      user.id,
+    );
   }
 
   @Get("admin/notifications")
   @RequireAnyRole("SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN")
-  listAdmin() {
-    return this.notifications.listAdmin();
+  listAdmin(@CurrentUser() user: AuthenticatedUserContext) {
+    return this.notifications.listAdmin(organizationId(user));
   }
 
   @Post("admin/notifications")
@@ -35,8 +53,8 @@ export class NotificationsController {
   @RequireMfa()
   send(
     @CurrentUser() user: AuthenticatedUserContext,
-    @Body() body: Parameters<NotificationsService["send"]>[0],
+    @Body() body: Parameters<NotificationsService["send"]>[1],
   ) {
-    return this.notifications.send(body, user.id);
+    return this.notifications.send(organizationId(user), body, user.id);
   }
 }

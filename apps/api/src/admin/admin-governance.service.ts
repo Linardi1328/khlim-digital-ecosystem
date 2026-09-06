@@ -3,7 +3,6 @@ import type { AuthenticatedUserContext } from "../auth/authenticated-user";
 import { PrismaService } from "../database/prisma.service";
 import type { UpdatePlatformSettingsDto } from "./admin.dto";
 
-const SETTINGS_ID = "academy-defaults";
 const AUDIT_MAX_DAYS = 366;
 const AUDIT_DEFAULT_DAYS = 30;
 const AUDIT_MAX_TAKE = 100;
@@ -75,7 +74,7 @@ function auditActor(actor: AuthenticatedUserContext) {
 export class AdminGovernanceService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listAuditEvents(query: AuditQuery) {
+  async listAuditEvents(organizationId: string, query: AuditQuery) {
     const range = resolveAuditRange(query);
     const q = query.q?.trim().slice(0, 120) || undefined;
     const entityType = query.entityType?.trim().slice(0, 120) || undefined;
@@ -88,6 +87,7 @@ export class AdminGovernanceService {
 
     const take = Math.min(requestedTake, AUDIT_MAX_TAKE);
     const where = {
+      organizationId,
       createdAt: { gte: range.from, lte: range.to },
       ...(entityType ? { entityType } : {}),
       ...(action ? { action } : {}),
@@ -113,11 +113,13 @@ export class AdminGovernanceService {
       }),
       this.prisma.client.auditEvent.count({ where }),
       this.prisma.client.auditEvent.findMany({
+        where: { organizationId },
         distinct: ["entityType"],
         select: { entityType: true },
         orderBy: { entityType: "asc" },
       }),
       this.prisma.client.auditEvent.findMany({
+        where: { organizationId },
         distinct: ["action"],
         select: { action: true },
         orderBy: { action: "asc" },
@@ -151,11 +153,11 @@ export class AdminGovernanceService {
     };
   }
 
-  async getSettings() {
-    const settings = await this.prisma.client.platformSetting.upsert({
-      where: { id: SETTINGS_ID },
+  async getSettings(organizationId: string) {
+    const settings = await this.prisma.client.organizationSetting.upsert({
+      where: { organizationId },
       create: {
-        id: SETTINGS_ID,
+        organizationId,
         currency: "MYR",
         timezone: "Asia/Kuala_Lumpur",
       },
@@ -174,6 +176,7 @@ export class AdminGovernanceService {
   }
 
   async updateSettings(
+    organizationId: string,
     actor: AuthenticatedUserContext,
     body: UpdatePlatformSettingsDto,
   ) {
@@ -188,10 +191,10 @@ export class AdminGovernanceService {
     }
 
     return this.prisma.client.$transaction(async (transaction) => {
-      const existing = await transaction.platformSetting.upsert({
-        where: { id: SETTINGS_ID },
+      const existing = await transaction.organizationSetting.upsert({
+        where: { organizationId },
         create: {
-          id: SETTINGS_ID,
+          organizationId,
           currency: "MYR",
           timezone: "Asia/Kuala_Lumpur",
         },
@@ -211,8 +214,8 @@ export class AdminGovernanceService {
         };
       }
 
-      const updated = await transaction.platformSetting.update({
-        where: { id: SETTINGS_ID },
+      const updated = await transaction.organizationSetting.update({
+        where: { organizationId },
         data: {
           currency,
           timezone,
@@ -222,11 +225,12 @@ export class AdminGovernanceService {
 
       await transaction.auditEvent.create({
         data: {
+          organizationId,
           ...auditActor(actor),
-          action: "PLATFORM_SETTINGS_UPDATED",
-          entityType: "PLATFORM_SETTINGS",
-          entityId: SETTINGS_ID,
-          summary: `Platform defaults changed from ${existing.currency}/${existing.timezone} to ${currency}/${timezone}.`,
+          action: "ORGANIZATION_SETTINGS_UPDATED",
+          entityType: "ORGANIZATION_SETTINGS",
+          entityId: organizationId,
+          summary: `Organization defaults changed from ${existing.currency}/${existing.timezone} to ${currency}/${timezone}.`,
           metadata: {
             before: {
               currency: existing.currency,

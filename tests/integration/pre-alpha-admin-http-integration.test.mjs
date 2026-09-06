@@ -17,6 +17,8 @@ const {
   SupabaseJwtService,
 } = require("../../apps/api/dist/auth/supabase-jwt.service.js");
 
+const KHLIM_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001";
+
 const IDS = Object.freeze({
   management: "10101010-1010-4010-8010-101010101010",
   academyAdmin: "20202020-2020-4020-8020-202020202020",
@@ -142,6 +144,19 @@ async function cleanup(client) {
   });
 }
 
+async function createOrganizationStaffMembership(client, userId, roles) {
+  return client.organizationMembership.create({
+    data: {
+      organizationId: KHLIM_ORGANIZATION_ID,
+      userId,
+      status: "ACTIVE",
+      roleAssignments: {
+        create: roles.map((role) => ({ role })),
+      },
+    },
+  });
+}
+
 async function seed(client) {
   await client.user.createMany({
     data: [
@@ -189,6 +204,20 @@ async function seed(client) {
       { userId: IDS.superAdminTarget, role: "SUPER_ADMIN" },
     ],
   });
+
+  await createOrganizationStaffMembership(client, IDS.management, [
+    "MANAGEMENT",
+  ]);
+  await createOrganizationStaffMembership(client, IDS.academyAdmin, [
+    "ACADEMY_ADMIN",
+  ]);
+  await createOrganizationStaffMembership(client, IDS.financeAdmin, [
+    "FINANCE_ADMIN",
+  ]);
+  await createOrganizationStaffMembership(client, IDS.target, ["COACH"]);
+  await createOrganizationStaffMembership(client, IDS.superAdminTarget, [
+    "SUPER_ADMIN",
+  ]);
 }
 
 async function jsonRequest(baseUrl, path, options = {}) {
@@ -223,7 +252,7 @@ function assertError(result, status, messagePattern) {
 const enabled = databaseTestsEnabled();
 
 test(
-  "pre-alpha Admin HTTP integration enforces persisted roles, MFA, and account state",
+  "pre-alpha Admin HTTP integration enforces persisted roles, MFA, and organization access state",
   { skip: enabled ? false : "Set KHLIM_TEST_DATABASE=1 to run database tests" },
   async (t) => {
     const app = await NestFactory.create(AppModule, { logger: false });
@@ -261,7 +290,7 @@ test(
       );
 
       await t.test(
-        "identity administration enforces both MFA and scoped roles",
+        "organization access administration enforces both MFA and scoped roles",
         async () => {
           const lowAssurance = await jsonRequest(
             baseUrl,
@@ -295,7 +324,7 @@ test(
       );
 
       await t.test(
-        "staff role replacement preserves family roles",
+        "organization staff role replacement preserves global family roles",
         async () => {
           const updated = await jsonRequest(
             baseUrl,
@@ -310,17 +339,35 @@ test(
           assert.equal(updated.response.status, 200);
           assert.deepEqual(
             updated.body.map((assignment) => assignment.role).sort(),
-            ["ACADEMY_ADMIN", "GUARDIAN"],
+            ["ACADEMY_ADMIN"],
           );
 
-          const persistedRoles = await client.userRoleAssignment.findMany({
+          const organizationMembership =
+            await client.organizationMembership.findUnique({
+              where: {
+                organizationId_userId: {
+                  organizationId: KHLIM_ORGANIZATION_ID,
+                  userId: IDS.target,
+                },
+              },
+              include: { roleAssignments: true },
+            });
+          assert.deepEqual(
+            organizationMembership.roleAssignments
+              .map((assignment) => assignment.role)
+              .sort(),
+            ["ACADEMY_ADMIN"],
+          );
+
+          const globalRoles = await client.userRoleAssignment.findMany({
             where: { userId: IDS.target },
             select: { role: true },
             orderBy: { role: "asc" },
           });
           assert.deepEqual(
-            persistedRoles.map((assignment) => assignment.role).sort(),
-            ["ACADEMY_ADMIN", "GUARDIAN"],
+            globalRoles.map((assignment) => assignment.role).sort(),
+            ["COACH", "GUARDIAN"],
+            "organization staff administration must not rewrite global family or legacy rows",
           );
         },
       );
@@ -357,7 +404,7 @@ test(
       );
 
       await t.test(
-        "staff cannot change their own roles or account state",
+        "staff cannot change their own organization roles or access state",
         async () => {
           const roles = await jsonRequest(
             baseUrl,
@@ -382,13 +429,13 @@ test(
           assertError(
             status,
             403,
-            /Staff cannot change their own account status/,
+            /Staff cannot change their own organization access status/,
           );
         },
       );
 
       await t.test(
-        "academy writes require the academy role plus MFA",
+        "academy writes require the organization academy role plus MFA",
         async () => {
           const lowAssurance = await jsonRequest(
             baseUrl,
@@ -430,7 +477,7 @@ test(
       );
 
       await t.test(
-        "newly persisted staff roles take effect on the next request",
+        "newly persisted organization staff roles take effect on the next request",
         async () => {
           const result = await jsonRequest(
             baseUrl,
@@ -447,7 +494,7 @@ test(
       );
 
       await t.test(
-        "suspended staff tokens stop authorizing immediately",
+        "suspended organization memberships stop authorizing immediately without suspending the global user",
         async () => {
           const suspended = await jsonRequest(
             baseUrl,
@@ -461,6 +508,11 @@ test(
           assert.equal(suspended.response.status, 200);
           assert.equal(suspended.body.status, "SUSPENDED");
 
+          const globalUser = await client.user.findUnique({
+            where: { id: IDS.target },
+          });
+          assert.equal(globalUser.status, "ACTIVE");
+
           const staleSession = await jsonRequest(
             baseUrl,
             "/v1/admin/academy/venues",
@@ -470,7 +522,7 @@ test(
               body: { name: "Pre-Alpha Admin HTTP Suspended Venue" },
             },
           );
-          assertError(staleSession, 403, /KHLIM account is not active/);
+          assertError(staleSession, 403, /Insufficient permissions/);
 
           assert.equal(
             await client.venue.count({

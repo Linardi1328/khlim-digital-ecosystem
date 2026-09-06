@@ -2,11 +2,13 @@ import {
   BadRequestException,
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Headers,
   Param,
   Post,
   Req,
+  ServiceUnavailableException,
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import type { AuthenticatedUserContext } from "../auth/authenticated-user";
@@ -17,8 +19,19 @@ import {
   RequireMfa,
 } from "../auth/authorization.decorators";
 import { CurrentUser } from "../auth/current-user.decorator";
+import {
+  DEFAULT_ORGANIZATION_ID,
+  MULTI_ORGANIZATION_RUNTIME_ENABLED,
+} from "../organization/organization.constants";
 import { BillingService } from "./billing.service";
 import { PrepareMembershipCheckoutDto } from "./billing.dto";
+
+function organizationId(user: AuthenticatedUserContext): string {
+  if (!user.organization?.id) {
+    throw new ForbiddenException("Organization context is required");
+  }
+  return user.organization.id;
+}
 
 @ApiTags("billing")
 @Controller()
@@ -29,10 +42,15 @@ export class BillingController {
   @ApiBearerAuth("supabase")
   @RequireAthleteAccess("read")
   getMembershipBilling(
+    @CurrentUser() user: AuthenticatedUserContext,
     @Param("athleteId") athleteId: string,
     @Param("membershipId") membershipId: string,
   ) {
-    return this.billing.getMembershipBilling(athleteId, membershipId);
+    return this.billing.getMembershipBilling(
+      organizationId(user),
+      athleteId,
+      membershipId,
+    );
   }
 
   @Post("athletes/:athleteId/memberships/:membershipId/checkout")
@@ -50,6 +68,7 @@ export class BillingController {
     @Body() body: PrepareMembershipCheckoutDto,
   ) {
     return this.billing.prepareMembershipCheckout(
+      organizationId(user),
       user.id,
       athleteId,
       membershipId,
@@ -64,8 +83,8 @@ export class BillingController {
   @ApiOperation({
     summary: "Expire abandoned checkout holds and release pending capacity",
   })
-  reconcileStaleCheckouts() {
-    return this.billing.reconcileStaleCheckoutHolds();
+  reconcileStaleCheckouts(@CurrentUser() user: AuthenticatedUserContext) {
+    return this.billing.reconcileStaleCheckoutHolds(organizationId(user));
   }
 
   @Post("payments/webhooks/:provider")
@@ -82,7 +101,13 @@ export class BillingController {
     if (!request.rawBody) {
       throw new BadRequestException("Raw webhook body is required");
     }
+    if (MULTI_ORGANIZATION_RUNTIME_ENABLED) {
+      throw new ServiceUnavailableException(
+        "Organization-specific payment webhook routing is required before multi-organization billing can be enabled",
+      );
+    }
     return this.billing.processVerifiedWebhook(
+      DEFAULT_ORGANIZATION_ID,
       provider,
       headers,
       request.rawBody,

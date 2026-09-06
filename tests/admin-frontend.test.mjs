@@ -201,15 +201,22 @@ test("Real staff authentication restores a distinct Supabase session and remains
   assert.match(api, /getValidAdminAccessToken/);
 });
 
-test("Accounts and Access UI manages staff roles separately from family roles", async () => {
+test("Accounts and Access UI manages organization authority without mutating global identity", async () => {
   const accounts = await read("apps/admin/app/users/page.tsx");
   const api = await read("apps/admin/lib/admin-api.ts");
 
   assert.match(accounts, /Accounts & Access/);
   assert.match(accounts, /SUPER_ADMIN/);
   assert.match(accounts, /FINANCE_ADMIN/);
-  assert.match(accounts, /Family\/profile roles were preserved/);
-  assert.match(accounts, /Your own roles and account status cannot be changed/);
+  assert.match(
+    accounts,
+    /Global identity and family relationships were not changed/,
+  );
+  assert.match(
+    accounts,
+    /Your own organization roles and membership status cannot\s+be changed/,
+  );
+  assert.match(accounts, /does not suspend the global user account/);
   assert.match(accounts, /window\.confirm/);
   assert.match(accounts, /min-height:\s*44px/);
   assert.match(api, /\/admin\/users/);

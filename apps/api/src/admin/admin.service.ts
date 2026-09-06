@@ -3,10 +3,15 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from "@nestjs/common";
 import type { AuthenticatedUserContext } from "../auth/authenticated-user";
 import { KHLIM_USER_ROLES, type KhlimUserRole } from "../auth/roles";
 import { PrismaService } from "../database/prisma.service";
+import {
+  DEFAULT_ORGANIZATION_ID,
+  MULTI_ORGANIZATION_RUNTIME_ENABLED,
+} from "../organization/organization.constants";
 import type { UpdateAccountStatusDto, UpdateStaffRolesDto } from "./admin.dto";
 
 const STAFF_ROLES: readonly KhlimUserRole[] = [
@@ -100,6 +105,14 @@ function resolveReportRange(query: OperationsReportQuery) {
   return { from, to, fromLabel, toLabel, days };
 }
 
+function resolveOrganizationId(actor: AuthenticatedUserContext): string {
+  if (actor.organization?.id) return actor.organization.id;
+  if (!MULTI_ORGANIZATION_RUNTIME_ENABLED) return DEFAULT_ORGANIZATION_ID;
+  throw new ServiceUnavailableException(
+    "Organization context is required for admin reporting",
+  );
+}
+
 @Injectable()
 export class AdminService {
   constructor(private readonly prisma: PrismaService) {}
@@ -140,6 +153,7 @@ export class AdminService {
   }
 
   async getOverview(actor: AuthenticatedUserContext) {
+    const organizationId = resolveOrganizationId(actor);
     const canViewFinance = actor.roles.some((role) =>
       FINANCE_ROLES.has(role as KhlimUserRole),
     );
@@ -151,17 +165,24 @@ export class AdminService {
       offerings,
       payments,
     ] = await Promise.all([
-      this.prisma.client.membership.count({ where: { status: "ACTIVE" } }),
-      this.prisma.client.membership.count({ where: { status: "PENDING" } }),
-      this.prisma.client.athleteProfile.count(),
+      this.prisma.client.membership.count({
+        where: { organizationId, status: "ACTIVE" },
+      }),
+      this.prisma.client.membership.count({
+        where: { organizationId, status: "PENDING" },
+      }),
+      this.prisma.client.athleteProfile.count({
+        where: { memberships: { some: { organizationId } } },
+      }),
       this.prisma.client.programmeOffering.findMany({
-        where: { status: "OPEN" },
+        where: { organizationId, status: "OPEN" },
         select: {
           capacity: true,
           _count: {
             select: {
               memberships: {
                 where: {
+                  organizationId,
                   status: {
                     in: [...CAPACITY_HOLDING_MEMBERSHIP_STATUSES],
                   },
@@ -173,7 +194,10 @@ export class AdminService {
       }),
       canViewFinance
         ? this.prisma.client.payment.count({
-            where: { status: { in: ["FAILED", "PROCESSING"] } },
+            where: {
+              organizationId,
+              status: { in: ["FAILED", "PROCESSING"] },
+            },
           })
         : Promise.resolve(null),
     ]);
@@ -188,6 +212,7 @@ export class AdminService {
     );
 
     return {
+      organizationId,
       activeMembers,
       pendingMemberships,
       totalAthletes,
@@ -205,6 +230,7 @@ export class AdminService {
     actor: AuthenticatedUserContext,
     query: OperationsReportQuery,
   ) {
+    const organizationId = resolveOrganizationId(actor);
     const range = resolveReportRange(query);
     const canViewFinance = actor.roles.some((role) =>
       FINANCE_ROLES.has(role as KhlimUserRole),
@@ -229,68 +255,87 @@ export class AdminService {
     ] = await Promise.all([
       Promise.all(
         MEMBERSHIP_STATUSES.map((status) =>
-          this.prisma.client.membership.count({ where: { status } }),
+          this.prisma.client.membership.count({
+            where: { organizationId, status },
+          }),
         ),
       ),
       this.prisma.client.membership.count({
-        where: { createdAt: { gte: range.from, lte: range.to } },
+        where: {
+          organizationId,
+          createdAt: { gte: range.from, lte: range.to },
+        },
       }),
       this.prisma.client.membership.count({
-        where: { activatedAt: { gte: range.from, lte: range.to } },
+        where: {
+          organizationId,
+          activatedAt: { gte: range.from, lte: range.to },
+        },
       }),
       this.prisma.client.membership.count({
-        where: { cancelledAt: { gte: range.from, lte: range.to } },
+        where: {
+          organizationId,
+          cancelledAt: { gte: range.from, lte: range.to },
+        },
       }),
       this.prisma.client.trainingSession.count({
         where: {
+          organizationId,
           status: "SCHEDULED",
           startsAt: { gte: range.from, lte: range.to },
         },
       }),
       this.prisma.client.trainingSession.count({
         where: {
+          organizationId,
           status: "COMPLETED",
           startsAt: { gte: range.from, lte: range.to },
         },
       }),
       this.prisma.client.trainingSession.count({
         where: {
+          organizationId,
           status: "CANCELLED",
           startsAt: { gte: range.from, lte: range.to },
         },
       }),
       this.prisma.client.attendanceRecord.count({
         where: {
+          session: { is: { organizationId } },
           status: "PRESENT",
           markedAt: { gte: range.from, lte: range.to },
         },
       }),
       this.prisma.client.attendanceRecord.count({
         where: {
+          session: { is: { organizationId } },
           status: "LATE",
           markedAt: { gte: range.from, lte: range.to },
         },
       }),
       this.prisma.client.attendanceRecord.count({
         where: {
+          session: { is: { organizationId } },
           status: "ABSENT",
           markedAt: { gte: range.from, lte: range.to },
         },
       }),
       this.prisma.client.attendanceRecord.count({
         where: {
+          session: { is: { organizationId } },
           status: "EXCUSED",
           markedAt: { gte: range.from, lte: range.to },
         },
       }),
       this.prisma.client.programmeOffering.findMany({
-        where: { status: "OPEN" },
+        where: { organizationId, status: "OPEN" },
         select: {
           capacity: true,
           _count: {
             select: {
               memberships: {
                 where: {
+                  organizationId,
                   status: {
                     in: [...CAPACITY_HOLDING_MEMBERSHIP_STATUSES],
                   },
@@ -301,13 +346,25 @@ export class AdminService {
         },
       }),
       this.prisma.client.editorialEntry.count({
-        where: { status: "DRAFT", factsVerified: true },
+        where: {
+          organizationId,
+          status: "DRAFT",
+          factsVerified: true,
+        },
       }),
       this.prisma.client.editorialEntry.count({
-        where: { status: "DRAFT", factsVerified: false },
+        where: {
+          organizationId,
+          status: "DRAFT",
+          factsVerified: false,
+        },
       }),
       this.prisma.client.editorialEntry.count({
-        where: { status: "PUBLISHED", factsVerified: true },
+        where: {
+          organizationId,
+          status: "PUBLISHED",
+          factsVerified: true,
+        },
       }),
     ]);
 
@@ -352,6 +409,7 @@ export class AdminService {
       const [paidRows, failedPayments] = await Promise.all([
         this.prisma.client.payment.findMany({
           where: {
+            organizationId,
             status: "PAID",
             settledAt: { gte: range.from, lte: range.to },
           },
@@ -359,6 +417,7 @@ export class AdminService {
         }),
         this.prisma.client.payment.count({
           where: {
+            organizationId,
             status: "FAILED",
             attemptedAt: { gte: range.from, lte: range.to },
           },
@@ -390,6 +449,7 @@ export class AdminService {
     }
 
     return {
+      organizationId,
       period: {
         from: range.fromLabel,
         to: range.toLabel,

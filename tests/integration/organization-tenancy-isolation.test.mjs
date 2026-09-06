@@ -9,10 +9,23 @@ const {
 const {
   OrganizationService,
 } = require("../../apps/api/dist/organization/organization.service.js");
+const {
+  AcademyService,
+} = require("../../apps/api/dist/academy/academy.service.js");
+const {
+  SchedulingService,
+} = require("../../apps/api/dist/scheduling/scheduling.service.js");
+const {
+  NotificationsService,
+} = require("../../apps/api/dist/notifications/notifications.service.js");
 
 const KHLIM_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001";
 const SYNTHETIC_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000002";
 const TEST_USER_ID = "20000000-0000-4000-8000-000000000001";
+const FOREIGN_VENUE_ID = "20000000-0000-4000-8000-000000000010";
+const FOREIGN_SESSION_ID = "20000000-0000-4000-8000-000000000011";
+const FOREIGN_NOTIFICATION_ID = "20000000-0000-4000-8000-000000000012";
+const FOREIGN_RECEIPT_ID = "20000000-0000-4000-8000-000000000013";
 
 function databaseTestsEnabled() {
   if (process.env.KHLIM_TEST_DATABASE !== "1") return false;
@@ -29,14 +42,24 @@ function databaseTestsEnabled() {
   return true;
 }
 
+function expectNotFound(error) {
+  assert.equal(error?.getStatus?.(), 404);
+  return true;
+}
+
 const enabled = databaseTestsEnabled();
 
 test(
-  "Organization #002 cannot inherit KHLIM legacy staff authority",
-  { skip: enabled ? false : "Set KHLIM_TEST_DATABASE=1 to run database tests" },
+  "Organization #002 cannot inherit KHLIM legacy staff authority or operational data",
+  {
+    skip: enabled ? false : "Set KHLIM_TEST_DATABASE=1 to run database tests",
+  },
   async () => {
     const prisma = new PrismaService();
     const organizations = new OrganizationService(prisma);
+    const academy = new AcademyService(prisma);
+    const scheduling = new SchedulingService(prisma);
+    const notifications = new NotificationsService(prisma);
     const client = prisma.client;
 
     try {
@@ -78,6 +101,25 @@ test(
         authenticatorAssuranceLevel: "aal2",
       };
 
+      const unassignedKhlim = await organizations.resolveContext(
+        legacyUser,
+        "khlim-basketball",
+      );
+      assert.deepEqual(
+        unassignedKhlim.roles,
+        [],
+        "legacy staff rows alone must not become KHLIM organization authority",
+      );
+
+      await client.organizationMembership.create({
+        data: {
+          organizationId: KHLIM_ORGANIZATION_ID,
+          userId: TEST_USER_ID,
+          status: "ACTIVE",
+          roleAssignments: { create: [{ role: "SUPER_ADMIN" }] },
+        },
+      });
+
       const khlim = await organizations.resolveContext(
         legacyUser,
         "khlim-basketball",
@@ -92,7 +134,7 @@ test(
       assert.deepEqual(
         unassignedOrg2.roles,
         [],
-        "legacy KHLIM staff role must not become Organization #002 authority",
+        "KHLIM staff authority must not become Organization #002 authority",
       );
 
       await client.$executeRaw`
@@ -115,6 +157,85 @@ test(
       );
       assert.deepEqual(assignedOrg2.roles, ["ACADEMY_ADMIN"]);
 
+      await client.venue.create({
+        data: {
+          id: FOREIGN_VENUE_ID,
+          organizationId: SYNTHETIC_ORGANIZATION_ID,
+          name: "Organization #002 Venue",
+        },
+      });
+      await assert.rejects(
+        () =>
+          academy.createCourt(KHLIM_ORGANIZATION_ID, FOREIGN_VENUE_ID, {
+            name: "Cross-tenant court",
+          }),
+        expectNotFound,
+      );
+
+      await client.trainingSession.create({
+        data: {
+          id: FOREIGN_SESSION_ID,
+          organizationId: SYNTHETIC_ORGANIZATION_ID,
+          title: "Organization #002 Session",
+          startsAt: new Date("2026-10-01T10:00:00.000Z"),
+          endsAt: new Date("2026-10-01T11:00:00.000Z"),
+          venueName: "Organization #002 Venue",
+        },
+      });
+      assert.equal(
+        (await scheduling.listAdminSessions(KHLIM_ORGANIZATION_ID)).some(
+          (session) => session.id === FOREIGN_SESSION_ID,
+        ),
+        false,
+      );
+      assert.equal(
+        (await scheduling.listAdminSessions(SYNTHETIC_ORGANIZATION_ID)).some(
+          (session) => session.id === FOREIGN_SESSION_ID,
+        ),
+        true,
+      );
+      await assert.rejects(
+        () =>
+          scheduling.completeSession(KHLIM_ORGANIZATION_ID, FOREIGN_SESSION_ID),
+        expectNotFound,
+      );
+
+      await client.notification.create({
+        data: {
+          id: FOREIGN_NOTIFICATION_ID,
+          organizationId: SYNTHETIC_ORGANIZATION_ID,
+          title: "Organization #002 Notification",
+          body: "Synthetic isolation notification",
+          receipts: {
+            create: {
+              id: FOREIGN_RECEIPT_ID,
+              userId: TEST_USER_ID,
+            },
+          },
+        },
+      });
+      assert.equal(
+        (
+          await notifications.listMine(KHLIM_ORGANIZATION_ID, TEST_USER_ID)
+        ).some((receipt) => receipt.id === FOREIGN_RECEIPT_ID),
+        false,
+      );
+      assert.equal(
+        (
+          await notifications.listMine(SYNTHETIC_ORGANIZATION_ID, TEST_USER_ID)
+        ).some((receipt) => receipt.id === FOREIGN_RECEIPT_ID),
+        true,
+      );
+      await assert.rejects(
+        () =>
+          notifications.markRead(
+            KHLIM_ORGANIZATION_ID,
+            FOREIGN_RECEIPT_ID,
+            TEST_USER_ID,
+          ),
+        expectNotFound,
+      );
+
       const audit = await client.auditEvent.create({
         data: {
           actorUserId: TEST_USER_ID,
@@ -133,10 +254,22 @@ test(
       `;
       assert.equal(auditRows[0]?.organization_id, KHLIM_ORGANIZATION_ID);
     } finally {
+      await client.notification
+        .delete({ where: { id: FOREIGN_NOTIFICATION_ID } })
+        .catch(() => undefined);
+      await client.trainingSession
+        .delete({ where: { id: FOREIGN_SESSION_ID } })
+        .catch(() => undefined);
+      await client.venue
+        .delete({ where: { id: FOREIGN_VENUE_ID } })
+        .catch(() => undefined);
       await client.$executeRaw`
         DELETE FROM organization_memberships
-        WHERE organization_id = ${SYNTHETIC_ORGANIZATION_ID}::uuid
-          AND user_id = ${TEST_USER_ID}::uuid
+        WHERE user_id = ${TEST_USER_ID}::uuid
+          AND organization_id IN (
+            ${KHLIM_ORGANIZATION_ID}::uuid,
+            ${SYNTHETIC_ORGANIZATION_ID}::uuid
+          )
       `.catch(() => undefined);
       await client.$executeRaw`
         DELETE FROM organizations

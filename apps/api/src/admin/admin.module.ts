@@ -5,6 +5,7 @@ import { AdminController } from "./admin.controller";
 import { AdminGovernanceController } from "./admin-governance.controller";
 import { AdminGovernanceService } from "./admin-governance.service";
 import { AdminObservabilityService } from "./admin-observability.service";
+import { AdminOrganizationAccessService } from "./admin-organization-access.service";
 import { AdminService } from "./admin.service";
 
 @Module({
@@ -14,6 +15,11 @@ import { AdminService } from "./admin.service";
     AdminController,
     AdminGovernanceController,
   ],
-  providers: [AdminService, AdminObservabilityService, AdminGovernanceService],
+  providers: [
+    AdminService,
+    AdminObservabilityService,
+    AdminGovernanceService,
+    AdminOrganizationAccessService,
+  ],
 })
 export class AdminModule {}

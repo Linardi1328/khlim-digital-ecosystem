@@ -61,7 +61,7 @@ export class BillplzPaymentGatewayAdapter implements PaymentGatewayAdapter {
     input: CreateGatewayCustomerInput,
   ): Promise<CreateGatewayCustomerResult> {
     return {
-      providerCustomerId: `khlim-user:${input.khlimUserId}`,
+      providerCustomerId: `khlim-org:${input.organizationId}:user:${input.khlimUserId}`,
     };
   }
 

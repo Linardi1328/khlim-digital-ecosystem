@@ -2,8 +2,13 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from "@nestjs/common";
 import { PrismaService } from "../database/prisma.service";
+import {
+  DEFAULT_ORGANIZATION_ID,
+  MULTI_ORGANIZATION_RUNTIME_ENABLED,
+} from "../organization/organization.constants";
 
 export type EditorialType = "ACHIEVEMENT" | "PLAYER_SPOTLIGHT";
 
@@ -39,19 +44,32 @@ interface ModerationCandidate {
   factsVerified: boolean;
 }
 
+function compatibilityPublicOrganizationId(): string {
+  if (MULTI_ORGANIZATION_RUNTIME_ENABLED) {
+    throw new ServiceUnavailableException(
+      "Public editorial organization routing is required when multi-organization runtime is enabled",
+    );
+  }
+  return DEFAULT_ORGANIZATION_ID;
+}
+
 @Injectable()
 export class EditorialService {
   constructor(private readonly prisma: PrismaService) {}
 
-  listAdmin() {
+  listAdmin(organizationId: string) {
     return this.prisma.client.editorialEntry.findMany({
+      where: { organizationId },
       orderBy: { updatedAt: "desc" },
     });
   }
 
-  async listModeration() {
+  async listModeration(organizationId: string) {
     const entries = await this.prisma.client.editorialEntry.findMany({
-      where: { status: { in: ["DRAFT", "PUBLISHED"] } },
+      where: {
+        organizationId,
+        status: { in: ["DRAFT", "PUBLISHED"] },
+      },
       orderBy: [{ status: "asc" }, { updatedAt: "desc" }],
     });
 
@@ -70,16 +88,28 @@ export class EditorialService {
     });
   }
 
-  listPublished(type: EditorialType) {
+  listPublished(
+    type: EditorialType,
+    organizationId = compatibilityPublicOrganizationId(),
+  ) {
     return this.prisma.client.editorialEntry.findMany({
-      where: { type, status: "PUBLISHED", factsVerified: true },
+      where: {
+        organizationId,
+        type,
+        status: "PUBLISHED",
+        factsVerified: true,
+      },
       orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
     });
   }
 
-  findPublishedSpotlight(slug: string) {
+  findPublishedSpotlight(
+    slug: string,
+    organizationId = compatibilityPublicOrganizationId(),
+  ) {
     return this.prisma.client.editorialEntry.findFirst({
       where: {
+        organizationId,
         slug,
         type: "PLAYER_SPOTLIGHT",
         status: "PUBLISHED",
@@ -88,10 +118,11 @@ export class EditorialService {
     });
   }
 
-  create(input: EditorialInput) {
+  create(organizationId: string, input: EditorialInput) {
     this.assertComplete(input);
     return this.prisma.client.editorialEntry.create({
       data: {
+        organizationId,
         type: input.type,
         slug: input.slug,
         title: input.title,
@@ -110,8 +141,12 @@ export class EditorialService {
     });
   }
 
-  async update(id: string, input: Partial<EditorialInput>) {
-    const existing = await this.requireEntry(id);
+  async update(
+    organizationId: string,
+    id: string,
+    input: Partial<EditorialInput>,
+  ) {
+    const existing = await this.requireEntry(organizationId, id);
     if (existing.status === "PUBLISHED") {
       throw new BadRequestException(
         "Published content must be unpublished by management before editing",
@@ -162,8 +197,8 @@ export class EditorialService {
     });
   }
 
-  async publish(id: string) {
-    const entry = await this.requireEntry(id);
+  async publish(organizationId: string, id: string) {
+    const entry = await this.requireEntry(organizationId, id);
     if (entry.status !== "DRAFT") {
       throw new BadRequestException("Only draft content can be published");
     }
@@ -200,8 +235,8 @@ export class EditorialService {
     });
   }
 
-  async unpublish(id: string) {
-    const entry = await this.requireEntry(id);
+  async unpublish(organizationId: string, id: string) {
+    const entry = await this.requireEntry(organizationId, id);
     if (entry.status !== "PUBLISHED") {
       throw new BadRequestException(
         "Only published content can be unpublished",
@@ -247,9 +282,9 @@ export class EditorialService {
     };
   }
 
-  private async requireEntry(id: string) {
-    const entry = await this.prisma.client.editorialEntry.findUnique({
-      where: { id },
+  private async requireEntry(organizationId: string, id: string) {
+    const entry = await this.prisma.client.editorialEntry.findFirst({
+      where: { id, organizationId },
     });
     if (!entry) throw new NotFoundException("Editorial entry not found");
     return entry;

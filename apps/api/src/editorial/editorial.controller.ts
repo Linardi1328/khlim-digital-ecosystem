@@ -1,11 +1,28 @@
-import { Body, Controller, Get, Param, Patch, Post } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import type { AuthenticatedUserContext } from "../auth/authenticated-user";
 import {
   Public,
   RequireAnyRole,
   RequireMfa,
 } from "../auth/authorization.decorators";
+import { CurrentUser } from "../auth/current-user.decorator";
 import { EditorialService, type EditorialInput } from "./editorial.service";
+
+function organizationId(user: AuthenticatedUserContext): string {
+  if (!user.organization?.id) {
+    throw new ForbiddenException("Organization context is required");
+  }
+  return user.organization.id;
+}
 
 @ApiTags("editorial")
 @Controller()
@@ -33,8 +50,8 @@ export class EditorialController {
   @Get("admin/editorial")
   @ApiBearerAuth("supabase")
   @RequireAnyRole("SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN")
-  listAdmin() {
-    return this.editorial.listAdmin();
+  listAdmin(@CurrentUser() user: AuthenticatedUserContext) {
+    return this.editorial.listAdmin(organizationId(user));
   }
 
   @Get("admin/editorial/moderation")
@@ -44,22 +61,29 @@ export class EditorialController {
   @ApiOperation({
     summary: "List editorial content with management moderation readiness",
   })
-  listModeration() {
-    return this.editorial.listModeration();
+  listModeration(@CurrentUser() user: AuthenticatedUserContext) {
+    return this.editorial.listModeration(organizationId(user));
   }
 
   @Post("admin/editorial")
   @ApiBearerAuth("supabase")
   @RequireAnyRole("SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN")
-  create(@Body() input: EditorialInput) {
-    return this.editorial.create(input);
+  create(
+    @CurrentUser() user: AuthenticatedUserContext,
+    @Body() input: EditorialInput,
+  ) {
+    return this.editorial.create(organizationId(user), input);
   }
 
   @Patch("admin/editorial/:id")
   @ApiBearerAuth("supabase")
   @RequireAnyRole("SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN")
-  update(@Param("id") id: string, @Body() input: Partial<EditorialInput>) {
-    return this.editorial.update(id, input);
+  update(
+    @CurrentUser() user: AuthenticatedUserContext,
+    @Param("id") id: string,
+    @Body() input: Partial<EditorialInput>,
+  ) {
+    return this.editorial.update(organizationId(user), id, input);
   }
 
   @Post("admin/editorial/player-spotlights/draft")
@@ -82,8 +106,11 @@ export class EditorialController {
   @ApiOperation({
     summary: "Approve a verified editorial draft and publish it",
   })
-  publish(@Param("id") id: string) {
-    return this.editorial.publish(id);
+  publish(
+    @CurrentUser() user: AuthenticatedUserContext,
+    @Param("id") id: string,
+  ) {
+    return this.editorial.publish(organizationId(user), id);
   }
 
   @Post("admin/editorial/:id/unpublish")
@@ -93,7 +120,10 @@ export class EditorialController {
   @ApiOperation({
     summary: "Remove published editorial content from public view",
   })
-  unpublish(@Param("id") id: string) {
-    return this.editorial.unpublish(id);
+  unpublish(
+    @CurrentUser() user: AuthenticatedUserContext,
+    @Param("id") id: string,
+  ) {
+    return this.editorial.unpublish(organizationId(user), id);
   }
 }

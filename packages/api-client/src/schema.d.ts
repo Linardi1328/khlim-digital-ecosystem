@@ -250,7 +250,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List accounts for identity administration */
+        /** List members for organization access administration */
         get: operations["AdminController_listUsers"];
         put?: never;
         post?: never;
@@ -267,7 +267,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get an account for identity administration */
+        /** Get a member for organization access administration */
         get: operations["AdminController_getUser"];
         put?: never;
         post?: never;
@@ -285,7 +285,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Replace staff role assignments */
+        /** Replace organization staff role assignments */
         put: operations["AdminController_replaceStaffRoles"];
         post?: never;
         delete?: never;
@@ -307,7 +307,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Suspend, reactivate, or deactivate an account */
+        /** Suspend, reactivate, or deactivate organization access */
         patch: operations["AdminController_updateAccountStatus"];
         trace?: never;
     };

@@ -500,7 +500,7 @@
             "supabase": []
           }
         ],
-        "summary": "List accounts for identity administration",
+        "summary": "List members for organization access administration",
         "tags": [
           "admin-identity"
         ]
@@ -529,7 +529,7 @@
             "supabase": []
           }
         ],
-        "summary": "Get an account for identity administration",
+        "summary": "Get a member for organization access administration",
         "tags": [
           "admin-identity"
         ]
@@ -568,7 +568,7 @@
             "supabase": []
           }
         ],
-        "summary": "Replace staff role assignments",
+        "summary": "Replace organization staff role assignments",
         "tags": [
           "admin-identity"
         ]
@@ -607,7 +607,7 @@
             "supabase": []
           }
         ],
-        "summary": "Suspend, reactivate, or deactivate an account",
+        "summary": "Suspend, reactivate, or deactivate organization access",
         "tags": [
           "admin-identity"
         ]
