@@ -18,6 +18,7 @@ const COMPATIBILITY_TENANT_MODELS = new Set([
   "paymentmethod",
   "payment",
   "paymentproviderevent",
+  "editorialentry",
 ]);
 
 function applyCompatibilityOrganization(data: unknown): void {
