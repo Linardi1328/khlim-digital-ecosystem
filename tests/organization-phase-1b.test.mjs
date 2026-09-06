@@ -116,6 +116,60 @@ test("Phase 1B gives scheduling and notification roots direct organization owner
   assert.match(migration, /notifications_organization_id_type_created_at_idx/);
 });
 
+test("Phase 1B gives finance roots direct ownership without weakening provider uniqueness", async () => {
+  const schema = await read("prisma/schema.prisma");
+  const migration = await read(
+    "prisma/migrations/20260906155000_phase_1b_billing_ownership/migration.sql",
+  );
+
+  for (const model of [
+    "BillingProfile",
+    "PaymentMethod",
+    "Payment",
+    "PaymentProviderEvent",
+  ]) {
+    const block = modelBlock(schema, model);
+    assert.match(block, /organizationId\s+String\s+@map\("organization_id"\)/);
+    assert.match(block, /organization\s+Organization\s+@relation/);
+  }
+
+  for (const table of [
+    "billing_profiles",
+    "payment_methods",
+    "payments",
+    "payment_provider_events",
+  ]) {
+    assert.match(
+      migration,
+      new RegExp(`ALTER TABLE "${table}" ADD COLUMN "organization_id" UUID`),
+    );
+    assert.match(
+      migration,
+      new RegExp(
+        `ALTER TABLE "${table}"[\\s\\S]*?"organization_id" SET NOT NULL`,
+      ),
+    );
+  }
+
+  assert.match(migration, /00000000-0000-4000-8000-000000000001/);
+  assert.match(
+    modelBlock(schema, "BillingProfile"),
+    /@@unique\(\[organizationId, userId, provider\]\)/,
+  );
+  assert.match(
+    modelBlock(schema, "PaymentProviderEvent"),
+    /@@unique\(\[provider, providerEventId\]\)/,
+  );
+  assert.match(
+    modelBlock(schema, "Payment"),
+    /@@unique\(\[provider, providerPaymentId\]\)/,
+  );
+  assert.match(
+    migration,
+    /payments_organization_id_status_attempted_at_idx/,
+  );
+});
+
 test("Academy reads and writes are scoped by active organization", async () => {
   const service = await read("apps/api/src/academy/academy.service.ts");
   const adminController = await read(
@@ -171,12 +225,40 @@ test("Scheduling and notifications fail closed on organization-owned data", asyn
   assert.match(notificationsController, /organizationId\(user\)/);
 });
 
+test("Billing reads, writes, reconciliation, and provider events are organization-scoped", async () => {
+  const service = await read("apps/api/src/billing/billing.service.ts");
+  const controller = await read("apps/api/src/billing/billing.controller.ts");
+
+  assert.match(service, /where: \{ id: membershipId, athleteId, organizationId \}/);
+  assert.match(service, /organizationId_userId_provider/);
+  assert.match(service, /data: \{\n\s+organizationId,\n\s+payerUserId,/);
+  assert.match(service, /where: \{ organizationId, idempotencyKey:/);
+  assert.match(
+    service,
+    /where: \{ organizationId, provider, providerEventId \}/,
+  );
+  assert.match(
+    service,
+    /Provider event already belongs to a different organization/,
+  );
+  assert.match(controller, /organizationId\(user\)/);
+  assert.match(controller, /MULTI_ORGANIZATION_RUNTIME_ENABLED/);
+  assert.match(
+    controller,
+    /Organization-specific payment webhook routing is required/,
+  );
+});
+
 test("Phase 1B compatibility fallback is bounded to runtime-disabled Organization #001", async () => {
   const prismaService = await read("apps/api/src/database/prisma.service.ts");
 
   assert.match(prismaService, /COMPATIBILITY_TENANT_MODELS/);
   assert.match(prismaService, /"trainingsession"/);
   assert.match(prismaService, /"notification"/);
+  assert.match(prismaService, /"billingprofile"/);
+  assert.match(prismaService, /"paymentmethod"/);
+  assert.match(prismaService, /"payment"/);
+  assert.match(prismaService, /"paymentproviderevent"/);
   assert.match(prismaService, /DEFAULT_ORGANIZATION_ID/);
   assert.match(
     prismaService,
