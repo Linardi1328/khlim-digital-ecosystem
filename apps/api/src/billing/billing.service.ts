@@ -4,8 +4,13 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from "@nestjs/common";
 import { PrismaService } from "../database/prisma.service";
+import {
+  DEFAULT_ORGANIZATION_ID,
+  MULTI_ORGANIZATION_RUNTIME_ENABLED,
+} from "../organization/organization.constants";
 import type { PrepareMembershipCheckoutDto } from "./billing.dto";
 import {
   PaymentGatewayRegistry,
@@ -14,6 +19,10 @@ import {
 
 const CURRENT_MEMBERSHIP_TERMS_VERSION = "membership-mvp-v1";
 const DEFAULT_CHECKOUT_HOLD_MINUTES = 45;
+
+type WebhookHeaders = Readonly<
+  Record<string, string | string[] | undefined>
+>;
 
 function checkoutHoldMinutes(): number {
   const configured = Number.parseInt(
@@ -40,6 +49,15 @@ function isUniqueConstraintError(error: unknown): boolean {
   );
 }
 
+function compatibilityOrganizationId(): string {
+  if (MULTI_ORGANIZATION_RUNTIME_ENABLED) {
+    throw new ServiceUnavailableException(
+      "Explicit organization context is required for billing when multi-organization runtime is enabled",
+    );
+  }
+  return DEFAULT_ORGANIZATION_ID;
+}
+
 @Injectable()
 export class BillingService {
   constructor(
@@ -47,9 +65,21 @@ export class BillingService {
     private readonly gateways: PaymentGatewayRegistry,
   ) {}
 
-  async getMembershipBilling(athleteId: string, membershipId: string) {
+  async getMembershipBilling(
+    organizationIdOrAthleteId: string,
+    athleteIdOrMembershipId: string,
+    maybeMembershipId?: string,
+  ) {
+    const organizationId = maybeMembershipId
+      ? organizationIdOrAthleteId
+      : compatibilityOrganizationId();
+    const athleteId = maybeMembershipId
+      ? athleteIdOrMembershipId
+      : organizationIdOrAthleteId;
+    const membershipId = maybeMembershipId ?? athleteIdOrMembershipId;
+
     const membership = await this.prisma.client.membership.findFirst({
-      where: { id: membershipId, athleteId },
+      where: { id: membershipId, athleteId, organizationId },
       include: {
         agreements: { orderBy: { acceptedAt: "desc" }, take: 1 },
         paymentSchedule: {
@@ -58,6 +88,7 @@ export class BillingService {
               orderBy: { sequenceNumber: "asc" },
               include: {
                 payments: {
+                  where: { organizationId },
                   orderBy: { attemptedAt: "desc" },
                 },
               },
@@ -75,18 +106,36 @@ export class BillingService {
   }
 
   async prepareMembershipCheckout(
-    payerUserId: string,
-    athleteId: string,
-    membershipId: string,
-    body: PrepareMembershipCheckoutDto,
+    organizationIdOrPayerUserId: string,
+    payerUserIdOrAthleteId: string,
+    athleteIdOrMembershipId: string,
+    membershipIdOrBody: string | PrepareMembershipCheckoutDto,
+    maybeBody?: PrepareMembershipCheckoutDto,
   ) {
+    const hasExplicitOrganization = maybeBody !== undefined;
+    const organizationId = hasExplicitOrganization
+      ? organizationIdOrPayerUserId
+      : compatibilityOrganizationId();
+    const payerUserId = hasExplicitOrganization
+      ? payerUserIdOrAthleteId
+      : organizationIdOrPayerUserId;
+    const athleteId = hasExplicitOrganization
+      ? athleteIdOrMembershipId
+      : payerUserIdOrAthleteId;
+    const membershipId = hasExplicitOrganization
+      ? (membershipIdOrBody as string)
+      : athleteIdOrMembershipId;
+    const body = hasExplicitOrganization
+      ? maybeBody
+      : (membershipIdOrBody as PrepareMembershipCheckoutDto);
+
     if (body?.acceptTerms !== true) {
       throw new BadRequestException("Membership terms must be accepted");
     }
 
     const gateway = this.gateways.requireConfigured();
     const membership = await this.prisma.client.membership.findFirst({
-      where: { id: membershipId, athleteId },
+      where: { id: membershipId, athleteId, organizationId },
       include: {
         membershipPlan: true,
         programmeOffering: true,
@@ -112,6 +161,7 @@ export class BillingService {
 
     const activeCount = await this.prisma.client.membership.count({
       where: {
+        organizationId,
         programmeOfferingId: membership.programmeOfferingId,
         status: "ACTIVE",
       },
@@ -189,6 +239,7 @@ export class BillingService {
     });
 
     const billingProfile = await this.ensureBillingProfile(
+      organizationId,
       gateway,
       payerUserId,
       membership.purchasedBy?.email ?? null,
@@ -197,6 +248,7 @@ export class BillingService {
     const payment = await this.prisma.client.payment.upsert({
       where: { idempotencyKey },
       create: {
+        organizationId,
         payerUserId,
         membershipId,
         paymentInstallmentId: firstInstallment.id,
@@ -207,6 +259,12 @@ export class BillingService {
       },
       update: {},
     });
+
+    if (payment.organizationId !== organizationId) {
+      throw new ConflictException(
+        "Payment belongs to a different organization",
+      );
+    }
 
     if (payment.status === "PAID") {
       throw new ConflictException("First installment is already paid");
@@ -250,13 +308,25 @@ export class BillingService {
     };
   }
 
-  async reconcileStaleCheckoutHolds(now = new Date()) {
+  async reconcileStaleCheckoutHolds(
+    organizationIdOrNow: string | Date = DEFAULT_ORGANIZATION_ID,
+    maybeNow?: Date,
+  ) {
+    const organizationId =
+      typeof organizationIdOrNow === "string"
+        ? organizationIdOrNow
+        : compatibilityOrganizationId();
+    const now =
+      typeof organizationIdOrNow === "string"
+        ? (maybeNow ?? new Date())
+        : organizationIdOrNow;
     const cutoff = new Date(now.getTime() - checkoutHoldMinutes() * 60 * 1000);
     const stalePayments = await this.prisma.client.payment.findMany({
       where: {
+        organizationId,
         status: "PROCESSING",
         attemptedAt: { lt: cutoff },
-        membership: { is: { status: "PENDING" } },
+        membership: { is: { organizationId, status: "PENDING" } },
       },
       include: { paymentInstallment: true, membership: true },
     });
@@ -265,7 +335,11 @@ export class BillingService {
     for (const payment of stalePayments) {
       await this.prisma.client.$transaction(async (transaction) => {
         const cancelled = await transaction.payment.updateMany({
-          where: { id: payment.id, status: "PROCESSING" },
+          where: {
+            id: payment.id,
+            organizationId,
+            status: "PROCESSING",
+          },
           data: {
             status: "CANCELLED",
             failedAt: now,
@@ -295,7 +369,11 @@ export class BillingService {
         }
         if (payment.membershipId) {
           await transaction.membership.updateMany({
-            where: { id: payment.membershipId, status: "PENDING" },
+            where: {
+              id: payment.membershipId,
+              organizationId,
+              status: "PENDING",
+            },
             data: { status: "CANCELLED", cancelledAt: now },
           });
         }
@@ -311,22 +389,30 @@ export class BillingService {
   }
 
   private async ensureBillingProfile(
+    organizationId: string,
     gateway: ReturnType<PaymentGatewayRegistry["requireConfigured"]>,
     userId: string,
     email: string | null,
   ) {
     const existing = await this.prisma.client.billingProfile.findUnique({
-      where: { userId_provider: { userId, provider: gateway.provider } },
+      where: {
+        organizationId_userId_provider: {
+          organizationId,
+          userId,
+          provider: gateway.provider,
+        },
+      },
     });
     if (existing) return existing;
 
     const customer = await gateway.createCustomer({
       khlimUserId: userId,
       email,
-      idempotencyKey: `billing-profile:${userId}`,
+      idempotencyKey: `billing-profile:${organizationId}:${userId}`,
     });
     return this.prisma.client.billingProfile.create({
       data: {
+        organizationId,
         userId,
         provider: gateway.provider,
         providerCustomerId: customer.providerCustomerId,
@@ -335,10 +421,25 @@ export class BillingService {
   }
 
   async processVerifiedWebhook(
-    provider: string,
-    headers: Readonly<Record<string, string | string[] | undefined>>,
-    rawBody: Buffer,
+    organizationIdOrProvider: string,
+    providerOrHeaders: string | WebhookHeaders,
+    headersOrRawBody: WebhookHeaders | Buffer,
+    maybeRawBody?: Buffer,
   ) {
+    const hasExplicitOrganization = maybeRawBody !== undefined;
+    const organizationId = hasExplicitOrganization
+      ? organizationIdOrProvider
+      : compatibilityOrganizationId();
+    const provider = hasExplicitOrganization
+      ? (providerOrHeaders as string)
+      : organizationIdOrProvider;
+    const headers = hasExplicitOrganization
+      ? (headersOrRawBody as WebhookHeaders)
+      : (providerOrHeaders as WebhookHeaders);
+    const rawBody = hasExplicitOrganization
+      ? maybeRawBody
+      : (headersOrRawBody as Buffer);
+
     const gateway = this.gateways.requireConfigured(provider);
     const event = await gateway.verifyWebhook({ headers, rawBody });
     const payloadHash = createHash("sha256").update(rawBody).digest("hex");
@@ -346,6 +447,7 @@ export class BillingService {
     try {
       await this.prisma.client.paymentProviderEvent.create({
         data: {
+          organizationId,
           provider: gateway.provider,
           providerEventId: event.providerEventId,
           eventType: event.eventType,
@@ -363,7 +465,8 @@ export class BillingService {
       const existing = await this.prisma.client.paymentProviderEvent.findUnique(
         {
           where: {
-            provider_providerEventId: {
+            organizationId_provider_providerEventId: {
+              organizationId,
               provider: gateway.provider,
               providerEventId: event.providerEventId,
             },
@@ -390,10 +493,15 @@ export class BillingService {
     }
 
     try {
-      return await this.applyVerifiedEvent(gateway.provider, event);
+      return await this.applyVerifiedEvent(
+        organizationId,
+        gateway.provider,
+        event,
+      );
     } catch (error) {
       try {
         await this.finishProviderEvent(
+          organizationId,
           gateway.provider,
           event.providerEventId,
           "FAILED",
@@ -406,13 +514,22 @@ export class BillingService {
   }
 
   private async applyVerifiedEvent(
+    organizationId: string,
     provider: string,
     event: NormalizedGatewayEvent,
   ) {
-    const payment = await this.prisma.client.payment.findUnique({
-      where: { idempotencyKey: event.idempotencyKey },
+    const payment = await this.prisma.client.payment.findFirst({
+      where: { organizationId, idempotencyKey: event.idempotencyKey },
       include: {
-        paymentInstallment: { include: { paymentSchedule: true } },
+        paymentInstallment: {
+          include: {
+            paymentSchedule: {
+              include: {
+                membership: { select: { organizationId: true } },
+              },
+            },
+          },
+        },
         membership: {
           include: { membershipPlan: true, programmeOffering: true },
         },
@@ -421,6 +538,7 @@ export class BillingService {
 
     if (!payment || payment.provider !== provider) {
       await this.finishProviderEvent(
+        organizationId,
         provider,
         event.providerEventId,
         "ACTION_REQUIRED",
@@ -429,11 +547,32 @@ export class BillingService {
     }
 
     if (
+      (payment.membership &&
+        payment.membership.organizationId !== organizationId) ||
+      (payment.paymentInstallment?.paymentSchedule.membership.organizationId &&
+        payment.paymentInstallment.paymentSchedule.membership.organizationId !==
+          organizationId)
+    ) {
+      await this.finishProviderEvent(
+        organizationId,
+        provider,
+        event.providerEventId,
+        "ACTION_REQUIRED",
+      );
+      return {
+        processed: false,
+        actionRequired: true,
+        reason: "CROSS_ORGANIZATION_PAYMENT_RELATION",
+      };
+    }
+
+    if (
       payment.providerPaymentId &&
       event.providerPaymentId &&
       payment.providerPaymentId !== event.providerPaymentId
     ) {
       await this.finishProviderEvent(
+        organizationId,
         provider,
         event.providerEventId,
         "ACTION_REQUIRED",
@@ -451,6 +590,7 @@ export class BillingService {
       (event.currency !== undefined && event.currency !== payment.currency)
     ) {
       await this.finishProviderEvent(
+        organizationId,
         provider,
         event.providerEventId,
         "ACTION_REQUIRED",
@@ -464,6 +604,7 @@ export class BillingService {
 
     if (payment.status === "PAID") {
       await this.finishProviderEvent(
+        organizationId,
         provider,
         event.providerEventId,
         "PROCESSED",
@@ -479,6 +620,7 @@ export class BillingService {
 
     if (payment.status === "REFUNDED" || payment.status === "CANCELLED") {
       await this.finishProviderEvent(
+        organizationId,
         provider,
         event.providerEventId,
         "ACTION_REQUIRED",
@@ -511,7 +653,8 @@ export class BillingService {
         }
         await transaction.paymentProviderEvent.update({
           where: {
-            provider_providerEventId: {
+            organizationId_provider_providerEventId: {
+              organizationId,
               provider,
               providerEventId: event.providerEventId,
             },
@@ -547,6 +690,7 @@ export class BillingService {
       if (payment.membership?.status === "PENDING") {
         const activeCount = await transaction.membership.count({
           where: {
+            organizationId,
             programmeOfferingId: payment.membership.programmeOfferingId,
             status: "ACTIVE",
           },
@@ -585,7 +729,8 @@ export class BillingService {
 
       await transaction.paymentProviderEvent.update({
         where: {
-          provider_providerEventId: {
+          organizationId_provider_providerEventId: {
+            organizationId,
             provider,
             providerEventId: event.providerEventId,
           },
@@ -606,12 +751,19 @@ export class BillingService {
   }
 
   private finishProviderEvent(
+    organizationId: string,
     provider: string,
     providerEventId: string,
     processingStatus: "PROCESSED" | "ACTION_REQUIRED" | "FAILED",
   ) {
     return this.prisma.client.paymentProviderEvent.update({
-      where: { provider_providerEventId: { provider, providerEventId } },
+      where: {
+        organizationId_provider_providerEventId: {
+          organizationId,
+          provider,
+          providerEventId,
+        },
+      },
       data: { processingStatus, processedAt: new Date() },
     });
   }
