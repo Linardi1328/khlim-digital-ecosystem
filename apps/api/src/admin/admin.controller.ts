@@ -36,7 +36,9 @@ export class AdminController {
   constructor(private readonly access: AdminOrganizationAccessService) {}
 
   @Get()
-  @ApiOperation({ summary: "List members for organization access administration" })
+  @ApiOperation({
+    summary: "List members for organization access administration",
+  })
   @ApiQuery({ name: "q", required: false, type: String })
   @ApiQuery({ name: "status", required: false, type: String })
   @ApiQuery({ name: "role", required: false, type: String })
@@ -57,7 +59,9 @@ export class AdminController {
   }
 
   @Get(":userId")
-  @ApiOperation({ summary: "Get a member for organization access administration" })
+  @ApiOperation({
+    summary: "Get a member for organization access administration",
+  })
   getUser(
     @CurrentUser() actor: AuthenticatedUserContext,
     @Param("userId") userId: string,
