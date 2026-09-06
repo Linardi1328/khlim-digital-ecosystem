@@ -26,10 +26,7 @@ interface ListOrganizationUsersQuery {
 export class AdminOrganizationAccessService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async listUsers(
-    organizationId: string,
-    query: ListOrganizationUsersQuery,
-  ) {
+  async listUsers(organizationId: string, query: ListOrganizationUsersQuery) {
     const q = query.q?.trim().slice(0, 120) || undefined;
     const status = query.status?.trim().toUpperCase() || undefined;
     const role = query.role?.trim().toUpperCase() || undefined;
@@ -217,12 +214,13 @@ export class AdminOrganizationAccessService {
         });
       }
 
-      const assignments =
-        await transaction.organizationRoleAssignment.findMany({
+      const assignments = await transaction.organizationRoleAssignment.findMany(
+        {
           where: { organizationMembershipId: target.id },
           select: { role: true },
           orderBy: { role: "asc" },
-        });
+        },
+      );
 
       await transaction.auditEvent.create({
         data: {
