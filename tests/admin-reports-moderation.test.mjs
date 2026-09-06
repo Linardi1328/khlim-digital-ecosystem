@@ -67,7 +67,8 @@ test("editorial moderation separates draft preparation from final publication", 
   const editorial = await read("apps/admin/app/editorial/page.tsx");
 
   assert.match(controller, /@Get\("admin\/editorial\/moderation"\)/);
-  assert.match(controller, /listModeration\(\)/);
+  assert.match(controller, /listModeration\(@CurrentUser\(\)/);
+  assert.match(controller, /editorial\.listModeration\(organizationId\(user\)\)/);
   assert.match(
     controller,
     /@Post\("admin\/editorial\/:id\/publish"\)[\s\S]*?@RequireAnyRole\("SUPER_ADMIN",\s*"MANAGEMENT"\)[\s\S]*?@RequireMfa\(\)/,
@@ -77,7 +78,7 @@ test("editorial moderation separates draft preparation from final publication", 
     /@Post\("admin\/editorial\/:id\/unpublish"\)[\s\S]*?@RequireAnyRole\("SUPER_ADMIN",\s*"MANAGEMENT"\)[\s\S]*?@RequireMfa\(\)/,
   );
 
-  assert.match(service, /async listModeration\(\)/);
+  assert.match(service, /async listModeration\(organizationId: string\)/);
   assert.match(service, /moderationState:/);
   assert.match(service, /moderationBlockers:/);
   assert.match(
