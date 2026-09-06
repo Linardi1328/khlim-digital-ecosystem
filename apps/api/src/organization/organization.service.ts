@@ -29,7 +29,7 @@ function normalizeRequestedSlug(value: string | undefined): string {
 export class OrganizationService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async resolveContext(user: AuthenticatedUserContext, requestedSlug?: string) {
+  async resolveContext(_user: AuthenticatedUserContext, requestedSlug?: string) {
     const slug = normalizeRequestedSlug(requestedSlug);
     const organizations = await this.prisma.client.$queryRaw<OrganizationRow[]>`
       SELECT id::text, slug, name, status
@@ -43,17 +43,7 @@ export class OrganizationService {
       throw new ForbiddenException("Organization is not available");
     }
 
-    // Compatibility bridge: existing Admin writers still mutate the legacy
-    // UserRoleAssignment table. For Organization #001 only, mirror those staff
-    // assignments into the new scoped tables on authentication. Authorization
-    // then reads organization_role_assignments rather than treating the legacy
-    // global staff role as authority. Organization #002+ never receives this
-    // bridge, so a KHLIM staff role cannot grant access to another tenant.
-    if (organization.slug === DEFAULT_ORGANIZATION_SLUG) {
-      await this.syncLegacyStaffRoles(organization.id, user.id);
-    }
-
-    const roles = await this.listActiveStaffRoles(organization.id, user.id);
+    const roles = await this.listActiveStaffRoles(organization.id, _user.id);
 
     return {
       id: organization.id,
@@ -78,68 +68,5 @@ export class OrganizationService {
       ORDER BY ora.role ASC
     `;
     return rows.map((row) => row.role);
-  }
-
-  private async syncLegacyStaffRoles(
-    organizationId: string,
-    userId: string,
-  ): Promise<void> {
-    await this.prisma.client.$transaction(async (transaction) => {
-      await transaction.$executeRaw`
-        INSERT INTO organization_memberships (
-          organization_id,
-          user_id,
-          status,
-          updated_at
-        )
-        SELECT ${organizationId}::uuid, ${userId}::uuid, 'ACTIVE', CURRENT_TIMESTAMP
-        WHERE EXISTS (
-          SELECT 1
-          FROM user_role_assignments ura
-          WHERE ura.user_id = ${userId}::uuid
-            AND ura.role::text IN (
-              'COACH', 'SUPER_ADMIN', 'MANAGEMENT', 'FINANCE_ADMIN',
-              'ACADEMY_ADMIN', 'HEAD_COACH', 'EVENT_STAFF'
-            )
-        )
-        ON CONFLICT (organization_id, user_id) DO UPDATE
-        SET status = 'ACTIVE', updated_at = CURRENT_TIMESTAMP
-      `;
-
-      await transaction.$executeRaw`
-        INSERT INTO organization_role_assignments (
-          organization_membership_id,
-          role
-        )
-        SELECT om.id, ura.role::text
-        FROM organization_memberships om
-        JOIN user_role_assignments ura ON ura.user_id = om.user_id
-        WHERE om.organization_id = ${organizationId}::uuid
-          AND om.user_id = ${userId}::uuid
-          AND ura.role::text IN (
-            'COACH', 'SUPER_ADMIN', 'MANAGEMENT', 'FINANCE_ADMIN',
-            'ACADEMY_ADMIN', 'HEAD_COACH', 'EVENT_STAFF'
-          )
-        ON CONFLICT (organization_membership_id, role) DO NOTHING
-      `;
-
-      await transaction.$executeRaw`
-        DELETE FROM organization_role_assignments ora
-        USING organization_memberships om
-        WHERE ora.organization_membership_id = om.id
-          AND om.organization_id = ${organizationId}::uuid
-          AND om.user_id = ${userId}::uuid
-          AND NOT EXISTS (
-            SELECT 1
-            FROM user_role_assignments ura
-            WHERE ura.user_id = ${userId}::uuid
-              AND ura.role::text = ora.role
-              AND ura.role::text IN (
-                'COACH', 'SUPER_ADMIN', 'MANAGEMENT', 'FINANCE_ADMIN',
-                'ACADEMY_ADMIN', 'HEAD_COACH', 'EVENT_STAFF'
-              )
-          )
-      `;
-    });
   }
 }
