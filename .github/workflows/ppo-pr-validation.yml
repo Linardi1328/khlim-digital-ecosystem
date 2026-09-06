@@ -52,6 +52,12 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Print exact reporting Prettier diff
+        run: |
+          pnpm exec prettier --write tests/organization-reporting-scope.test.mjs
+          git diff -- tests/organization-reporting-scope.test.mjs
+          git checkout -- tests/organization-reporting-scope.test.mjs
+
       - name: Formatting
         run: pnpm format:check
 
