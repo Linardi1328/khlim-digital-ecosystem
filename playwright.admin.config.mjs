@@ -6,6 +6,7 @@ export default defineConfig({
     "admin-ui.spec.mjs",
     "admin-kpi-observability.spec.mjs",
     "admin-governance.spec.mjs",
+    "admin-walkthrough-visual.spec.mjs",
   ],
   timeout: 15_000,
   expect: { timeout: 5_000 },
