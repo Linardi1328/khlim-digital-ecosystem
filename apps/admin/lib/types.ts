@@ -2,8 +2,6 @@ export type StaffRole =
   | "SUPER_ADMIN"
   | "MANAGEMENT"
   | "FINANCE_ADMIN"
-  | "FINANCE"
-  | "ADMIN"
   | "ACADEMY_ADMIN"
   | "HEAD_COACH"
   | "COACH"
@@ -50,6 +48,12 @@ export interface AdminAccountListResponse {
   limit: number;
 }
 
+export interface SportItem {
+  id: string;
+  code: string;
+  name: string;
+}
+
 export interface ProgrammeItem {
   id: string;
   code: string;
@@ -57,8 +61,8 @@ export interface ProgrammeItem {
   description: string | null;
   sportCode: string;
   sportName: string;
-  minimumAge: number;
-  maximumAge: number;
+  minimumAge: number | null;
+  maximumAge: number | null;
   level: string;
   active: boolean;
   offeringsCount: number;
@@ -99,7 +103,12 @@ export interface MembershipPlanItem {
 }
 
 export type MembershipStatus =
-  "PENDING" | "ACTIVE" | "SUSPENDED" | "CANCELLED" | "COMPLETED" | "EXPIRED";
+  | "PENDING"
+  | "ACTIVE"
+  | "SUSPENDED"
+  | "CANCELLED"
+  | "COMPLETED"
+  | "EXPIRED";
 
 export type PaymentIndicatorStatus = "PAID" | "PENDING" | "OVERDUE" | "FAILED";
 
@@ -165,7 +174,12 @@ export interface GuardianItem {
 }
 
 export type PaymentStatus =
-  "PENDING" | "PROCESSING" | "PAID" | "FAILED" | "REFUNDED" | "CANCELLED";
+  | "PENDING"
+  | "PROCESSING"
+  | "PAID"
+  | "FAILED"
+  | "REFUNDED"
+  | "CANCELLED";
 
 export interface PaymentItem {
   id: string;
@@ -177,7 +191,7 @@ export interface PaymentItem {
   programmeName: string;
   amountMinor: number;
   currency: string;
-  provider: "STRIPE" | "CURLEC" | "MANUAL";
+  provider: string;
   providerReference: string | null;
   status: PaymentStatus;
   attemptNumber: number;
@@ -211,7 +225,10 @@ export interface VenueItem {
 }
 
 export type SessionStatus =
-  "SCHEDULED" | "COMPLETED" | "CANCELLED" | "RESCHEDULED";
+  | "SCHEDULED"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "RESCHEDULED";
 
 export interface SessionItem {
   id: string;
@@ -233,9 +250,9 @@ export interface StaffUserItem {
   email: string;
   displayName: string;
   roles: StaffRole[];
-  status: "ACTIVE" | "SUSPENDED" | "INVITED";
+  status: "ACTIVE" | "SUSPENDED" | "DEACTIVATED" | "INVITED";
   lastActiveAt: string | null;
-  mfaEnabled: boolean;
+  mfaEnabled: boolean | null;
 }
 
 export interface AuditLogItem {
