@@ -52,6 +52,12 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Print exact final Phase 1B Prettier diff
+        run: |
+          pnpm exec prettier --write apps/api/src/admin/admin-organization-access.service.ts apps/api/src/admin/admin.controller.ts apps/api/src/organization/organization.service.ts tests/admin-reports-moderation.test.mjs tests/integration/organization-access-editorial-isolation.test.mjs tests/organization-phase-1b-final.test.mjs tests/organization-tenancy.test.mjs
+          git diff -- apps/api/src/admin/admin-organization-access.service.ts apps/api/src/admin/admin.controller.ts apps/api/src/organization/organization.service.ts tests/admin-reports-moderation.test.mjs tests/integration/organization-access-editorial-isolation.test.mjs tests/organization-phase-1b-final.test.mjs tests/organization-tenancy.test.mjs
+          git checkout -- apps/api/src/admin/admin-organization-access.service.ts apps/api/src/admin/admin.controller.ts apps/api/src/organization/organization.service.ts tests/admin-reports-moderation.test.mjs tests/integration/organization-access-editorial-isolation.test.mjs tests/organization-phase-1b-final.test.mjs tests/organization-tenancy.test.mjs
+
       - name: Formatting
         run: pnpm format:check
 
