@@ -145,28 +145,29 @@ model UserRoleAssignment {
 }
 
 model Organization {
-  id                 String                   @id @default(uuid()) @db.Uuid
-  slug               String                   @unique @db.VarChar(80)
-  name               String                   @db.VarChar(180)
-  status             String                   @default("ACTIVE") @db.VarChar(24)
-  createdAt          DateTime                 @default(now()) @map("created_at")
-  updatedAt          DateTime                 @updatedAt @map("updated_at")
-  memberships        OrganizationMembership[]
-  setting            OrganizationSetting?
-  branding           OrganizationBranding?
-  sports             OrganizationSport[]
-  venues             Venue[]
-  programmes         Programme[]
-  programmeOfferings ProgrammeOffering[]
-  membershipPlans    MembershipPlan[]
-  academyMemberships Membership[]
-  trainingSessions   TrainingSession[]
-  notifications      Notification[]
-  billingProfiles    BillingProfile[]
-  paymentMethods     PaymentMethod[]
-  payments           Payment[]
+  id                    String                   @id @default(uuid()) @db.Uuid
+  slug                  String                   @unique @db.VarChar(80)
+  name                  String                   @db.VarChar(180)
+  status                String                   @default("ACTIVE") @db.VarChar(24)
+  createdAt             DateTime                 @default(now()) @map("created_at")
+  updatedAt             DateTime                 @updatedAt @map("updated_at")
+  memberships           OrganizationMembership[]
+  setting               OrganizationSetting?
+  branding              OrganizationBranding?
+  sports                OrganizationSport[]
+  venues                Venue[]
+  programmes            Programme[]
+  programmeOfferings    ProgrammeOffering[]
+  membershipPlans       MembershipPlan[]
+  academyMemberships    Membership[]
+  trainingSessions      TrainingSession[]
+  notifications         Notification[]
+  billingProfiles       BillingProfile[]
+  paymentMethods        PaymentMethod[]
+  payments              Payment[]
   paymentProviderEvents PaymentProviderEvent[]
-  auditEvents        AuditEvent[]
+  editorialEntries      EditorialEntry[]
+  auditEvents           AuditEvent[]
 
   @@index([status])
   @@map("organizations")
@@ -551,12 +552,12 @@ model PaymentSchedule {
   installmentCount              Int                   @map("installment_count")
   amountPerInstallmentMinor     Int                   @map("amount_per_installment_minor")
   currency                      String
-  startsAt                      DateTime              @map("starts_at")
+  startsAt                      DateTime               @map("starts_at")
   status                        PaymentScheduleStatus @default(PENDING)
-  providerSubscriptionReference String?               @map("provider_subscription_reference")
-  createdAt                     DateTime              @default(now()) @map("created_at")
-  updatedAt                     DateTime              @updatedAt @map("updated_at")
-  membership                    Membership            @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+  providerSubscriptionReference String?                @map("provider_subscription_reference")
+  createdAt                     DateTime               @default(now()) @map("created_at")
+  updatedAt                     DateTime               @updatedAt @map("updated_at")
+  membership                    Membership             @relation(fields: [membershipId], references: [id], onDelete: Restrict)
   installments                  PaymentInstallment[]
 
   @@index([status])
@@ -645,8 +646,9 @@ enum EditorialEntryStatus {
 
 model EditorialEntry {
   id                String               @id @default(uuid()) @db.Uuid
+  organizationId    String               @map("organization_id") @db.Uuid
   type              EditorialEntryType
-  slug              String?              @unique @db.VarChar(160)
+  slug              String?              @db.VarChar(160)
   title             String               @db.VarChar(220)
   eventName         String               @db.VarChar(220)
   summary           String               @db.Text
@@ -663,8 +665,10 @@ model EditorialEntry {
   publishedAt       DateTime?
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
+  organization      Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
-  @@index([type, status, publishedAt])
+  @@unique([organizationId, slug])
+  @@index([organizationId, type, status, publishedAt])
   @@map("editorial_entries")
 }
 
