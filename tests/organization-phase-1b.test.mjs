@@ -164,10 +164,7 @@ test("Phase 1B gives finance roots direct ownership without weakening provider u
     modelBlock(schema, "Payment"),
     /@@unique\(\[provider, providerPaymentId\]\)/,
   );
-  assert.match(
-    migration,
-    /payments_organization_id_status_attempted_at_idx/,
-  );
+  assert.match(migration, /payments_organization_id_status_attempted_at_idx/);
 });
 
 test("Academy reads and writes are scoped by active organization", async () => {
@@ -229,7 +226,10 @@ test("Billing reads, writes, reconciliation, and provider events are organizatio
   const service = await read("apps/api/src/billing/billing.service.ts");
   const controller = await read("apps/api/src/billing/billing.controller.ts");
 
-  assert.match(service, /where: \{ id: membershipId, athleteId, organizationId \}/);
+  assert.match(
+    service,
+    /where: \{ id: membershipId, athleteId, organizationId \}/,
+  );
   assert.match(service, /organizationId_userId_provider/);
   assert.match(service, /create: \{\n\s+organizationId,\n\s+payerUserId,/);
   assert.match(service, /where: \{ organizationId, idempotencyKey:/);
