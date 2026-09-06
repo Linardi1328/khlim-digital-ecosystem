@@ -48,14 +48,16 @@ test("KPI health dashboard has no horizontal overflow", async ({ page }) => {
   expect(overflow).toBe(false);
 });
 
-test("coach demo role cannot open reporting insights from navigation", async ({
+test("coach work view cannot open reporting insights from navigation", async ({
   page,
   viewport,
 }) => {
   test.skip(!viewport || viewport.width < 1024, "Desktop role preview only");
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Switch active work view" }).click();
-  await page.getByRole("button", { name: "COACH", exact: true }).click();
+  await page
+    .getByRole("menuitemradio", { name: "COACH", exact: true })
+    .click();
 
   await expect(
     page.getByRole("link", { name: "KPI & Health", exact: true }),
