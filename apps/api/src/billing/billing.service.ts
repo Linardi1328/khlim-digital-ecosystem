@@ -437,7 +437,7 @@ export class BillingService {
       ? (headersOrRawBody as WebhookHeaders)
       : (providerOrHeaders as WebhookHeaders);
     const rawBody = hasExplicitOrganization
-      ? maybeRawBody
+      ? (maybeRawBody as Buffer)
       : (headersOrRawBody as Buffer);
 
     const gateway = this.gateways.requireConfigured(provider);
@@ -656,16 +656,19 @@ export class BillingService {
             data: { status: "FAILED" },
           });
         }
-        await transaction.paymentProviderEvent.update({
+        const updatedEvent = await transaction.paymentProviderEvent.updateMany({
           where: {
-            organizationId_provider_providerEventId: {
-              organizationId,
-              provider,
-              providerEventId: event.providerEventId,
-            },
+            organizationId,
+            provider,
+            providerEventId: event.providerEventId,
           },
           data: { processingStatus: "PROCESSED", processedAt: new Date() },
         });
+        if (updatedEvent.count !== 1) {
+          throw new ConflictException(
+            "Provider event belongs to a different organization",
+          );
+        }
       });
       return { processed: true, paymentStatus: "FAILED" };
     }
@@ -732,18 +735,22 @@ export class BillingService {
         });
       }
 
-      await transaction.paymentProviderEvent.update({
+      const updatedEvent = await transaction.paymentProviderEvent.updateMany({
         where: {
-          provider_providerEventId: {
-            provider,
-            providerEventId: event.providerEventId,
-          },
+          organizationId,
+          provider,
+          providerEventId: event.providerEventId,
         },
         data: {
           processingStatus: actionRequired ? "ACTION_REQUIRED" : "PROCESSED",
           processedAt: now,
         },
       });
+      if (updatedEvent.count !== 1) {
+        throw new ConflictException(
+          "Provider event belongs to a different organization",
+        );
+      }
 
       return {
         processed: true,
@@ -754,24 +761,24 @@ export class BillingService {
     });
   }
 
-  private finishProviderEvent(
+  private async finishProviderEvent(
     organizationId: string,
     provider: string,
     providerEventId: string,
     processingStatus: "PROCESSED" | "ACTION_REQUIRED" | "FAILED",
   ) {
-    return this.prisma.client.paymentProviderEvent
-      .update({
-        where: { provider_providerEventId: { provider, providerEventId } },
-        data: { processingStatus, processedAt: new Date() },
-      })
-      .then((event) => {
-        if (event.organizationId !== organizationId) {
-          throw new ConflictException(
-            "Provider event belongs to a different organization",
-          );
-        }
-        return event;
-      });
+    const event = await this.prisma.client.paymentProviderEvent.findFirst({
+      where: { organizationId, provider, providerEventId },
+      select: { id: true },
+    });
+    if (!event) {
+      throw new ConflictException(
+        "Provider event belongs to a different organization",
+      );
+    }
+    return this.prisma.client.paymentProviderEvent.update({
+      where: { id: event.id },
+      data: { processingStatus, processedAt: new Date() },
+    });
   }
 }
