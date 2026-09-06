@@ -196,7 +196,13 @@ test("Real staff authentication restores a distinct Supabase session and remains
   assert.match(shell, /minHeight:\s*46/);
   assert.match(header, /MFA VERIFIED/);
   assert.match(header, /Sign out/);
-  assert.match(header, /isDemoMode && role/);
+  assert.match(header, /availableWorkViews = isDemoMode/);
+  assert.match(header, /user\?\.roles/);
+  assert.match(header, /Changes navigation only/);
+  assert.match(
+    authContext,
+    /!ADMIN_DEMO_MODE && !user\.roles\.includes\(newRole\)/,
+  );
   assert.doesNotMatch(api, /mock-admin-token|khlim_admin_access_token/);
   assert.match(api, /getValidAdminAccessToken/);
 });

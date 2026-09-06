@@ -60,7 +60,7 @@ const QUICK_ACTIONS: QuickAction[] = [
     href: "/payments",
     title: "Payment operations",
     description: "Review payment records requiring staff attention.",
-    roles: ["SUPER_ADMIN", "MANAGEMENT", "FINANCE_ADMIN", "FINANCE"],
+    roles: ["SUPER_ADMIN", "MANAGEMENT", "FINANCE_ADMIN"],
   },
 ];
 
