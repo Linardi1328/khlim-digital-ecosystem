@@ -139,10 +139,7 @@ test(
       );
       assert.deepEqual(foreignActorContext.roles, ["MANAGEMENT"]);
 
-      const khlimDirectory = await access.listUsers(
-        KHLIM_ORGANIZATION_ID,
-        {},
-      );
+      const khlimDirectory = await access.listUsers(KHLIM_ORGANIZATION_ID, {});
       assert.equal(
         khlimDirectory.items.some((item) => item.id === TARGET_USER_ID),
         false,
@@ -201,7 +198,10 @@ test(
         TARGET_USER_ID,
         { roles: ["EVENT_STAFF"] },
       );
-      assert.deepEqual(changedRoles.map((row) => row.role), ["EVENT_STAFF"]);
+      assert.deepEqual(
+        changedRoles.map((row) => row.role),
+        ["EVENT_STAFF"],
+      );
 
       const changedStatus = await access.updateMembershipStatus(
         FOREIGN_ORGANIZATION_ID,
@@ -256,10 +256,7 @@ test(
       );
       assert.equal(
         (
-          await editorial.listPublished(
-            "ACHIEVEMENT",
-            FOREIGN_ORGANIZATION_ID,
-          )
+          await editorial.listPublished("ACHIEVEMENT", FOREIGN_ORGANIZATION_ID)
         ).some((entry) => entry.id === EDITORIAL_ID),
         true,
       );
