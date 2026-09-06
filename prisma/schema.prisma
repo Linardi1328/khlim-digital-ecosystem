@@ -162,6 +162,10 @@ model Organization {
   academyMemberships Membership[]
   trainingSessions   TrainingSession[]
   notifications      Notification[]
+  billingProfiles    BillingProfile[]
+  paymentMethods     PaymentMethod[]
+  payments           Payment[]
+  paymentProviderEvents PaymentProviderEvent[]
   auditEvents        AuditEvent[]
 
   @@index([status])
@@ -501,23 +505,26 @@ model MembershipAgreement {
 
 model BillingProfile {
   id                 String               @id @default(uuid()) @db.Uuid
+  organizationId     String               @map("organization_id") @db.Uuid
   userId             String               @map("user_id") @db.Uuid
   provider           String
   providerCustomerId String               @map("provider_customer_id")
   status             BillingProfileStatus @default(ACTIVE)
   createdAt          DateTime             @default(now()) @map("created_at")
   updatedAt          DateTime             @updatedAt @map("updated_at")
+  organization       Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   user               User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
   paymentMethods     PaymentMethod[]
 
-  @@unique([userId, provider])
+  @@unique([organizationId, userId, provider])
   @@unique([provider, providerCustomerId])
-  @@index([status])
+  @@index([organizationId, status])
   @@map("billing_profiles")
 }
 
 model PaymentMethod {
   id                             String              @id @default(uuid()) @db.Uuid
+  organizationId                 String              @map("organization_id") @db.Uuid
   billingProfileId               String              @map("billing_profile_id") @db.Uuid
   provider                       String
   providerPaymentMethodReference String              @map("provider_payment_method_reference")
@@ -529,10 +536,11 @@ model PaymentMethod {
   status                         PaymentMethodStatus @default(ACTIVE)
   createdAt                      DateTime             @default(now()) @map("created_at")
   updatedAt                      DateTime             @updatedAt @map("updated_at")
+  organization                   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   billingProfile                 BillingProfile      @relation(fields: [billingProfileId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerPaymentMethodReference])
-  @@index([billingProfileId, status])
+  @@index([organizationId, billingProfileId, status])
   @@map("payment_methods")
 }
 
@@ -576,6 +584,7 @@ model PaymentInstallment {
 
 model Payment {
   id                   String              @id @default(uuid()) @db.Uuid
+  organizationId       String              @map("organization_id") @db.Uuid
   payerUserId          String              @map("payer_user_id") @db.Uuid
   membershipId         String?             @map("membership_id") @db.Uuid
   paymentInstallmentId String?             @map("payment_installment_id") @db.Uuid
@@ -593,18 +602,21 @@ model Payment {
   safeFailureReason    String?             @map("safe_failure_reason")
   createdAt            DateTime            @default(now()) @map("created_at")
   updatedAt            DateTime            @updatedAt @map("updated_at")
+  organization         Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   payer                User                @relation("PaymentPayer", fields: [payerUserId], references: [id], onDelete: Restrict)
   membership           Membership?         @relation(fields: [membershipId], references: [id], onDelete: SetNull)
   paymentInstallment   PaymentInstallment? @relation(fields: [paymentInstallmentId], references: [id], onDelete: SetNull)
 
   @@unique([provider, providerPaymentId])
-  @@index([membershipId, status])
-  @@index([paymentInstallmentId, status])
+  @@index([organizationId, membershipId, status])
+  @@index([organizationId, paymentInstallmentId, status])
+  @@index([organizationId, status, attemptedAt])
   @@map("payments")
 }
 
 model PaymentProviderEvent {
   id               String                               @id @default(uuid()) @db.Uuid
+  organizationId   String                               @map("organization_id") @db.Uuid
   provider         String
   providerEventId  String                               @map("provider_event_id")
   eventType        String                               @map("event_type")
@@ -613,9 +625,10 @@ model PaymentProviderEvent {
   processingStatus PaymentProviderEventProcessingStatus @default(RECEIVED) @map("processing_status")
   payloadHash      String                               @map("payload_hash")
   safeMetadata     Json?                                @map("safe_metadata")
+  organization     Organization                         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
 
   @@unique([provider, providerEventId])
-  @@index([processingStatus, receivedAt])
+  @@index([organizationId, processingStatus, receivedAt])
   @@map("payment_provider_events")
 }
 

@@ -14,6 +14,10 @@ const COMPATIBILITY_TENANT_MODELS = new Set([
   "membership",
   "trainingsession",
   "notification",
+  "billingprofile",
+  "paymentmethod",
+  "payment",
+  "paymentproviderevent",
 ]);
 
 function applyCompatibilityOrganization(data: unknown): void {

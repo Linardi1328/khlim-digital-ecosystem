@@ -465,8 +465,7 @@ export class BillingService {
       const existing = await this.prisma.client.paymentProviderEvent.findUnique(
         {
           where: {
-            organizationId_provider_providerEventId: {
-              organizationId,
+            provider_providerEventId: {
               provider: gateway.provider,
               providerEventId: event.providerEventId,
             },
@@ -476,6 +475,12 @@ export class BillingService {
 
       if (!existing) {
         throw error;
+      }
+
+      if (existing.organizationId !== organizationId) {
+        throw new ConflictException(
+          "Provider event already belongs to a different organization",
+        );
       }
 
       if (
@@ -729,8 +734,7 @@ export class BillingService {
 
       await transaction.paymentProviderEvent.update({
         where: {
-          organizationId_provider_providerEventId: {
-            organizationId,
+          provider_providerEventId: {
             provider,
             providerEventId: event.providerEventId,
           },
@@ -756,15 +760,18 @@ export class BillingService {
     providerEventId: string,
     processingStatus: "PROCESSED" | "ACTION_REQUIRED" | "FAILED",
   ) {
-    return this.prisma.client.paymentProviderEvent.update({
-      where: {
-        organizationId_provider_providerEventId: {
-          organizationId,
-          provider,
-          providerEventId,
-        },
-      },
-      data: { processingStatus, processedAt: new Date() },
-    });
+    return this.prisma.client.paymentProviderEvent
+      .update({
+        where: { provider_providerEventId: { provider, providerEventId } },
+        data: { processingStatus, processedAt: new Date() },
+      })
+      .then((event) => {
+        if (event.organizationId !== organizationId) {
+          throw new ConflictException(
+            "Provider event belongs to a different organization",
+          );
+        }
+        return event;
+      });
   }
 }
