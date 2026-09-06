@@ -168,7 +168,9 @@ export default function AccountsAccessPage() {
           </section>
         ) : isDemoMode ? (
           <section className="panel">
-            <h2>Real organization access administration is disabled in demo mode</h2>
+            <h2>
+              Real organization access administration is disabled in demo mode
+            </h2>
             <p>
               Demo mode previews role-aware navigation only. It never reads or
               modifies persisted organization memberships.
@@ -306,8 +308,8 @@ export default function AccountsAccessPage() {
                       <legend>Organization staff roles</legend>
                       <p className="help">
                         Choose only the work roles this person needs in the
-                        active organization. Super Admin assignment is restricted
-                        to existing Super Admins.
+                        active organization. Super Admin assignment is
+                        restricted to existing Super Admins.
                       </p>
                       <div className="role-grid">
                         {STAFF_ROLE_OPTIONS.map((role) => (
@@ -334,8 +336,9 @@ export default function AccountsAccessPage() {
                     <div className="identity-note">
                       <strong>Global identity remains unchanged</strong>
                       <div>
-                        This control does not modify guardian/athlete relationships
-                        or suspend the person&apos;s platform account.
+                        This control does not modify guardian/athlete
+                        relationships or suspend the person&apos;s platform
+                        account.
                       </div>
                     </div>
 
