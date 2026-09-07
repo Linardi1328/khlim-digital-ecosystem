@@ -15,17 +15,20 @@ import { Tabs } from "../../components/ui/Tabs";
 import { FormSection } from "../../components/ui/FormSection";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
-import { adminApi } from "../../lib/admin-api";
+import { adminApi, listAdminSports } from "../../lib/admin-api";
+import { ADMIN_DEMO_MODE } from "../../lib/demo-mode";
 import type {
   ProgrammeItem,
   OfferingItem,
   MembershipPlanItem,
+  SportItem,
 } from "../../lib/types";
 
 export default function ProgrammesPage() {
   const [programmes, setProgrammes] = useState<ProgrammeItem[]>([]);
   const [offerings, setOfferings] = useState<OfferingItem[]>([]);
   const [plans, setPlans] = useState<MembershipPlanItem[]>([]);
+  const [sports, setSports] = useState<SportItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Search & Filter
@@ -41,6 +44,7 @@ export default function ProgrammesPage() {
 
   // Create Modal
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [newSportId, setNewSportId] = useState("");
   const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
@@ -49,18 +53,22 @@ export default function ProgrammesPage() {
   const [newLevel, setNewLevel] = useState("Grassroots Development");
   const [isSaving, setIsSaving] = useState(false);
   const [createSuccess, setCreateSuccess] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
       try {
-        const [prgList, offList, planList] = await Promise.all([
+        const [prgList, offList, planList, sportList] = await Promise.all([
           adminApi.listProgrammes(),
           adminApi.listOfferings(),
           adminApi.listMembershipPlans(),
+          listAdminSports(),
         ]);
         setProgrammes(prgList);
         setOfferings(offList);
         setPlans(planList);
+        setSports(sportList);
+        if (sportList[0]) setNewSportId(sportList[0].id);
       } catch (err) {
         console.warn("Failed to load programmes:", err);
       } finally {
@@ -84,16 +92,39 @@ export default function ProgrammesPage() {
 
   const handleCreateProgramme = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newName.trim() || !newCode.trim()) return;
+    setCreateError(null);
+    setCreateSuccess(false);
+
+    if (!newSportId) {
+      setCreateError("Select an active organization sport before saving.");
+      return;
+    }
+    if (!newName.trim() || !newCode.trim()) {
+      setCreateError("Programme code and name are required.");
+      return;
+    }
+
+    const minimumAge = Number(newMinAge);
+    const maximumAge = Number(newMaxAge);
+    if (
+      !Number.isInteger(minimumAge) ||
+      !Number.isInteger(maximumAge) ||
+      minimumAge < 0 ||
+      maximumAge < minimumAge
+    ) {
+      setCreateError("Enter a valid age range before saving.");
+      return;
+    }
 
     setIsSaving(true);
     try {
       await adminApi.createProgramme({
+        sportId: newSportId,
         code: newCode.trim(),
         name: newName.trim(),
         description: newDescription.trim() || undefined,
-        minimumAge: Number(newMinAge),
-        maximumAge: Number(newMaxAge),
+        minimumAge,
+        maximumAge,
         level: newLevel,
       });
 
@@ -106,25 +137,11 @@ export default function ProgrammesPage() {
       setCreateSuccess(true);
       setTimeout(() => setCreateSuccess(false), 3000);
     } catch (err) {
-      console.warn("Create programme fallback:", err);
-      // Local optimistic update
-      const createdItem: ProgrammeItem = {
-        id: `prg-${Date.now()}`,
-        code: newCode.trim(),
-        name: newName.trim(),
-        description: newDescription.trim() || null,
-        sportCode: "BASKETBALL",
-        sportName: "Basketball",
-        minimumAge: Number(newMinAge),
-        maximumAge: Number(newMaxAge),
-        level: newLevel,
-        active: true,
-        offeringsCount: 0,
-      };
-      setProgrammes([createdItem, ...programmes]);
-      setIsCreateOpen(false);
-      setCreateSuccess(true);
-      setTimeout(() => setCreateSuccess(false), 3000);
+      setCreateError(
+        err instanceof Error && err.message.trim()
+          ? err.message
+          : "Programme was not saved. No local fallback record was created.",
+      );
     } finally {
       setIsSaving(false);
     }
@@ -245,15 +262,39 @@ export default function ProgrammesPage() {
             <Button
               variant="primary"
               size="md"
-              onClick={() => setIsCreateOpen(true)}
+              onClick={() => {
+                setCreateError(null);
+                setIsCreateOpen(true);
+              }}
+              disabled={sports.length === 0}
             >
               + Create Programme
             </Button>
           }
         />
 
+        {!loading && sports.length === 0 && (
+          <div
+            role="alert"
+            style={{
+              padding: "12px 16px",
+              backgroundColor: "#FFFBEB",
+              color: "#92400E",
+              border: "1px solid #FDE68A",
+              borderRadius: "8px",
+              marginBottom: "16px",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+            }}
+          >
+            Programme creation is disabled because this organization has no
+            active sport configured.
+          </div>
+        )}
+
         {createSuccess && (
           <div
+            role="status"
             style={{
               padding: "12px 16px",
               backgroundColor: "#ECFDF5",
@@ -265,7 +306,9 @@ export default function ProgrammesPage() {
               fontWeight: 600,
             }}
           >
-            ✓ Programme successfully created on KHLIM backend.
+            {ADMIN_DEMO_MODE
+              ? "Demo write simulated. Changes are not persisted."
+              : "✓ Programme persisted successfully and reloaded from the backend."}
           </div>
         )}
 
@@ -652,7 +695,12 @@ export default function ProgrammesPage() {
         {/* Create Programme Modal Drawer */}
         <Drawer
           isOpen={isCreateOpen}
-          onClose={() => setIsCreateOpen(false)}
+          onClose={() => {
+            if (!isSaving) {
+              setCreateError(null);
+              setIsCreateOpen(false);
+            }
+          }}
           title="Create Academy Programme"
           subtitle="Add a new sport curriculum definition to the KHLIM catalogue."
           width="540px"
@@ -662,6 +710,18 @@ export default function ProgrammesPage() {
               title="Programme Specifications"
               description="Define core age eligibility, code, and developmental level."
             >
+              <Select
+                label="Sport"
+                required
+                value={newSportId}
+                onChange={(e) => setNewSportId(e.target.value)}
+                options={sports.map((sport) => ({
+                  label: `${sport.name} (${sport.code})`,
+                  value: sport.id,
+                }))}
+                helperText="Only active sports for the current organization are available."
+              />
+
               <Input
                 label="Programme Code"
                 required
@@ -689,6 +749,7 @@ export default function ProgrammesPage() {
                 <Input
                   label="Minimum Age"
                   type="number"
+                  min={0}
                   required
                   value={newMinAge}
                   onChange={(e) => setNewMinAge(e.target.value)}
@@ -696,6 +757,7 @@ export default function ProgrammesPage() {
                 <Input
                   label="Maximum Age"
                   type="number"
+                  min={0}
                   required
                   value={newMaxAge}
                   onChange={(e) => setNewMaxAge(e.target.value)}
@@ -746,6 +808,24 @@ export default function ProgrammesPage() {
               </div>
             </FormSection>
 
+            {createError && (
+              <div
+                role="alert"
+                style={{
+                  padding: "12px 14px",
+                  marginTop: "16px",
+                  backgroundColor: "#FEF2F2",
+                  color: "#991B1B",
+                  border: "1px solid #FCA5A5",
+                  borderRadius: "8px",
+                  fontSize: "0.8125rem",
+                  lineHeight: 1.5,
+                }}
+              >
+                <strong>Programme not saved.</strong> {createError}
+              </div>
+            )}
+
             <div
               style={{
                 display: "flex",
@@ -758,7 +838,11 @@ export default function ProgrammesPage() {
                 variant="outline"
                 size="md"
                 type="button"
-                onClick={() => setIsCreateOpen(false)}
+                disabled={isSaving}
+                onClick={() => {
+                  setCreateError(null);
+                  setIsCreateOpen(false);
+                }}
               >
                 Cancel
               </Button>
@@ -767,6 +851,7 @@ export default function ProgrammesPage() {
                 size="md"
                 type="submit"
                 isLoading={isSaving}
+                disabled={sports.length === 0}
               >
                 Save Programme to Backend
               </Button>
