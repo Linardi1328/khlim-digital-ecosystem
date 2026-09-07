@@ -32,7 +32,10 @@ test("Phase 2 programme creation uses organization-scoped persisted backend stat
   assert.match(api, /Select an active organization sport/);
 
   assert.match(controller, /@Controller\("admin\/academy"\)/);
-  assert.match(controller, /@Roles\("SUPER_ADMIN",\s*"MANAGEMENT",\s*"ACADEMY_ADMIN"\)/);
+  assert.match(
+    controller,
+    /@Roles\("SUPER_ADMIN",\s*"MANAGEMENT",\s*"ACADEMY_ADMIN"\)/,
+  );
   assert.match(controller, /@RequireMfa\(\)/);
   assert.match(controller, /requireAuthenticatedOrganization\(user\)/);
 });
@@ -41,7 +44,10 @@ test("Phase 2 preserves explicit demo isolation instead of silently treating dem
   const api = await read("apps/admin/lib/admin-api.ts");
   const demoMode = await read("apps/admin/lib/demo-mode.ts");
 
-  assert.match(api, /ADMIN_DEMO_MODE \? demoAdminApi : realAdminApi/);
+  assert.match(
+    api,
+    /ADMIN_DEMO_MODE\s*\?\s*demoAdminApi\s*:\s*realAdminApi/,
+  );
   assert.match(api, /persisted:\s*false/);
   assert.match(api, /DEMO_WRITE_METHODS/);
   assert.match(demoMode, /Changes are not persisted/);
