@@ -78,7 +78,8 @@ function installJwtDouble(jwt) {
 async function jsonRequest(baseUrl, path, options = {}) {
   const headers = new Headers();
   if (options.token) headers.set("authorization", `Bearer ${options.token}`);
-  if (options.body !== undefined) headers.set("content-type", "application/json");
+  if (options.body !== undefined)
+    headers.set("content-type", "application/json");
 
   const response = await fetch(`${baseUrl}${path}`, {
     method: options.method ?? "GET",
@@ -109,7 +110,9 @@ async function cleanup(client) {
     where: { sport: { code: SPORT_CODE } },
   });
   await client.sport.deleteMany({ where: { code: SPORT_CODE } });
-  await client.organizationMembership.deleteMany({ where: { userId: USER_ID } });
+  await client.organizationMembership.deleteMany({
+    where: { userId: USER_ID },
+  });
   await client.userRoleAssignment.deleteMany({ where: { userId: USER_ID } });
   await client.user.deleteMany({ where: { id: USER_ID } });
   await client.$executeRaw`

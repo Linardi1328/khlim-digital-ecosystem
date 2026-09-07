@@ -248,7 +248,8 @@ export default function MembershipPlansPage() {
           </strong>
           {plan.upfrontAmountMinor !== plan.recurringAmountMinor && (
             <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
-              Upfront: {plan.currency} {(plan.upfrontAmountMinor / 100).toFixed(2)}
+              Upfront: {plan.currency}{" "}
+              {(plan.upfrontAmountMinor / 100).toFixed(2)}
             </div>
           )}
         </div>
@@ -258,7 +259,9 @@ export default function MembershipPlansPage() {
       key: "sessionAllowance",
       header: "Allowance",
       render: (plan) =>
-        plan.sessionAllowance ? `${plan.sessionAllowance} Sessions` : "Unlimited",
+        plan.sessionAllowance
+          ? `${plan.sessionAllowance} Sessions`
+          : "Unlimited",
     },
     {
       key: "status",
@@ -418,7 +421,8 @@ export default function MembershipPlansPage() {
               </div>
               <div>
                 <strong>Benefits:</strong>{" "}
-                {selectedPlan.benefitsSummary || "No benefits summary provided."}
+                {selectedPlan.benefitsSummary ||
+                  "No benefits summary provided."}
               </div>
               <Button
                 variant="outline"
@@ -473,7 +477,9 @@ export default function MembershipPlansPage() {
                 min={1}
                 required
                 value={formCommitmentCycles}
-                onChange={(event) => setFormCommitmentCycles(event.target.value)}
+                onChange={(event) =>
+                  setFormCommitmentCycles(event.target.value)
+                }
               />
               <Select
                 label="Billing Frequency"
@@ -508,7 +514,9 @@ export default function MembershipPlansPage() {
                 type="number"
                 min={1}
                 value={formSessionAllowance}
-                onChange={(event) => setFormSessionAllowance(event.target.value)}
+                onChange={(event) =>
+                  setFormSessionAllowance(event.target.value)
+                }
               />
               <Input
                 label="Benefits Summary"

@@ -234,8 +234,8 @@ export default function OfferingsPage() {
       header: "Capacity",
       render: (offering) => (
         <span>
-          {offering.enrolledCount} / {offering.capacity} ({offering.availablePlaces}{" "}
-          left)
+          {offering.enrolledCount} / {offering.capacity} (
+          {offering.availablePlaces} left)
         </span>
       ),
     },
@@ -413,7 +413,9 @@ export default function OfferingsPage() {
                 : `Confirm ${stateChangeOffering.targetStatus}`
             }
             variant={
-              stateChangeOffering.targetStatus === "OPEN" ? "primary" : "warning"
+              stateChangeOffering.targetStatus === "OPEN"
+                ? "primary"
+                : "warning"
             }
           />
         )}
@@ -432,11 +434,12 @@ export default function OfferingsPage() {
           {selectedOffering && (
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div>
-                <strong>Venue:</strong> {selectedOffering.venueName || "Unassigned"}
+                <strong>Venue:</strong>{" "}
+                {selectedOffering.venueName || "Unassigned"}
               </div>
               <div>
-                <strong>Dates:</strong> {selectedOffering.startsOn || "Not set"} →{" "}
-                {selectedOffering.endsOn || "Ongoing"}
+                <strong>Dates:</strong> {selectedOffering.startsOn || "Not set"}{" "}
+                → {selectedOffering.endsOn || "Ongoing"}
               </div>
               <div>
                 <strong>Capacity:</strong> {selectedOffering.enrolledCount} /{" "}

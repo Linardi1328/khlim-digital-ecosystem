@@ -327,7 +327,9 @@ export default function VenuesPage() {
               />
 
               {detailTab === "overview" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: 16 }}
+                >
                   <div>
                     <strong>Physical address:</strong>{" "}
                     {selectedVenue.address || "Not provided"}
@@ -378,7 +380,9 @@ export default function VenuesPage() {
                             }}
                           >
                             <strong>{court.name}</strong>
-                            <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+                            <div
+                              style={{ fontSize: "0.75rem", color: "#64748B" }}
+                            >
                               Capacity: {court.capacity}
                             </div>
                           </div>
@@ -406,7 +410,9 @@ export default function VenuesPage() {
                           min={1}
                           required
                           value={courtCapacity}
-                          onChange={(event) => setCourtCapacity(event.target.value)}
+                          onChange={(event) =>
+                            setCourtCapacity(event.target.value)
+                          }
                         />
                       </FormSection>
                       {courtError && (
@@ -449,7 +455,9 @@ export default function VenuesPage() {
               )}
 
               {detailTab === "closures" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: 10 }}
+                >
                   {selectedVenue.closurePeriods.length === 0 ? (
                     <div style={{ color: "#64748B" }}>
                       No active closure periods for this facility.

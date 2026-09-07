@@ -46,7 +46,10 @@ test("offering creation and lifecycle use persisted backend state", async () => 
   assert.doesNotMatch(page, /off-\$\{Date\.now\(\)\}/);
   assert.doesNotMatch(page, /Create offering fallback/);
 
-  assert.match(client, /offerings\/\$\{encodeURIComponent\(offeringId\)\}\/status/);
+  assert.match(
+    client,
+    /offerings\/\$\{encodeURIComponent\(offeringId\)\}\/status/,
+  );
   assert.match(controller, /@Patch\("offerings\/:offeringId\/status"\)/);
   assert.match(controller, /organizationId:\s*orgId/);
   assert.match(controller, /programmeOffering\.update/);
