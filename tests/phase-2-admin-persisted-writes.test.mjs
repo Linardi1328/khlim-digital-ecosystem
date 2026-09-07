@@ -20,10 +20,7 @@ test(
     assert.match(page, /listAdminSports\(\)/);
     assert.match(page, /sportId:\s*newSportId/);
     assert.match(page, /await adminApi\.createProgramme/);
-    assert.match(
-      page,
-      /const updated = await adminApi\.listProgrammes\(\)/,
-    );
+    assert.match(page, /const updated = await adminApi\.listProgrammes\(\)/);
     assert.match(page, /Programme not saved\./);
     assert.match(page, /No local fallback record was created/);
 
