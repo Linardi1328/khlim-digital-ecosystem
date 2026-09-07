@@ -269,19 +269,21 @@ export default function OfferingsPage() {
           >
             View
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={(event) => {
-              event.stopPropagation();
-              setStateChangeOffering({
-                offering,
-                targetStatus: offering.status === "OPEN" ? "CLOSED" : "OPEN",
-              });
-            }}
-          >
-            {offering.status === "OPEN" ? "Close" : "Open"}
-          </Button>
+          {offering.status !== "INACTIVE" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(event) => {
+                event.stopPropagation();
+                setStateChangeOffering({
+                  offering,
+                  targetStatus: offering.status === "OPEN" ? "CLOSED" : "OPEN",
+                });
+              }}
+            >
+              {offering.status === "OPEN" ? "Close" : "Open"}
+            </Button>
+          )}
         </div>
       ),
     },

@@ -41,6 +41,7 @@ test("offering creation and lifecycle use persisted backend state", async () => 
   assert.match(page, /await adminApi\.createOffering/);
   assert.match(page, /await refreshOfferings\(\)/);
   assert.match(page, /await updateOfferingStatus/);
+  assert.match(page, /offering\.status !== "INACTIVE"/);
   assert.match(page, /Offering not saved\./);
   assert.match(page, /No local fallback record was created/);
   assert.doesNotMatch(page, /off-\$\{Date\.now\(\)\}/);
