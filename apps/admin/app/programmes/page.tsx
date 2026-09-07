@@ -16,6 +16,7 @@ import { FormSection } from "../../components/ui/FormSection";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
 import { adminApi, listAdminSports } from "../../lib/admin-api";
+import { ADMIN_DEMO_MODE } from "../../lib/demo-mode";
 import type {
   ProgrammeItem,
   OfferingItem,
@@ -305,7 +306,9 @@ export default function ProgrammesPage() {
               fontWeight: 600,
             }}
           >
-            ✓ Programme persisted successfully and reloaded from the backend.
+            {ADMIN_DEMO_MODE
+              ? "Demo write simulated. Changes are not persisted."
+              : "✓ Programme persisted successfully and reloaded from the backend."}
           </div>
         )}
 
