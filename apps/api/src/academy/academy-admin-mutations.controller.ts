@@ -7,7 +7,7 @@ import {
   Param,
   Patch,
 } from "@nestjs/common";
-import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { ApiExcludeController } from "@nestjs/swagger";
 import type { AuthenticatedUserContext } from "../auth/authenticated-user";
 import { RequireAnyRole, RequireMfa } from "../auth/authorization.decorators";
 import { CurrentUser } from "../auth/current-user.decorator";
@@ -26,8 +26,7 @@ function organizationId(user: AuthenticatedUserContext): string {
   return user.organization.id;
 }
 
-@ApiTags("admin-academy")
-@ApiBearerAuth("supabase")
+@ApiExcludeController()
 @RequireAnyRole("SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN")
 @RequireMfa()
 @Controller("admin/academy")
