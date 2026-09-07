@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AdminShell } from "../../components/layout/AdminShell";
 import { PageHeader } from "../../components/ui/PageHeader";
@@ -11,36 +11,39 @@ import { FilterBar } from "../../components/ui/FilterBar";
 import { Pagination } from "../../components/ui/Pagination";
 import { Button } from "../../components/ui/Button";
 import { Drawer } from "../../components/ui/Drawer";
-import { Tabs } from "../../components/ui/Tabs";
 import { FormSection } from "../../components/ui/FormSection";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
-import { adminApi } from "../../lib/admin-api";
+import { adminApi, listAdminSports } from "../../lib/admin-api";
 import type {
-  ProgrammeItem,
   OfferingItem,
-  MembershipPlanItem,
+  ProgrammeItem,
+  SportItem,
 } from "../../lib/types";
+
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message.trim()
+    ? error.message
+    : fallback;
+}
 
 export default function ProgrammesPage() {
   const [programmes, setProgrammes] = useState<ProgrammeItem[]>([]);
   const [offerings, setOfferings] = useState<OfferingItem[]>([]);
-  const [plans, setPlans] = useState<MembershipPlanItem[]>([]);
+  const [sports, setSports] = useState<SportItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Search & Filter
   const [search, setSearch] = useState("");
   const [levelFilter, setLevelFilter] = useState("ALL");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  // Drawer / Selection
   const [selectedProgramme, setSelectedProgramme] =
     useState<ProgrammeItem | null>(null);
-  const [detailTab, setDetailTab] = useState("overview");
 
-  // Create Modal
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [newSportId, setNewSportId] = useState("");
   const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
@@ -48,83 +51,121 @@ export default function ProgrammesPage() {
   const [newMaxAge, setNewMaxAge] = useState("9");
   const [newLevel, setNewLevel] = useState("Grassroots Development");
   const [isSaving, setIsSaving] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [createSuccess, setCreateSuccess] = useState(false);
+
+  async function refreshProgrammes() {
+    const list = await adminApi.listProgrammes();
+    setProgrammes(list);
+  }
 
   useEffect(() => {
     async function load() {
+      setLoading(true);
+      setLoadError(null);
       try {
-        const [prgList, offList, planList] = await Promise.all([
+        const [programmeList, offeringList, sportList] = await Promise.all([
           adminApi.listProgrammes(),
           adminApi.listOfferings(),
-          adminApi.listMembershipPlans(),
+          listAdminSports(),
         ]);
-        setProgrammes(prgList);
-        setOfferings(offList);
-        setPlans(planList);
-      } catch (err) {
-        console.warn("Failed to load programmes:", err);
+        setProgrammes(programmeList);
+        setOfferings(offeringList);
+        setSports(sportList);
+        setNewSportId((current) => current || sportList[0]?.id || "");
+      } catch (error) {
+        setLoadError(
+          errorMessage(
+            error,
+            "Programme configuration could not be loaded from the backend.",
+          ),
+        );
       } finally {
         setLoading(false);
       }
     }
-    load();
+
+    void load();
   }, []);
 
-  const filtered = programmes.filter((prg) => {
-    const matchesSearch =
-      prg.name.toLowerCase().includes(search.toLowerCase()) ||
-      prg.code.toLowerCase().includes(search.toLowerCase()) ||
-      prg.level.toLowerCase().includes(search.toLowerCase());
-    const matchesLevel = levelFilter === "ALL" || prg.level === levelFilter;
-    return matchesSearch && matchesLevel;
-  });
+  const levels = useMemo(
+    () => Array.from(new Set(programmes.map((programme) => programme.level))),
+    [programmes],
+  );
+
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return programmes.filter((programme) => {
+      const matchesSearch =
+        query === "" ||
+        programme.name.toLowerCase().includes(query) ||
+        programme.code.toLowerCase().includes(query) ||
+        programme.level.toLowerCase().includes(query);
+      const matchesLevel =
+        levelFilter === "ALL" || programme.level === levelFilter;
+      return matchesSearch && matchesLevel;
+    });
+  }, [levelFilter, programmes, search]);
 
   const totalPages = Math.ceil(filtered.length / pageSize);
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-  const handleCreateProgramme = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newName.trim() || !newCode.trim()) return;
+  const selectedOfferings = offerings.filter(
+    (offering) => offering.programmeId === selectedProgramme?.id,
+  );
+
+  const handleCreateProgramme = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setCreateError(null);
+    setCreateSuccess(false);
+
+    if (!newSportId) {
+      setCreateError("Select an active organization sport before saving.");
+      return;
+    }
+
+    if (!newName.trim() || !newCode.trim()) {
+      setCreateError("Programme code and name are required.");
+      return;
+    }
+
+    const minimumAge = Number(newMinAge);
+    const maximumAge = Number(newMaxAge);
+    if (
+      !Number.isInteger(minimumAge) ||
+      !Number.isInteger(maximumAge) ||
+      minimumAge < 0 ||
+      maximumAge < minimumAge
+    ) {
+      setCreateError("Enter a valid age range before saving.");
+      return;
+    }
 
     setIsSaving(true);
     try {
       await adminApi.createProgramme({
+        sportId: newSportId,
         code: newCode.trim(),
         name: newName.trim(),
         description: newDescription.trim() || undefined,
-        minimumAge: Number(newMinAge),
-        maximumAge: Number(newMaxAge),
-        level: newLevel,
+        minimumAge,
+        maximumAge,
+        level: newLevel.trim() || undefined,
       });
 
-      const updated = await adminApi.listProgrammes();
-      setProgrammes(updated);
+      await refreshProgrammes();
       setIsCreateOpen(false);
-      setNewName("");
       setNewCode("");
+      setNewName("");
       setNewDescription("");
       setCreateSuccess(true);
-      setTimeout(() => setCreateSuccess(false), 3000);
-    } catch (err) {
-      console.warn("Create programme fallback:", err);
-      // Local optimistic update
-      const createdItem: ProgrammeItem = {
-        id: `prg-${Date.now()}`,
-        code: newCode.trim(),
-        name: newName.trim(),
-        description: newDescription.trim() || null,
-        sportCode: "BASKETBALL",
-        sportName: "Basketball",
-        minimumAge: Number(newMinAge),
-        maximumAge: Number(newMaxAge),
-        level: newLevel,
-        active: true,
-        offeringsCount: 0,
-      };
-      setProgrammes([createdItem, ...programmes]);
-      setIsCreateOpen(false);
-      setCreateSuccess(true);
-      setTimeout(() => setCreateSuccess(false), 3000);
+    } catch (error) {
+      setCreateError(
+        errorMessage(
+          error,
+          "Programme was not saved. No local fallback record was created.",
+        ),
+      );
     } finally {
       setIsSaving(false);
     }
@@ -134,11 +175,13 @@ export default function ProgrammesPage() {
     {
       key: "name",
       header: "Programme",
-      render: (prg) => (
+      render: (programme) => (
         <div>
-          <div style={{ fontWeight: 700, color: "#0F172A" }}>{prg.name}</div>
+          <div style={{ fontWeight: 700, color: "#0F172A" }}>
+            {programme.name}
+          </div>
           <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
-            Code: {prg.code}
+            Code: {programme.code}
           </div>
         </div>
       ),
@@ -146,75 +189,62 @@ export default function ProgrammesPage() {
     {
       key: "sportName",
       header: "Sport",
-      render: (prg) => <span>🏀 {prg.sportName}</span>,
+      render: (programme) => <span>{programme.sportName}</span>,
     },
     {
       key: "level",
       header: "Level",
-      render: (prg) => (
-        <span
-          style={{
-            fontSize: "0.75rem",
-            fontWeight: 600,
-            color: "#B45309",
-            backgroundColor: "#FEF3C7",
-            padding: "2px 8px",
-            borderRadius: "4px",
-          }}
-        >
-          {prg.level}
-        </span>
-      ),
+      render: (programme) => <span>{programme.level}</span>,
     },
     {
       key: "ageRange",
       header: "Age Range",
-      render: (prg) => (
+      render: (programme) => (
         <span style={{ fontWeight: 600 }}>
-          {prg.minimumAge} – {prg.maximumAge} yrs
+          {programme.minimumAge ?? "—"} – {programme.maximumAge ?? "—"} yrs
         </span>
       ),
     },
     {
       key: "offeringsCount",
       header: "Offerings",
-      render: (prg) => (
-        <span style={{ fontWeight: 700, color: "#0F172A" }}>
-          {prg.offeringsCount} Active
-        </span>
+      render: (programme) => (
+        <span style={{ fontWeight: 700 }}>{programme.offeringsCount}</span>
       ),
     },
     {
       key: "status",
       header: "Status",
-      render: (prg) => (
-        <StatusBadge status={prg.active ? "ACTIVE" : "INACTIVE"} size="sm" />
+      render: (programme) => (
+        <StatusBadge
+          status={programme.active ? "ACTIVE" : "INACTIVE"}
+          size="sm"
+        />
       ),
     },
     {
       key: "actions",
       header: "Actions",
       align: "right",
-      render: (prg) => (
+      render: (programme) => (
         <div
           style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}
         >
           <Button
             variant="outline"
             size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              setSelectedProgramme(prg);
-              setDetailTab("overview");
+            onClick={(event) => {
+              event.stopPropagation();
+              setSelectedProgramme(programme);
             }}
           >
             View
           </Button>
-          <Link href={`/offerings?programmeId=${prg.id}`}>
+          <Link href={`/offerings?programmeId=${programme.id}`}>
             <Button
               variant="primary"
               size="sm"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
             >
               + Offering
             </Button>
@@ -224,19 +254,12 @@ export default function ProgrammesPage() {
     },
   ];
 
-  const levels = Array.from(new Set(programmes.map((p) => p.level)));
-  const programmeOfferings = offerings.filter(
-    (o) =>
-      o.programmeId === selectedProgramme?.id ||
-      o.programmeName === selectedProgramme?.name,
-  );
-
   return (
     <AdminShell>
       <div>
         <PageHeader
           title="Academy Programmes"
-          subtitle="Define foundational sport curricula, age eligibility brackets, and training progressions."
+          subtitle="Configure organization-owned curricula using persisted backend state."
           breadcrumbs={[
             { label: "Operations", href: "/" },
             { label: "Programmes" },
@@ -245,520 +268,298 @@ export default function ProgrammesPage() {
             <Button
               variant="primary"
               size="md"
-              onClick={() => setIsCreateOpen(true)}
+              onClick={() => {
+                setCreateError(null);
+                setIsCreateOpen(true);
+              }}
+              disabled={sports.length === 0}
             >
               + Create Programme
             </Button>
           }
         />
 
-        {createSuccess && (
+        {loadError && (
           <div
+            role="alert"
             style={{
               padding: "12px 16px",
-              backgroundColor: "#ECFDF5",
-              color: "#065F46",
-              border: "1px solid #A7F3D0",
-              borderRadius: "8px",
               marginBottom: "16px",
+              border: "1px solid #FCA5A5",
+              borderRadius: "8px",
+              backgroundColor: "#FEF2F2",
+              color: "#991B1B",
               fontSize: "0.875rem",
               fontWeight: 600,
             }}
           >
-            ✓ Programme successfully created on KHLIM backend.
+            {loadError}
           </div>
         )}
 
-        {/* Filter and Search Controls */}
+        {!loading && !loadError && sports.length === 0 && (
+          <div
+            role="alert"
+            style={{
+              padding: "12px 16px",
+              marginBottom: "16px",
+              border: "1px solid #FDE68A",
+              borderRadius: "8px",
+              backgroundColor: "#FFFBEB",
+              color: "#92400E",
+              fontSize: "0.875rem",
+            }}
+          >
+            No active organization sport is available. Programme creation is
+            disabled until an organization sport is activated.
+          </div>
+        )}
+
+        {createSuccess && (
+          <div
+            role="status"
+            style={{
+              padding: "12px 16px",
+              marginBottom: "16px",
+              border: "1px solid #A7F3D0",
+              borderRadius: "8px",
+              backgroundColor: "#ECFDF5",
+              color: "#065F46",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+            }}
+          >
+            Programme persisted successfully and reloaded from the backend.
+          </div>
+        )}
+
         <FilterBar
           hasActiveFilters={search !== "" || levelFilter !== "ALL"}
           onReset={() => {
             setSearch("");
             setLevelFilter("ALL");
+            setPage(1);
           }}
         >
           <SearchInput
             value={search}
-            onChange={setSearch}
+            onChange={(value) => {
+              setSearch(value);
+              setPage(1);
+            }}
             placeholder="Search programmes by name, code..."
           />
-
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <label
-              htmlFor="level-select"
-              style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}
-            >
-              Level:
-            </label>
-            <select
-              id="level-select"
-              value={levelFilter}
-              onChange={(e) => setLevelFilter(e.target.value)}
-              style={{
-                padding: "6px 10px",
-                fontSize: "0.8125rem",
-                backgroundColor: "#F8FAFC",
-                border: "1px solid #CBD5E1",
-                borderRadius: "6px",
-                color: "#0F172A",
-              }}
-            >
-              <option value="ALL">All Levels</option>
-              {levels.map((lvl) => (
-                <option key={lvl} value={lvl}>
-                  {lvl}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Select
+            aria-label="Filter by level"
+            value={levelFilter}
+            onChange={(event) => {
+              setLevelFilter(event.target.value);
+              setPage(1);
+            }}
+            options={[
+              { label: "All levels", value: "ALL" },
+              ...levels.map((level) => ({ label: level, value: level })),
+            ]}
+          />
         </FilterBar>
 
-        {/* Data Table */}
         <DataTable
           columns={columns}
           data={paginated}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(programme) => programme.id}
           isLoading={loading}
-          onRowClick={(item) => {
-            setSelectedProgramme(item);
-            setDetailTab("overview");
-          }}
+          onRowClick={(programme) => setSelectedProgramme(programme)}
         />
 
-        {/* Pagination */}
         <Pagination
           currentPage={page}
           totalPages={totalPages}
           totalItems={filtered.length}
           itemsPerPage={pageSize}
           onPageChange={setPage}
-          onItemsPerPageChange={setPageSize}
+          onItemsPerPageChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
         />
 
-        {/* Programme Detail Drawer */}
         <Drawer
           isOpen={!!selectedProgramme}
           onClose={() => setSelectedProgramme(null)}
           title={selectedProgramme?.name}
-          subtitle={`Code: ${selectedProgramme?.code} • Age ${selectedProgramme?.minimumAge}–${selectedProgramme?.maximumAge}`}
+          subtitle={selectedProgramme ? `Code: ${selectedProgramme.code}` : undefined}
           width="600px"
-          footer={
-            <div style={{ display: "flex", gap: "10px" }}>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSelectedProgramme(null)}
-              >
-                Close
-              </Button>
-              <Link href={`/offerings?programmeId=${selectedProgramme?.id}`}>
-                <Button variant="primary" size="sm">
-                  + Create Offering for this Programme
-                </Button>
-              </Link>
-            </div>
-          }
         >
           {selectedProgramme && (
-            <div>
-              <Tabs
-                tabs={[
-                  { id: "overview", label: "Overview" },
-                  {
-                    id: "offerings",
-                    label: "Offerings",
-                    count: programmeOfferings.length,
-                  },
-                  { id: "plans", label: "Eligible Plans" },
-                  { id: "scheduling", label: "Scheduling" },
-                ]}
-                activeTab={detailTab}
-                onChange={setDetailTab}
-              />
-
-              {detailTab === "overview" && (
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "16px",
-                  }}
-                >
-                  <div
-                    style={{
-                      backgroundColor: "#F8FAFC",
-                      padding: "16px",
-                      borderRadius: "8px",
-                      border: "1px solid #E2E8F0",
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: "0.75rem",
-                        fontWeight: 700,
-                        color: "#64748B",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      Curriculum Description
-                    </div>
-                    <p
-                      style={{
-                        fontSize: "0.875rem",
-                        color: "#334155",
-                        lineHeight: 1.6,
-                        margin: "6px 0 0",
-                      }}
-                    >
-                      {selectedProgramme.description ||
-                        "Foundational skill training with verified coach assessment."}
-                    </p>
-                  </div>
-
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: "12px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        padding: "12px",
-                        backgroundColor: "#FFFFFF",
-                        borderRadius: "8px",
-                        border: "1px solid #E2E8F0",
-                      }}
-                    >
-                      <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
-                        Sport Discipline
-                      </div>
-                      <div
-                        style={{
-                          fontSize: "0.9375rem",
-                          fontWeight: 700,
-                          color: "#0F172A",
-                          marginTop: "2px",
-                        }}
-                      >
-                        {selectedProgramme.sportName}
-                      </div>
-                    </div>
-                    <div
-                      style={{
-                        padding: "12px",
-                        backgroundColor: "#FFFFFF",
-                        borderRadius: "8px",
-                        border: "1px solid #E2E8F0",
-                      }}
-                    >
-                      <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
-                        Age Bracket
-                      </div>
-                      <div
-                        style={{
-                          fontSize: "0.9375rem",
-                          fontWeight: 700,
-                          color: "#0F172A",
-                          marginTop: "2px",
-                        }}
-                      >
-                        {selectedProgramme.minimumAge} –{" "}
-                        {selectedProgramme.maximumAge} Years
-                      </div>
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      padding: "14px",
-                      borderRadius: "8px",
-                      backgroundColor: "#FFFBEB",
-                      border: "1px solid #FDE68A",
-                      fontSize: "0.8125rem",
-                      color: "#92400E",
-                    }}
-                  >
-                    <strong>Domain Rule:</strong> Programme and Programme
-                    Offering are separate entities. A Programme defines the
-                    curriculum, while Offerings define the physical court,
-                    venue, term dates, and capacity.
-                  </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div
+                style={{
+                  padding: 16,
+                  border: "1px solid #E2E8F0",
+                  borderRadius: 8,
+                  backgroundColor: "#F8FAFC",
+                }}
+              >
+                <div style={{ fontWeight: 700 }}>{selectedProgramme.sportName}</div>
+                <div style={{ marginTop: 6, color: "#475569", lineHeight: 1.6 }}>
+                  {selectedProgramme.description || "No description provided."}
                 </div>
-              )}
-
-              {detailTab === "offerings" && (
-                <div>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "12px",
-                    }}
-                  >
-                    <h4
-                      style={{
-                        margin: 0,
-                        fontSize: "0.9375rem",
-                        fontWeight: 700,
-                      }}
-                    >
-                      Active Term Offerings
-                    </h4>
-                  </div>
-
-                  {programmeOfferings.length === 0 ? (
-                    <div
-                      style={{
-                        padding: "24px",
-                        textAlign: "center",
-                        color: "#64748B",
-                        fontSize: "0.875rem",
-                      }}
-                    >
-                      No active offerings scheduled for this programme.
-                    </div>
-                  ) : (
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "10px",
-                      }}
-                    >
-                      {programmeOfferings.map((off) => (
-                        <div
-                          key={off.id}
-                          style={{
-                            padding: "12px",
-                            backgroundColor: "#F8FAFC",
-                            borderRadius: "8px",
-                            border: "1px solid #E2E8F0",
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
-                            }}
-                          >
-                            <div
-                              style={{
-                                fontWeight: 700,
-                                fontSize: "0.875rem",
-                                color: "#0F172A",
-                              }}
-                            >
-                              {off.name}
-                            </div>
-                            <StatusBadge status={off.status} size="sm" />
-                          </div>
-                          <div
-                            style={{
-                              fontSize: "0.75rem",
-                              color: "#64748B",
-                              marginTop: "4px",
-                            }}
-                          >
-                            📍 {off.venueName} • Enrolled: {off.enrolledCount} /{" "}
-                            {off.capacity}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {detailTab === "plans" && (
-                <div>
-                  <h4
-                    style={{
-                      margin: "0 0 12px",
-                      fontSize: "0.9375rem",
-                      fontWeight: 700,
-                    }}
-                  >
-                    Eligible Membership Plans
-                  </h4>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "10px",
-                    }}
-                  >
-                    {plans.map((p) => (
-                      <div
-                        key={p.id}
-                        style={{
-                          padding: "12px",
-                          backgroundColor: "#F8FAFC",
-                          borderRadius: "8px",
-                          border: "1px solid #E2E8F0",
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                          }}
-                        >
-                          <div
-                            style={{ fontWeight: 700, fontSize: "0.875rem" }}
-                          >
-                            {p.name}
-                          </div>
-                          <div style={{ fontWeight: 800, color: "#0F172A" }}>
-                            MYR {(p.recurringAmountMinor / 100).toFixed(2)} /{" "}
-                            {p.billingFrequency.toLowerCase()}
-                          </div>
-                        </div>
-                        <div
-                          style={{
-                            fontSize: "0.75rem",
-                            color: "#64748B",
-                            marginTop: "4px",
-                          }}
-                        >
-                          {p.commitmentCycles} billing cycle(s) •{" "}
-                          {p.benefitsSummary}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {detailTab === "scheduling" && (
-                <div
-                  style={{
-                    padding: "20px",
-                    textAlign: "center",
-                    color: "#64748B",
-                    fontSize: "0.875rem",
-                  }}
-                >
-                  📅 Training schedule series are generated on individual
-                  Programme Offerings.
-                </div>
-              )}
-            </div>
-          )}
-        </Drawer>
-
-        {/* Create Programme Modal Drawer */}
-        <Drawer
-          isOpen={isCreateOpen}
-          onClose={() => setIsCreateOpen(false)}
-          title="Create Academy Programme"
-          subtitle="Add a new sport curriculum definition to the KHLIM catalogue."
-          width="540px"
-        >
-          <form onSubmit={handleCreateProgramme}>
-            <FormSection
-              title="Programme Specifications"
-              description="Define core age eligibility, code, and developmental level."
-            >
-              <Input
-                label="Programme Code"
-                required
-                value={newCode}
-                onChange={(e) => setNewCode(e.target.value)}
-                placeholder="e.g. BB-U10-DEV"
-                helperText="Unique uppercase system identifier."
-              />
-
-              <Input
-                label="Programme Name"
-                required
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="e.g. U10 Grassroots Basketball Fundamentals"
-              />
+              </div>
 
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "12px",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                  gap: 10,
                 }}
               >
+                <div style={{ padding: 12, border: "1px solid #E2E8F0", borderRadius: 8 }}>
+                  <div style={{ fontSize: "0.75rem", color: "#64748B" }}>Level</div>
+                  <strong>{selectedProgramme.level}</strong>
+                </div>
+                <div style={{ padding: 12, border: "1px solid #E2E8F0", borderRadius: 8 }}>
+                  <div style={{ fontSize: "0.75rem", color: "#64748B" }}>Age range</div>
+                  <strong>
+                    {selectedProgramme.minimumAge ?? "—"}–{selectedProgramme.maximumAge ?? "—"}
+                  </strong>
+                </div>
+                <div style={{ padding: 12, border: "1px solid #E2E8F0", borderRadius: 8 }}>
+                  <div style={{ fontSize: "0.75rem", color: "#64748B" }}>Offerings</div>
+                  <strong>{selectedOfferings.length}</strong>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  padding: 14,
+                  borderRadius: 8,
+                  backgroundColor: "#FFFBEB",
+                  border: "1px solid #FDE68A",
+                  color: "#92400E",
+                  fontSize: "0.8125rem",
+                }}
+              >
+                <strong>Domain Rule:</strong> Programme and Programme Offering are separate entities. A Programme defines the curriculum; an Offering defines venue, dates, capacity, and operating status.
+              </div>
+            </div>
+          )}
+        </Drawer>
+
+        <Drawer
+          isOpen={isCreateOpen}
+          onClose={() => {
+            if (!isSaving) {
+              setCreateError(null);
+              setIsCreateOpen(false);
+            }
+          }}
+          title="Create Programme"
+          subtitle="This writes directly to the active organization after server authorization."
+          width="560px"
+        >
+          <form onSubmit={handleCreateProgramme}>
+            <FormSection
+              title="Programme Identity"
+              description="Choose an active organization sport, then define the curriculum identity."
+            >
+              <Select
+                label="Sport"
+                required
+                value={newSportId}
+                onChange={(event) => setNewSportId(event.target.value)}
+                options={sports.map((sport) => ({
+                  label: `${sport.name} (${sport.code})`,
+                  value: sport.id,
+                }))}
+                helperText="Only sports activated for the current organization are available."
+              />
+              <Input
+                label="Programme Code"
+                required
+                value={newCode}
+                onChange={(event) => setNewCode(event.target.value)}
+                placeholder="e.g. U12-DEV"
+              />
+              <Input
+                label="Programme Name"
+                required
+                value={newName}
+                onChange={(event) => setNewName(event.target.value)}
+                placeholder="e.g. U12 Development"
+              />
+              <Input
+                label="Description"
+                value={newDescription}
+                onChange={(event) => setNewDescription(event.target.value)}
+                placeholder="Curriculum purpose and progression..."
+              />
+            </FormSection>
+
+            <FormSection
+              title="Eligibility"
+              description="Age and level boundaries remain backend-authoritative after persistence."
+            >
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <Input
                   label="Minimum Age"
                   type="number"
+                  min={0}
                   required
                   value={newMinAge}
-                  onChange={(e) => setNewMinAge(e.target.value)}
+                  onChange={(event) => setNewMinAge(event.target.value)}
                 />
                 <Input
                   label="Maximum Age"
                   type="number"
+                  min={0}
                   required
                   value={newMaxAge}
-                  onChange={(e) => setNewMaxAge(e.target.value)}
+                  onChange={(event) => setNewMaxAge(event.target.value)}
                 />
               </div>
-
-              <Select
-                label="Development Level"
+              <Input
+                label="Level"
                 value={newLevel}
-                onChange={(e) => setNewLevel(e.target.value)}
-                options={[
-                  {
-                    label: "Grassroots Development",
-                    value: "Grassroots Development",
-                  },
-                  { label: "Junior Academy", value: "Junior Academy" },
-                  { label: "Youth Competitive", value: "Youth Competitive" },
-                  { label: "Elite Performance", value: "Elite Performance" },
-                ]}
+                onChange={(event) => setNewLevel(event.target.value)}
+                placeholder="e.g. Grassroots Development"
               />
-
-              <div
-                style={{ display: "flex", flexDirection: "column", gap: "6px" }}
-              >
-                <label
-                  style={{
-                    fontSize: "0.8125rem",
-                    fontWeight: 600,
-                    color: "#334155",
-                  }}
-                >
-                  Curriculum Description
-                </label>
-                <textarea
-                  rows={3}
-                  value={newDescription}
-                  onChange={(e) => setNewDescription(e.target.value)}
-                  placeholder="Details of skills, drills, and focus areas..."
-                  style={{
-                    padding: "8px 12px",
-                    fontSize: "0.875rem",
-                    borderRadius: "8px",
-                    border: "1px solid #CBD5E1",
-                    fontFamily: "inherit",
-                    outline: "none",
-                  }}
-                />
-              </div>
             </FormSection>
+
+            {createError && (
+              <div
+                role="alert"
+                style={{
+                  marginTop: 16,
+                  padding: "12px 14px",
+                  border: "1px solid #FCA5A5",
+                  borderRadius: 8,
+                  backgroundColor: "#FEF2F2",
+                  color: "#991B1B",
+                  fontSize: "0.8125rem",
+                  lineHeight: 1.5,
+                }}
+              >
+                <strong>Programme not saved.</strong> {createError}
+              </div>
+            )}
 
             <div
               style={{
                 display: "flex",
                 justifyContent: "flex-end",
-                gap: "10px",
-                marginTop: "20px",
+                gap: 10,
+                marginTop: 20,
               }}
             >
               <Button
                 variant="outline"
                 size="md"
                 type="button"
-                onClick={() => setIsCreateOpen(false)}
+                disabled={isSaving}
+                onClick={() => {
+                  setCreateError(null);
+                  setIsCreateOpen(false);
+                }}
               >
                 Cancel
               </Button>
@@ -767,8 +568,9 @@ export default function ProgrammesPage() {
                 size="md"
                 type="submit"
                 isLoading={isSaving}
+                disabled={sports.length === 0}
               >
-                Save Programme to Backend
+                Save Programme
               </Button>
             </div>
           </form>
