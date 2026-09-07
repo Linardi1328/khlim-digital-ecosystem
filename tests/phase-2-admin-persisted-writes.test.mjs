@@ -39,9 +39,12 @@ test("programme writes persist or fail visibly", async () => {
 });
 
 test("demo writes remain explicitly non-persistent", async () => {
+  const page = await read("apps/admin/app/programmes/page.tsx");
   const api = await read("apps/admin/lib/admin-api.ts");
   const demoMode = await read("apps/admin/lib/demo-mode.ts");
 
+  assert.match(page, /ADMIN_DEMO_MODE/);
+  assert.match(page, /Demo write simulated/);
   assert.match(api, /demoAdminApi/);
   assert.match(api, /realAdminApi/);
   assert.match(api, /persisted:\s*false/);
