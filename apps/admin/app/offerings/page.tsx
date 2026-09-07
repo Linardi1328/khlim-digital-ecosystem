@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { AdminShell } from "../../components/layout/AdminShell";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { DataTable, type Column } from "../../components/ui/DataTable";
@@ -14,83 +14,127 @@ import { FormSection } from "../../components/ui/FormSection";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import { updateOfferingStatus } from "../../lib/admin-academy-write-api";
 import { adminApi } from "../../lib/admin-api";
-import type { OfferingItem, ProgrammeItem, VenueItem } from "../../lib/types";
+import { ADMIN_DEMO_MODE } from "../../lib/demo-mode";
+import type {
+  OfferingItem,
+  OfferingStatus,
+  ProgrammeItem,
+  VenueItem,
+} from "../../lib/types";
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message.trim()
+    ? error.message
+    : fallback;
+}
 
 export default function OfferingsPage() {
   const [offerings, setOfferings] = useState<OfferingItem[]>([]);
   const [programmes, setProgrammes] = useState<ProgrammeItem[]>([]);
   const [venues, setVenues] = useState<VenueItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  // Search & Filters
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [programmeFilter, setProgrammeFilter] = useState("ALL");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  // Drawer / Selection
   const [selectedOffering, setSelectedOffering] = useState<OfferingItem | null>(
     null,
   );
-
-  // Create Offering Drawer
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [formProgId, setFormProgId] = useState("");
   const [formVenueId, setFormVenueId] = useState("");
   const [formName, setFormName] = useState("");
   const [formCapacity, setFormCapacity] = useState("20");
-  const [formStartsOn, setFormStartsOn] = useState("2026-09-05");
-  const [formEndsOn, setFormEndsOn] = useState("2026-11-28");
+  const [formStartsOn, setFormStartsOn] = useState("");
+  const [formEndsOn, setFormEndsOn] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
-  // State Transition Confirm Dialog
   const [stateChangeOffering, setStateChangeOffering] = useState<{
     offering: OfferingItem;
-    targetStatus: "OPEN" | "CLOSED" | "INACTIVE";
+    targetStatus: OfferingStatus;
   } | null>(null);
+  const [isChangingStatus, setIsChangingStatus] = useState(false);
+
+  async function refreshOfferings() {
+    const list = await adminApi.listOfferings();
+    setOfferings(list);
+    setSelectedOffering((current) =>
+      current ? list.find((item) => item.id === current.id) || null : null,
+    );
+  }
 
   useEffect(() => {
     async function load() {
+      setLoading(true);
+      setPageError(null);
       try {
-        const [offList, prgList, venList] = await Promise.all([
+        const [offeringList, programmeList, venueList] = await Promise.all([
           adminApi.listOfferings(),
           adminApi.listProgrammes(),
           adminApi.listVenues(),
         ]);
-        setOfferings(offList);
-        setProgrammes(prgList);
-        setVenues(venList);
-        if (prgList[0]) setFormProgId(prgList[0].id);
-        if (venList[0]) setFormVenueId(venList[0].id);
-      } catch (err) {
-        console.warn("Failed to load offerings:", err);
+        setOfferings(offeringList);
+        setProgrammes(programmeList);
+        setVenues(venueList);
+        setFormProgId(programmeList[0]?.id || "");
+      } catch (error) {
+        setPageError(
+          getErrorMessage(
+            error,
+            "Offering configuration could not be loaded from the backend.",
+          ),
+        );
       } finally {
         setLoading(false);
       }
     }
-    load();
+
+    void load();
   }, []);
 
-  const filtered = offerings.filter((off) => {
+  const filtered = offerings.filter((offering) => {
+    const query = search.trim().toLowerCase();
     const matchesSearch =
-      off.name.toLowerCase().includes(search.toLowerCase()) ||
-      off.programmeName.toLowerCase().includes(search.toLowerCase()) ||
-      (off.venueName &&
-        off.venueName.toLowerCase().includes(search.toLowerCase()));
-    const matchesStatus = statusFilter === "ALL" || off.status === statusFilter;
-    const matchesProg =
-      programmeFilter === "ALL" || off.programmeId === programmeFilter;
-    return matchesSearch && matchesStatus && matchesProg;
+      query === "" ||
+      offering.name.toLowerCase().includes(query) ||
+      offering.programmeName.toLowerCase().includes(query) ||
+      offering.venueName?.toLowerCase().includes(query);
+    const matchesStatus =
+      statusFilter === "ALL" || offering.status === statusFilter;
+    const matchesProgramme =
+      programmeFilter === "ALL" || offering.programmeId === programmeFilter;
+    return matchesSearch && matchesStatus && matchesProgramme;
   });
 
   const totalPages = Math.ceil(filtered.length / pageSize);
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-  const handleCreateOffering = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formName.trim() || !formProgId) return;
+  async function handleCreateOffering(event: React.FormEvent) {
+    event.preventDefault();
+    setCreateError(null);
+    setStatusMessage(null);
+
+    const capacity = Number(formCapacity);
+    if (!formProgId || !formName.trim()) {
+      setCreateError("Parent programme and offering name are required.");
+      return;
+    }
+    if (!Number.isInteger(capacity) || capacity < 1) {
+      setCreateError("Capacity must be a positive whole number.");
+      return;
+    }
+    if (formStartsOn && formEndsOn && formStartsOn > formEndsOn) {
+      setCreateError("Start date cannot be after end date.");
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -98,184 +142,146 @@ export default function OfferingsPage() {
         programmeId: formProgId,
         venueId: formVenueId || undefined,
         name: formName.trim(),
-        capacity: Number(formCapacity),
+        capacity,
         startsOn: formStartsOn,
         endsOn: formEndsOn || undefined,
       });
 
-      const updated = await adminApi.listOfferings();
-      setOfferings(updated);
+      if (!ADMIN_DEMO_MODE) {
+        await refreshOfferings();
+      }
       setIsCreateOpen(false);
       setFormName("");
-    } catch (err) {
-      console.warn("Create offering fallback:", err);
-      // Optimistic local add
-      const prog = programmes.find((p) => p.id === formProgId);
-      const ven = venues.find((v) => v.id === formVenueId);
-      const newOff: OfferingItem = {
-        id: `off-${Date.now()}`,
-        programmeId: formProgId,
-        programmeName: prog?.name || "Academy Programme",
-        venueId: formVenueId,
-        venueName: ven?.name || "KHLIM Training Facility",
-        name: formName.trim(),
-        capacity: Number(formCapacity),
-        enrolledCount: 0,
-        availablePlaces: Number(formCapacity),
-        startsOn: formStartsOn,
-        endsOn: formEndsOn || null,
-        status: "OPEN",
-      };
-      setOfferings([newOff, ...offerings]);
-      setIsCreateOpen(false);
+      setStatusMessage(
+        ADMIN_DEMO_MODE
+          ? "Demo write simulated. Changes are not persisted."
+          : "Offering persisted successfully and reloaded from the backend.",
+      );
+    } catch (error) {
+      setCreateError(
+        getErrorMessage(
+          error,
+          "Offering was not saved. No local fallback record was created.",
+        ),
+      );
     } finally {
       setIsSaving(false);
     }
-  };
+  }
 
-  const handleConfirmStateChange = () => {
+  async function handleConfirmStateChange() {
     if (!stateChangeOffering) return;
     const { offering, targetStatus } = stateChangeOffering;
+    setIsChangingStatus(true);
+    setPageError(null);
+    setStatusMessage(null);
 
-    setOfferings((prev) =>
-      prev.map((o) =>
-        o.id === offering.id ? { ...o, status: targetStatus } : o,
-      ),
-    );
-    setStateChangeOffering(null);
-  };
+    try {
+      const outcome = await updateOfferingStatus(offering.id, targetStatus);
+      if (outcome.demo) {
+        setOfferings((current) =>
+          current.map((item) =>
+            item.id === offering.id ? { ...item, status: targetStatus } : item,
+          ),
+        );
+        setSelectedOffering((current) =>
+          current?.id === offering.id
+            ? { ...current, status: targetStatus }
+            : current,
+        );
+        setStatusMessage(
+          "Demo status change simulated. Changes are not persisted.",
+        );
+      } else {
+        await refreshOfferings();
+        setStatusMessage(
+          `Offering status persisted as ${targetStatus} and reloaded from the backend.`,
+        );
+      }
+      setStateChangeOffering(null);
+    } catch (error) {
+      setPageError(
+        getErrorMessage(
+          error,
+          "Offering status was not changed. Backend state remains authoritative.",
+        ),
+      );
+    } finally {
+      setIsChangingStatus(false);
+    }
+  }
 
   const columns: Column<OfferingItem>[] = [
     {
       key: "name",
       header: "Offering Name",
-      render: (off) => (
+      render: (offering) => (
         <div>
-          <div style={{ fontWeight: 700, color: "#0F172A" }}>{off.name}</div>
+          <div style={{ fontWeight: 700 }}>{offering.name}</div>
           <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
-            Curriculum: {off.programmeName}
+            Curriculum: {offering.programmeName}
           </div>
         </div>
       ),
     },
     {
       key: "venueName",
-      header: "Venue / Court",
-      render: (off) => (
-        <div>
-          <div style={{ fontWeight: 600, color: "#334155" }}>
-            📍 {off.venueName || "KHLIM Centre"}
-          </div>
-          {off.courtName && (
-            <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
-              {off.courtName}
-            </div>
-          )}
-        </div>
-      ),
+      header: "Venue",
+      render: (offering) => offering.venueName || "Unassigned",
     },
     {
       key: "capacity",
-      header: "Capacity & Places",
-      render: (off) => {
-        const percent = Math.round((off.enrolledCount / off.capacity) * 100);
-        return (
-          <div>
-            <div
-              style={{
-                fontWeight: 700,
-                color: off.availablePlaces === 0 ? "#DC2626" : "#0F172A",
-              }}
-            >
-              {off.enrolledCount} / {off.capacity} ({off.availablePlaces} left)
-            </div>
-            <div
-              style={{
-                width: "80px",
-                height: "5px",
-                backgroundColor: "#F1F5F9",
-                borderRadius: "3px",
-                marginTop: "4px",
-                overflow: "hidden",
-              }}
-            >
-              <div
-                style={{
-                  height: "100%",
-                  width: `${percent}%`,
-                  backgroundColor:
-                    off.availablePlaces === 0 ? "#EF4444" : "#10B981",
-                }}
-              />
-            </div>
-          </div>
-        );
-      },
+      header: "Capacity",
+      render: (offering) => (
+        <span>
+          {offering.enrolledCount} / {offering.capacity} ({offering.availablePlaces}{" "}
+          left)
+        </span>
+      ),
     },
     {
       key: "termDates",
       header: "Term Schedule",
-      render: (off) => (
-        <div style={{ fontSize: "0.8125rem" }}>
-          <div>🗓️ {off.startsOn}</div>
-          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
-            to {off.endsOn || "Ongoing"}
-          </div>
-        </div>
+      render: (offering) => (
+        <span>
+          {offering.startsOn || "Not set"} → {offering.endsOn || "Ongoing"}
+        </span>
       ),
     },
     {
       key: "status",
       header: "Status",
-      render: (off) => <StatusBadge status={off.status} size="sm" />,
+      render: (offering) => <StatusBadge status={offering.status} size="sm" />,
     },
     {
       key: "actions",
       header: "Actions",
       align: "right",
-      render: (off) => (
-        <div
-          style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}
-        >
+      render: (offering) => (
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
           <Button
             variant="outline"
             size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              setSelectedOffering(off);
+            onClick={(event) => {
+              event.stopPropagation();
+              setSelectedOffering(offering);
             }}
           >
             View
           </Button>
-
-          {off.status === "OPEN" ? (
-            <Button
-              variant="outline"
-              size="sm"
-              style={{ borderColor: "#FCA5A5", color: "#DC2626" }}
-              onClick={(e) => {
-                e.stopPropagation();
-                setStateChangeOffering({
-                  offering: off,
-                  targetStatus: "CLOSED",
-                });
-              }}
-            >
-              Close
-            </Button>
-          ) : off.status === "CLOSED" || off.status === "DRAFT" ? (
-            <Button
-              variant="outline"
-              size="sm"
-              style={{ borderColor: "#A7F3D0", color: "#065F46" }}
-              onClick={(e) => {
-                e.stopPropagation();
-                setStateChangeOffering({ offering: off, targetStatus: "OPEN" });
-              }}
-            >
-              Open
-            </Button>
-          ) : null}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(event) => {
+              event.stopPropagation();
+              setStateChangeOffering({
+                offering,
+                targetStatus: offering.status === "OPEN" ? "CLOSED" : "OPEN",
+              });
+            }}
+          >
+            {offering.status === "OPEN" ? "Close" : "Open"}
+          </Button>
         </div>
       ),
     },
@@ -295,14 +301,33 @@ export default function OfferingsPage() {
             <Button
               variant="primary"
               size="md"
-              onClick={() => setIsCreateOpen(true)}
+              disabled={programmes.length === 0}
+              onClick={() => {
+                setCreateError(null);
+                setIsCreateOpen(true);
+              }}
             >
               + Create Offering
             </Button>
           }
         />
 
-        {/* Filter Controls */}
+        {pageError && (
+          <div role="alert" style={{ marginBottom: 16, color: "#991B1B" }}>
+            {pageError}
+          </div>
+        )}
+        {statusMessage && (
+          <div role="status" style={{ marginBottom: 16, color: "#065F46" }}>
+            {statusMessage}
+          </div>
+        )}
+        {!loading && programmes.length === 0 && (
+          <div role="alert" style={{ marginBottom: 16, color: "#92400E" }}>
+            Create an active programme before creating an offering.
+          </div>
+        )}
+
         <FilterBar
           hasActiveFilters={
             search !== "" || statusFilter !== "ALL" || programmeFilter !== "ALL"
@@ -311,299 +336,138 @@ export default function OfferingsPage() {
             setSearch("");
             setStatusFilter("ALL");
             setProgrammeFilter("ALL");
+            setPage(1);
           }}
         >
           <SearchInput
             value={search}
-            onChange={setSearch}
+            onChange={(value) => {
+              setSearch(value);
+              setPage(1);
+            }}
             placeholder="Search offerings by name, venue, programme..."
           />
-
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <label
-              htmlFor="status-select"
-              style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}
-            >
-              Status:
-            </label>
-            <select
-              id="status-select"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{
-                padding: "6px 10px",
-                fontSize: "0.8125rem",
-                backgroundColor: "#F8FAFC",
-                border: "1px solid #CBD5E1",
-                borderRadius: "6px",
-                color: "#0F172A",
-              }}
-            >
-              <option value="ALL">All Statuses</option>
-              <option value="OPEN">OPEN</option>
-              <option value="CLOSED">CLOSED</option>
-              <option value="DRAFT">DRAFT</option>
-              <option value="INACTIVE">INACTIVE</option>
-            </select>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <label
-              htmlFor="prog-select"
-              style={{ fontSize: "0.75rem", color: "#64748B", fontWeight: 600 }}
-            >
-              Programme:
-            </label>
-            <select
-              id="prog-select"
-              value={programmeFilter}
-              onChange={(e) => setProgrammeFilter(e.target.value)}
-              style={{
-                padding: "6px 10px",
-                fontSize: "0.8125rem",
-                backgroundColor: "#F8FAFC",
-                border: "1px solid #CBD5E1",
-                borderRadius: "6px",
-                color: "#0F172A",
-              }}
-            >
-              <option value="ALL">All Programmes</option>
-              {programmes.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Select
+            aria-label="Filter by offering status"
+            value={statusFilter}
+            onChange={(event) => {
+              setStatusFilter(event.target.value);
+              setPage(1);
+            }}
+            options={[
+              { label: "All statuses", value: "ALL" },
+              { label: "DRAFT", value: "DRAFT" },
+              { label: "OPEN", value: "OPEN" },
+              { label: "CLOSED", value: "CLOSED" },
+              { label: "INACTIVE", value: "INACTIVE" },
+            ]}
+          />
+          <Select
+            aria-label="Filter by programme"
+            value={programmeFilter}
+            onChange={(event) => {
+              setProgrammeFilter(event.target.value);
+              setPage(1);
+            }}
+            options={[
+              { label: "All programmes", value: "ALL" },
+              ...programmes.map((programme) => ({
+                label: programme.name,
+                value: programme.id,
+              })),
+            ]}
+          />
         </FilterBar>
 
-        {/* Data Table */}
         <DataTable
           columns={columns}
           data={paginated}
           keyExtractor={(item) => item.id}
           isLoading={loading}
-          onRowClick={(item) => setSelectedOffering(item)}
+          onRowClick={setSelectedOffering}
         />
-
-        {/* Pagination */}
         <Pagination
           currentPage={page}
           totalPages={totalPages}
           totalItems={filtered.length}
           itemsPerPage={pageSize}
           onPageChange={setPage}
-          onItemsPerPageChange={setPageSize}
+          onItemsPerPageChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
         />
 
-        {/* State Change Confirmation Dialog */}
         {stateChangeOffering && (
           <ConfirmDialog
-            isOpen={!!stateChangeOffering}
-            onClose={() => setStateChangeOffering(null)}
+            isOpen
+            onClose={() => {
+              if (!isChangingStatus) setStateChangeOffering(null);
+            }}
             onConfirm={handleConfirmStateChange}
-            title={
-              stateChangeOffering.targetStatus === "OPEN"
-                ? "Open Offering for Public Enrolment"
-                : "Close Offering Enrolment"
-            }
-            description={
-              stateChangeOffering.targetStatus === "OPEN"
-                ? `Are you sure you want to open "${stateChangeOffering.offering.name}"? This will allow guardians to enrol players in this offering through the public portal.`
-                : `Are you sure you want to close "${stateChangeOffering.offering.name}"? New parent enrolments will be stopped.`
-            }
+            title={`Change offering status to ${stateChangeOffering.targetStatus}`}
+            description={`This changes the persisted enrolment state for “${stateChangeOffering.offering.name}”.`}
             confirmLabel={
-              stateChangeOffering.targetStatus === "OPEN"
-                ? "Confirm & Open Offering"
-                : "Confirm & Close Enrolment"
+              isChangingStatus
+                ? "Saving..."
+                : `Confirm ${stateChangeOffering.targetStatus}`
             }
             variant={
-              stateChangeOffering.targetStatus === "OPEN"
-                ? "primary"
-                : "warning"
+              stateChangeOffering.targetStatus === "OPEN" ? "primary" : "warning"
             }
           />
         )}
 
-        {/* Offering Detail Drawer */}
         <Drawer
           isOpen={!!selectedOffering}
           onClose={() => setSelectedOffering(null)}
           title={selectedOffering?.name}
-          subtitle={`Status: ${selectedOffering?.status} • ${selectedOffering?.programmeName}`}
-          width="540px"
-          footer={
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectedOffering(null)}
-            >
-              Close
-            </Button>
+          subtitle={
+            selectedOffering
+              ? `${selectedOffering.programmeName} • ${selectedOffering.status}`
+              : undefined
           }
+          width="540px"
         >
           {selectedOffering && (
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "20px" }}
-            >
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "12px",
-                  backgroundColor: "#F8FAFC",
-                  padding: "16px",
-                  borderRadius: "10px",
-                  border: "1px solid #E2E8F0",
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      fontSize: "0.75rem",
-                      color: "#64748B",
-                      fontWeight: 700,
-                    }}
-                  >
-                    VENUE
-                  </div>
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      color: "#0F172A",
-                      marginTop: "2px",
-                    }}
-                  >
-                    {selectedOffering.venueName || "KHLIM Centre"}
-                  </div>
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontSize: "0.75rem",
-                      color: "#64748B",
-                      fontWeight: 700,
-                    }}
-                  >
-                    COURT
-                  </div>
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      color: "#0F172A",
-                      marginTop: "2px",
-                    }}
-                  >
-                    {selectedOffering.courtName || "Assigned Court"}
-                  </div>
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontSize: "0.75rem",
-                      color: "#64748B",
-                      fontWeight: 700,
-                    }}
-                  >
-                    STARTS ON
-                  </div>
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      color: "#0F172A",
-                      marginTop: "2px",
-                    }}
-                  >
-                    {selectedOffering.startsOn}
-                  </div>
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontSize: "0.75rem",
-                      color: "#64748B",
-                      fontWeight: 700,
-                    }}
-                  >
-                    ENDS ON
-                  </div>
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      color: "#0F172A",
-                      marginTop: "2px",
-                    }}
-                  >
-                    {selectedOffering.endsOn || "Ongoing"}
-                  </div>
-                </div>
-              </div>
-
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div>
-                <h4
-                  style={{
-                    margin: "0 0 8px",
-                    fontSize: "0.9375rem",
-                    fontWeight: 700,
-                  }}
-                >
-                  Enrolment & Capacity Breakdown
-                </h4>
-                <div
-                  style={{
-                    padding: "16px",
-                    backgroundColor: "#FFFFFF",
-                    borderRadius: "8px",
-                    border: "1px solid #E2E8F0",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      marginBottom: "8px",
-                    }}
-                  >
-                    <span style={{ color: "#64748B" }}>Total Capacity:</span>
-                    <strong>{selectedOffering.capacity} slots</strong>
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      marginBottom: "8px",
-                    }}
-                  >
-                    <span style={{ color: "#64748B" }}>Enrolled Players:</span>
-                    <strong style={{ color: "#065F46" }}>
-                      {selectedOffering.enrolledCount} active
-                    </strong>
-                  </div>
-                  <div
-                    style={{ display: "flex", justifyContent: "space-between" }}
-                  >
-                    <span style={{ color: "#64748B" }}>Available Places:</span>
-                    <strong
-                      style={{
-                        color:
-                          selectedOffering.availablePlaces === 0
-                            ? "#DC2626"
-                            : "#D97706",
-                      }}
-                    >
-                      {selectedOffering.availablePlaces} remaining
-                    </strong>
-                  </div>
-                </div>
+                <strong>Venue:</strong> {selectedOffering.venueName || "Unassigned"}
               </div>
+              <div>
+                <strong>Dates:</strong> {selectedOffering.startsOn || "Not set"} →{" "}
+                {selectedOffering.endsOn || "Ongoing"}
+              </div>
+              <div>
+                <strong>Capacity:</strong> {selectedOffering.enrolledCount} /{" "}
+                {selectedOffering.capacity}
+              </div>
+              {selectedOffering.status !== "INACTIVE" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setStateChangeOffering({
+                      offering: selectedOffering,
+                      targetStatus: "INACTIVE",
+                    })
+                  }
+                >
+                  Deactivate Offering
+                </Button>
+              )}
             </div>
           )}
         </Drawer>
 
-        {/* Create Offering Drawer */}
         <Drawer
           isOpen={isCreateOpen}
-          onClose={() => setIsCreateOpen(false)}
+          onClose={() => {
+            if (!isSaving) {
+              setCreateError(null);
+              setIsCreateOpen(false);
+            }
+          }}
           title="Create Programme Offering"
           subtitle="Schedule a new cohort with venue and capacity constraints."
           width="540px"
@@ -611,78 +475,78 @@ export default function OfferingsPage() {
           <form onSubmit={handleCreateOffering}>
             <FormSection
               title="Offering Configuration"
-              description="Link an established programme curriculum to physical dates and court capacity."
+              description="The new offering is persisted as backend-authoritative Academy configuration."
             >
               <Select
                 label="Parent Programme"
                 required
                 value={formProgId}
-                onChange={(e) => setFormProgId(e.target.value)}
-                options={programmes.map((p) => ({
-                  label: p.name,
-                  value: p.id,
+                onChange={(event) => setFormProgId(event.target.value)}
+                options={programmes.map((programme) => ({
+                  label: programme.name,
+                  value: programme.id,
                 }))}
               />
-
               <Input
                 label="Offering Cohort Name"
                 required
                 value={formName}
-                onChange={(e) => setFormName(e.target.value)}
-                placeholder="e.g. U10 Saturday Morning Term 3"
+                onChange={(event) => setFormName(event.target.value)}
+                placeholder="e.g. U12 Saturday Morning Term 3"
               />
-
               <Select
                 label="Training Venue"
-                required
                 value={formVenueId}
-                onChange={(e) => setFormVenueId(e.target.value)}
-                options={venues.map((v) => ({ label: v.name, value: v.id }))}
+                onChange={(event) => setFormVenueId(event.target.value)}
+                options={[
+                  { label: "No venue assigned", value: "" },
+                  ...venues.map((venue) => ({
+                    label: venue.name,
+                    value: venue.id,
+                  })),
+                ]}
               />
-
               <Input
                 label="Court Capacity (Max Enrolments)"
                 type="number"
+                min={1}
                 required
                 value={formCapacity}
-                onChange={(e) => setFormCapacity(e.target.value)}
+                onChange={(event) => setFormCapacity(event.target.value)}
               />
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "12px",
-                }}
-              >
-                <Input
-                  label="Start Date"
-                  type="date"
-                  required
-                  value={formStartsOn}
-                  onChange={(e) => setFormStartsOn(e.target.value)}
-                />
-                <Input
-                  label="End Date"
-                  type="date"
-                  value={formEndsOn}
-                  onChange={(e) => setFormEndsOn(e.target.value)}
-                />
-              </div>
+              <Input
+                label="Start Date"
+                type="date"
+                value={formStartsOn}
+                onChange={(event) => setFormStartsOn(event.target.value)}
+              />
+              <Input
+                label="End Date"
+                type="date"
+                value={formEndsOn}
+                onChange={(event) => setFormEndsOn(event.target.value)}
+              />
             </FormSection>
+
+            {createError && (
+              <div role="alert" style={{ marginTop: 16, color: "#991B1B" }}>
+                <strong>Offering not saved.</strong> {createError}
+              </div>
+            )}
 
             <div
               style={{
                 display: "flex",
                 justifyContent: "flex-end",
-                gap: "10px",
-                marginTop: "20px",
+                gap: 10,
+                marginTop: 20,
               }}
             >
               <Button
                 variant="outline"
                 size="md"
                 type="button"
+                disabled={isSaving}
                 onClick={() => setIsCreateOpen(false)}
               >
                 Cancel
