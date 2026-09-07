@@ -32,23 +32,14 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
 
           page_path = Path("apps/admin/app/offerings/page.tsx")
           page = page_path.read_text()
-          old = '''          <Button
-            variant="outline"
-            size="sm"
-            onClick={(event) => {
-              event.stopPropagation();
-              setStateChangeOffering({
-                offering,
-                targetStatus: offering.status === "OPEN" ? "CLOSED" : "OPEN",
-              });
-            }}
-          >
-            {offering.status === "OPEN" ? "Close" : "Open"}
-          </Button>'''
-          new = '''          {offering.status !== "INACTIVE" && (
+          pattern = re.compile(
+              r'''          <Button\n\s+variant="outline"\n\s+size="sm"\n\s+onClick=\{\(event\) => \{\n\s+event\.stopPropagation\(\);\n\s+setStateChangeOffering\(\{\n\s+offering,\n\s+targetStatus: offering\.status === "OPEN" \? "CLOSED" : "OPEN",\n\s+\}\);\n\s+\}\}\n\s*>\n\s+\{offering\.status === "OPEN" \? "Close" : "Open"\}\n\s+</Button>'''
+          )
+          replacement = '''          {offering.status !== "INACTIVE" && (
             <Button
               variant="outline"
               size="sm"
@@ -63,9 +54,10 @@ jobs:
               {offering.status === "OPEN" ? "Close" : "Open"}
             </Button>
           )}'''
-          if old not in page:
-              raise SystemExit("Offering action block not found")
-          page_path.write_text(page.replace(old, new, 1))
+          page, count = pattern.subn(replacement, page, count=1)
+          if count != 1:
+              raise SystemExit(f"Expected one Offering action block, found {count}")
+          page_path.write_text(page)
 
           test_path = Path("tests/phase-2-admin-persisted-writes.test.mjs")
           test = test_path.read_text()
