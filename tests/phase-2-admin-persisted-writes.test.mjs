@@ -34,10 +34,14 @@ test("Phase 2 programme creation uses organization-scoped persisted backend stat
   assert.match(controller, /@Controller\("admin\/academy"\)/);
   assert.match(
     controller,
-    /@Roles\("SUPER_ADMIN",\s*"MANAGEMENT",\s*"ACADEMY_ADMIN"\)/,
+    /@RequireAnyRole\("SUPER_ADMIN",\s*"MANAGEMENT",\s*"ACADEMY_ADMIN"\)/,
   );
   assert.match(controller, /@RequireMfa\(\)/);
-  assert.match(controller, /requireAuthenticatedOrganization\(user\)/);
+  assert.match(controller, /user\.organization\?\.id/);
+  assert.match(
+    controller,
+    /this\.academy\.createProgramme\(organizationId\(user\), body\)/,
+  );
 });
 
 test("Phase 2 preserves explicit demo isolation instead of silently treating demo writes as persisted", async () => {
