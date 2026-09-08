@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { AdminShell } from "../../components/layout/AdminShell";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { DataTable, type Column } from "../../components/ui/DataTable";
@@ -13,54 +13,85 @@ import { Tabs } from "../../components/ui/Tabs";
 import { FormSection } from "../../components/ui/FormSection";
 import { Input } from "../../components/ui/Input";
 import { adminApi } from "../../lib/admin-api";
+import { ADMIN_DEMO_MODE } from "../../lib/demo-mode";
 import type { VenueItem } from "../../lib/types";
+
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message.trim()
+    ? error.message
+    : fallback;
+}
 
 export default function VenuesPage() {
   const [venues, setVenues] = useState<VenueItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  // Search & Filter
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  // Detail Drawer
   const [selectedVenue, setSelectedVenue] = useState<VenueItem | null>(null);
   const [detailTab, setDetailTab] = useState("overview");
+  const [showCourtForm, setShowCourtForm] = useState(false);
+  const [courtName, setCourtName] = useState("");
+  const [courtCapacity, setCourtCapacity] = useState("25");
+  const [courtError, setCourtError] = useState<string | null>(null);
+  const [isSavingCourt, setIsSavingCourt] = useState(false);
 
-  // Create Venue Drawer
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [venueName, setVenueName] = useState("");
   const [venueAddress, setVenueAddress] = useState("");
+  const [venueError, setVenueError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  async function refreshVenues() {
+    const list = await adminApi.listVenues();
+    setVenues(list);
+    setSelectedVenue((current) =>
+      current ? list.find((venue) => venue.id === current.id) || null : null,
+    );
+    return list;
+  }
 
   useEffect(() => {
     async function load() {
+      setLoading(true);
+      setPageError(null);
       try {
-        const list = await adminApi.listVenues();
-        setVenues(list);
-      } catch (err) {
-        console.warn("Failed to load venues:", err);
+        await refreshVenues();
+      } catch (error) {
+        setPageError(
+          errorMessage(error, "Venues could not be loaded from the backend."),
+        );
       } finally {
         setLoading(false);
       }
     }
-    load();
+
+    void load();
   }, []);
 
-  const filtered = venues.filter((v) => {
+  const filtered = venues.filter((venue) => {
+    const query = search.trim().toLowerCase();
     return (
-      v.name.toLowerCase().includes(search.toLowerCase()) ||
-      (v.address && v.address.toLowerCase().includes(search.toLowerCase()))
+      query === "" ||
+      venue.name.toLowerCase().includes(query) ||
+      venue.address?.toLowerCase().includes(query)
     );
   });
-
   const totalPages = Math.ceil(filtered.length / pageSize);
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-  const handleCreateVenue = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!venueName.trim()) return;
+  async function handleCreateVenue(event: React.FormEvent) {
+    event.preventDefault();
+    setVenueError(null);
+    setStatusMessage(null);
+    if (!venueName.trim()) {
+      setVenueError("Venue name is required.");
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -68,46 +99,83 @@ export default function VenuesPage() {
         name: venueName.trim(),
         address: venueAddress.trim() || undefined,
       });
-
-      const updated = await adminApi.listVenues();
-      setVenues(updated);
+      if (!ADMIN_DEMO_MODE) {
+        await refreshVenues();
+      }
       setIsCreateOpen(false);
       setVenueName("");
       setVenueAddress("");
-    } catch (err) {
-      console.warn("Create venue fallback:", err);
-      const newV: VenueItem = {
-        id: `ven-${Date.now()}`,
-        name: venueName.trim(),
-        address: venueAddress.trim() || null,
-        courts: [
-          {
-            id: `crt-${Date.now()}`,
-            venueId: `ven-${Date.now()}`,
-            name: "Main Court 1",
-            capacity: 25,
-          },
-        ],
-        activeOfferingsCount: 0,
-        upcomingSessionsCount: 0,
-        closurePeriods: [],
-      };
-      setVenues([newV, ...venues]);
-      setIsCreateOpen(false);
+      setStatusMessage(
+        ADMIN_DEMO_MODE
+          ? "Demo venue write simulated. Changes are not persisted."
+          : "Venue persisted successfully and reloaded from the backend.",
+      );
+    } catch (error) {
+      setVenueError(
+        errorMessage(
+          error,
+          "Venue was not saved. No local fallback record was created.",
+        ),
+      );
     } finally {
       setIsSaving(false);
     }
-  };
+  }
+
+  async function handleCreateCourt(event: React.FormEvent) {
+    event.preventDefault();
+    if (!selectedVenue) return;
+    setCourtError(null);
+    setStatusMessage(null);
+
+    const capacity = Number(courtCapacity);
+    if (!courtName.trim()) {
+      setCourtError("Court name is required.");
+      return;
+    }
+    if (!Number.isInteger(capacity) || capacity < 1) {
+      setCourtError("Court capacity must be a positive whole number.");
+      return;
+    }
+
+    setIsSavingCourt(true);
+    try {
+      await adminApi.createCourt(selectedVenue.id, {
+        name: courtName.trim(),
+        capacity,
+      });
+      if (!ADMIN_DEMO_MODE) {
+        await refreshVenues();
+      }
+      setCourtName("");
+      setCourtCapacity("25");
+      setShowCourtForm(false);
+      setStatusMessage(
+        ADMIN_DEMO_MODE
+          ? "Demo court write simulated. Changes are not persisted."
+          : "Court persisted successfully and reloaded from the backend.",
+      );
+    } catch (error) {
+      setCourtError(
+        errorMessage(
+          error,
+          "Court was not saved. No local fallback record was created.",
+        ),
+      );
+    } finally {
+      setIsSavingCourt(false);
+    }
+  }
 
   const columns: Column<VenueItem>[] = [
     {
       key: "name",
       header: "Venue Facility",
-      render: (v) => (
+      render: (venue) => (
         <div>
-          <div style={{ fontWeight: 700, color: "#0F172A" }}>📍 {v.name}</div>
+          <div style={{ fontWeight: 700 }}>{venue.name}</div>
           <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
-            ID: {v.id}
+            ID: {venue.id}
           </div>
         </div>
       ),
@@ -115,49 +183,36 @@ export default function VenuesPage() {
     {
       key: "address",
       header: "Address",
-      render: (v) => (
-        <span style={{ fontSize: "0.8125rem", color: "#475569" }}>
-          {v.address || "Malaysia Training Base"}
-        </span>
-      ),
+      render: (venue) => venue.address || "Not provided",
     },
     {
       key: "courts",
       header: "Dedicated Courts",
-      render: (v) => (
-        <span style={{ fontWeight: 600 }}>{v.courts.length} Court(s)</span>
-      ),
+      render: (venue) => `${venue.courts.length} Court(s)`,
     },
     {
       key: "activeOfferingsCount",
       header: "Active Cohorts",
-      render: (v) => (
-        <span style={{ fontWeight: 700, color: "#0F172A" }}>
-          {v.activeOfferingsCount} Offering(s)
-        </span>
-      ),
+      render: (venue) => `${venue.activeOfferingsCount} Offering(s)`,
     },
     {
       key: "upcomingSessionsCount",
       header: "Upcoming Sessions",
-      render: (v) => (
-        <span style={{ color: "#065F46", fontWeight: 600 }}>
-          {v.upcomingSessionsCount} Scheduled
-        </span>
-      ),
+      render: (venue) => `${venue.upcomingSessionsCount} Scheduled`,
     },
     {
       key: "actions",
       header: "Actions",
       align: "right",
-      render: (v) => (
+      render: (venue) => (
         <Button
           variant="outline"
           size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            setSelectedVenue(v);
+          onClick={(event) => {
+            event.stopPropagation();
+            setSelectedVenue(venue);
             setDetailTab("overview");
+            setShowCourtForm(false);
           }}
         >
           Inspect Venue
@@ -180,63 +235,81 @@ export default function VenuesPage() {
             <Button
               variant="primary"
               size="md"
-              onClick={() => setIsCreateOpen(true)}
+              onClick={() => {
+                setVenueError(null);
+                setIsCreateOpen(true);
+              }}
             >
               + Add Venue Facility
             </Button>
           }
         />
 
-        {/* Filter Controls */}
+        {pageError && (
+          <div role="alert" style={{ marginBottom: 16, color: "#991B1B" }}>
+            {pageError}
+          </div>
+        )}
+        {statusMessage && (
+          <div role="status" style={{ marginBottom: 16, color: "#065F46" }}>
+            {statusMessage}
+          </div>
+        )}
+
         <FilterBar
           hasActiveFilters={search !== ""}
-          onReset={() => setSearch("")}
+          onReset={() => {
+            setSearch("");
+            setPage(1);
+          }}
         >
           <SearchInput
             value={search}
-            onChange={setSearch}
+            onChange={(value) => {
+              setSearch(value);
+              setPage(1);
+            }}
             placeholder="Search venues by name, address..."
           />
         </FilterBar>
 
-        {/* Data Table */}
         <DataTable
           columns={columns}
           data={paginated}
           keyExtractor={(item) => item.id}
           isLoading={loading}
-          onRowClick={(item) => {
-            setSelectedVenue(item);
+          onRowClick={(venue) => {
+            setSelectedVenue(venue);
             setDetailTab("overview");
+            setShowCourtForm(false);
           }}
         />
-
-        {/* Pagination */}
         <Pagination
           currentPage={page}
           totalPages={totalPages}
           totalItems={filtered.length}
           itemsPerPage={pageSize}
           onPageChange={setPage}
-          onItemsPerPageChange={setPageSize}
+          onItemsPerPageChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
         />
 
-        {/* Venue Detail Drawer */}
         <Drawer
           isOpen={!!selectedVenue}
-          onClose={() => setSelectedVenue(null)}
+          onClose={() => {
+            setSelectedVenue(null);
+            setShowCourtForm(false);
+            setCourtError(null);
+          }}
           title={selectedVenue?.name}
-          subtitle={`Courts: ${selectedVenue?.courts.length} • Active Cohorts: ${selectedVenue?.activeOfferingsCount}`}
-          width="560px"
-          footer={
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectedVenue(null)}
-            >
-              Close
-            </Button>
+          subtitle={
+            selectedVenue
+              ? `Courts: ${selectedVenue.courts.length} • Active Cohorts: ${selectedVenue.activeOfferingsCount}`
+              : undefined
           }
+          width="560px"
         >
           {selectedVenue && (
             <div>
@@ -255,137 +328,156 @@ export default function VenuesPage() {
 
               {detailTab === "overview" && (
                 <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "16px",
-                  }}
+                  style={{ display: "flex", flexDirection: "column", gap: 16 }}
                 >
-                  <div
-                    style={{
-                      padding: "14px",
-                      backgroundColor: "#F8FAFC",
-                      borderRadius: "8px",
-                      border: "1px solid #E2E8F0",
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: "0.75rem",
-                        color: "#64748B",
-                        fontWeight: 700,
-                      }}
-                    >
-                      PHYSICAL ADDRESS
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "0.875rem",
-                        color: "#0F172A",
-                        marginTop: "4px",
-                      }}
-                    >
-                      {selectedVenue.address || "No address specified"}
-                    </div>
+                  <div>
+                    <strong>Physical address:</strong>{" "}
+                    {selectedVenue.address || "Not provided"}
                   </div>
 
                   <div>
-                    <h4
-                      style={{
-                        margin: "0 0 10px",
-                        fontSize: "0.9375rem",
-                        fontWeight: 700,
-                      }}
-                    >
-                      Configured Courts
-                    </h4>
                     <div
                       style={{
                         display: "flex",
-                        flexDirection: "column",
-                        gap: "8px",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: 12,
+                        marginBottom: 10,
                       }}
                     >
-                      {selectedVenue.courts.map((court) => (
-                        <div
-                          key={court.id}
-                          style={{
-                            padding: "12px",
-                            backgroundColor: "#FFFFFF",
-                            borderRadius: "8px",
-                            border: "1px solid #E2E8F0",
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                          }}
-                        >
-                          <div style={{ fontWeight: 600, color: "#0F172A" }}>
-                            {court.name}
-                          </div>
-                          <span
-                            style={{ fontSize: "0.75rem", color: "#64748B" }}
-                          >
-                            Max Capacity: {court.capacity}
-                          </span>
-                        </div>
-                      ))}
+                      <h4 style={{ margin: 0 }}>Configured Courts</h4>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setCourtError(null);
+                          setShowCourtForm((current) => !current);
+                        }}
+                      >
+                        + Add Court
+                      </Button>
                     </div>
+
+                    {selectedVenue.courts.length === 0 ? (
+                      <div style={{ color: "#64748B" }}>
+                        No persisted courts are configured for this venue.
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 8,
+                        }}
+                      >
+                        {selectedVenue.courts.map((court) => (
+                          <div
+                            key={court.id}
+                            style={{
+                              padding: 12,
+                              border: "1px solid #E2E8F0",
+                              borderRadius: 8,
+                            }}
+                          >
+                            <strong>{court.name}</strong>
+                            <div
+                              style={{ fontSize: "0.75rem", color: "#64748B" }}
+                            >
+                              Capacity: {court.capacity}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
+
+                  {showCourtForm && (
+                    <form onSubmit={handleCreateCourt}>
+                      <FormSection
+                        title="Add Court"
+                        description="The court is created under this persisted organization-owned venue."
+                      >
+                        <Input
+                          label="Court Name"
+                          required
+                          value={courtName}
+                          onChange={(event) => setCourtName(event.target.value)}
+                          placeholder="e.g. Court 1"
+                        />
+                        <Input
+                          label="Court Capacity"
+                          type="number"
+                          min={1}
+                          required
+                          value={courtCapacity}
+                          onChange={(event) =>
+                            setCourtCapacity(event.target.value)
+                          }
+                        />
+                      </FormSection>
+                      {courtError && (
+                        <div
+                          role="alert"
+                          style={{ marginTop: 12, color: "#991B1B" }}
+                        >
+                          <strong>Court not saved.</strong> {courtError}
+                        </div>
+                      )}
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "flex-end",
+                          gap: 10,
+                          marginTop: 12,
+                        }}
+                      >
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          type="button"
+                          disabled={isSavingCourt}
+                          onClick={() => setShowCourtForm(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          type="submit"
+                          isLoading={isSavingCourt}
+                        >
+                          Save Court to Backend
+                        </Button>
+                      </div>
+                    </form>
+                  )}
                 </div>
               )}
 
               {detailTab === "closures" && (
-                <div>
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: 10 }}
+                >
                   {selectedVenue.closurePeriods.length === 0 ? (
-                    <div
-                      style={{
-                        padding: "20px",
-                        textAlign: "center",
-                        color: "#64748B",
-                        fontSize: "0.875rem",
-                      }}
-                    >
+                    <div style={{ color: "#64748B" }}>
                       No active closure periods for this facility.
                     </div>
                   ) : (
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "10px",
-                      }}
-                    >
-                      {selectedVenue.closurePeriods.map((cl) => (
-                        <div
-                          key={cl.id}
-                          style={{
-                            padding: "12px",
-                            backgroundColor: "#FFFBEB",
-                            borderRadius: "8px",
-                            border: "1px solid #FDE68A",
-                          }}
-                        >
-                          <div
-                            style={{
-                              fontWeight: 700,
-                              fontSize: "0.875rem",
-                              color: "#92400E",
-                            }}
-                          >
-                            {cl.reason}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: "0.75rem",
-                              color: "#64748B",
-                              marginTop: "2px",
-                            }}
-                          >
-                            {cl.startsOn} to {cl.endsOn}
-                          </div>
+                    selectedVenue.closurePeriods.map((closure) => (
+                      <div
+                        key={closure.id}
+                        style={{
+                          padding: 12,
+                          border: "1px solid #FDE68A",
+                          borderRadius: 8,
+                        }}
+                      >
+                        <strong>{closure.reason}</strong>
+                        <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+                          {closure.startsOn} to {closure.endsOn}
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))
                   )}
                 </div>
               )}
@@ -393,10 +485,14 @@ export default function VenuesPage() {
           )}
         </Drawer>
 
-        {/* Create Venue Drawer */}
         <Drawer
           isOpen={isCreateOpen}
-          onClose={() => setIsCreateOpen(false)}
+          onClose={() => {
+            if (!isSaving) {
+              setVenueError(null);
+              setIsCreateOpen(false);
+            }
+          }}
           title="Add Venue Facility"
           subtitle="Register a new sports training centre."
           width="540px"
@@ -404,36 +500,42 @@ export default function VenuesPage() {
           <form onSubmit={handleCreateVenue}>
             <FormSection
               title="Facility Details"
-              description="Name and address for court allocation and public timetable mapping."
+              description="Name and address are persisted before courts can be added."
             >
               <Input
                 label="Venue Name"
                 required
                 value={venueName}
-                onChange={(e) => setVenueName(e.target.value)}
+                onChange={(event) => setVenueName(event.target.value)}
                 placeholder="e.g. KHLIM Arena Serdang"
               />
-
               <Input
                 label="Address"
                 value={venueAddress}
-                onChange={(e) => setVenueAddress(e.target.value)}
+                onChange={(event) => setVenueAddress(event.target.value)}
                 placeholder="Street address, city, postcode..."
               />
             </FormSection>
+
+            {venueError && (
+              <div role="alert" style={{ marginTop: 16, color: "#991B1B" }}>
+                <strong>Venue not saved.</strong> {venueError}
+              </div>
+            )}
 
             <div
               style={{
                 display: "flex",
                 justifyContent: "flex-end",
-                gap: "10px",
-                marginTop: "20px",
+                gap: 10,
+                marginTop: 20,
               }}
             >
               <Button
                 variant="outline"
                 size="md"
                 type="button"
+                disabled={isSaving}
                 onClick={() => setIsCreateOpen(false)}
               >
                 Cancel
