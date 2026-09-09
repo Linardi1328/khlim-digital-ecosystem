@@ -2,8 +2,10 @@
 
 import React, { forwardRef, useState, type InputHTMLAttributes } from "react";
 
-export interface PasswordInputProps
-  extends Omit<InputHTMLAttributes<HTMLInputElement>, "type"> {
+export interface PasswordInputProps extends Omit<
+  InputHTMLAttributes<HTMLInputElement>,
+  "type"
+> {
   label: string;
   showLabel: string;
   hideLabel: string;
@@ -33,16 +35,7 @@ function EyeIcon({ hidden }: { hidden: boolean }) {
 
 export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
   (
-    {
-      label,
-      showLabel,
-      hideLabel,
-      error,
-      helperText,
-      id,
-      style,
-      ...props
-    },
+    { label, showLabel, hideLabel, error, helperText, id, style, ...props },
     ref,
   ) => {
     const [visible, setVisible] = useState(false);
