@@ -60,6 +60,7 @@ export default function ResetPasswordPage() {
     <div
       style={{
         minHeight: "100dvh",
+        boxSizing: "border-box",
         display: "grid",
         placeItems: "center",
         backgroundColor: "#f4f4f5",
