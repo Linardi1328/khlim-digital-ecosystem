@@ -1,10 +1,6 @@
 "use client";
 
-import React, {
-  forwardRef,
-  useState,
-  type InputHTMLAttributes,
-} from "react";
+import React, { forwardRef, useState, type InputHTMLAttributes } from "react";
 
 export interface PasswordInputProps
   extends Omit<InputHTMLAttributes<HTMLInputElement>, "type"> {
@@ -28,19 +24,9 @@ function EyeIcon({ hidden }: { hidden: boolean }) {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      {hidden ? (
-        <>
-          <path d="M3 3l18 18" />
-          <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8" />
-          <path d="M9.9 4.2A10.7 10.7 0 0 1 12 4c5.5 0 9.5 5 9.5 8a8.8 8.8 0 0 1-2 3.8" />
-          <path d="M6.6 6.6C4.1 8.2 2.5 10.4 2.5 12c0 3 4 8 9.5 8a10.4 10.4 0 0 0 4.1-.8" />
-        </>
-      ) : (
-        <>
-          <path d="M2.5 12s3.5-8 9.5-8 9.5 8 9.5 8-3.5 8-9.5 8-9.5-8-9.5-8Z" />
-          <circle cx="12" cy="12" r="3" />
-        </>
-      )}
+      <ellipse cx="12" cy="12" rx="9" ry="6" />
+      <circle cx="12" cy="12" r="2.5" />
+      {hidden ? <path d="M4 4l16 16" /> : null}
     </svg>
   );
 }
