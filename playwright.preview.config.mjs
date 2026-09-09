@@ -9,6 +9,7 @@ export default defineConfig({
     "web-preview.spec.mjs",
     "mobile-header.spec.mjs",
     "walkthrough-visual.spec.mjs",
+    "auth-accessibility.spec.mjs",
   ],
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),

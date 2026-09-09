@@ -9,6 +9,7 @@ import { useAuth } from "../../../lib/auth-context";
 import { BrandLogo } from "../../../components/layout/brand-logo";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
+import { PasswordInput } from "../../../components/ui/password-input";
 import { Select } from "../../../components/ui/select";
 import {
   Card,
@@ -27,7 +28,6 @@ export default function RegisterPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [selectedLocale, setSelectedLocale] = useState<SupportedLocale>(locale);
   const [error, setError] = useState("");
   const [confirmationEmail, setConfirmationEmail] = useState<string | null>(
@@ -69,11 +69,12 @@ export default function RegisterPage() {
   return (
     <div
       style={{
-        minHeight: "100vh",
+        minHeight: "100dvh",
+        boxSizing: "border-box",
         display: "grid",
         placeItems: "center",
         backgroundColor: "#f4f4f5",
-        padding: 24,
+        padding: "16px 24px",
       }}
     >
       <div style={{ width: "100%", maxWidth: 480 }}>
@@ -81,11 +82,11 @@ export default function RegisterPage() {
           style={{
             display: "flex",
             justifyContent: "center",
-            marginBottom: 24,
+            marginBottom: 16,
           }}
         >
           <Link href="/" aria-label={t("brand.academy")}>
-            <BrandLogo size={76} priority />
+            <BrandLogo size={64} priority />
           </Link>
         </div>
         <Card>
@@ -125,43 +126,24 @@ export default function RegisterPage() {
                     onChange={(event) => setEmail(event.target.value)}
                     autoComplete="email"
                   />
-                  <div>
-                    <Input
-                      label={t("auth.register.password")}
-                      type={showPassword ? "text" : "password"}
-                      required
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                      autoComplete="new-password"
-                      helperText={t("auth.register.minimumPassword")}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((current) => !current)}
-                      aria-pressed={showPassword}
-                      style={{
-                        minHeight: 44,
-                        marginTop: 4,
-                        padding: "0 8px",
-                        border: 0,
-                        background: "transparent",
-                        color: "#92400E",
-                        cursor: "pointer",
-                        fontSize: "0.8125rem",
-                        fontWeight: 700,
-                      }}
-                    >
-                      {showPassword
-                        ? t("auth.password.hide")
-                        : t("auth.password.show")}
-                    </button>
-                  </div>
+                  <PasswordInput
+                    label={t("auth.register.password")}
+                    showLabel={t("auth.password.show")}
+                    hideLabel={t("auth.password.hide")}
+                    required
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    autoComplete="new-password"
+                    helperText={t("auth.register.minimumPassword")}
+                  />
                   <Select
                     label={t("auth.register.preferredLanguage")}
                     value={selectedLocale}
-                    onChange={(event) =>
-                      setSelectedLocale(event.target.value as SupportedLocale)
-                    }
+                    onChange={(event) => {
+                      const nextLocale = event.target.value as SupportedLocale;
+                      setSelectedLocale(nextLocale);
+                      setLocale(nextLocale);
+                    }}
                     options={[
                       { label: "English", value: "en" },
                       { label: "Bahasa Melayu", value: "ms" },

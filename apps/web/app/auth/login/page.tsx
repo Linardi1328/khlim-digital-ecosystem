@@ -6,7 +6,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "../../../lib/i18n-context";
 import { useAuth } from "../../../lib/auth-context";
 import { BrandLogo } from "../../../components/layout/brand-logo";
+import { LocaleSwitcher } from "../../../components/layout/locale-switcher";
 import { Button } from "../../../components/ui/button";
+import { PasswordInput } from "../../../components/ui/password-input";
 import { Input } from "../../../components/ui/input";
 import {
   Card,
@@ -33,7 +35,6 @@ function LoginContent() {
   const redirectPath = safeRedirect(searchParams.get("redirect"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -57,41 +58,53 @@ function LoginContent() {
   return (
     <div
       style={{
-        minHeight: "100vh",
+        minHeight: "100dvh",
+        boxSizing: "border-box",
         display: "grid",
         placeItems: "center",
         backgroundColor: "#f4f4f5",
-        padding: 20,
+        padding: "16px 20px",
       }}
     >
       <div style={{ width: "100%", maxWidth: 440 }}>
-        <Link
-          href="/"
-          className="auth-home-link"
+        <div
           style={{
             minHeight: 44,
-            display: "inline-flex",
+            display: "flex",
             alignItems: "center",
-            gap: 6,
+            justifyContent: "space-between",
+            gap: 12,
             marginBottom: 10,
-            padding: "0 10px",
-            borderRadius: 8,
-            color: "#3F3F46",
-            fontSize: "0.9375rem",
-            fontWeight: 700,
-            textDecoration: "none",
           }}
         >
-          <span aria-hidden="true">←</span>
-          <span>{t("nav.home")}</span>
-        </Link>
+          <Link
+            href="/"
+            className="auth-home-link"
+            style={{
+              minHeight: 44,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "0 10px",
+              borderRadius: 8,
+              color: "#3F3F46",
+              fontSize: "0.9375rem",
+              fontWeight: 700,
+              textDecoration: "none",
+            }}
+          >
+            <span aria-hidden="true">←</span>
+            <span>{t("nav.home")}</span>
+          </Link>
+          <LocaleSwitcher />
+        </div>
         <Card>
           <CardHeader
             style={{
               alignItems: "center",
               textAlign: "center",
               gap: 6,
-              marginBottom: 20,
+              marginBottom: 16,
             }}
           >
             <Link
@@ -103,10 +116,10 @@ function LoginContent() {
                 alignItems: "center",
                 gap: 8,
                 textDecoration: "none",
-                marginBottom: 8,
+                marginBottom: 6,
               }}
             >
-              <BrandLogo size={72} priority className="auth-brand-logo" />
+              <BrandLogo size={60} priority className="auth-brand-logo" />
               <div>
                 <div
                   style={{
@@ -144,8 +157,8 @@ function LoginContent() {
               style={{
                 display: "flex",
                 flexDirection: "column",
-                gap: 16,
-                marginTop: error ? 16 : 0,
+                gap: 14,
+                marginTop: error ? 14 : 0,
               }}
             >
               <Input
@@ -156,37 +169,16 @@ function LoginContent() {
                 onChange={(event) => setEmail(event.target.value)}
                 autoComplete="email"
               />
-              <div>
-                <Input
-                  label={t("auth.login.password")}
-                  type={showPassword ? "text" : "password"}
-                  required
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  autoComplete="current-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((current) => !current)}
-                  aria-pressed={showPassword}
-                  style={{
-                    minHeight: 44,
-                    marginTop: 4,
-                    padding: "0 8px",
-                    border: 0,
-                    background: "transparent",
-                    color: "#92400E",
-                    cursor: "pointer",
-                    fontSize: "0.8125rem",
-                    fontWeight: 700,
-                  }}
-                >
-                  {showPassword
-                    ? t("auth.password.hide")
-                    : t("auth.password.show")}
-                </button>
-              </div>
-              <div style={{ textAlign: "right" }}>
+              <PasswordInput
+                label={t("auth.login.password")}
+                showLabel={t("auth.password.show")}
+                hideLabel={t("auth.password.hide")}
+                required
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+              />
+              <div style={{ textAlign: "right", minHeight: 24 }}>
                 <Link
                   href="/auth/forgot-password"
                   style={{ color: "#b45309", fontSize: "0.8125rem" }}
