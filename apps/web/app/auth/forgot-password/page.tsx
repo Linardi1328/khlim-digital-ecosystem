@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useI18n } from "../../../lib/i18n-context";
 import { useAuth } from "../../../lib/auth-context";
 import { BrandLogo } from "../../../components/layout/brand-logo";
+import { LocaleSwitcher } from "../../../components/layout/locale-switcher";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import {
@@ -42,25 +43,29 @@ export default function ForgotPasswordPage() {
   return (
     <div
       style={{
-        minHeight: "100vh",
+        minHeight: "100dvh",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: "#F4F4F5",
-        padding: "24px",
+        padding: "16px 24px",
       }}
     >
       <div style={{ width: "100%", maxWidth: "440px" }}>
         <div
           style={{
+            minHeight: 44,
             display: "flex",
-            justifyContent: "center",
-            marginBottom: 24,
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+            marginBottom: 16,
           }}
         >
           <Link href="/" aria-label={t("brand.academy")}>
-            <BrandLogo size={76} priority />
+            <BrandLogo size={56} priority />
           </Link>
+          <LocaleSwitcher />
         </div>
         <Card
           style={{
