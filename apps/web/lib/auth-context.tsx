@@ -8,24 +8,31 @@ import React, {
   useState,
   type ReactNode,
 } from "react";
+import { isSupportedLocale, type SupportedLocale } from "@khlim/i18n";
 import { apiService } from "./api-service";
 import {
+  clearStoredSession,
+  getGuardianRegistrationMetadata,
   restoreSupabaseSession,
   supabaseRecoverPassword,
   supabaseSignIn,
   supabaseSignOut,
   supabaseSignUp,
+  type SupabaseSession,
 } from "./supabase-auth";
 import type {
   AccountMeResponse,
   GuardianProfile,
   UpsertGuardianProfileDto,
 } from "./types";
-import type { SupportedLocale } from "@khlim/i18n";
+
+export interface LoginResult {
+  guardianOnboardingRequired: boolean;
+}
 
 export interface RegistrationResult {
   authenticated: boolean;
-  emailConfirmationRequired: boolean;
+  emailConfirmationOrSignInRequired: boolean;
 }
 
 interface AuthContextValue {
@@ -33,7 +40,7 @@ interface AuthContextValue {
   account: AccountMeResponse | null;
   guardianProfile: GuardianProfile | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<LoginResult>;
   register: (
     email: string,
     password: string,
@@ -47,6 +54,32 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+async function finishPendingGuardianRegistration(
+  session: SupabaseSession,
+  account: AccountMeResponse,
+): Promise<{ account: AccountMeResponse; guardianOnboardingRequired: boolean }> {
+  if (account.guardianProfile) {
+    return { account, guardianOnboardingRequired: false };
+  }
+
+  const metadata = getGuardianRegistrationMetadata(session.user);
+  if (!metadata || !isSupportedLocale(metadata.preferredLocale)) {
+    return { account, guardianOnboardingRequired: false };
+  }
+
+  await apiService.updatePreferences({
+    preferredLocale: metadata.preferredLocale,
+  });
+  await apiService.upsertGuardianProfile({
+    displayName: metadata.displayName,
+  });
+
+  return {
+    account: await apiService.getMe(),
+    guardianOnboardingRequired: true,
+  };
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -99,14 +132,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [applyAccount]);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (
+    email: string,
+    password: string,
+  ): Promise<LoginResult> => {
     setIsLoading(true);
+    let supabaseSessionEstablished = false;
     try {
-      await supabaseSignIn(email, password);
-      const value = await apiService.getMe();
-      applyAccount(value);
-      return true;
+      const session = await supabaseSignIn(email, password);
+      supabaseSessionEstablished = true;
+      const account = await apiService.getMe();
+      const result = await finishPendingGuardianRegistration(session, account);
+      applyAccount(result.account);
+      return {
+        guardianOnboardingRequired: result.guardianOnboardingRequired,
+      };
     } catch (error) {
+      if (supabaseSessionEstablished) {
+        clearStoredSession();
+      }
       applyAccount(null);
       throw error;
     } finally {
@@ -121,13 +165,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     preferredLocale: SupportedLocale = "en",
   ): Promise<RegistrationResult> => {
     setIsLoading(true);
+    let supabaseSessionEstablished = false;
     try {
-      const result = await supabaseSignUp(email, password);
+      const result = await supabaseSignUp(email, password, {
+        displayName: fullName.trim(),
+        preferredLocale,
+      });
+      supabaseSessionEstablished = Boolean(result.session);
       if (!result.session) {
         applyAccount(null);
         return {
           authenticated: false,
-          emailConfirmationRequired: result.emailConfirmationRequired,
+          emailConfirmationOrSignInRequired:
+            result.emailConfirmationOrSignInRequired,
         };
       }
 
@@ -137,8 +187,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await apiService.updatePreferences({ preferredLocale });
       const value = await apiService.getMe();
       applyAccount(value);
-      return { authenticated: true, emailConfirmationRequired: false };
+      return {
+        authenticated: true,
+        emailConfirmationOrSignInRequired: false,
+      };
     } catch (error) {
+      if (supabaseSessionEstablished) {
+        clearStoredSession();
+      }
       applyAccount(null);
       throw error;
     } finally {
