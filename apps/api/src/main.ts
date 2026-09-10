@@ -57,8 +57,8 @@ async function bootstrap() {
     port: runtime.port,
   });
 
-  await import("./instrument");
-  const { AppModule } = await import("./app.module");
+  await import("./instrument.js");
+  const { AppModule } = await import("./app.module.js");
 
   const logger = createStructuredLogger({
     service: "khlim-api",
