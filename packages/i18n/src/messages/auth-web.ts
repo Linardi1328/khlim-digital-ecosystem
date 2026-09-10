@@ -7,9 +7,9 @@ const en = {
   "auth.register.error.invalid":
     "Enter your name, a valid email, and a password of at least 8 characters.",
   "auth.register.error.failed": "Registration failed.",
-  "auth.register.verifyTitle": "Verify your email to continue",
+  "auth.register.verifyTitle": "Check your email or sign in",
   "auth.register.verifyBody":
-    "Supabase requires email confirmation for {email}. Open the verification email, then sign in to finish your guardian profile.",
+    "If this registration created a new account for {email}, use the confirmation email to verify it, then sign in to finish your guardian profile. If you already have an account, sign in instead.",
   "auth.register.minimumPassword": "Minimum 8 characters.",
   "auth.forgot.error.failed": "Password recovery request failed.",
   "auth.forgot.sentTitle": "Recovery Link Dispatched",
@@ -48,9 +48,9 @@ const ms: Catalogue = {
   "auth.register.error.invalid":
     "Masukkan nama, emel yang sah dan kata laluan sekurang-kurangnya 8 aksara.",
   "auth.register.error.failed": "Pendaftaran gagal.",
-  "auth.register.verifyTitle": "Sahkan emel anda untuk meneruskan",
+  "auth.register.verifyTitle": "Semak emel anda atau log masuk",
   "auth.register.verifyBody":
-    "Supabase memerlukan pengesahan emel untuk {email}. Buka emel pengesahan, kemudian log masuk untuk melengkapkan profil penjaga anda.",
+    "Jika pendaftaran ini mencipta akaun baharu untuk {email}, gunakan emel pengesahan untuk mengesahkannya, kemudian log masuk untuk melengkapkan profil penjaga anda. Jika anda sudah mempunyai akaun, log masuk sahaja.",
   "auth.register.minimumPassword": "Minimum 8 aksara.",
   "auth.forgot.error.failed": "Permintaan pemulihan kata laluan gagal.",
   "auth.forgot.sentTitle": "Pautan Pemulihan Dihantar",
@@ -86,9 +86,9 @@ const zhHans: Catalogue = {
   "auth.register.error.invalid":
     "请输入姓名、有效电子邮箱以及至少 8 个字符的密码。",
   "auth.register.error.failed": "注册失败。",
-  "auth.register.verifyTitle": "请验证电子邮箱以继续",
+  "auth.register.verifyTitle": "请检查邮箱或直接登录",
   "auth.register.verifyBody":
-    "Supabase 要求验证 {email}。请打开验证邮件，然后登录以完成监护人资料。",
+    "如果此次注册为 {email} 创建了新账户，请使用确认邮件完成验证，然后登录以完成监护人资料。如果您已经有账户，请直接登录。",
   "auth.register.minimumPassword": "至少 8 个字符。",
   "auth.forgot.error.failed": "密码恢复请求失败。",
   "auth.forgot.sentTitle": "恢复链接已发送",
@@ -123,9 +123,9 @@ const zhHant: Catalogue = {
   "auth.register.error.invalid":
     "請輸入姓名、有效電子郵箱以及至少 8 個字元的密碼。",
   "auth.register.error.failed": "註冊失敗。",
-  "auth.register.verifyTitle": "請驗證電子郵箱以繼續",
+  "auth.register.verifyTitle": "請檢查電子郵箱或直接登入",
   "auth.register.verifyBody":
-    "Supabase 要求驗證 {email}。請開啟驗證郵件，然後登入以完成監護人資料。",
+    "如果此次註冊為 {email} 建立了新帳戶，請使用確認郵件完成驗證，然後登入以完成監護人資料。如果您已經有帳戶，請直接登入。",
   "auth.register.minimumPassword": "至少 8 個字元。",
   "auth.forgot.error.failed": "密碼復原請求失敗。",
   "auth.forgot.sentTitle": "復原連結已傳送",
@@ -160,9 +160,9 @@ const hi: Catalogue = {
   "auth.register.error.invalid":
     "अपना नाम, मान्य ईमेल और कम से कम 8 अक्षरों का पासवर्ड दर्ज करें।",
   "auth.register.error.failed": "पंजीकरण विफल रहा।",
-  "auth.register.verifyTitle": "जारी रखने के लिए अपना ईमेल सत्यापित करें",
+  "auth.register.verifyTitle": "अपना ईमेल जाँचें या साइन इन करें",
   "auth.register.verifyBody":
-    "Supabase को {email} के लिए ईमेल पुष्टि चाहिए। सत्यापन ईमेल खोलें, फिर अपनी अभिभावक प्रोफ़ाइल पूरी करने के लिए साइन इन करें।",
+    "यदि इस पंजीकरण ने {email} के लिए नया खाता बनाया है, तो पुष्टि ईमेल से उसे सत्यापित करें और फिर अपनी अभिभावक प्रोफ़ाइल पूरी करने के लिए साइन इन करें। यदि आपका खाता पहले से है, तो सीधे साइन इन करें।",
   "auth.register.minimumPassword": "कम से कम 8 अक्षर।",
   "auth.forgot.error.failed": "पासवर्ड रिकवरी अनुरोध विफल रहा।",
   "auth.forgot.sentTitle": "रिकवरी लिंक भेज दिया गया",
