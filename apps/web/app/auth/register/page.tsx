@@ -54,7 +54,7 @@ export default function RegisterPage() {
         router.push("/onboarding/guardian");
         return;
       }
-      if (result.emailConfirmationRequired) {
+      if (result.emailConfirmationOrSignInRequired) {
         setConfirmationEmail(email);
       }
     } catch (caught) {
@@ -114,6 +114,7 @@ export default function RegisterPage() {
                   <Input
                     label={t("auth.register.fullName")}
                     required
+                    maxLength={120}
                     value={fullName}
                     onChange={(event) => setFullName(event.target.value)}
                     autoComplete="name"
