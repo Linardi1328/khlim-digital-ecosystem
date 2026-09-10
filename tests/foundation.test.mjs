@@ -104,7 +104,7 @@ test("shared TypeScript configs define strict runtime-specific foundations", asy
     $schema: "https://json.schemastore.org/tsconfig",
     extends: "./base.json",
     compilerOptions: {
-      lib: ["ES2022"],
+      lib: ["ES2022", "DOM"],
       module: "NodeNext",
       moduleResolution: "NodeNext",
     },
