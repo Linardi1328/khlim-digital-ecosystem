@@ -57,3 +57,32 @@ test("preferred language changes registration UI immediately without translating
   assert.match(locales, /"ms"/);
   assert.match(locales, /"zh-Hans"/);
 });
+
+test("guardian registration survives confirmation and failed API handoff safely", async () => {
+  const supabaseAuth = await read("apps/web/lib/supabase-auth.ts");
+  const auth = await read("apps/web/lib/auth-context.tsx");
+  const login = await read("apps/web/app/auth/login/page.tsx");
+  const register = await read("apps/web/app/auth/register/page.tsx");
+  const messages = await read("packages/i18n/src/messages/auth-web.ts");
+
+  assert.match(supabaseAuth, /data:\s*\{/);
+  assert.match(supabaseAuth, /khlim_registration_intent/);
+  assert.match(supabaseAuth, /khlim_guardian_display_name/);
+  assert.match(supabaseAuth, /khlim_preferred_locale/);
+  assert.match(auth, /getGuardianRegistrationMetadata\(session\.user\)/);
+  assert.match(auth, /supabaseSessionEstablished = true/);
+  assert.match(
+    auth,
+    /if \(supabaseSessionEstablished\) \{\s*clearStoredSession\(\);\s*\}/s,
+  );
+  assert.match(login, /result\.guardianOnboardingRequired/);
+  assert.match(register, /emailConfirmationOrSignInRequired/);
+  assert.match(
+    messages,
+    /If this registration created a new account for \{email\}/,
+  );
+  assert.doesNotMatch(
+    messages,
+    /Supabase requires email confirmation for \{email\}/,
+  );
+});
