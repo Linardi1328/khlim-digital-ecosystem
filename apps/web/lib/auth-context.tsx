@@ -58,7 +58,10 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 async function finishPendingGuardianRegistration(
   session: SupabaseSession,
   account: AccountMeResponse,
-): Promise<{ account: AccountMeResponse; guardianOnboardingRequired: boolean }> {
+): Promise<{
+  account: AccountMeResponse;
+  guardianOnboardingRequired: boolean;
+}> {
   if (account.guardianProfile) {
     return { account, guardianOnboardingRequired: false };
   }
@@ -132,10 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [applyAccount]);
 
-  const login = async (
-    email: string,
-    password: string,
-  ): Promise<LoginResult> => {
+  const login = async (email: string, password: string): Promise<LoginResult> => {
     setIsLoading(true);
     let supabaseSessionEstablished = false;
     try {
