@@ -135,7 +135,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [applyAccount]);
 
-  const login = async (email: string, password: string): Promise<LoginResult> => {
+  const login = async (
+    email: string,
+    password: string,
+  ): Promise<LoginResult> => {
     setIsLoading(true);
     let supabaseSessionEstablished = false;
     try {
