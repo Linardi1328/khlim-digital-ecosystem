@@ -1,7 +1,6 @@
 {
   "extends": "../../packages/typescript-config/node.json",
   "compilerOptions": {
-    "lib": ["ES2022", "DOM"],
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "noEmit": false,
