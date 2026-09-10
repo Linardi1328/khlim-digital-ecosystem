@@ -46,8 +46,12 @@ function LoginContent() {
     }
 
     try {
-      await login(email, password);
-      router.push(redirectPath);
+      const result = await login(email, password);
+      router.push(
+        result.guardianOnboardingRequired
+          ? "/onboarding/guardian"
+          : redirectPath,
+      );
     } catch (caught) {
       setError(
         caught instanceof Error ? caught.message : t("auth.login.error.failed"),
