@@ -3,6 +3,13 @@ import type { JWTPayload } from "jose";
 type JoseModule = typeof import("jose");
 type RemoteJwkSet = ReturnType<JoseModule["createRemoteJWKSet"]>;
 
+let joseRuntime: Promise<JoseModule> | null = null;
+
+function loadJose(): Promise<JoseModule> {
+  joseRuntime ??= import("jose");
+  return joseRuntime;
+}
+
 export interface SupabaseJwtVerifierOptions {
   issuer: string;
   audience?: string;
@@ -29,13 +36,7 @@ export function createSupabaseJwtVerifier(options: SupabaseJwtVerifierOptions) {
 
   const audience = options.audience ?? "authenticated";
   const jwksUrl = new URL(`${issuer}/.well-known/jwks.json`);
-  let joseRuntime: Promise<JoseModule> | null = null;
   let jwks: RemoteJwkSet | null = null;
-
-  function loadJose(): Promise<JoseModule> {
-    joseRuntime ??= import("jose");
-    return joseRuntime;
-  }
 
   return async function verifySupabaseJwt(
     token: string,
