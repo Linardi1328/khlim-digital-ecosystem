@@ -77,7 +77,7 @@ test("Supabase JWT runtime loads ESM-only jose without CommonJS require", async 
   const verifier = await read("apps/api/src/auth/supabase-jwt-verifier.ts");
 
   assert.match(verifier, /import type \{ JWTPayload \} from "jose"/);
-  assert.match(verifier, /import\("jose"\)/);
+  assert.match(verifier, /joseRuntime \?\?= import\("jose"\)/);
   assert.doesNotMatch(
     verifier,
     /import \{[^}]*createRemoteJWKSet[^}]*\} from "jose"/s,
