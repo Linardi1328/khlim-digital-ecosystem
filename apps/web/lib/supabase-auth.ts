@@ -3,6 +3,7 @@
 export interface SupabaseUser {
   id: string;
   email?: string;
+  user_metadata?: Record<string, unknown>;
 }
 
 export interface SupabaseSession {
@@ -14,14 +15,22 @@ export interface SupabaseSession {
   user: SupabaseUser;
 }
 
+export interface SupabaseGuardianRegistrationMetadata {
+  displayName: string;
+  preferredLocale: string;
+}
+
 export interface SupabaseSignUpResult {
   session: SupabaseSession | null;
   user: SupabaseUser | null;
-  emailConfirmationRequired: boolean;
+  emailConfirmationOrSignInRequired: boolean;
 }
 
 export const SUPABASE_SESSION_STORAGE_KEY = "khlim_supabase_session";
 const EXPIRY_SKEW_SECONDS = 60;
+const KHLIM_REGISTRATION_INTENT_KEY = "khlim_registration_intent";
+const KHLIM_GUARDIAN_DISPLAY_NAME_KEY = "khlim_guardian_display_name";
+const KHLIM_PREFERRED_LOCALE_KEY = "khlim_preferred_locale";
 let refreshPromise: Promise<SupabaseSession | null> | null = null;
 
 function getSupabaseConfig(): { url: string; anonKey: string } {
@@ -56,6 +65,22 @@ function readStoredSession(): SupabaseSession | null {
   }
 }
 
+function normalizeUser(payload: unknown): SupabaseUser | null {
+  if (typeof payload !== "object" || payload === null) return null;
+
+  const user = payload as Record<string, unknown>;
+  if (typeof user.id !== "string") return null;
+
+  return {
+    id: user.id,
+    email: typeof user.email === "string" ? user.email : undefined,
+    user_metadata:
+      typeof user.user_metadata === "object" && user.user_metadata !== null
+        ? (user.user_metadata as Record<string, unknown>)
+        : undefined,
+  };
+}
+
 function normalizeSession(payload: unknown): SupabaseSession | null {
   if (typeof payload !== "object" || payload === null) return null;
 
@@ -64,15 +89,13 @@ function normalizeSession(payload: unknown): SupabaseSession | null {
     typeof value.access_token !== "string" ||
     typeof value.refresh_token !== "string" ||
     typeof value.expires_in !== "number" ||
-    typeof value.token_type !== "string" ||
-    typeof value.user !== "object" ||
-    value.user === null
+    typeof value.token_type !== "string"
   ) {
     return null;
   }
 
-  const user = value.user as Record<string, unknown>;
-  if (typeof user.id !== "string") return null;
+  const user = normalizeUser(value.user);
+  if (!user) return null;
 
   return {
     access_token: value.access_token,
@@ -83,10 +106,7 @@ function normalizeSession(payload: unknown): SupabaseSession | null {
         ? value.expires_at
         : Math.floor(Date.now() / 1000) + value.expires_in,
     token_type: value.token_type,
-    user: {
-      id: user.id,
-      email: typeof user.email === "string" ? user.email : undefined,
-    },
+    user,
   };
 }
 
@@ -149,6 +169,30 @@ async function authRequest(
 
 export function clearStoredSession(): void {
   storeSession(null);
+}
+
+export function getGuardianRegistrationMetadata(
+  user: SupabaseUser,
+): SupabaseGuardianRegistrationMetadata | null {
+  const metadata = user.user_metadata;
+  if (!metadata || metadata[KHLIM_REGISTRATION_INTENT_KEY] !== "guardian") {
+    return null;
+  }
+
+  const displayName = metadata[KHLIM_GUARDIAN_DISPLAY_NAME_KEY];
+  const preferredLocale = metadata[KHLIM_PREFERRED_LOCALE_KEY];
+  if (typeof displayName !== "string" || typeof preferredLocale !== "string") {
+    return null;
+  }
+
+  const normalizedDisplayName = displayName.trim();
+  const normalizedPreferredLocale = preferredLocale.trim();
+  if (!normalizedDisplayName || !normalizedPreferredLocale) return null;
+
+  return {
+    displayName: normalizedDisplayName,
+    preferredLocale: normalizedPreferredLocale,
+  };
 }
 
 export async function refreshSupabaseSession(): Promise<SupabaseSession | null> {
@@ -220,10 +264,19 @@ export async function supabaseSignIn(
 export async function supabaseSignUp(
   email: string,
   password: string,
+  metadata: SupabaseGuardianRegistrationMetadata,
 ): Promise<SupabaseSignUpResult> {
   const body = await authRequest("/signup", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({
+      email,
+      password,
+      data: {
+        [KHLIM_REGISTRATION_INTENT_KEY]: "guardian",
+        [KHLIM_GUARDIAN_DISPLAY_NAME_KEY]: metadata.displayName.trim(),
+        [KHLIM_PREFERRED_LOCALE_KEY]: metadata.preferredLocale,
+      },
+    }),
   });
 
   if (typeof body !== "object" || body === null) {
@@ -233,23 +286,15 @@ export async function supabaseSignUp(
   const value = body as Record<string, unknown>;
   const session = normalizeSession(body);
   const rawUser =
-    typeof value.user === "object" && value.user !== null
-      ? (value.user as Record<string, unknown>)
-      : value;
-  const user =
-    typeof rawUser.id === "string"
-      ? {
-          id: rawUser.id,
-          email: typeof rawUser.email === "string" ? rawUser.email : undefined,
-        }
-      : null;
+    typeof value.user === "object" && value.user !== null ? value.user : value;
+  const user = normalizeUser(rawUser);
 
   if (session) storeSession(session);
 
   return {
     session,
     user,
-    emailConfirmationRequired: session === null,
+    emailConfirmationOrSignInRequired: session === null,
   };
 }
 
