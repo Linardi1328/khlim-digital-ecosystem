@@ -1,4 +1,14 @@
-import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
+import type { JWTPayload } from "jose";
+
+type JoseModule = typeof import("jose");
+type RemoteJwkSet = ReturnType<JoseModule["createRemoteJWKSet"]>;
+
+let joseRuntime: Promise<JoseModule> | null = null;
+
+function loadJose(): Promise<JoseModule> {
+  joseRuntime ??= import("jose");
+  return joseRuntime;
+}
 
 export interface SupabaseJwtVerifierOptions {
   issuer: string;
@@ -24,12 +34,16 @@ export function createSupabaseJwtVerifier(options: SupabaseJwtVerifierOptions) {
     throw new Error("Supabase JWT issuer must use HTTPS outside localhost");
   }
 
-  const jwks = createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`));
   const audience = options.audience ?? "authenticated";
+  const jwksUrl = new URL(`${issuer}/.well-known/jwks.json`);
+  let jwks: RemoteJwkSet | null = null;
 
   return async function verifySupabaseJwt(
     token: string,
   ): Promise<VerifiedSupabaseIdentity> {
+    const { createRemoteJWKSet, jwtVerify } = await loadJose();
+    jwks ??= createRemoteJWKSet(jwksUrl);
+
     const { payload } = await jwtVerify(token, jwks, {
       issuer,
       audience,

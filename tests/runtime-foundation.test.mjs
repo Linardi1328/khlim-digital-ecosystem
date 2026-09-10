@@ -73,6 +73,17 @@ test("API scaffold exposes a versioned health boundary and OpenAPI", async () =>
   assert.match(environment, /Invalid PORT/);
 });
 
+test("Supabase JWT runtime loads ESM-only jose without CommonJS require", async () => {
+  const verifier = await read("apps/api/src/auth/supabase-jwt-verifier.ts");
+
+  assert.match(verifier, /import type \{ JWTPayload \} from "jose"/);
+  assert.match(verifier, /joseRuntime \?\?= import\("jose"\)/);
+  assert.doesNotMatch(
+    verifier,
+    /import \{[^}]*createRemoteJWKSet[^}]*\} from "jose"/s,
+  );
+});
+
 test("development environment contract contains placeholders rather than production credentials", async () => {
   const sample = await read(".env.example");
 
