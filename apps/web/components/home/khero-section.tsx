@@ -31,6 +31,8 @@ const posters = [
 
 export function KheroSection() {
   const { t } = useI18n();
+  const mediaRightsConfirmed =
+    process.env.NEXT_PUBLIC_KHERO_MEDIA_RIGHTS_CONFIRMED === "1";
 
   return (
     <section className="home-khero-section" aria-labelledby="home-khero-title">
@@ -46,13 +48,34 @@ export function KheroSection() {
             key={poster.id}
             className={`home-khero-poster home-khero-poster-${index + 1}`}
           >
-            <Image
-              src={poster.src}
-              alt={t(poster.altKey)}
-              fill
-              sizes="(max-width: 640px) 50vw, (max-width: 900px) 50vw, 25vw"
-              priority={index === 0}
-            />
+            {mediaRightsConfirmed ? (
+              <Image
+                src={poster.src}
+                alt={t(poster.altKey)}
+                fill
+                sizes="(max-width: 640px) 50vw, (max-width: 900px) 50vw, 25vw"
+                priority={index === 0}
+              />
+            ) : (
+              <div
+                role="img"
+                aria-label={t(poster.altKey)}
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  display: "grid",
+                  placeItems: "center",
+                  padding: 18,
+                  textAlign: "center",
+                  background: "#27272A",
+                  color: "#E4E4E7",
+                  fontSize: "0.8125rem",
+                  fontWeight: 700,
+                }}
+              >
+                Media pending rights verification
+              </div>
+            )}
           </figure>
         ))}
       </div>

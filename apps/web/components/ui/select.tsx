@@ -1,6 +1,10 @@
 "use client";
 
-import React, { type SelectHTMLAttributes, forwardRef } from "react";
+import React, {
+  type SelectHTMLAttributes,
+  forwardRef,
+  useId,
+} from "react";
 
 export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
@@ -13,7 +17,12 @@ const chevron =
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ({ label, error, options, id, style, ...props }, ref) => {
-    const selectId = id ?? label?.toLowerCase().replace(/\s+/g, "-");
+    const generatedId = useId();
+    const selectId = id ?? `select-${generatedId.replace(/:/g, "")}`;
+    const errorId = error ? `${selectId}-error` : undefined;
+    const describedBy = [props["aria-describedby"], errorId]
+      .filter(Boolean)
+      .join(" ") || undefined;
 
     return (
       <div
@@ -40,6 +49,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           ref={ref}
           id={selectId}
           aria-invalid={Boolean(error)}
+          {...props}
+          aria-describedby={describedBy}
           style={{
             padding: "10px 46px 10px 14px",
             fontSize: "0.9375rem",
@@ -53,14 +64,12 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             WebkitAppearance: "none",
             appearance: "none",
             color: "#18181B",
-            outline: "none",
             width: "100%",
             boxSizing: "border-box",
             fontFamily: "inherit",
             cursor: "pointer",
             ...style,
           }}
-          {...props}
         >
           {options.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -70,7 +79,9 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
         </select>
         {error && (
           <span
-            style={{ fontSize: "0.8125rem", color: "#DC2626", fontWeight: 500 }}
+            id={`${selectId}-error`}
+            role="alert"
+            style={{ fontSize: "0.8125rem", color: "#B91C1C", fontWeight: 500 }}
           >
             {error}
           </span>
