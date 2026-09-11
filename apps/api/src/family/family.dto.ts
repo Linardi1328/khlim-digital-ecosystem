@@ -13,6 +13,21 @@ export class CreateManagedAthleteDto {
 
   @ApiPropertyOptional({ example: "parent", maxLength: 50 })
   relationshipType?: string;
+
+  @ApiPropertyOptional({
+    example: true,
+    description:
+      "Required when creating a managed athlete under 18. Confirms that the authenticated guardian consents to processing the minor's personal data under the referenced privacy notice.",
+  })
+  guardianDataConsent?: boolean;
+
+  @ApiPropertyOptional({
+    example: "2026-09-11",
+    maxLength: 80,
+    description:
+      "Privacy/personal-data notice version accepted by the guardian. Required together with guardianDataConsent for a managed athlete under 18.",
+  })
+  privacyNoticeVersion?: string;
 }
 
 export class UpdateAthleteDto {
