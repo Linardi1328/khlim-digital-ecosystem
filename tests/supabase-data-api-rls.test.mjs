@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { test } from "node:test";
 
 const schemaUrl = new URL("../prisma/schema.prisma", import.meta.url);
-const migrationUrl = new URL(
+const migrationsUrl = new URL("../prisma/migrations/", import.meta.url);
+const lockdownMigrationUrl = new URL(
   "../prisma/migrations/20260911000000_supabase_data_api_rls_lockdown/migration.sql",
   import.meta.url,
 );
@@ -14,38 +15,53 @@ function prismaMappedTables(schema) {
     .sort();
 }
 
-function rlsEnabledTables(migration) {
+function rlsEnabledTables(migrations) {
   return [
-    ...migration.matchAll(
+    ...migrations.matchAll(
       /ALTER TABLE "public"\."([^"]+)" ENABLE ROW LEVEL SECURITY;/g,
     ),
-  ]
-    .map((match) => match[1])
-    .sort();
+  ].map((match) => match[1]);
 }
 
-test("Supabase Data API lockdown covers every Prisma-mapped application table", async () => {
-  const [schema, migration] = await Promise.all([
+async function readMigrationHistory() {
+  const migrationDirectories = (await readdir(migrationsUrl, { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name);
+  const migrations = await Promise.all(
+    migrationDirectories.map((directory) =>
+      readFile(new URL(`${directory}/migration.sql`, migrationsUrl), "utf8"),
+    ),
+  );
+
+  return migrations.join("\n");
+}
+
+test("migration history enables RLS for every Prisma-mapped application table", async () => {
+  const [schema, migrations, lockdownMigration] = await Promise.all([
     readFile(schemaUrl, "utf8"),
-    readFile(migrationUrl, "utf8"),
+    readMigrationHistory(),
+    readFile(lockdownMigrationUrl, "utf8"),
   ]);
 
   const expectedTables = prismaMappedTables(schema);
-  const protectedTables = rlsEnabledTables(migration);
+  const protectedTables = new Set(rlsEnabledTables(migrations));
+  const missingTables = expectedTables.filter(
+    (table) => !protectedTables.has(table),
+  );
 
   assert.ok(expectedTables.length > 0, "Expected Prisma-mapped application tables");
   assert.deepEqual(
-    protectedTables,
-    expectedTables,
-    "Every Prisma-mapped application table must explicitly enable RLS",
+    missingTables,
+    [],
+    "Every Prisma-mapped application table must enable RLS in migration history",
   );
   assert.doesNotMatch(
-    migration,
+    lockdownMigration,
     /\bCREATE\s+POLICY\b/i,
     "This lockdown slice must remain default-deny for Supabase Data API roles",
   );
   assert.doesNotMatch(
-    migration,
+    lockdownMigration,
     /\bFORCE\s+ROW\s+LEVEL\s+SECURITY\b/i,
     "Server-side Prisma table-owner access must remain available",
   );
