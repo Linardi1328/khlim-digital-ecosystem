@@ -18,7 +18,9 @@ function databaseTestsEnabled() {
 
   const databaseName = new URL(databaseUrl).pathname.replace(/^\//, "");
   if (!databaseName.toLowerCase().includes("test")) {
-    throw new Error("RLS lockdown tests require a database whose name contains 'test'");
+    throw new Error(
+      "RLS lockdown tests require a database whose name contains 'test'",
+    );
   }
 
   return true;
@@ -59,7 +61,9 @@ test(
       `;
 
       const byTable = new Map(rows.map((row) => [row.tableName, row]));
-      const missingTables = expectedTables.filter((table) => !byTable.has(table));
+      const missingTables = expectedTables.filter(
+        (table) => !byTable.has(table),
+      );
       const rlsDisabled = expectedTables.filter(
         (table) => !byTable.get(table)?.rowSecurityEnabled,
       );
@@ -67,8 +71,16 @@ test(
         (table) => byTable.get(table)?.rowSecurityForced,
       );
 
-      assert.deepEqual(missingTables, [], "All Prisma tables must exist after migrations");
-      assert.deepEqual(rlsDisabled, [], "All Prisma tables must have RLS enabled");
+      assert.deepEqual(
+        missingTables,
+        [],
+        "All Prisma tables must exist after migrations",
+      );
+      assert.deepEqual(
+        rlsDisabled,
+        [],
+        "All Prisma tables must have RLS enabled",
+      );
       assert.deepEqual(
         rlsForced,
         [],
