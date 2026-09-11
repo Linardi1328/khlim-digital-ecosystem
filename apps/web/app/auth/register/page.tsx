@@ -8,6 +8,7 @@ import { useI18n } from "../../../lib/i18n-context";
 import { useAuth } from "../../../lib/auth-context";
 import { BrandLogo } from "../../../components/layout/brand-logo";
 import { Button } from "../../../components/ui/button";
+import { Checkbox } from "../../../components/ui/checkbox";
 import { Input } from "../../../components/ui/input";
 import { PasswordInput } from "../../../components/ui/password-input";
 import { Select } from "../../../components/ui/select";
@@ -29,6 +30,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [selectedLocale, setSelectedLocale] = useState<SupportedLocale>(locale);
+  const [legalAccepted, setLegalAccepted] = useState(false);
   const [error, setError] = useState("");
   const [confirmationEmail, setConfirmationEmail] = useState<string | null>(
     null,
@@ -37,7 +39,7 @@ export default function RegisterPage() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError("");
-    if (!fullName.trim() || !email || password.length < 8) {
+    if (!fullName.trim() || !email || password.length < 8 || !legalAccepted) {
       setError(t("auth.register.error.invalid"));
       return;
     }
@@ -153,11 +155,23 @@ export default function RegisterPage() {
                       { label: "हिन्दी", value: "hi" },
                     ]}
                   />
+                  <Checkbox
+                    id="register-legal-acknowledgement"
+                    required
+                    checked={legalAccepted}
+                    onChange={(event) => setLegalAccepted(event.target.checked)}
+                    label={
+                      <span>
+                        I have read and agree to the <Link href="/terms" target="_blank">Terms & Conditions</Link> and acknowledge the <Link href="/privacy" target="_blank">Privacy Policy</Link>. / Saya telah membaca dan bersetuju dengan <Link href="/terms" target="_blank">Terma & Syarat</Link> serta mengakui <Link href="/privacy" target="_blank">Dasar Privasi</Link>.
+                      </span>
+                    }
+                  />
                   <p
                     style={{
-                      color: "#71717a",
+                      color: "#52525B",
                       fontSize: "0.75rem",
                       lineHeight: 1.5,
+                      margin: 0,
                     }}
                   >
                     {t("auth.register.termsNotice")}
@@ -167,6 +181,7 @@ export default function RegisterPage() {
                     size="lg"
                     type="submit"
                     isLoading={isLoading}
+                    disabled={!legalAccepted}
                     style={{ width: "100%" }}
                   >
                     {t("auth.register.submit")}
