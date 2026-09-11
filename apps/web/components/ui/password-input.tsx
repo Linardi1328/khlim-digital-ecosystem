@@ -1,6 +1,11 @@
 "use client";
 
-import React, { forwardRef, useState, type InputHTMLAttributes } from "react";
+import React, {
+  forwardRef,
+  useId,
+  useState,
+  type InputHTMLAttributes,
+} from "react";
 
 export interface PasswordInputProps extends Omit<
   InputHTMLAttributes<HTMLInputElement>,
@@ -39,7 +44,16 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
     ref,
   ) => {
     const [visible, setVisible] = useState(false);
-    const inputId = id ?? label.toLowerCase().replace(/\s+/g, "-");
+    const generatedId = useId();
+    const inputId = id ?? `password-${generatedId.replace(/:/g, "")}`;
+    const feedbackId = error
+      ? `${inputId}-error`
+      : helperText
+        ? `${inputId}-help`
+        : undefined;
+    const describedBy = [props["aria-describedby"], feedbackId]
+      .filter(Boolean)
+      .join(" ") || undefined;
 
     return (
       <div
@@ -66,6 +80,8 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
             id={inputId}
             type={visible ? "text" : "password"}
             aria-invalid={Boolean(error)}
+            {...props}
+            aria-describedby={describedBy}
             style={{
               padding: "10px 48px 10px 14px",
               fontSize: "0.9375rem",
@@ -73,14 +89,12 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
               border: error ? "1px solid #EF4444" : "1px solid #D4D4D8",
               backgroundColor: "#FFFFFF",
               color: "#18181B",
-              outline: "none",
               width: "100%",
               boxSizing: "border-box",
               fontFamily: "inherit",
               transition: "border-color 0.15s ease",
               ...style,
             }}
-            {...props}
           />
           <button
             type="button"
@@ -108,13 +122,15 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
         </div>
         {error && (
           <span
-            style={{ fontSize: "0.8125rem", color: "#DC2626", fontWeight: 500 }}
+            id={`${inputId}-error`}
+            role="alert"
+            style={{ fontSize: "0.8125rem", color: "#B91C1C", fontWeight: 500 }}
           >
             {error}
           </span>
         )}
         {!error && helperText && (
-          <span style={{ fontSize: "0.8125rem", color: "#71717A" }}>
+          <span id={`${inputId}-help`} style={{ fontSize: "0.8125rem", color: "#52525B" }}>
             {helperText}
           </span>
         )}
