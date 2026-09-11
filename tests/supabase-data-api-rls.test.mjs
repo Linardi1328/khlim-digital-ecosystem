@@ -37,39 +37,36 @@ async function readMigrationHistory() {
   return migrations.join("\n");
 }
 
-test(
-  "migration history enables RLS for every Prisma-mapped application table",
-  async () => {
-    const [schema, migrations, lockdownMigration] = await Promise.all([
-      readFile(schemaUrl, "utf8"),
-      readMigrationHistory(),
-      readFile(lockdownMigrationUrl, "utf8"),
-    ]);
+test("migration history enables RLS for every Prisma-mapped application table", async () => {
+  const [schema, migrations, lockdownMigration] = await Promise.all([
+    readFile(schemaUrl, "utf8"),
+    readMigrationHistory(),
+    readFile(lockdownMigrationUrl, "utf8"),
+  ]);
 
-    const expectedTables = prismaMappedTables(schema);
-    const protectedTables = new Set(rlsEnabledTables(migrations));
-    const missingTables = expectedTables.filter(
-      (table) => !protectedTables.has(table),
-    );
+  const expectedTables = prismaMappedTables(schema);
+  const protectedTables = new Set(rlsEnabledTables(migrations));
+  const missingTables = expectedTables.filter(
+    (table) => !protectedTables.has(table),
+  );
 
-    assert.ok(
-      expectedTables.length > 0,
-      "Expected Prisma-mapped application tables",
-    );
-    assert.deepEqual(
-      missingTables,
-      [],
-      "Every Prisma-mapped application table must enable RLS in migration history",
-    );
-    assert.doesNotMatch(
-      lockdownMigration,
-      /\bCREATE\s+POLICY\b/i,
-      "This lockdown slice must remain default-deny for Supabase Data API roles",
-    );
-    assert.doesNotMatch(
-      lockdownMigration,
-      /\bFORCE\s+ROW\s+LEVEL\s+SECURITY\b/i,
-      "Server-side Prisma table-owner access must remain available",
-    );
-  },
-);
+  assert.ok(
+    expectedTables.length > 0,
+    "Expected Prisma-mapped application tables",
+  );
+  assert.deepEqual(
+    missingTables,
+    [],
+    "Every Prisma-mapped application table must enable RLS in migration history",
+  );
+  assert.doesNotMatch(
+    lockdownMigration,
+    /\bCREATE\s+POLICY\b/i,
+    "This lockdown slice must remain default-deny for Supabase Data API roles",
+  );
+  assert.doesNotMatch(
+    lockdownMigration,
+    /\bFORCE\s+ROW\s+LEVEL\s+SECURITY\b/i,
+    "Server-side Prisma table-owner access must remain available",
+  );
+});
