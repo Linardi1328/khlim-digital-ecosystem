@@ -34,6 +34,8 @@ import { Input } from "../../components/ui/input";
 import { RadioGroup } from "../../components/ui/radio-group";
 import { StepIndicator } from "../../components/ui/step-indicator";
 
+const PRIVACY_NOTICE_VERSION = "2026-09-11";
+
 function isUnder18(dateOfBirth: string | null | undefined): boolean {
   if (!dateOfBirth) return false;
   const birthDate = new Date(`${dateOfBirth}T00:00:00`);
@@ -197,6 +199,13 @@ function EnrolmentWizardContent() {
           const created = await addChild({
             displayName: newChildName.trim(),
             dateOfBirth: newChildDob,
+            ...(isUnder18(newChildDob)
+              ? {
+                  relationshipType: "guardian",
+                  guardianDataConsent: true,
+                  privacyNoticeVersion: PRIVACY_NOTICE_VERSION,
+                }
+              : {}),
           });
           setSelectedChildId(created.id);
         } catch (caught) {
