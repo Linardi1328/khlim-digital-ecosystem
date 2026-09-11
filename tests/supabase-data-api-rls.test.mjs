@@ -24,9 +24,8 @@ function rlsEnabledTables(migrations) {
 }
 
 async function readMigrationHistory() {
-  const migrationDirectories = (
-    await readdir(migrationsUrl, { withFileTypes: true })
-  )
+  const entries = await readdir(migrationsUrl, { withFileTypes: true });
+  const migrationDirectories = entries
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name);
   const migrations = await Promise.all(
