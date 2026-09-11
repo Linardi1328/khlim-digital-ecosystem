@@ -4,6 +4,7 @@ import React, {
   type InputHTMLAttributes,
   forwardRef,
   type ReactNode,
+  useId,
 } from "react";
 
 export interface CheckboxProps extends Omit<
@@ -16,11 +17,12 @@ export interface CheckboxProps extends Omit<
 
 export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
   ({ label, error, id, style, ...props }, ref) => {
-    const checkId =
-      id ??
-      (typeof label === "string"
-        ? label.toLowerCase().replace(/\s+/g, "-")
-        : undefined);
+    const generatedId = useId();
+    const checkId = id ?? `checkbox-${generatedId.replace(/:/g, "")}`;
+    const errorId = error ? `${checkId}-error` : undefined;
+    const describedBy = [props["aria-describedby"], errorId]
+      .filter(Boolean)
+      .join(" ") || undefined;
 
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
@@ -40,23 +42,28 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
             ref={ref}
             type="checkbox"
             id={checkId}
+            aria-invalid={Boolean(error)}
+            {...props}
+            aria-describedby={describedBy}
             style={{
               width: "18px",
               height: "18px",
               accentColor: "#F59E0B",
               marginTop: "2px",
               cursor: "pointer",
+              flexShrink: 0,
               ...style,
             }}
-            {...props}
           />
           <div>{label}</div>
         </label>
         {error && (
           <span
+            id={`${checkId}-error`}
+            role="alert"
             style={{
               fontSize: "0.8125rem",
-              color: "#DC2626",
+              color: "#B91C1C",
               fontWeight: 500,
               marginLeft: "28px",
             }}
