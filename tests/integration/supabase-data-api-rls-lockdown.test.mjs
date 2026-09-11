@@ -45,7 +45,7 @@ test(
     const client = prisma.client;
 
     try {
-      const rows = await client.$queryRawUnsafe(`
+      const rows = await client.$queryRaw`
         SELECT
           c.relname AS "tableName",
           c.relrowsecurity AS "rowSecurityEnabled",
@@ -56,7 +56,7 @@ test(
           AND c.relkind IN ('r', 'p')
           AND c.relname <> '_prisma_migrations'
         ORDER BY c.relname
-      `);
+      `;
 
       const byTable = new Map(rows.map((row) => [row.tableName, row]));
       const missingTables = expectedTables.filter((table) => !byTable.has(table));
