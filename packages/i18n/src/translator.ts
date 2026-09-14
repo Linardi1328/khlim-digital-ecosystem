@@ -13,6 +13,7 @@ import { academyWebMessages } from "./messages/academy-web";
 import { homeAcademyWebMessages } from "./messages/home-academy-web";
 import { legalWebMessages } from "./messages/legal-web";
 import { spotlightWebMessages } from "./messages/spotlight-web";
+import { complianceWebMessages } from "./messages/compliance-web";
 
 export const messages: Record<SupportedLocale, Record<string, string>> = {
   en: {
@@ -26,6 +27,7 @@ export const messages: Record<SupportedLocale, Record<string, string>> = {
     ...homeAcademyWebMessages.en,
     ...legalWebMessages.en,
     ...spotlightWebMessages.en,
+    ...complianceWebMessages.en,
   },
   ms: {
     ...ms,
@@ -38,6 +40,7 @@ export const messages: Record<SupportedLocale, Record<string, string>> = {
     ...homeAcademyWebMessages.ms,
     ...legalWebMessages.ms,
     ...spotlightWebMessages.ms,
+    ...complianceWebMessages.ms,
   },
   "zh-Hans": {
     ...zhHans,
@@ -50,6 +53,7 @@ export const messages: Record<SupportedLocale, Record<string, string>> = {
     ...homeAcademyWebMessages["zh-Hans"],
     ...legalWebMessages["zh-Hans"],
     ...spotlightWebMessages["zh-Hans"],
+    ...complianceWebMessages["zh-Hans"],
   },
   "zh-Hant": {
     ...zhHant,
@@ -62,6 +66,7 @@ export const messages: Record<SupportedLocale, Record<string, string>> = {
     ...homeAcademyWebMessages["zh-Hant"],
     ...legalWebMessages["zh-Hant"],
     ...spotlightWebMessages["zh-Hant"],
+    ...complianceWebMessages["zh-Hant"],
   },
   hi: {
     ...hi,
@@ -74,6 +79,7 @@ export const messages: Record<SupportedLocale, Record<string, string>> = {
     ...homeAcademyWebMessages.hi,
     ...legalWebMessages.hi,
     ...spotlightWebMessages.hi,
+    ...complianceWebMessages.hi,
   },
 };
 

@@ -1073,6 +1073,16 @@ export interface components {
             preferredLocale?: "en" | "ms" | "zh-Hans" | "zh-Hant" | "hi";
             /** @example parent */
             relationshipType?: string;
+            /**
+             * @description Required when creating a managed athlete under 18. Confirms that the authenticated guardian consents to processing the minor's personal data under the referenced privacy notice.
+             * @example true
+             */
+            guardianDataConsent?: boolean;
+            /**
+             * @description Privacy/personal-data notice version accepted by the guardian. Required together with guardianDataConsent for a managed athlete under 18.
+             * @example 2026-09-11
+             */
+            privacyNoticeVersion?: string;
         };
         UpdateAthleteDto: {
             /** @example Jamie Tan */

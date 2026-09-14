@@ -22,18 +22,18 @@ test("homepage includes achievements and Player Spotlight before supporting Kher
   );
 });
 
-test("achievement publishing requires explicit fact verification", async () => {
+test("achievement publishing requires verified facts and photo rights", async () => {
   const content = await read("apps/web/lib/editorial-content.ts");
   assert.match(content, /factsVerified: boolean/);
+  assert.match(content, /photoRightsVerified: boolean/);
   assert.match(content, /status: EditorialPublicationStatus/);
-  assert.match(
-    content,
-    /story\.status === "published" && story\.factsVerified/,
-  );
+  assert.match(content, /story\.status === "published"/);
+  assert.match(content, /story\.factsVerified/);
+  assert.match(content, /story\.photoRightsVerified/);
   assert.match(content, /These neutral archive slots/);
 });
 
-test("Player Spotlight keeps AI drafting subordinate to verified facts", async () => {
+test("Player Spotlight keeps AI drafting subordinate to verified facts and photo rights", async () => {
   const content = await read("apps/web/lib/editorial-content.ts");
   const section = await read(
     "apps/web/components/home/player-spotlight-section.tsx",
@@ -41,10 +41,9 @@ test("Player Spotlight keeps AI drafting subordinate to verified facts", async (
   const webCatalogue = await read("packages/i18n/src/messages/web.ts");
 
   assert.match(content, /aiAssisted: true/);
-  assert.match(
-    content,
-    /article\.status === "published" && article\.factsVerified/,
-  );
+  assert.match(content, /article\.status === "published"/);
+  assert.match(content, /article\.factsVerified/);
+  assert.match(content, /article\.photoRightsVerified/);
   assert.match(section, /t\("spotlight\.previewNoticeTitle"\)/);
   assert.match(section, /t\("spotlight\.previewNoticeBody"\)/);
   assert.match(section, /getLocalizedSpotlightPreview\(t\)/);

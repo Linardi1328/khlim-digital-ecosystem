@@ -8,6 +8,11 @@ import { useFamily } from "../../lib/family-context";
 import { useI18n } from "../../lib/i18n-context";
 import { apiService } from "../../lib/api-service";
 import {
+  getMissingCommerceBusinessFields,
+  getPublicBusinessDetails,
+  isCommerceBusinessDetailsComplete,
+} from "../../lib/business-details";
+import {
   getPlanChargeMinor,
   type AthleteMembershipItem,
   type MembershipPlanItem,
@@ -28,6 +33,22 @@ import { Checkbox } from "../../components/ui/checkbox";
 import { Input } from "../../components/ui/input";
 import { RadioGroup } from "../../components/ui/radio-group";
 import { StepIndicator } from "../../components/ui/step-indicator";
+
+const PRIVACY_NOTICE_VERSION = "2026-09-11";
+
+function isUnder18(dateOfBirth: string | null | undefined): boolean {
+  if (!dateOfBirth) return false;
+  const birthDate = new Date(`${dateOfBirth}T00:00:00`);
+  if (Number.isNaN(birthDate.getTime())) return false;
+
+  const today = new Date();
+  const eighteenthBirthday = new Date(
+    birthDate.getFullYear() + 18,
+    birthDate.getMonth(),
+    birthDate.getDate(),
+  );
+  return today < eighteenthBirthday;
+}
 
 function EnrolmentWizardContent() {
   const { t, formatCurrency, formatDate } = useI18n();
@@ -50,9 +71,15 @@ function EnrolmentWizardContent() {
   );
   const [selectedPlanId, setSelectedPlanId] = useState(prePlanId ?? "");
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [childDataConsent, setChildDataConsent] = useState(false);
   const [recurringConsent, setRecurringConsent] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState("");
+
+  const businessDetails = getPublicBusinessDetails();
+  const commerceReady = isCommerceBusinessDetailsComplete(businessDetails);
+  const missingCommerceFields =
+    getMissingCommerceBusinessFields(businessDetails);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,6 +140,9 @@ function EnrolmentWizardContent() {
   const selectedAthlete = athletes.find(
     (athlete) => athlete.id === selectedChildId,
   );
+  const selectedDateOfBirth =
+    selectedChildId === "new" ? newChildDob : selectedAthlete?.dateOfBirth;
+  const requiresGuardianConsent = isUnder18(selectedDateOfBirth);
   const chargeMinor = selectedPlan ? getPlanChargeMinor(selectedPlan) : null;
   const requiresRecurringConsent = selectedPlan?.billingFrequency === "MONTHLY";
 
@@ -160,10 +190,21 @@ function EnrolmentWizardContent() {
           setError(t("enrol.error.childRequired"));
           return;
         }
+        if (isUnder18(newChildDob) && !childDataConsent) {
+          setError(t("compliance.enrol.guardianConsentRequired"));
+          return;
+        }
         try {
           const created = await addChild({
             displayName: newChildName.trim(),
             dateOfBirth: newChildDob,
+            ...(isUnder18(newChildDob)
+              ? {
+                  relationshipType: "guardian",
+                  guardianDataConsent: true,
+                  privacyNoticeVersion: PRIVACY_NOTICE_VERSION,
+                }
+              : {}),
           });
           setSelectedChildId(created.id);
         } catch (caught) {
@@ -198,11 +239,20 @@ function EnrolmentWizardContent() {
     }
 
     if (currentStep === 4) {
-      if (!termsAccepted || (requiresRecurringConsent && !recurringConsent)) {
+      if (
+        !termsAccepted ||
+        (requiresGuardianConsent && !childDataConsent) ||
+        (requiresRecurringConsent && !recurringConsent)
+      ) {
         setError(t("enrol.error.acceptTerms"));
         return;
       }
       setCurrentStep(5);
+      return;
+    }
+
+    if (!commerceReady) {
+      setError(t("compliance.enrol.checkoutUnavailable"));
       return;
     }
 
@@ -272,7 +322,7 @@ function EnrolmentWizardContent() {
           <h1 style={{ fontSize: "2.25rem", fontWeight: 900, marginBottom: 8 }}>
             {t("enrol.header.title")}
           </h1>
-          <p style={{ color: "#71717a" }}>{t("enrol.header.subtitle")}</p>
+          <p style={{ color: "#52525B" }}>{t("enrol.header.subtitle")}</p>
         </div>
         <StepIndicator steps={steps} currentStep={currentStep} />
         {error ? (
@@ -323,7 +373,10 @@ function EnrolmentWizardContent() {
                           type="radio"
                           name="athlete"
                           checked={selectedChildId === athlete.id}
-                          onChange={() => setSelectedChildId(athlete.id)}
+                          onChange={() => {
+                            setSelectedChildId(athlete.id);
+                            setChildDataConsent(false);
+                          }}
                         />
                         <span>
                           <strong>{athlete.displayName}</strong>
@@ -351,7 +404,10 @@ function EnrolmentWizardContent() {
                           type="radio"
                           name="athlete"
                           checked={selectedChildId === "new"}
-                          onChange={() => setSelectedChildId("new")}
+                          onChange={() => {
+                            setSelectedChildId("new");
+                            setChildDataConsent(false);
+                          }}
                         />{" "}
                         <strong>{t("enrol.player.addNew")}</strong>
                       </div>
@@ -377,10 +433,45 @@ function EnrolmentWizardContent() {
                             type="date"
                             required
                             value={newChildDob}
-                            onChange={(event) =>
-                              setNewChildDob(event.target.value)
-                            }
+                            onChange={(event) => {
+                              setNewChildDob(event.target.value);
+                              setChildDataConsent(false);
+                            }}
                           />
+                          {isUnder18(newChildDob) ? (
+                            <Checkbox
+                              id="new-minor-data-consent"
+                              required
+                              checked={childDataConsent}
+                              onChange={(event) =>
+                                setChildDataConsent(event.target.checked)
+                              }
+                              label={
+                                <span data-i18n-static="bilingual">
+                                  I am this athlete's parent/legal guardian (or
+                                  otherwise have parental responsibility) and
+                                  consent to KHLIM creating and processing this
+                                  minor athlete profile for enrolment,
+                                  membership, attendance, scheduling, payment
+                                  administration and safety as described in the{" "}
+                                  <Link href="/privacy" target="_blank">
+                                    Privacy Policy
+                                  </Link>
+                                  . / Saya ialah ibu bapa/penjaga sah atlet ini
+                                  (atau mempunyai tanggungjawab keibubapaan) dan
+                                  bersetuju KHLIM mewujudkan serta memproses
+                                  profil atlet bawah umur ini bagi pendaftaran,
+                                  keahlian, kehadiran, jadual, pentadbiran
+                                  pembayaran dan keselamatan seperti diterangkan
+                                  dalam{" "}
+                                  <Link href="/privacy" target="_blank">
+                                    Dasar Privasi
+                                  </Link>
+                                  .
+                                </span>
+                              }
+                            />
+                          ) : null}
                         </div>
                       ) : null}
                     </label>
@@ -512,21 +603,54 @@ function EnrolmentWizardContent() {
                     </strong>
                   </div>
                 </div>
-                {requiresRecurringConsent ? (
+
+                {requiresGuardianConsent ? (
                   <Checkbox
-                    checked={recurringConsent}
+                    id="minor-enrolment-data-consent"
+                    required
+                    checked={childDataConsent}
                     onChange={(event) =>
-                      setRecurringConsent(event.target.checked)
+                      setChildDataConsent(event.target.checked)
                     }
-                    label={t("enrol.review.recurringAuthorization")}
+                    label={
+                      <span data-i18n-static="bilingual">
+                        I confirm I have parental/guardian authority for this
+                        minor and consent to KHLIM processing the athlete's
+                        personal data for this enrolment and academy
+                        administration as described in the{" "}
+                        <Link href="/privacy" target="_blank">
+                          Privacy Policy
+                        </Link>
+                        . / Saya mengesahkan saya mempunyai kuasa ibu
+                        bapa/penjaga bagi atlet bawah umur ini dan bersetuju
+                        KHLIM memproses data peribadi atlet untuk pendaftaran
+                        serta pentadbiran akademi seperti diterangkan dalam{" "}
+                        <Link href="/privacy" target="_blank">
+                          Dasar Privasi
+                        </Link>
+                        .
+                      </span>
+                    }
                   />
+                ) : null}
+
+                {requiresRecurringConsent ? (
+                  <div style={{ marginTop: requiresGuardianConsent ? 14 : 0 }}>
+                    <Checkbox
+                      checked={recurringConsent}
+                      onChange={(event) =>
+                        setRecurringConsent(event.target.checked)
+                      }
+                      label={t("enrol.review.recurringAuthorization")}
+                    />
+                  </div>
                 ) : null}
                 <div style={{ marginTop: 14 }}>
                   <Checkbox
                     checked={termsAccepted}
                     onChange={(event) => setTermsAccepted(event.target.checked)}
                     label={
-                      <span>
+                      <span data-i18n-static="bilingual">
                         {t("enrol.terms.acceptPrefix")}{" "}
                         <Link href="/terms" target="_blank">
                           {t("enrol.terms.membershipLink")}
@@ -534,6 +658,14 @@ function EnrolmentWizardContent() {
                         {t("enrol.terms.and")}{" "}
                         <Link href="/privacy" target="_blank">
                           {t("enrol.terms.privacyLink")}
+                        </Link>
+                        , and I have reviewed the{" "}
+                        <Link href="/refunds" target="_blank">
+                          Refund Policy
+                        </Link>{" "}
+                        /{" "}
+                        <Link href="/refunds" target="_blank">
+                          Dasar Bayaran Balik
                         </Link>
                         .
                       </span>
@@ -551,9 +683,20 @@ function EnrolmentWizardContent() {
                     {t("enrol.payment.description")}
                   </CardDescription>
                 </CardHeader>
-                <Alert variant="info" title={t("enrol.payment.handoffTitle")}>
-                  {t("enrol.payment.handoffBody")}
-                </Alert>
+                {commerceReady ? (
+                  <Alert variant="info" title={t("enrol.payment.handoffTitle")}>
+                    {t("enrol.payment.handoffBody")}
+                  </Alert>
+                ) : (
+                  <Alert
+                    variant="warning"
+                    title={t("compliance.enrol.checkoutDisabledTitle")}
+                  >
+                    {t("compliance.enrol.checkoutDisabledBody", {
+                      fields: missingCommerceFields.join(", "),
+                    })}
+                  </Alert>
+                )}
               </section>
             ) : null}
 
@@ -585,6 +728,7 @@ function EnrolmentWizardContent() {
                 size="lg"
                 onClick={handleNext}
                 isLoading={isProcessing}
+                disabled={currentStep === 5 && !commerceReady}
               >
                 {currentStep === 5
                   ? t("enrol.payment.createAndContinue")
@@ -623,7 +767,7 @@ function EnrolmentWizardContent() {
                     : "—"}
                 </strong>
               </p>
-              <small style={{ color: "#71717a" }}>
+              <small style={{ color: "#52525B" }}>
                 {t("enrol.summary.apiSource")}
               </small>
             </Card>

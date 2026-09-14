@@ -43,6 +43,17 @@ function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 
+function isUnder18(dateOfBirth: Date, now = new Date()): boolean {
+  const currentYear = now.getUTCFullYear();
+  const birthYear = dateOfBirth.getUTCFullYear();
+  const ageBeforeBirthday =
+    now.getUTCMonth() < dateOfBirth.getUTCMonth() ||
+    (now.getUTCMonth() === dateOfBirth.getUTCMonth() &&
+      now.getUTCDate() < dateOfBirth.getUTCDate());
+  const age = currentYear - birthYear - (ageBeforeBirthday ? 1 : 0);
+  return age < 18;
+}
+
 @Injectable()
 export class FamilyService {
   constructor(private readonly prisma: PrismaService) {}
@@ -89,6 +100,20 @@ export class FamilyService {
     const relationshipType =
       optionalTrimmedString(body?.relationshipType, "relationshipType", 50) ??
       "guardian";
+    const managedAthleteIsMinor = isUnder18(dateOfBirth);
+    const privacyNoticeVersion = managedAthleteIsMinor
+      ? requireTrimmedString(
+          body?.privacyNoticeVersion,
+          "privacyNoticeVersion",
+          80,
+        )
+      : undefined;
+
+    if (managedAthleteIsMinor && body?.guardianDataConsent !== true) {
+      throw new BadRequestException(
+        "guardianDataConsent must be accepted for a managed athlete under 18",
+      );
+    }
 
     return this.prisma.client.$transaction(async (transaction) => {
       const athlete = await transaction.athleteProfile.create({
@@ -116,6 +141,26 @@ export class FamilyService {
           approvedAt: true,
         },
       });
+
+      if (managedAthleteIsMinor) {
+        await transaction.auditEvent.create({
+          data: {
+            actorUserId: guardianUserId,
+            actorRoles: "GUARDIAN",
+            action: "guardian_data_consent.accepted",
+            entityType: "AthleteProfile",
+            entityId: athlete.id,
+            summary:
+              "Guardian consent recorded for managed minor athlete personal data",
+            metadata: {
+              consentType: "MINOR_PERSONAL_DATA",
+              privacyNoticeVersion,
+              relationshipType,
+              authorityConfirmed: true,
+            },
+          },
+        });
+      }
 
       return {
         athlete,

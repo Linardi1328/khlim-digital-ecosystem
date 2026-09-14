@@ -26,6 +26,7 @@ const paragraphs = (value: unknown): string[] =>
   Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
+const photoRightsVerified = (entry: Entry) => !entry.imageUrl;
 export const toAchievement = (entry: Entry): AchievementStory => ({
   id: entry.id,
   yearLabel: entry.yearLabel || "KHLIM",
@@ -36,6 +37,7 @@ export const toAchievement = (entry: Entry): AchievementStory => ({
   imageUrl: entry.imageUrl || undefined,
   placeholderGradient: GRADIENT,
   factsVerified: entry.factsVerified,
+  photoRightsVerified: photoRightsVerified(entry),
   status: "published",
 });
 export const toSpotlight = (entry: Entry): PlayerSpotlightArticle => ({
@@ -51,6 +53,7 @@ export const toSpotlight = (entry: Entry): PlayerSpotlightArticle => ({
   imageUrl: entry.imageUrl || undefined,
   placeholderGradient: GRADIENT,
   factsVerified: entry.factsVerified,
+  photoRightsVerified: photoRightsVerified(entry),
   status: "published",
   aiAssisted: true,
 });

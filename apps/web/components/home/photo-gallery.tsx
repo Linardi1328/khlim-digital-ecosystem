@@ -28,7 +28,9 @@ export function PhotoStorySection({ item }: { item: PhotoStoryItem }) {
 
   return (
     <section className="home-photo-story" style={{ backgroundImage }}>
-      {!item.imageUrl && (
+      {item.imageUrl ? (
+        <span className="sr-only" role="img" aria-label={item.photoLabel} />
+      ) : (
         <div className="home-photo-placeholder-label home-photo-story-placeholder">
           {t("home.photoSlot", { label: item.photoLabel })}
         </div>

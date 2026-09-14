@@ -2,6 +2,7 @@ import "../../../packages/design-tokens/src/tokens.css";
 import "./globals.css";
 import "./home-academy.css";
 import "./editorial.css";
+import "./accessibility.css";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Providers } from "../components/providers";
