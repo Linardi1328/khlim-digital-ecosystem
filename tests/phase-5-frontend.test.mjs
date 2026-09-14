@@ -134,17 +134,17 @@ test("Phase 5 public copy does not hard-code unverified venues or programme tier
   const about = await read("apps/web/app/about/page.tsx");
   const privacy = await read("apps/web/app/privacy/page.tsx");
   const terms = await read("apps/web/app/terms/page.tsx");
-  const legal = await read("packages/i18n/src/messages/legal-web.ts");
 
   assert.doesNotMatch(footer, /Seri Kembangan|Cyberjaya|Advanced Elite/i);
   assert.doesNotMatch(about, /Founded by passionate basketball coaches/i);
-  assert.match(privacy, /t\("privacy\.section2\.body"\)/);
-  assert.match(terms, /t\("terms\.section3\.body"\)/);
-  assert.match(
-    legal,
-    /New data categories require separate implementation and review/,
-  );
-  assert.match(legal, /require final management and legal approval/);
+  assert.match(privacy, /LegalDocument/);
+  assert.match(privacy, /englishSections/);
+  assert.match(privacy, /malaySections/);
+  assert.match(privacy, /EFFECTIVE_DATE/);
+  assert.match(terms, /LegalDocument/);
+  assert.match(terms, /englishSections/);
+  assert.match(terms, /malaySections/);
+  assert.match(terms, /EFFECTIVE_DATE/);
 });
 
 test("Phase 5 responsive rules separate desktop and mobile navigation", async () => {
@@ -159,13 +159,19 @@ test("Phase 5 responsive rules separate desktop and mobile navigation", async ()
   assert.match(portal, /portal-mobile-bottom-nav/);
 });
 
-test("Phase 5 legal pages remain clearly draft content", async () => {
+test("Phase 5 legal pages publish bilingual notices without compliance overclaims", async () => {
   const terms = await read("apps/web/app/terms/page.tsx");
   const privacy = await read("apps/web/app/privacy/page.tsx");
-  const legal = await read("packages/i18n/src/messages/legal-web.ts");
-  assert.match(terms, /t\("legal\.draftBadge"\)/);
-  assert.match(privacy, /t\("legal\.draftBadge"\)/);
-  assert.match(legal, /\[DRAFT — Subject to Final Owner & Legal Approval\]/);
+  const legalDocument = await read(
+    "apps/web/components/legal/legal-document.tsx",
+  );
+
+  assert.match(terms, /malayTitle=/);
+  assert.match(privacy, /malayTitle=/);
+  assert.match(legalDocument, /<article lang="en"/);
+  assert.match(legalDocument, /<article lang="ms"/);
+  assert.doesNotMatch(terms, /legal\.draftBadge/);
+  assert.doesNotMatch(privacy, /legal\.draftBadge/);
   assert.doesNotMatch(privacy, />\s*Malaysian PDPA Compliant\s*</i);
 });
 

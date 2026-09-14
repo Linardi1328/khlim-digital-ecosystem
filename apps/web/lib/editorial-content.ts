@@ -10,6 +10,7 @@ export interface AchievementStory {
   imageUrl?: string;
   placeholderGradient: string;
   factsVerified: boolean;
+  photoRightsVerified: boolean;
   status: EditorialPublicationStatus;
 }
 
@@ -26,6 +27,7 @@ export interface PlayerSpotlightArticle {
   imageUrl?: string;
   placeholderGradient: string;
   factsVerified: boolean;
+  photoRightsVerified: boolean;
   status: EditorialPublicationStatus;
   aiAssisted: true;
 }
@@ -60,6 +62,7 @@ export const achievementArchiveSlots: AchievementStory[] = [
     placeholderGradient:
       "radial-gradient(circle at 75% 24%, rgba(245, 158, 11, 0.36), transparent 24%), linear-gradient(135deg, #18181b, #3f2d0b 58%, #0f172a)",
     factsVerified: false,
+    photoRightsVerified: false,
     status: "draft",
   },
   {
@@ -73,6 +76,7 @@ export const achievementArchiveSlots: AchievementStory[] = [
     placeholderGradient:
       "radial-gradient(circle at 28% 36%, rgba(251, 191, 36, 0.28), transparent 24%), linear-gradient(145deg, #111827, #27272a 58%, #4b3520)",
     factsVerified: false,
+    photoRightsVerified: false,
     status: "draft",
   },
   {
@@ -86,6 +90,7 @@ export const achievementArchiveSlots: AchievementStory[] = [
     placeholderGradient:
       "radial-gradient(circle at 68% 60%, rgba(245, 158, 11, 0.24), transparent 25%), linear-gradient(125deg, #292524, #18181b 55%, #1f2937)",
     factsVerified: false,
+    photoRightsVerified: false,
     status: "draft",
   },
 ];
@@ -110,7 +115,8 @@ export function getLocalizedAchievementArchiveSlots(
 /**
  * Player Spotlight stories are AI-assisted editorial drafts built from verified
  * source facts. Do not place a real player story in published state until the
- * player's name, event, result and timing have been checked by KHLIM staff.
+ * player's name, event, result, timing and photo rights have been checked by
+ * KHLIM staff.
  */
 export const playerSpotlightArticles: PlayerSpotlightArticle[] = [];
 
@@ -139,6 +145,7 @@ export const playerSpotlightEditorialPreview: PlayerSpotlightArticle = {
   placeholderGradient:
     "radial-gradient(circle at 72% 28%, rgba(245, 158, 11, 0.4), transparent 23%), linear-gradient(135deg, #111827, #27272a 55%, #4b3520)",
   factsVerified: false,
+  photoRightsVerified: false,
   status: "draft",
   aiAssisted: true,
 };
@@ -165,11 +172,17 @@ export function getLocalizedSpotlightPreview(
 }
 
 export const publishedAchievements = achievementStories.filter(
-  (story) => story.status === "published" && story.factsVerified,
+  (story) =>
+    story.status === "published" &&
+    story.factsVerified &&
+    story.photoRightsVerified,
 );
 
 export const publishedPlayerSpotlights = playerSpotlightArticles.filter(
-  (article) => article.status === "published" && article.factsVerified,
+  (article) =>
+    article.status === "published" &&
+    article.factsVerified &&
+    article.photoRightsVerified,
 );
 
 export function findSpotlightArticle(

@@ -11,23 +11,21 @@ test("capture public walkthrough homepage for visual review", async ({
     }),
   ).toBeVisible();
 
-  const posters = page.locator(".home-khero-poster img");
-  await expect(posters).toHaveCount(4);
+  const posterFrames = page.locator(".home-khero-poster");
+  const rightsPending = page.locator(
+    '.home-khero-poster [data-media-rights="pending"]',
+  );
+  const approvedImages = page.locator(".home-khero-poster img");
+
+  await expect(posterFrames).toHaveCount(4);
+  await expect(rightsPending).toHaveCount(4);
+  await expect(approvedImages).toHaveCount(0);
   await page.locator(".home-khero-section").scrollIntoViewIfNeeded();
 
   for (let index = 0; index < 4; index += 1) {
-    const poster = posters.nth(index);
-    await poster.scrollIntoViewIfNeeded();
-    await expect
-      .poll(() =>
-        poster.evaluate(
-          (image) =>
-            image instanceof HTMLImageElement &&
-            image.complete &&
-            image.naturalWidth > 0,
-        ),
-      )
-      .toBe(true);
+    const placeholder = rightsPending.nth(index);
+    await placeholder.scrollIntoViewIfNeeded();
+    await expect(placeholder).toBeVisible();
   }
 
   const width = viewport?.width ?? 0;

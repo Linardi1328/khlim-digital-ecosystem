@@ -3,10 +3,21 @@
 import React from "react";
 import Link from "next/link";
 import { useI18n } from "../../lib/i18n-context";
+import {
+  getMissingCommerceBusinessFields,
+  getPublicBusinessDetails,
+} from "../../lib/business-details";
 import { BrandLogo } from "./brand-logo";
+
+const footerLinkStyle: React.CSSProperties = {
+  color: "#A1A1AA",
+  textDecoration: "none",
+};
 
 export function PublicFooter() {
   const { t } = useI18n();
+  const business = getPublicBusinessDetails();
+  const missingBusinessFields = getMissingCommerceBusinessFields(business);
 
   return (
     <footer
@@ -67,15 +78,50 @@ export function PublicFooter() {
           >
             {t("hero.subtitle")}
           </p>
-          <div
+          <address
             style={{
-              marginTop: "16px",
+              marginTop: 16,
+              color: "#A1A1AA",
               fontSize: "0.8125rem",
-              color: "#71717A",
+              lineHeight: 1.65,
+              fontStyle: "normal",
             }}
           >
-            {t("footer.locationNote")}
-          </div>
+            <strong style={{ color: "#FFFFFF" }}>{business.legalName}</strong>
+            {business.registrationNumber ? (
+              <div>
+                {t("compliance.footer.companyNumberLabel")}:{" "}
+                {business.registrationNumber}
+              </div>
+            ) : null}
+            {business.businessAddress ? (
+              <div>{business.businessAddress}</div>
+            ) : null}
+            {business.email ? (
+              <div>
+                {t("compliance.footer.emailLabel")}:{" "}
+                <a href={`mailto:${business.email}`} style={footerLinkStyle}>
+                  {business.email}
+                </a>
+              </div>
+            ) : null}
+            {business.phone ? (
+              <div>
+                {t("compliance.footer.telephoneLabel")}:{" "}
+                <a href={`tel:${business.phone}`} style={footerLinkStyle}>
+                  {business.phone}
+                </a>
+              </div>
+            ) : null}
+            {missingBusinessFields.length > 0 ? (
+              <div
+                role="status"
+                style={{ marginTop: 8, color: "#FDE68A", fontWeight: 700 }}
+              >
+                {t("compliance.footer.businessDisclosureIncomplete")}
+              </div>
+            ) : null}
+          </address>
         </div>
 
         <div>
@@ -97,22 +143,13 @@ export function PublicFooter() {
               fontSize: "0.875rem",
             }}
           >
-            <Link
-              href="/programmes"
-              style={{ color: "#A1A1AA", textDecoration: "none" }}
-            >
+            <Link href="/programmes" style={footerLinkStyle}>
               {t("footer.currentOfferings")}
             </Link>
-            <Link
-              href="/enrol"
-              style={{ color: "#A1A1AA", textDecoration: "none" }}
-            >
+            <Link href="/enrol" style={footerLinkStyle}>
               {t("footer.academyEnrolment")}
             </Link>
-            <Link
-              href="/academy"
-              style={{ color: "#A1A1AA", textDecoration: "none" }}
-            >
+            <Link href="/academy" style={footerLinkStyle}>
               {t("footer.academyApproach")}
             </Link>
           </div>
@@ -137,28 +174,16 @@ export function PublicFooter() {
               fontSize: "0.875rem",
             }}
           >
-            <Link
-              href="/academy"
-              style={{ color: "#A1A1AA", textDecoration: "none" }}
-            >
+            <Link href="/academy" style={footerLinkStyle}>
               {t("footer.developmentApproach")}
             </Link>
-            <Link
-              href="/programmes"
-              style={{ color: "#A1A1AA", textDecoration: "none" }}
-            >
+            <Link href="/programmes" style={footerLinkStyle}>
               {t("footer.venuesTerms")}
             </Link>
-            <Link
-              href="/about"
-              style={{ color: "#A1A1AA", textDecoration: "none" }}
-            >
+            <Link href="/about" style={footerLinkStyle}>
               {t("nav.about")}
             </Link>
-            <Link
-              href="/contact"
-              style={{ color: "#A1A1AA", textDecoration: "none" }}
-            >
+            <Link href="/contact" style={footerLinkStyle}>
               {t("nav.contact")}
             </Link>
           </div>
@@ -173,7 +198,7 @@ export function PublicFooter() {
               margin: "0 0 16px",
             }}
           >
-            {t("nav.portal")}
+            {t("compliance.footer.legalHeading")}
           </h4>
           <div
             style={{
@@ -183,29 +208,17 @@ export function PublicFooter() {
               fontSize: "0.875rem",
             }}
           >
-            <Link
-              href="/portal/dashboard"
-              style={{ color: "#A1A1AA", textDecoration: "none" }}
-            >
-              {t("nav.dashboard")}
+            <Link href="/terms" style={footerLinkStyle}>
+              {t("compliance.footer.terms")}
             </Link>
-            <Link
-              href="/enrol"
-              style={{ color: "#A1A1AA", textDecoration: "none" }}
-            >
-              {t("hero.cta.join")}
+            <Link href="/privacy" style={footerLinkStyle}>
+              {t("compliance.footer.privacy")}
             </Link>
-            <Link
-              href="/terms"
-              style={{ color: "#A1A1AA", textDecoration: "none" }}
-            >
-              {t("footer.draftTerms")}
+            <Link href="/cookies" style={footerLinkStyle}>
+              {t("compliance.footer.cookies")}
             </Link>
-            <Link
-              href="/privacy"
-              style={{ color: "#A1A1AA", textDecoration: "none" }}
-            >
-              {t("footer.draftPrivacy")}
+            <Link href="/refunds" style={footerLinkStyle}>
+              {t("compliance.footer.refunds")}
             </Link>
           </div>
         </div>
@@ -223,7 +236,7 @@ export function PublicFooter() {
           flexWrap: "wrap",
           gap: "16px",
           fontSize: "0.8125rem",
-          color: "#71717A",
+          color: "#A1A1AA",
         }}
       >
         <div>{t("footer.copyright")}</div>

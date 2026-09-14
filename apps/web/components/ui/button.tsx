@@ -34,7 +34,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       transition: "all 0.15s ease-in-out",
       textDecoration: "none",
       border: "1px solid transparent",
-      outline: "none",
       whiteSpace: "nowrap",
       userSelect: "none",
     };
@@ -62,9 +61,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         borderColor: "transparent",
       },
       danger: {
-        backgroundColor: "#EF4444",
+        backgroundColor: "#DC2626",
         color: "#FFFFFF",
-        borderColor: "#DC2626",
+        borderColor: "#B91C1C",
       },
     };
 
@@ -90,6 +89,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         disabled={disabled || isLoading}
+        aria-busy={isLoading || undefined}
         style={{
           ...baseStyle,
           ...variantStyles[variant],
@@ -100,6 +100,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       >
         {isLoading && (
           <span
+            aria-hidden="true"
             style={{
               display: "inline-block",
               width: "14px",
