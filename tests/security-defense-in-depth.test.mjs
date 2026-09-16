@@ -7,6 +7,10 @@ const migrationUrl = new URL(
   import.meta.url,
 );
 const apiMainUrl = new URL("../apps/api/src/main.ts", import.meta.url);
+const billingServiceUrl = new URL(
+  "../apps/api/src/billing/billing.service.ts",
+  import.meta.url,
+);
 const webConfigUrl = new URL("../apps/web/next.config.ts", import.meta.url);
 const adminConfigUrl = new URL("../apps/admin/next.config.ts", import.meta.url);
 
@@ -62,6 +66,31 @@ test("database rejects structurally invalid payment and capacity values", async 
   ]) {
     assert.match(migration, new RegExp(`CONSTRAINT "${constraint}"`));
   }
+});
+
+test("payment checkout and activation serialize high-risk race windows", async () => {
+  const billingService = await readFile(billingServiceUrl, "utf8");
+
+  assert.match(
+    billingService,
+    /status: "PENDING",\s*providerPaymentId: null,[\s\S]*data: \{ status: "PROCESSING" \}/,
+    "Only one request may claim an uninitialized provider checkout",
+  );
+  assert.match(
+    billingService,
+    /Checkout creation is already in progress/,
+    "Concurrent requests must fail closed while the first provider bill is being created",
+  );
+  assert.match(
+    billingService,
+    /SELECT id::text[\s\S]*FROM programme_offerings[\s\S]*FOR UPDATE/,
+    "Payment success must lock the offering before checking activation capacity",
+  );
+  assert.match(
+    billingService,
+    /amountMinor === null \|\| amountMinor <= 0/,
+    "Hosted payment checkout must reject zero or negative charges",
+  );
 });
 
 test("browser applications emit defense-in-depth security headers", async () => {
