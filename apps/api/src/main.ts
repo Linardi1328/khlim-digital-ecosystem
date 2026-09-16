@@ -5,13 +5,24 @@ import { loadApiRuntimeConfig } from "./environment";
 import { createStructuredLogger } from "./logger";
 import { createOpenApiDocument } from "./openapi";
 
+interface HeaderResponse {
+  setHeader(name: string, value: string): void;
+}
+
 function getCorsAllowedOrigins(
   environment: NodeJS.ProcessEnv = process.env,
 ): string[] {
   return (environment.CORS_ALLOWED_ORIGINS ?? "")
     .split(",")
     .map((origin) => origin.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((origin) => {
+      const parsed = new URL(origin);
+      if (parsed.origin !== origin.replace(/\/$/, "")) {
+        throw new Error(`CORS origin must not include a path: ${origin}`);
+      }
+      return parsed.origin;
+    });
 }
 
 function redactBootstrapErrorMessage(error: unknown): string {
@@ -76,13 +87,49 @@ async function bootstrap() {
   app.setGlobalPrefix("v1");
   app.enableShutdownHooks();
 
+  const expressApp = app.getHttpAdapter().getInstance() as {
+    disable(name: string): void;
+  };
+  expressApp.disable("x-powered-by");
+
+  app.use(
+    (_request: unknown, response: HeaderResponse, next: () => void): void => {
+      response.setHeader("X-Content-Type-Options", "nosniff");
+      response.setHeader("X-Frame-Options", "DENY");
+      response.setHeader("Referrer-Policy", "no-referrer");
+      response.setHeader(
+        "Permissions-Policy",
+        "camera=(), microphone=(), geolocation=(), payment=()",
+      );
+      response.setHeader("Cache-Control", "no-store");
+
+      if (runtime.deploymentEnv === "production") {
+        response.setHeader(
+          "Content-Security-Policy",
+          "default-src 'none'; base-uri 'none'; frame-ancestors 'none'",
+        );
+        response.setHeader(
+          "Strict-Transport-Security",
+          "max-age=31536000",
+        );
+      }
+
+      next();
+    },
+  );
+
   const corsAllowedOrigins = getCorsAllowedOrigins();
   if (corsAllowedOrigins.length > 0) {
     app.enableCors({ origin: corsAllowedOrigins });
   }
 
-  const document = createOpenApiDocument(app);
-  SwaggerModule.setup("docs", app, document);
+  const apiDocsEnabled =
+    runtime.deploymentEnv !== "production" ||
+    process.env.KHLIM_API_DOCS_ENABLED === "1";
+  if (apiDocsEnabled) {
+    const document = createOpenApiDocument(app);
+    SwaggerModule.setup("docs", app, document);
+  }
 
   logger.info("api.bootstrap.listening", { port: runtime.port });
   await app.listen(runtime.port, "0.0.0.0");
