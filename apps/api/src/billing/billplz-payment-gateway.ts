@@ -115,16 +115,14 @@ export class BillplzPaymentGatewayAdapter implements PaymentGatewayAdapter {
     });
 
     const payload = (await response.json()) as BillplzBillResponse;
-    if (!response.ok || !payload.id || !payload.url) {
+    if (!response.ok || !payload.id) {
       throw new BadGatewayException(
         this.billplzErrorMessage(payload, "Billplz bill creation failed"),
       );
     }
 
     return {
-      checkoutUrl: this.options.directGatewayCode
-        ? `${payload.url}?auto_submit=true`
-        : payload.url,
+      checkoutUrl: this.checkoutUrlForBill(payload.id),
       providerPaymentId: payload.id,
     };
   }
@@ -277,6 +275,25 @@ export class BillplzPaymentGatewayAdapter implements PaymentGatewayAdapter {
   }
 }
 
+function assertSecureLiveUrl(value: string, label: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new ServiceUnavailableException(`${label} must be a valid URL`);
+  }
+
+  if (
+    parsed.protocol !== "https:" ||
+    Boolean(parsed.username) ||
+    Boolean(parsed.password)
+  ) {
+    throw new ServiceUnavailableException(
+      `${label} must use HTTPS and must not contain credentials`,
+    );
+  }
+}
+
 export function createBillplzPaymentGatewayFromEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): BillplzPaymentGatewayAdapter | null {
@@ -299,13 +316,24 @@ export function createBillplzPaymentGatewayFromEnv(
     return null;
   }
 
+  const sandbox = env.BILLPLZ_SANDBOX !== "0";
+  if (!sandbox) {
+    if (env.KHLIM_ENV?.trim().toLowerCase() !== "production") {
+      throw new ServiceUnavailableException(
+        "Live Billplz mode is allowed only when KHLIM_ENV=production",
+      );
+    }
+    assertSecureLiveUrl(callbackUrl, "BILLPLZ_CALLBACK_URL");
+    assertSecureLiveUrl(redirectUrl, "BILLPLZ_REDIRECT_URL");
+  }
+
   return new BillplzPaymentGatewayAdapter({
     secretKey,
     collectionId,
     xSignatureKey,
     callbackUrl,
     redirectUrl,
-    sandbox: env.BILLPLZ_SANDBOX !== "0",
+    sandbox,
     directGatewayCode: env.BILLPLZ_DIRECT_GATEWAY_CODE?.trim() || undefined,
   });
 }
