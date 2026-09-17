@@ -108,10 +108,7 @@ async function bootstrap() {
           "Content-Security-Policy",
           "default-src 'none'; base-uri 'none'; frame-ancestors 'none'",
         );
-        response.setHeader(
-          "Strict-Transport-Security",
-          "max-age=31536000",
-        );
+        response.setHeader("Strict-Transport-Security", "max-age=31536000");
       }
 
       next();
