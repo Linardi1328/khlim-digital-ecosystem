@@ -99,7 +99,9 @@ function paymentKey(membershipId) {
 }
 
 async function cleanup(client) {
-  await client.paymentProviderEvent.deleteMany({ where: { provider: PROVIDER } });
+  await client.paymentProviderEvent.deleteMany({
+    where: { provider: PROVIDER },
+  });
   await client.payment.deleteMany({ where: { payerUserId: IDS.payer } });
   await client.membershipAgreement.deleteMany({
     where: {
@@ -123,7 +125,9 @@ async function cleanup(client) {
       },
     },
   });
-  await client.billingProfile.deleteMany({ where: { id: IDS.billingProfile } });
+  await client.billingProfile.deleteMany({
+    where: { id: IDS.billingProfile },
+  });
   await client.membership.deleteMany({
     where: {
       id: {
@@ -179,7 +183,7 @@ async function createPaymentChain(
       dueAt: new Date(),
       amountMinor: AMOUNT_MINOR,
       currency: "MYR",
-      status: providerPaymentId ? "PROCESSING" : "PENDING",
+      status: providerPaymentId ? "PROCESSING" : "SCHEDULED",
     },
   });
   await client.payment.create({
@@ -344,10 +348,15 @@ async function seed(client) {
 }
 
 const enabled = databaseTestsEnabled();
+const testOptions = {
+  skip: enabled
+    ? false
+    : "Set KHLIM_TEST_DATABASE=1 to run database tests",
+};
 
 test(
   "payment concurrency cannot create duplicate bills or over-activate capacity",
-  { skip: enabled ? false : "Set KHLIM_TEST_DATABASE=1 to run database tests" },
+  testOptions,
   async (t) => {
     const previousProvider = process.env.PAYMENT_PROVIDER;
     process.env.PAYMENT_PROVIDER = PROVIDER;
@@ -382,12 +391,12 @@ test(
               { acceptTerms: true },
             ),
           ]);
+          const fulfilledCount = results.filter(
+            (result) => result.status === "fulfilled",
+          ).length;
 
           assert.equal(gateway.newBillCalls, 1);
-          assert.equal(
-            results.filter((result) => result.status === "fulfilled").length >= 1,
-            true,
-          );
+          assert.equal(fulfilledCount >= 1, true);
 
           const payment = await client.payment.findUniqueOrThrow({
             where: { id: IDS.checkoutPayment },
