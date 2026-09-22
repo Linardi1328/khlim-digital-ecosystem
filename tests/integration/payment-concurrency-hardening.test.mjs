@@ -494,8 +494,10 @@ test(
             data: { attemptedAt: new Date(now.getTime() - 60 * 60 * 1000) },
           });
 
-          const providerCreated =
-            await billing.reconcileStaleCheckoutHolds(ORG_ID, now);
+          const providerCreated = await billing.reconcileStaleCheckoutHolds(
+            ORG_ID,
+            now,
+          );
           assert.equal(providerCreated.expired, 0);
           assert.equal(providerCreated.actionRequired, 1);
           assert.equal(
@@ -512,8 +514,10 @@ test(
             data: { providerPaymentId: null },
           });
 
-          const preProvider =
-            await billing.reconcileStaleCheckoutHolds(ORG_ID, now);
+          const preProvider = await billing.reconcileStaleCheckoutHolds(
+            ORG_ID,
+            now,
+          );
           assert.equal(preProvider.expired, 1);
           assert.equal(preProvider.actionRequired, 0);
 
