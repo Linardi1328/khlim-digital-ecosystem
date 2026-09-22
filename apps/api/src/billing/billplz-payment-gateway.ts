@@ -91,7 +91,7 @@ export class BillplzPaymentGatewayAdapter implements PaymentGatewayAdapter {
       name: "KHLIM Member",
       amount: String(input.amountMinor),
       callback_url: this.options.callbackUrl,
-      redirect_url: this.options.redirectUrl,
+      redirect_url: this.redirectUrlForCheckout(input),
       description: `KHLIM membership ${input.membershipId}`,
       reference_2_label: "KHLIM Payment",
       reference_2: this.buildPaymentReference(
@@ -253,6 +253,13 @@ export class BillplzPaymentGatewayAdapter implements PaymentGatewayAdapter {
       amountMinor,
       currency: currency.toUpperCase(),
     };
+  }
+
+  private redirectUrlForCheckout(input: CreateGatewayCheckoutInput): string {
+    const url = new URL(this.options.redirectUrl);
+    url.searchParams.set("athleteId", input.athleteId);
+    url.searchParams.set("membershipId", input.membershipId);
+    return url.toString();
   }
 
   private checkoutUrlForBill(providerPaymentId: string): string {
