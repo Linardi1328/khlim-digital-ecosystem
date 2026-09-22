@@ -142,11 +142,7 @@ async function cleanup(client) {
   await client.athleteProfile.deleteMany({
     where: {
       id: {
-        in: [
-          IDS.checkoutAthlete,
-          IDS.capacityAthleteA,
-          IDS.capacityAthleteB,
-        ],
+        in: [IDS.checkoutAthlete, IDS.capacityAthleteA, IDS.capacityAthleteB],
       },
     },
   });
@@ -212,15 +208,13 @@ async function seed(client) {
     },
   });
   await client.athleteProfile.createMany({
-    data: [
-      IDS.checkoutAthlete,
-      IDS.capacityAthleteA,
-      IDS.capacityAthleteB,
-    ].map((id, index) => ({
-      id,
-      displayName: `Security Athlete ${index + 1}`,
-      dateOfBirth: new Date("2014-01-01T00:00:00.000Z"),
-    })),
+    data: [IDS.checkoutAthlete, IDS.capacityAthleteA, IDS.capacityAthleteB].map(
+      (id, index) => ({
+        id,
+        displayName: `Security Athlete ${index + 1}`,
+        dateOfBirth: new Date("2014-01-01T00:00:00.000Z"),
+      }),
+    ),
   });
   await client.sport.create({
     data: {
@@ -349,9 +343,7 @@ async function seed(client) {
 
 const enabled = databaseTestsEnabled();
 const testOptions = {
-  skip: enabled
-    ? false
-    : "Set KHLIM_TEST_DATABASE=1 to run database tests",
+  skip: enabled ? false : "Set KHLIM_TEST_DATABASE=1 to run database tests",
 };
 
 test(
