@@ -37,9 +37,38 @@ export default function PaymentsPage() {
   useEffect(() => {
     let cancelled = false;
 
-    const handleReconcileStaleCheckouts = async () => {
+    if (!canViewFinance) {
+      setPayments([]);
+      setSelectedPayment(null);
+      setLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setLoading(true);
+
+    async function load() {
+      try {
+        const list = await adminApi.listPayments();
+        if (!cancelled) setPayments(list);
+      } catch (err) {
+        if (!cancelled) console.warn("Failed to load payments:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canViewFinance]);
+
+  const handleReconcileStaleCheckouts = async () => {
     const confirmed = window.confirm(
-      "Expire checkout holds that exceeded the configured hold window? This cancels only stale pending checkout state so the parent can enrol again safely.",
+      "Expire checkout holds that exceeded the configured hold window? This cancels only stale pre-provider checkout state so the parent can enrol again safely.",
     );
     if (!confirmed) return;
 
@@ -68,35 +97,6 @@ export default function PaymentsPage() {
       setReconciling(false);
     }
   };
-
-  if (!canViewFinance) {
-      setPayments([]);
-      setSelectedPayment(null);
-      setLoading(false);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    setLoading(true);
-
-    async function load() {
-      try {
-        const list = await adminApi.listPayments();
-        if (!cancelled) setPayments(list);
-      } catch (err) {
-        if (!cancelled) console.warn("Failed to load payments:", err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [canViewFinance]);
 
   if (!canViewFinance) {
     return (
