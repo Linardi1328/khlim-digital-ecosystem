@@ -13,7 +13,7 @@ const {
   PaymentGatewayRegistry,
 } = require("../../apps/api/dist/billing/payment-gateway.js");
 
-const ORG_ID = "00000000-0000-4000-8000-000000000001";
+const ORG_ID = "72000000-0000-4000-8000-000000000000";
 const AMOUNT_MINOR = 18000;
 const PROVIDER = "concurrency-security-test";
 
@@ -153,6 +153,7 @@ async function cleanup(client) {
   await client.programme.deleteMany({ where: { id: IDS.programme } });
   await client.sport.deleteMany({ where: { id: IDS.sport } });
   await client.user.deleteMany({ where: { id: IDS.payer } });
+  await client.organization.deleteMany({ where: { id: ORG_ID } });
 }
 
 async function createPaymentChain(
@@ -200,6 +201,13 @@ async function createPaymentChain(
 }
 
 async function seed(client) {
+  await client.organization.create({
+    data: {
+      id: ORG_ID,
+      slug: "payment-concurrency-security",
+      name: "Payment Concurrency Security",
+    },
+  });
   await client.user.create({
     data: {
       id: IDS.payer,
