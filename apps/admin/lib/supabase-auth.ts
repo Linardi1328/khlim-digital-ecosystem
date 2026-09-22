@@ -277,7 +277,6 @@ export async function enrollAdminTotpFactor(): Promise<AdminTotpEnrollment> {
       method: "POST",
       body: JSON.stringify({
         factor_type: "totp",
-        friendly_name: "KHLIM Operations Console",
       }),
     },
     session.access_token,
