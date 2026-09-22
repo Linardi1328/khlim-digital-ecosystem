@@ -184,6 +184,7 @@ export function getAdminOverview(): Promise<DashboardMetrics> {
 
 export interface StaleCheckoutReconciliation {
   expired: number;
+  actionRequired: number;
   cutoff: string;
   holdMinutes: number;
 }
