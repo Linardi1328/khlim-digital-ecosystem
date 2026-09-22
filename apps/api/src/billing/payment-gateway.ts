@@ -14,6 +14,7 @@ export interface CreateGatewayCustomerResult {
 export interface CreateGatewayCheckoutInput {
   providerCustomerId: string;
   payerEmail?: string | null;
+  athleteId: string;
   membershipId: string;
   installmentId: string;
   amountMinor: number;
