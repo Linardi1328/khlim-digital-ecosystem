@@ -34,12 +34,10 @@ const capacityHoldingMembershipStatuses = [
 
 function ageOnDate(dateOfBirth: Date, referenceDate: Date): number {
   let age = referenceDate.getUTCFullYear() - dateOfBirth.getUTCFullYear();
-  const monthDelta =
-    referenceDate.getUTCMonth() - dateOfBirth.getUTCMonth();
+  const monthDelta = referenceDate.getUTCMonth() - dateOfBirth.getUTCMonth();
   if (
     monthDelta < 0 ||
-    (monthDelta === 0 &&
-      referenceDate.getUTCDate() < dateOfBirth.getUTCDate())
+    (monthDelta === 0 && referenceDate.getUTCDate() < dateOfBirth.getUTCDate())
   ) {
     age -= 1;
   }
