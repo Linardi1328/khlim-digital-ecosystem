@@ -14,6 +14,17 @@ export interface AdminSupabaseSession {
   user: AdminSupabaseUser;
 }
 
+export interface AdminTotpFactor {
+  id: string;
+  friendlyName?: string;
+}
+
+export interface AdminTotpEnrollment {
+  id: string;
+  qrCode: string;
+  secret: string;
+}
+
 export const ADMIN_SUPABASE_SESSION_STORAGE_KEY =
   "khlim_admin_supabase_session";
 const EXPIRY_SKEW_SECONDS = 60;
@@ -213,6 +224,127 @@ export async function adminSupabaseSignIn(
     throw new Error("Supabase did not return a valid staff session");
   storeSession(session);
   return session;
+}
+
+function currentAdminSession(): AdminSupabaseSession {
+  const session = readStoredSession();
+  if (!session?.access_token) {
+    throw new Error("Staff session is missing or expired");
+  }
+  return session;
+}
+
+function normalizeTotpFactor(value: unknown): AdminTotpFactor | null {
+  if (typeof value !== "object" || value === null) return null;
+  const factor = value as Record<string, unknown>;
+  if (
+    typeof factor.id !== "string" ||
+    factor.factor_type !== "totp" ||
+    factor.status !== "verified"
+  ) {
+    return null;
+  }
+  return {
+    id: factor.id,
+    friendlyName:
+      typeof factor.friendly_name === "string"
+        ? factor.friendly_name
+        : undefined,
+  };
+}
+
+export async function listAdminTotpFactors(): Promise<AdminTotpFactor[]> {
+  const session = currentAdminSession();
+  const body = await authRequest("/user", { method: "GET" }, session.access_token);
+  if (typeof body !== "object" || body === null) return [];
+
+  const factors = (body as { factors?: unknown }).factors;
+  if (!Array.isArray(factors)) return [];
+  return factors
+    .map(normalizeTotpFactor)
+    .filter((factor): factor is AdminTotpFactor => factor !== null);
+}
+
+export async function enrollAdminTotpFactor(): Promise<AdminTotpEnrollment> {
+  const session = currentAdminSession();
+  const body = await authRequest(
+    "/factors",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        factor_type: "totp",
+        friendly_name: "KHLIM Operations Console",
+      }),
+    },
+    session.access_token,
+  );
+
+  if (typeof body !== "object" || body === null) {
+    throw new Error("Supabase did not return a valid MFA enrollment");
+  }
+  const value = body as Record<string, unknown>;
+  const totp =
+    typeof value.totp === "object" && value.totp !== null
+      ? (value.totp as Record<string, unknown>)
+      : null;
+  if (
+    typeof value.id !== "string" ||
+    !totp ||
+    typeof totp.qr_code !== "string" ||
+    typeof totp.secret !== "string"
+  ) {
+    throw new Error("Supabase did not return a valid TOTP enrollment");
+  }
+
+  const qrCode = totp.qr_code.startsWith("data:")
+    ? totp.qr_code
+    : `data:image/svg+xml;utf8,${encodeURIComponent(totp.qr_code)}`;
+
+  return { id: value.id, qrCode, secret: totp.secret };
+}
+
+export async function challengeAdminTotpFactor(
+  factorId: string,
+): Promise<string> {
+  const session = currentAdminSession();
+  const body = await authRequest(
+    `/factors/${encodeURIComponent(factorId)}/challenge`,
+    { method: "POST", body: JSON.stringify({}) },
+    session.access_token,
+  );
+  if (
+    typeof body !== "object" ||
+    body === null ||
+    typeof (body as Record<string, unknown>).id !== "string"
+  ) {
+    throw new Error("Supabase did not return a valid MFA challenge");
+  }
+  return (body as { id: string }).id;
+}
+
+export async function verifyAdminTotpFactor(
+  factorId: string,
+  challengeId: string,
+  code: string,
+): Promise<AdminSupabaseSession> {
+  const session = currentAdminSession();
+  const body = await authRequest(
+    `/factors/${encodeURIComponent(factorId)}/verify`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        challenge_id: challengeId,
+        code: code.trim(),
+      }),
+    },
+    session.access_token,
+  );
+  const verified = normalizeSession(body);
+  if (!verified) {
+    throw new Error("Supabase did not return an MFA-upgraded staff session");
+  }
+  storeSession(verified);
+  return verified;
 }
 
 export async function adminSupabaseSignOut(): Promise<void> {
