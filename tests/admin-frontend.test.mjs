@@ -163,14 +163,20 @@ test("Finance staff can deliberately recover stale checkout holds", async () => 
   const api = await read("apps/admin/lib/admin-api.ts");
 
   assert.match(api, /\/admin\/billing\/reconcile-stale-checkouts/);
-  assert.match(api, /Checkout reconciliation is unavailable in Admin demo mode/);
+  assert.match(
+    api,
+    /Checkout reconciliation is unavailable in Admin demo mode/,
+  );
   assert.match(payments, /Recover stale checkouts/);
   assert.match(payments, /window\.confirm/);
   assert.match(payments, /reconcileStaleCheckouts/);
   assert.match(payments, /const canViewFinance = canAccessFinance\(\)/);
   assert.match(payments, /result\.expired/);
   assert.match(payments, /result\.actionRequired/);
-  assert.match(payments, /Provider-created checkouts remain untouched for review/);
+  assert.match(
+    payments,
+    /Provider-created checkouts remain untouched for review/,
+  );
 });
 
 test("Admin shared data interactions remain keyboard and pagination safe", async () => {
