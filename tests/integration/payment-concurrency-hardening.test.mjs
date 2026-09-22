@@ -475,6 +475,7 @@ test(
             2,
           );
         },
+      );
 
       await t.test(
         "stale checkout recovery cancels only pre-provider claims",
@@ -528,7 +529,6 @@ test(
           assert.equal(installment.status, "CANCELLED");
           assert.equal(schedule.status, "CANCELLED");
         },
-      );
       );
     } finally {
       await cleanup(client);
