@@ -333,6 +333,7 @@ export async function verifyAdminTotpFactor(
     {
       method: "POST",
       body: JSON.stringify({
+        factor_id: factorId,
         challenge_id: challengeId,
         code: code.trim(),
       }),
