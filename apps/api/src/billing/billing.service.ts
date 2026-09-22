@@ -368,7 +368,13 @@ export class BillingService {
     });
 
     let expired = 0;
+    let actionRequired = 0;
     for (const payment of stalePayments) {
+      if (payment.providerPaymentId) {
+        actionRequired += 1;
+        continue;
+      }
+
       await this.prisma.client.$transaction(async (transaction) => {
         const cancelled = await transaction.payment.updateMany({
           where: {
@@ -419,6 +425,7 @@ export class BillingService {
 
     return {
       expired,
+      actionRequired,
       cutoff: cutoff.toISOString(),
       holdMinutes: checkoutHoldMinutes(),
     };
