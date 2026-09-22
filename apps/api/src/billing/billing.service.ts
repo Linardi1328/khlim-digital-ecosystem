@@ -178,7 +178,7 @@ export class BillingService {
         ? plan.upfrontAmountMinor
         : plan.recurringAmountMinor;
 
-    if (amountMinor === null || amountMinor < 0 || installmentCount < 1) {
+    if (amountMinor === null || amountMinor <= 0 || installmentCount < 1) {
       throw new ConflictException(
         "Membership plan billing configuration is invalid",
       );
@@ -243,7 +243,7 @@ export class BillingService {
       membership.purchasedBy?.email ?? null,
     );
     const idempotencyKey = `membership:${membershipId}:installment:1`;
-    const payment = await this.prisma.client.payment.upsert({
+    let payment = await this.prisma.client.payment.upsert({
       where: { idempotencyKey },
       create: {
         organizationId,
@@ -266,6 +266,44 @@ export class BillingService {
 
     if (payment.status === "PAID") {
       throw new ConflictException("First installment is already paid");
+    }
+    if (payment.status === "REFUNDED" || payment.status === "CANCELLED") {
+      throw new ConflictException(
+        "A terminal payment cannot be reopened for checkout",
+      );
+    }
+
+    if (!payment.providerPaymentId) {
+      const claimed = await this.prisma.client.payment.updateMany({
+        where: {
+          id: payment.id,
+          organizationId,
+          status: "PENDING",
+          providerPaymentId: null,
+        },
+        data: { status: "PROCESSING" },
+      });
+
+      if (claimed.count === 1) {
+        payment = await this.prisma.client.payment.findUniqueOrThrow({
+          where: { id: payment.id },
+        });
+      } else {
+        const existing = await this.prisma.client.payment.findUnique({
+          where: { id: payment.id },
+        });
+        if (!existing || existing.organizationId !== organizationId) {
+          throw new ConflictException(
+            "Payment belongs to a different organization",
+          );
+        }
+        if (!existing.providerPaymentId) {
+          throw new ConflictException(
+            "Checkout creation is already in progress",
+          );
+        }
+        payment = existing;
+      }
     }
 
     const checkout = await gateway.createCheckout({
@@ -695,28 +733,44 @@ export class BillingService {
 
       let actionRequired = false;
       if (payment.membership?.status === "PENDING") {
-        const activeCount = await transaction.membership.count({
-          where: {
-            organizationId,
-            programmeOfferingId: payment.membership.programmeOfferingId,
-            status: "ACTIVE",
-          },
-        });
-        if (activeCount >= payment.membership.programmeOffering.capacity) {
+        const lockedOfferings = await transaction.$queryRaw<
+          Array<{ id: string }>
+        >`
+          SELECT id::text
+          FROM programme_offerings
+          WHERE id = ${payment.membership.programmeOfferingId}::uuid
+            AND organization_id = ${organizationId}::uuid
+          FOR UPDATE
+        `;
+
+        if (lockedOfferings.length !== 1) {
           actionRequired = true;
         } else {
-          const durationMonths =
-            payment.membership.membershipPlan.durationMonths ??
-            payment.membership.membershipPlan.commitmentCycles;
-          await transaction.membership.update({
-            where: { id: payment.membership.id },
-            data: {
+          const activeCount = await transaction.membership.count({
+            where: {
+              organizationId,
+              programmeOfferingId: payment.membership.programmeOfferingId,
               status: "ACTIVE",
-              startsAt: now,
-              activatedAt: now,
-              endsAt: durationMonths ? addMonthsUtc(now, durationMonths) : null,
             },
           });
+          if (activeCount >= payment.membership.programmeOffering.capacity) {
+            actionRequired = true;
+          } else {
+            const durationMonths =
+              payment.membership.membershipPlan.durationMonths ??
+              payment.membership.membershipPlan.commitmentCycles;
+            await transaction.membership.update({
+              where: { id: payment.membership.id },
+              data: {
+                status: "ACTIVE",
+                startsAt: now,
+                activatedAt: now,
+                endsAt: durationMonths
+                  ? addMonthsUtc(now, durationMonths)
+                  : null,
+              },
+            });
+          }
         }
       }
 

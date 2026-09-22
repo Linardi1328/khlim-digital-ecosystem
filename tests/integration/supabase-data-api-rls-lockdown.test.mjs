@@ -56,7 +56,6 @@ test(
         JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE n.nspname = 'public'
           AND c.relkind IN ('r', 'p')
-          AND c.relname <> '_prisma_migrations'
         ORDER BY c.relname
       `;
 
@@ -85,6 +84,19 @@ test(
         rlsForced,
         [],
         "RLS must not be forced for the server-side table owner",
+      );
+
+      const migrationTable = byTable.get("_prisma_migrations");
+      assert.ok(migrationTable, "Prisma migration history table must exist");
+      assert.equal(
+        migrationTable.rowSecurityEnabled,
+        true,
+        "Prisma migration history must be hidden from Supabase Data API roles",
+      );
+      assert.equal(
+        migrationTable.rowSecurityForced,
+        false,
+        "Prisma table-owner migration access must remain available",
       );
 
       const userCount = await client.user.count();
