@@ -32,6 +32,19 @@ const capacityHoldingMembershipStatuses = [
   "SUSPENDED",
 ] as const;
 
+function ageOnDate(dateOfBirth: Date, referenceDate: Date): number {
+  let age = referenceDate.getUTCFullYear() - dateOfBirth.getUTCFullYear();
+  const monthDelta = referenceDate.getUTCMonth() - dateOfBirth.getUTCMonth();
+  if (
+    monthDelta < 0 ||
+    (monthDelta === 0 &&
+      referenceDate.getUTCDate() < dateOfBirth.getUTCDate())
+  ) {
+    age -= 1;
+  }
+  return age;
+}
+
 @Injectable()
 export class AcademyService {
   constructor(private readonly prisma: PrismaService) {}
@@ -430,11 +443,34 @@ export class AcademyService {
             plan: { organizationId, active: true },
             offering: { organizationId, status: "OPEN" },
           },
-          include: { plan: true, offering: true },
+          include: {
+            plan: true,
+            offering: { include: { programme: true } },
+          },
         });
       if (!eligibility) {
         throw new BadRequestException(
           "Selected plan is not available for this offering",
+        );
+      }
+
+      const athlete = await transaction.athleteProfile.findUnique({
+        where: { id: athleteId },
+        select: { dateOfBirth: true },
+      });
+      if (!athlete) {
+        throw new NotFoundException("Athlete not found");
+      }
+
+      const eligibilityDate = eligibility.offering.startsOn ?? new Date();
+      const athleteAge = ageOnDate(athlete.dateOfBirth, eligibilityDate);
+      const { minimumAge, maximumAge } = eligibility.offering.programme;
+      if (
+        (minimumAge !== null && athleteAge < minimumAge) ||
+        (maximumAge !== null && athleteAge > maximumAge)
+      ) {
+        throw new BadRequestException(
+          "Athlete does not meet the programme age requirements",
         );
       }
 
