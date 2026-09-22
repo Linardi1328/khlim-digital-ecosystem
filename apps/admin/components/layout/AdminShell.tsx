@@ -340,8 +340,8 @@ function MfaGate() {
         ) : (
           <div>
             <p className="admin-access-note">
-              No verified authenticator is enrolled for this staff account.
-              Set one up before continuing.
+              No verified authenticator is enrolled for this staff account. Set
+              one up before continuing.
             </p>
             <button
               type="button"
