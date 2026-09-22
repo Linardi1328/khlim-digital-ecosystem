@@ -49,11 +49,15 @@ export default function PaymentsPage() {
       const result = await reconcileStaleCheckouts();
       const list = await adminApi.listPayments();
       setPayments(list);
-      setReconciliationMessage(
+      const recoveredLabel =
         result.expired === 0
-          ? "No stale checkout holds required recovery."
-          : `${result.expired} stale checkout hold${result.expired === 1 ? "" : "s"} recovered.`,
-      );
+          ? "No pre-provider checkout holds required recovery."
+          : `${result.expired} pre-provider checkout hold${result.expired === 1 ? "" : "s"} recovered.`;
+      const reviewLabel =
+        result.actionRequired === 0
+          ? ""
+          : ` ${result.actionRequired} provider-created checkout${result.actionRequired === 1 ? "" : "s"} require payment-provider review and were not cancelled.`;
+      setReconciliationMessage(`${recoveredLabel}${reviewLabel}`);
     } catch (error) {
       setReconciliationMessage(
         error instanceof Error
@@ -271,8 +275,8 @@ export default function PaymentsPage() {
             }}
           >
             <div style={{ fontSize: "0.8125rem", color: "#475569" }}>
-              Recover abandoned pending checkouts after the configured hold
-              window without changing verified paid transactions.
+              Recover stale checkout claims only when no external provider bill
+              exists. Provider-created checkouts remain untouched for review.
               {reconciliationMessage ? (
                 <div
                   role="status"
