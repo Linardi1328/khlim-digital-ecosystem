@@ -158,6 +158,7 @@ async function seed(client) {
       programmeId: IDS.programme,
       name: "Pre-Alpha Persistence Offering",
       capacity: 2,
+      startsOn: new Date("2027-02-01T00:00:00.000Z"),
       status: "OPEN",
     },
   });
@@ -319,6 +320,71 @@ test(
           await client.programmeOffering.update({
             where: { id: IDS.offering },
             data: { status: "OPEN" },
+          });
+        },
+      );
+
+      await t.test(
+        "programme age eligibility is enforced on the offering start date",
+        async () => {
+          await client.programme.update({
+            where: { id: IDS.programme },
+            data: { minimumAge: 13, maximumAge: 13 },
+          });
+
+          await client.athleteProfile.update({
+            where: { id: IDS.athleteA },
+            data: { dateOfBirth: new Date("2014-02-01T00:00:00.000Z") },
+          });
+          const boundaryMembership = await academy.createPendingMembership(
+            IDS.guardianUser,
+            IDS.athleteA,
+            { offeringId: IDS.offering, planId: IDS.plan },
+          );
+          assert.equal(boundaryMembership.status, "PENDING");
+          await client.membership.delete({
+            where: { id: boundaryMembership.id },
+          });
+
+          await client.athleteProfile.update({
+            where: { id: IDS.athleteA },
+            data: { dateOfBirth: new Date("2014-02-02T00:00:00.000Z") },
+          });
+          await assert.rejects(
+            () =>
+              academy.createPendingMembership(IDS.guardianUser, IDS.athleteA, {
+                offeringId: IDS.offering,
+                planId: IDS.plan,
+              }),
+            expectHttpError(
+              400,
+              /Athlete does not meet the programme age requirements/,
+            ),
+          );
+
+          await client.athleteProfile.update({
+            where: { id: IDS.athleteA },
+            data: { dateOfBirth: new Date("2013-01-31T00:00:00.000Z") },
+          });
+          await assert.rejects(
+            () =>
+              academy.createPendingMembership(IDS.guardianUser, IDS.athleteA, {
+                offeringId: IDS.offering,
+                planId: IDS.plan,
+              }),
+            expectHttpError(
+              400,
+              /Athlete does not meet the programme age requirements/,
+            ),
+          );
+
+          await client.athleteProfile.update({
+            where: { id: IDS.athleteA },
+            data: { dateOfBirth: new Date("2014-01-15T00:00:00.000Z") },
+          });
+          await client.programme.update({
+            where: { id: IDS.programme },
+            data: { minimumAge: 8, maximumAge: 15 },
           });
         },
       );
