@@ -255,7 +255,11 @@ function normalizeTotpFactor(value: unknown): AdminTotpFactor | null {
 
 export async function listAdminTotpFactors(): Promise<AdminTotpFactor[]> {
   const session = currentAdminSession();
-  const body = await authRequest("/user", { method: "GET" }, session.access_token);
+  const body = await authRequest(
+    "/user",
+    { method: "GET" },
+    session.access_token,
+  );
   if (typeof body !== "object" || body === null) return [];
 
   const factors = (body as { factors?: unknown }).factors;
