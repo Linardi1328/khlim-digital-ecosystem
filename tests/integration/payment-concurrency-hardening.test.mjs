@@ -13,7 +13,7 @@ const {
   PaymentGatewayRegistry,
 } = require("../../apps/api/dist/billing/payment-gateway.js");
 
-const ORG_ID = "00000000-0000-4000-8000-000000000001";
+const ORG_ID = "72000000-0000-4000-8000-000000000000";
 const AMOUNT_MINOR = 18000;
 const PROVIDER = "concurrency-security-test";
 
@@ -153,6 +153,7 @@ async function cleanup(client) {
   await client.programme.deleteMany({ where: { id: IDS.programme } });
   await client.sport.deleteMany({ where: { id: IDS.sport } });
   await client.user.deleteMany({ where: { id: IDS.payer } });
+  await client.organization.deleteMany({ where: { id: ORG_ID } });
 }
 
 async function createPaymentChain(
@@ -200,6 +201,13 @@ async function createPaymentChain(
 }
 
 async function seed(client) {
+  await client.organization.create({
+    data: {
+      id: ORG_ID,
+      slug: "payment-concurrency-security",
+      name: "Payment Concurrency Security",
+    },
+  });
   await client.user.create({
     data: {
       id: IDS.payer,
@@ -474,6 +482,64 @@ test(
             }),
             2,
           );
+        },
+      );
+
+      await t.test(
+        "stale checkout recovery cancels only pre-provider claims",
+        async () => {
+          const now = new Date(Date.now() + 2 * 60 * 60 * 1000);
+          await client.payment.update({
+            where: { id: IDS.checkoutPayment },
+            data: { attemptedAt: new Date(now.getTime() - 60 * 60 * 1000) },
+          });
+
+          const providerCreated = await billing.reconcileStaleCheckoutHolds(
+            ORG_ID,
+            now,
+          );
+          assert.equal(providerCreated.expired, 0);
+          assert.equal(providerCreated.actionRequired, 1);
+          assert.equal(
+            (
+              await client.payment.findUniqueOrThrow({
+                where: { id: IDS.checkoutPayment },
+              })
+            ).status,
+            "PROCESSING",
+          );
+
+          await client.payment.update({
+            where: { id: IDS.checkoutPayment },
+            data: { providerPaymentId: null },
+          });
+
+          const preProvider = await billing.reconcileStaleCheckoutHolds(
+            ORG_ID,
+            now,
+          );
+          assert.equal(preProvider.expired, 1);
+          assert.equal(preProvider.actionRequired, 0);
+
+          const [payment, membership, installment, schedule] =
+            await Promise.all([
+              client.payment.findUniqueOrThrow({
+                where: { id: IDS.checkoutPayment },
+              }),
+              client.membership.findUniqueOrThrow({
+                where: { id: IDS.checkoutMembership },
+              }),
+              client.paymentInstallment.findUniqueOrThrow({
+                where: { id: IDS.checkoutInstallment },
+              }),
+              client.paymentSchedule.findUniqueOrThrow({
+                where: { id: IDS.checkoutSchedule },
+              }),
+            ]);
+          assert.equal(payment.status, "CANCELLED");
+          assert.equal(membership.status, "CANCELLED");
+          assert.equal(installment.status, "CANCELLED");
+          assert.equal(schedule.status, "CANCELLED");
         },
       );
     } finally {

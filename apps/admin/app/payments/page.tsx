@@ -11,14 +11,16 @@ import { Pagination } from "../../components/ui/Pagination";
 import { Button } from "../../components/ui/Button";
 import { Drawer } from "../../components/ui/Drawer";
 import { useAdminAuth } from "../../lib/auth-context";
-import { adminApi } from "../../lib/admin-api";
+import { adminApi, reconcileStaleCheckouts } from "../../lib/admin-api";
 import type { PaymentItem } from "../../lib/types";
 
 export default function PaymentsPage() {
-  const { canAccessFinance, role } = useAdminAuth();
+  const { canAccessFinance, role, isDemoMode } = useAdminAuth();
   const canViewFinance = canAccessFinance();
   const [payments, setPayments] = useState<PaymentItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reconciling, setReconciling] = useState(false);
+  const [reconciliationMessage, setReconciliationMessage] = useState("");
 
   // Search & Filter
   const [search, setSearch] = useState("");
@@ -63,6 +65,38 @@ export default function PaymentsPage() {
       cancelled = true;
     };
   }, [canViewFinance]);
+
+  const handleReconcileStaleCheckouts = async () => {
+    const confirmed = window.confirm(
+      "Expire checkout holds that exceeded the configured hold window? This cancels only stale pre-provider checkout state so the parent can enrol again safely.",
+    );
+    if (!confirmed) return;
+
+    setReconciling(true);
+    setReconciliationMessage("");
+    try {
+      const result = await reconcileStaleCheckouts();
+      const list = await adminApi.listPayments();
+      setPayments(list);
+      const recoveredLabel =
+        result.expired === 0
+          ? "No pre-provider checkout holds required recovery."
+          : `${result.expired} pre-provider checkout hold${result.expired === 1 ? "" : "s"} recovered.`;
+      const reviewLabel =
+        result.actionRequired === 0
+          ? ""
+          : ` ${result.actionRequired} provider-created checkout${result.actionRequired === 1 ? "" : "s"} require payment-provider review and were not cancelled.`;
+      setReconciliationMessage(`${recoveredLabel}${reviewLabel}`);
+    } catch (error) {
+      setReconciliationMessage(
+        error instanceof Error
+          ? error.message
+          : "Checkout recovery could not be completed.",
+      );
+    } finally {
+      setReconciling(false);
+    }
+  };
 
   if (!canViewFinance) {
     return (
@@ -224,6 +258,48 @@ export default function PaymentsPage() {
             { label: "Payments" },
           ]}
         />
+
+        {!isDemoMode ? (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+              flexWrap: "wrap",
+              marginBottom: "16px",
+              padding: "12px 14px",
+              border: "1px solid #E2E8F0",
+              borderRadius: "8px",
+              backgroundColor: "#F8FAFC",
+            }}
+          >
+            <div style={{ fontSize: "0.8125rem", color: "#475569" }}>
+              Recover stale checkout claims only when no external provider bill
+              exists. Provider-created checkouts remain untouched for review.
+              {reconciliationMessage ? (
+                <div
+                  role="status"
+                  style={{
+                    marginTop: "4px",
+                    fontWeight: 700,
+                    color: "#0F172A",
+                  }}
+                >
+                  {reconciliationMessage}
+                </div>
+              ) : null}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={reconciling}
+              onClick={() => void handleReconcileStaleCheckouts()}
+            >
+              {reconciling ? "Recovering..." : "Recover stale checkouts"}
+            </Button>
+          </div>
+        ) : null}
 
         {/* Filter Controls */}
         <FilterBar

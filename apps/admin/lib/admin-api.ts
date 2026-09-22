@@ -182,6 +182,24 @@ export function getAdminOverview(): Promise<DashboardMetrics> {
   return adminApiClient.get<DashboardMetrics>("/admin/overview");
 }
 
+export interface StaleCheckoutReconciliation {
+  expired: number;
+  actionRequired: number;
+  cutoff: string;
+  holdMinutes: number;
+}
+
+export function reconcileStaleCheckouts(): Promise<StaleCheckoutReconciliation> {
+  if (ADMIN_DEMO_MODE) {
+    return Promise.reject(
+      new Error("Checkout reconciliation is unavailable in Admin demo mode."),
+    );
+  }
+  return adminApiClient.post<StaleCheckoutReconciliation>(
+    "/admin/billing/reconcile-stale-checkouts",
+  );
+}
+
 export function listAdminSports(): Promise<SportItem[]> {
   if (ADMIN_DEMO_MODE) {
     return Promise.resolve([
