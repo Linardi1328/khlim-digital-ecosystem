@@ -169,6 +169,8 @@ test("Finance staff can deliberately recover stale checkout holds", async () => 
   assert.match(payments, /reconcileStaleCheckouts/);
   assert.match(payments, /const canViewFinance = canAccessFinance\(\)/);
   assert.match(payments, /result\.expired/);
+  assert.match(payments, /result\.actionRequired/);
+  assert.match(payments, /Provider-created checkouts remain untouched for review/);
 });
 
 test("Admin shared data interactions remain keyboard and pagination safe", async () => {
