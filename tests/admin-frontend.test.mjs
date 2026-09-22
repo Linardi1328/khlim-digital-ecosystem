@@ -205,11 +205,25 @@ test("Real staff authentication restores a distinct Supabase session and remains
   assert.match(supabaseAuth, /khlim_admin_supabase_session/);
   assert.match(supabaseAuth, /grant_type=password/);
   assert.match(supabaseAuth, /grant_type=refresh_token/);
+  assert.match(supabaseAuth, /\/factors/);
+  assert.match(supabaseAuth, /factor_type: "totp"/);
+  assert.match(supabaseAuth, /\/challenge/);
+  assert.match(supabaseAuth, /\/verify/);
+  assert.match(supabaseAuth, /status !== "verified"/);
+  assert.match(supabaseAuth, /storeSession\(verified\)/);
   assert.match(authContext, /restoreAdminSupabaseSession/);
   assert.match(authContext, /getAdminSession/);
   assert.match(authContext, /mfaSatisfied/);
   assert.match(shell, /Sign in to Admin Console/);
   assert.match(shell, /MFA verification required/);
+  assert.match(shell, /Set up authenticator/);
+  assert.match(shell, /Authenticator code/);
+  assert.match(shell, /Verify MFA/);
+  assert.match(shell, /listAdminTotpFactors/);
+  assert.match(shell, /enrollAdminTotpFactor/);
+  assert.match(shell, /challengeAdminTotpFactor/);
+  assert.match(shell, /verifyAdminTotpFactor/);
+  assert.match(shell, /pattern="\[0-9\]\{6\}"/);
   assert.match(
     shell,
     /No privileged admin data is shown before MFA\s+succeeds/,
