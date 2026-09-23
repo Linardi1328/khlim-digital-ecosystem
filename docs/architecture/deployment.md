@@ -26,6 +26,8 @@ Where supported and operationally sensible, production compute/data should start
 
 Infrastructure providers are replaceable dependencies; business domains should depend on interfaces/contracts rather than vendor SDK details throughout the codebase.
 
+For the current pre-alpha deployment, **Vercel is the only application hosting/deployment target** for Web, Admin, and API. Legacy Netlify preview deployments and the Render `khlim-api-staging` service are retired and must not auto-deploy from this repository.
+
 ## Current environment priority
 
 The next development milestone depends on a production-shaped **staging environment**. The project already has application/deployment foundations and browser CI; staging must now become the place where the real auth, Admin, payment-provider, migration, recovery and end-to-end workflows are proven before external family beta.
