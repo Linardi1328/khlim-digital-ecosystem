@@ -317,23 +317,34 @@ export class BillingService {
       providerPaymentId: payment.providerPaymentId ?? undefined,
     });
 
-    await this.prisma.client.$transaction([
-      this.prisma.client.payment.update({
-        where: { id: payment.id },
-        data: {
+    await this.prisma.client.$transaction(async (transaction) => {
+      const stillProcessing = await transaction.payment.updateMany({
+        where: {
+          id: payment.id,
+          organizationId,
           status: "PROCESSING",
+        },
+        data: {
           providerPaymentId: checkout.providerPaymentId ?? undefined,
         },
-      }),
-      this.prisma.client.paymentInstallment.update({
-        where: { id: firstInstallment.id },
+      });
+
+      if (stillProcessing.count === 0) {
+        return;
+      }
+
+      await transaction.paymentInstallment.updateMany({
+        where: {
+          id: firstInstallment.id,
+          status: { in: ["SCHEDULED", "PROCESSING"] },
+        },
         data: { status: "PROCESSING" },
-      }),
-      this.prisma.client.paymentSchedule.update({
-        where: { id: schedule.id },
+      });
+      await transaction.paymentSchedule.updateMany({
+        where: { id: schedule.id, status: "PENDING" },
         data: { status: "ACTIVE" },
-      }),
-    ]);
+      });
+    });
 
     return {
       membershipId,
@@ -536,7 +547,10 @@ export class BillingService {
         );
       }
 
-      if (existing.processingStatus !== "FAILED") {
+      if (
+        existing.processingStatus === "PROCESSED" ||
+        existing.processingStatus === "ACTION_REQUIRED"
+      ) {
         return { duplicate: true, providerEventId: event.providerEventId };
       }
     }
@@ -567,127 +581,153 @@ export class BillingService {
     provider: string,
     event: NormalizedGatewayEvent,
   ) {
-    const payment = await this.prisma.client.payment.findFirst({
-      where: { organizationId, idempotencyKey: event.idempotencyKey },
-      include: {
-        paymentInstallment: {
-          include: {
-            paymentSchedule: {
-              include: {
-                membership: { select: { organizationId: true } },
+    return this.prisma.client.$transaction(async (transaction) => {
+      const finishEvent = async (
+        processingStatus: "PROCESSED" | "ACTION_REQUIRED",
+        processedAt = new Date(),
+      ) => {
+        const updatedEvent = await transaction.paymentProviderEvent.updateMany({
+          where: {
+            organizationId,
+            provider,
+            providerEventId: event.providerEventId,
+          },
+          data: { processingStatus, processedAt },
+        });
+        if (updatedEvent.count !== 1) {
+          throw new ConflictException(
+            "Provider event belongs to a different organization",
+          );
+        }
+      };
+
+      const paymentReference = await transaction.payment.findFirst({
+        where: { organizationId, idempotencyKey: event.idempotencyKey },
+        select: { id: true, provider: true },
+      });
+
+      if (!paymentReference || paymentReference.provider !== provider) {
+        await finishEvent("ACTION_REQUIRED");
+        return { processed: false, actionRequired: true };
+      }
+
+      const lockedPayments = await transaction.$queryRaw<Array<{ id: string }>>`
+        SELECT id::text
+        FROM payments
+        WHERE id = ${paymentReference.id}::uuid
+          AND organization_id = ${organizationId}::uuid
+        FOR UPDATE
+      `;
+
+      if (lockedPayments.length !== 1) {
+        await finishEvent("ACTION_REQUIRED");
+        return {
+          processed: false,
+          actionRequired: true,
+          reason: "PAYMENT_NOT_AVAILABLE_FOR_PROCESSING",
+        };
+      }
+
+      const payment = await transaction.payment.findFirst({
+        where: { id: paymentReference.id, organizationId },
+        include: {
+          paymentInstallment: {
+            include: {
+              paymentSchedule: {
+                include: {
+                  membership: { select: { organizationId: true } },
+                },
               },
             },
           },
+          membership: {
+            include: { membershipPlan: true, programmeOffering: true },
+          },
         },
-        membership: {
-          include: { membershipPlan: true, programmeOffering: true },
-        },
-      },
-    });
+      });
 
-    if (!payment || payment.provider !== provider) {
-      await this.finishProviderEvent(
-        organizationId,
-        provider,
-        event.providerEventId,
-        "ACTION_REQUIRED",
-      );
-      return { processed: false, actionRequired: true };
-    }
+      if (!payment || payment.provider !== provider) {
+        await finishEvent("ACTION_REQUIRED");
+        return { processed: false, actionRequired: true };
+      }
 
-    if (
-      (payment.membership &&
-        payment.membership.organizationId !== organizationId) ||
-      (payment.paymentInstallment?.paymentSchedule.membership.organizationId &&
-        payment.paymentInstallment.paymentSchedule.membership.organizationId !==
-          organizationId)
-    ) {
-      await this.finishProviderEvent(
-        organizationId,
-        provider,
-        event.providerEventId,
-        "ACTION_REQUIRED",
-      );
-      return {
-        processed: false,
-        actionRequired: true,
-        reason: "CROSS_ORGANIZATION_PAYMENT_RELATION",
-      };
-    }
+      if (
+        (payment.membership &&
+          payment.membership.organizationId !== organizationId) ||
+        (payment.paymentInstallment?.paymentSchedule.membership.organizationId &&
+          payment.paymentInstallment.paymentSchedule.membership
+            .organizationId !== organizationId)
+      ) {
+        await finishEvent("ACTION_REQUIRED");
+        return {
+          processed: false,
+          actionRequired: true,
+          reason: "CROSS_ORGANIZATION_PAYMENT_RELATION",
+        };
+      }
 
-    if (
-      payment.providerPaymentId &&
-      event.providerPaymentId &&
-      payment.providerPaymentId !== event.providerPaymentId
-    ) {
-      await this.finishProviderEvent(
-        organizationId,
-        provider,
-        event.providerEventId,
-        "ACTION_REQUIRED",
-      );
-      return {
-        processed: false,
-        actionRequired: true,
-        reason: "PROVIDER_PAYMENT_ID_MISMATCH",
-      };
-    }
+      if (
+        payment.providerPaymentId &&
+        event.providerPaymentId &&
+        payment.providerPaymentId !== event.providerPaymentId
+      ) {
+        await finishEvent("ACTION_REQUIRED");
+        return {
+          processed: false,
+          actionRequired: true,
+          reason: "PROVIDER_PAYMENT_ID_MISMATCH",
+        };
+      }
 
-    if (
-      (event.amountMinor !== undefined &&
-        event.amountMinor !== payment.amountMinor) ||
-      (event.currency !== undefined && event.currency !== payment.currency)
-    ) {
-      await this.finishProviderEvent(
-        organizationId,
-        provider,
-        event.providerEventId,
-        "ACTION_REQUIRED",
-      );
-      return {
-        processed: false,
-        actionRequired: true,
-        reason: "PAYMENT_AMOUNT_OR_CURRENCY_MISMATCH",
-      };
-    }
+      if (
+        (event.amountMinor !== undefined &&
+          event.amountMinor !== payment.amountMinor) ||
+        (event.currency !== undefined && event.currency !== payment.currency)
+      ) {
+        await finishEvent("ACTION_REQUIRED");
+        return {
+          processed: false,
+          actionRequired: true,
+          reason: "PAYMENT_AMOUNT_OR_CURRENCY_MISMATCH",
+        };
+      }
 
-    if (payment.status === "PAID") {
-      await this.finishProviderEvent(
-        organizationId,
-        provider,
-        event.providerEventId,
-        "PROCESSED",
-      );
-      return {
-        processed: true,
-        paymentStatus: "PAID",
-        membershipActivated: payment.membership?.status === "ACTIVE",
-        actionRequired: false,
-        ignoredTerminalState: true,
-      };
-    }
+      if (payment.status === "PAID") {
+        await finishEvent("PROCESSED");
+        return {
+          processed: true,
+          paymentStatus: "PAID",
+          membershipActivated: payment.membership?.status === "ACTIVE",
+          actionRequired: false,
+          ignoredTerminalState: true,
+        };
+      }
 
-    if (payment.status === "REFUNDED" || payment.status === "CANCELLED") {
-      await this.finishProviderEvent(
-        organizationId,
-        provider,
-        event.providerEventId,
-        "ACTION_REQUIRED",
-      );
-      return {
-        processed: false,
-        actionRequired: true,
-        reason: "TERMINAL_PAYMENT_STATE_REQUIRES_REVIEW",
-      };
-    }
+      if (payment.status === "REFUNDED" || payment.status === "CANCELLED") {
+        await finishEvent("ACTION_REQUIRED");
+        return {
+          processed: false,
+          actionRequired: true,
+          reason: "TERMINAL_PAYMENT_STATE_REQUIRES_REVIEW",
+        };
+      }
 
-    if (event.eventType === "PAYMENT_FAILED") {
-      await this.prisma.client.$transaction(async (transaction) => {
+      if (event.eventType === "PAYMENT_FAILED") {
+        if (payment.status === "FAILED") {
+          await finishEvent("PROCESSED");
+          return {
+            processed: true,
+            paymentStatus: "FAILED",
+            ignoredTerminalState: true,
+          };
+        }
+
+        const now = new Date();
         await transaction.payment.update({
           where: { id: payment.id },
           data: {
             status: "FAILED",
-            failedAt: new Date(),
+            failedAt: now,
             providerPaymentId:
               event.providerPaymentId ?? payment.providerPaymentId,
             failureCode: event.failureCode ?? null,
@@ -695,29 +735,18 @@ export class BillingService {
           },
         });
         if (payment.paymentInstallmentId) {
-          await transaction.paymentInstallment.update({
-            where: { id: payment.paymentInstallmentId },
+          await transaction.paymentInstallment.updateMany({
+            where: {
+              id: payment.paymentInstallmentId,
+              status: { in: ["SCHEDULED", "PROCESSING", "FAILED", "OVERDUE"] },
+            },
             data: { status: "FAILED" },
           });
         }
-        const updatedEvent = await transaction.paymentProviderEvent.updateMany({
-          where: {
-            organizationId,
-            provider,
-            providerEventId: event.providerEventId,
-          },
-          data: { processingStatus: "PROCESSED", processedAt: new Date() },
-        });
-        if (updatedEvent.count !== 1) {
-          throw new ConflictException(
-            "Provider event belongs to a different organization",
-          );
-        }
-      });
-      return { processed: true, paymentStatus: "FAILED" };
-    }
+        await finishEvent("PROCESSED", now);
+        return { processed: true, paymentStatus: "FAILED" };
+      }
 
-    return this.prisma.client.$transaction(async (transaction) => {
       const now = new Date();
       await transaction.payment.update({
         where: { id: payment.id },
@@ -726,15 +755,22 @@ export class BillingService {
           settledAt: payment.settledAt ?? now,
           providerPaymentId:
             event.providerPaymentId ?? payment.providerPaymentId,
+          failedAt: null,
           failureCode: null,
           safeFailureReason: null,
         },
       });
 
       if (payment.paymentInstallmentId) {
-        await transaction.paymentInstallment.update({
-          where: { id: payment.paymentInstallmentId },
-          data: { status: "PAID", paidAt: now },
+        await transaction.paymentInstallment.updateMany({
+          where: {
+            id: payment.paymentInstallmentId,
+            status: { in: ["SCHEDULED", "PROCESSING", "FAILED", "OVERDUE"] },
+          },
+          data: {
+            status: "PAID",
+            paidAt: payment.paymentInstallment?.paidAt ?? now,
+          },
         });
       }
 
@@ -766,8 +802,12 @@ export class BillingService {
             const durationMonths =
               payment.membership.membershipPlan.durationMonths ??
               payment.membership.membershipPlan.commitmentCycles;
-            await transaction.membership.update({
-              where: { id: payment.membership.id },
+            const activated = await transaction.membership.updateMany({
+              where: {
+                id: payment.membership.id,
+                organizationId,
+                status: "PENDING",
+              },
               data: {
                 status: "ACTIVE",
                 startsAt: now,
@@ -777,6 +817,13 @@ export class BillingService {
                   : null,
               },
             });
+            if (activated.count !== 1) {
+              const currentMembership = await transaction.membership.findFirst({
+                where: { id: payment.membership.id, organizationId },
+                select: { status: true },
+              });
+              actionRequired = currentMembership?.status !== "ACTIVE";
+            }
           }
         }
       }
@@ -789,28 +836,16 @@ export class BillingService {
             status: { notIn: ["PAID", "WAIVED", "CANCELLED"] },
           },
         });
-        await transaction.paymentSchedule.update({
-          where: { id: payment.paymentInstallment.paymentScheduleId },
+        await transaction.paymentSchedule.updateMany({
+          where: {
+            id: payment.paymentInstallment.paymentScheduleId,
+            status: { in: ["PENDING", "ACTIVE"] },
+          },
           data: { status: remaining === 0 ? "COMPLETED" : "ACTIVE" },
         });
       }
 
-      const updatedEvent = await transaction.paymentProviderEvent.updateMany({
-        where: {
-          organizationId,
-          provider,
-          providerEventId: event.providerEventId,
-        },
-        data: {
-          processingStatus: actionRequired ? "ACTION_REQUIRED" : "PROCESSED",
-          processedAt: now,
-        },
-      });
-      if (updatedEvent.count !== 1) {
-        throw new ConflictException(
-          "Provider event belongs to a different organization",
-        );
-      }
+      await finishEvent(actionRequired ? "ACTION_REQUIRED" : "PROCESSED", now);
 
       return {
         processed: true,
