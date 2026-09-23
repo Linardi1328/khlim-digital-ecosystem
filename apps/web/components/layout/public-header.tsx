@@ -40,7 +40,7 @@ export function PublicHeader() {
           maxWidth: "1200px",
           margin: "0 auto",
           padding: "0 20px",
-          height: "70px",
+          height: "76px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -52,13 +52,13 @@ export function PublicHeader() {
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "12px",
+            gap: "10px",
             textDecoration: "none",
             minWidth: 0,
           }}
         >
           <BrandLogo
-            height={42}
+            height={54}
             priority
             className={`public-header-logo ${styles.brandLogo}`}
           />

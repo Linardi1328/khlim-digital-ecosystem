@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useI18n } from "../../lib/i18n-context";
+
+const LOGO_ASPECT_RATIO = 256 / 301;
+const LOGO_ALT = "KHLIM Sports Academy";
+const LOGO_FALLBACK = "KHS";
 
 export function BrandLogo({
   size,
@@ -14,44 +17,43 @@ export function BrandLogo({
   className?: string;
   priority?: boolean;
 }) {
-  const { t } = useI18n();
   const [imageFailed, setImageFailed] = useState(false);
-  const resolvedSize = size ?? height ?? 44;
-  const alt = t("brand.academy");
+  const resolvedHeight = size ?? height ?? 48;
+  const resolvedWidth = Math.round(resolvedHeight * LOGO_ASPECT_RATIO);
 
   if (imageFailed) {
     return (
       <span
         role="img"
-        aria-label={alt}
+        aria-label={LOGO_ALT}
         className={className}
         style={{
-          width: resolvedSize,
-          height: resolvedSize,
+          width: resolvedWidth,
+          height: resolvedHeight,
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
-          borderRadius: "50%",
-          backgroundColor: "#18181B",
-          border: "1px solid #F59E0B",
-          color: "#F59E0B",
-          fontSize: Math.max(12, Math.round(resolvedSize * 0.34)),
-          fontWeight: 800,
+          borderRadius: 8,
+          backgroundColor: "#14234D",
+          border: "1px solid #F5A623",
+          color: "#FFFFFF",
+          fontSize: Math.max(10, Math.round(resolvedHeight * 0.22)),
+          fontWeight: 900,
           lineHeight: 1,
           flexShrink: 0,
         }}
       >
-        K
+        {LOGO_FALLBACK}
       </span>
     );
   }
 
   return (
     <img
-      src="/khlim-logo.jpg"
-      alt={alt}
-      width={resolvedSize}
-      height={resolvedSize}
+      src="/khs-academy-logo.webp"
+      alt={LOGO_ALT}
+      width={resolvedWidth}
+      height={resolvedHeight}
       className={className}
       loading={priority ? "eager" : "lazy"}
       decoding="async"
@@ -59,8 +61,8 @@ export function BrandLogo({
       onError={() => setImageFailed(true)}
       style={{
         display: "block",
-        width: resolvedSize,
-        height: resolvedSize,
+        width: resolvedWidth,
+        height: resolvedHeight,
         objectFit: "contain",
         flexShrink: 0,
       }}

@@ -15,7 +15,7 @@ test("sign-in keeps an explicit home action alongside the logo shortcut", async 
 
   const logo = page.locator(".auth-brand-logo");
   await expect(logo).toBeVisible();
-  await expect(logo).toHaveAttribute("src", "/khlim-logo.jpg");
+  await expect(logo).toHaveAttribute("src", "/khs-academy-logo.webp");
 });
 
 test("sign-in exposes language choice and accessible password visibility", async ({
