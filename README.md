@@ -125,7 +125,7 @@ Membership / Registration / Order
 
 The implemented foundation includes provider-neutral gateway boundaries, payment schedules/installments, provider references, webhook verification hooks, provider-event deduplication, idempotency keys and server-authoritative membership activation rules.
 
-A **real production gateway adapter is still a launch dependency**. Until one is configured, production checkout must fail closed rather than simulate success.
+The **Billplz gateway adapter is implemented** and supports sandbox validation. Live Billplz merchant activation, production credentials, and production-mode verification remain launch dependencies. Until a valid provider configuration is present, checkout fails closed rather than simulating success.
 
 ## Technology baseline
 
@@ -141,7 +141,7 @@ A **real production gateway adapter is still a launch dependency**. Until one is
 - GitHub Actions for regression/build/browser validation.
 - Playwright browser QA for web and admin.
 - Sentry + structured logging foundations.
-- Railway API hosting initially.
+- Vercel-hosted API for the current pre-alpha deployment.
 - Vercel web/admin hosting initially.
 - Expo / React Native reserved for later mobile activation.
 - Singapore-region infrastructure where supported.
