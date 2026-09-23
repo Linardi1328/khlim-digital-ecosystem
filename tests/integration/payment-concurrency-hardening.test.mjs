@@ -260,10 +260,10 @@ async function seed(client) {
       IDS.opposingAthlete,
       IDS.receivedAthlete,
     ].map((id, index) => ({
-        id,
-        displayName: `Security Athlete ${index + 1}`,
-        dateOfBirth: new Date("2014-01-01T00:00:00.000Z"),
-      })),
+      id,
+      displayName: `Security Athlete ${index + 1}`,
+      dateOfBirth: new Date("2014-01-01T00:00:00.000Z"),
+    })),
   });
   await client.sport.create({
     data: {
