@@ -98,7 +98,7 @@ export function PortalShell({ children }: PortalShellProps) {
               gap: "10px",
             }}
           >
-            <BrandLogo height={34} />
+            <BrandLogo height={50} />
             <div
               style={{
                 fontSize: "0.6875rem",
