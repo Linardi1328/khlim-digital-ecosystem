@@ -22,6 +22,9 @@ const DEFAULT_CHECKOUT_HOLD_MINUTES = 45;
 
 type WebhookHeaders = Readonly<Record<string, string | string[] | undefined>>;
 
+/**
+ * Resolves the configured duration in minutes for which checkout holds remain valid.
+ */
 function checkoutHoldMinutes(): number {
   const configured = Number.parseInt(
     process.env.PAYMENT_CHECKOUT_HOLD_MINUTES ?? "",
@@ -32,12 +35,23 @@ function checkoutHoldMinutes(): number {
     : DEFAULT_CHECKOUT_HOLD_MINUTES;
 }
 
+/**
+ * Adds a specified number of calendar months to a UTC Date.
+ *
+ * @param value - Base UTC Date
+ * @param months - Number of months to add
+ */
 function addMonthsUtc(value: Date, months: number): Date {
   const copy = new Date(value);
   copy.setUTCMonth(copy.getUTCMonth() + months);
   return copy;
 }
 
+/**
+ * Determines whether an error is a Prisma unique constraint violation (P2002).
+ *
+ * @param error - The caught error object
+ */
 function isUniqueConstraintError(error: unknown): boolean {
   return (
     typeof error === "object" &&
@@ -47,6 +61,11 @@ function isUniqueConstraintError(error: unknown): boolean {
   );
 }
 
+/**
+ * Resolves the fallback default organization ID in single-tenant mode or throws if multi-org is active.
+ *
+ * @throws ServiceUnavailableException if multi-organization runtime is enabled without explicit org context
+ */
 function compatibilityOrganizationId(): string {
   if (MULTI_ORGANIZATION_RUNTIME_ENABLED) {
     throw new ServiceUnavailableException(
@@ -56,6 +75,13 @@ function compatibilityOrganizationId(): string {
   return DEFAULT_ORGANIZATION_ID;
 }
 
+/**
+ * Core billing and payment orchestration service for the KHLIM platform.
+ *
+ * Enforces organization-tenant boundaries, row-level locking concurrency controls,
+ * terminal payment state protections, idempotent provider-event ingestion, and
+ * server-authoritative membership activation.
+ */
 @Injectable()
 export class BillingService {
   constructor(
@@ -63,6 +89,15 @@ export class BillingService {
     private readonly gateways: PaymentGatewayRegistry,
   ) {}
 
+  /**
+   * Retrieves the authoritative billing state for a membership, including its
+   * payment schedule, installments, and payment attempts within an organization.
+   *
+   * @param organizationIdOrAthleteId - Organization ID (when 3 args) or Athlete ID (legacy compatibility)
+   * @param athleteIdOrMembershipId - Athlete ID (when 3 args) or Membership ID (legacy compatibility)
+   * @param maybeMembershipId - Membership ID when explicit organization context is provided
+   * @throws NotFoundException if the membership is not found within the organization boundary
+   */
   async getMembershipBilling(
     organizationIdOrAthleteId: string,
     athleteIdOrMembershipId: string,
@@ -103,6 +138,25 @@ export class BillingService {
     return membership;
   }
 
+  /**
+   * Prepares and initiates a checkout session for a membership's initial payment.
+   *
+   * Coordinates payment reservation, membership terms agreement snapshotting,
+   * external checkout creation via the configured payment gateway, and atomic
+   * database status updates.
+   *
+   * If a concurrent webhook or external settlement finalizes the payment while the
+   * gateway call is inflight (causing the conditional status update to affect 0 rows),
+   * this method refuses to return the checkout URL and throws a ConflictException.
+   *
+   * @param organizationIdOrPayerUserId - Organization ID or Payer User ID
+   * @param payerUserIdOrAthleteId - Payer User ID or Athlete ID
+   * @param athleteIdOrMembershipId - Athlete ID or Membership ID
+   * @param membershipIdOrBody - Membership ID or checkout payload DTO
+   * @param maybeBody - Checkout payload DTO when explicit organization context is provided
+   * @throws BadRequestException if terms have not been accepted
+   * @throws ConflictException if payment is already paid, locked, or belongs to another organization
+   */
   async prepareMembershipCheckout(
     organizationIdOrPayerUserId: string,
     payerUserIdOrAthleteId: string,
@@ -273,7 +327,42 @@ export class BillingService {
       );
     }
 
-    if (!payment.providerPaymentId) {
+    if (payment.status === "FAILED") {
+      const reopened = await this.prisma.client.payment.updateMany({
+        where: {
+          id: payment.id,
+          organizationId,
+          status: "FAILED",
+        },
+        data: {
+          status: "PROCESSING",
+          failedAt: null,
+          failureCode: null,
+          safeFailureReason: null,
+        },
+      });
+
+      if (reopened.count === 1) {
+        payment = await this.prisma.client.payment.findUniqueOrThrow({
+          where: { id: payment.id },
+        });
+      } else {
+        const current = await this.prisma.client.payment.findUnique({
+          where: { id: payment.id },
+        });
+        if (!current || current.organizationId !== organizationId) {
+          throw new ConflictException(
+            "Payment belongs to a different organization",
+          );
+        }
+        if (current.status === "PAID") {
+          throw new ConflictException("First installment is already paid");
+        }
+        throw new ConflictException(
+          "Payment is no longer available for checkout",
+        );
+      }
+    } else if (!payment.providerPaymentId) {
       const claimed = await this.prisma.client.payment.updateMany({
         where: {
           id: payment.id,
@@ -297,6 +386,14 @@ export class BillingService {
             "Payment belongs to a different organization",
           );
         }
+        if (existing.status === "PAID") {
+          throw new ConflictException("First installment is already paid");
+        }
+        if (existing.status !== "PROCESSING") {
+          throw new ConflictException(
+            "Payment is no longer available for checkout",
+          );
+        }
         if (!existing.providerPaymentId) {
           throw new ConflictException(
             "Checkout creation is already in progress",
@@ -317,23 +414,50 @@ export class BillingService {
       providerPaymentId: payment.providerPaymentId ?? undefined,
     });
 
-    await this.prisma.client.$transaction([
-      this.prisma.client.payment.update({
-        where: { id: payment.id },
-        data: {
-          status: "PROCESSING",
-          providerPaymentId: checkout.providerPaymentId ?? undefined,
-        },
-      }),
-      this.prisma.client.paymentInstallment.update({
-        where: { id: firstInstallment.id },
-        data: { status: "PROCESSING" },
-      }),
-      this.prisma.client.paymentSchedule.update({
-        where: { id: schedule.id },
-        data: { status: "ACTIVE" },
-      }),
-    ]);
+    const checkoutState = await this.prisma.client.$transaction(
+      async (transaction) => {
+        const stillProcessing = await transaction.payment.updateMany({
+          where: {
+            id: payment.id,
+            organizationId,
+            status: "PROCESSING",
+          },
+          data: {
+            providerPaymentId: checkout.providerPaymentId ?? undefined,
+          },
+        });
+
+        if (stillProcessing.count === 0) {
+          const current = await transaction.payment.findFirst({
+            where: { id: payment.id, organizationId },
+            select: { status: true },
+          });
+          return current?.status ?? null;
+        }
+
+        await transaction.paymentInstallment.updateMany({
+          where: {
+            id: firstInstallment.id,
+            status: { in: ["SCHEDULED", "PROCESSING", "FAILED"] },
+          },
+          data: { status: "PROCESSING" },
+        });
+        await transaction.paymentSchedule.updateMany({
+          where: { id: schedule.id, status: { in: ["PENDING", "ACTIVE"] } },
+          data: { status: "ACTIVE" },
+        });
+
+        return "PROCESSING" as const;
+      },
+    );
+
+    if (checkoutState !== "PROCESSING") {
+      throw new ConflictException(
+        checkoutState === "PAID"
+          ? "First installment is already paid"
+          : "Payment is no longer available for checkout",
+      );
+    }
 
     return {
       membershipId,
@@ -344,6 +468,15 @@ export class BillingService {
     };
   }
 
+  /**
+   * Reconciles stale processing checkouts that exceed the configured hold duration.
+   *
+   * Unclaimed pre-provider holds are released back to CANCELLED state to free capacity,
+   * while sessions already assigned a provider payment reference are flagged for manual review.
+   *
+   * @param organizationIdOrNow - Organization ID or reference Date
+   * @param maybeNow - Reference Date when explicit organization context is provided
+   */
   async reconcileStaleCheckoutHolds(
     organizationIdOrNow?: string | Date,
     maybeNow?: Date,
@@ -431,6 +564,14 @@ export class BillingService {
     };
   }
 
+  /**
+   * Ensures an authoritative billing profile exists for a customer with the payment provider.
+   *
+   * @param organizationId - Tenant organization ID
+   * @param gateway - Configured payment gateway adapter
+   * @param userId - KHLIM customer user ID
+   * @param email - Customer email address
+   */
   private async ensureBillingProfile(
     organizationId: string,
     gateway: ReturnType<PaymentGatewayRegistry["requireConfigured"]>,
@@ -464,6 +605,20 @@ export class BillingService {
     });
   }
 
+  /**
+   * Ingests and processes a verified webhook payload from an external payment gateway.
+   *
+   * Guarantees idempotency via cryptographic payload hashing and unique provider event
+   * tracking. Stale or duplicated events already PROCESSED or marked ACTION_REQUIRED
+   * return early without re-executing state transitions.
+   *
+   * @param organizationIdOrProvider - Tenant organization ID or payment provider identifier
+   * @param providerOrHeaders - Payment provider identifier or raw webhook headers
+   * @param headersOrRawBody - Raw webhook headers or raw webhook body buffer
+   * @param maybeRawBody - Raw webhook body buffer when explicit organization context is provided
+   * @throws UnauthorizedException if webhook signature verification fails
+   * @throws ConflictException if the provider event is invalid or belongs to another organization
+   */
   async processVerifiedWebhook(
     organizationIdOrProvider: string,
     providerOrHeaders: string | WebhookHeaders,
@@ -536,7 +691,10 @@ export class BillingService {
         );
       }
 
-      if (existing.processingStatus !== "FAILED") {
+      if (
+        existing.processingStatus === "PROCESSED" ||
+        existing.processingStatus === "ACTION_REQUIRED"
+      ) {
         return { duplicate: true, providerEventId: event.providerEventId };
       }
     }
@@ -562,132 +720,201 @@ export class BillingService {
     }
   }
 
+  /**
+   * Applies a verified gateway event within an isolated database transaction with row-level locking.
+   *
+   * Enforces the following security and concurrency guarantees:
+   * - Acquires a row lock (`SELECT ... FOR UPDATE`) on the target payment record.
+   * - Verifies tenant organization boundaries across payment, schedule, and membership relations.
+   * - Terminal state protection: A `PAID` payment cannot be overwritten or downgraded by a late `FAILED` event.
+   * - Success recovery: A previously `FAILED` payment transitions to `PAID` upon verified success,
+   *   clearing prior failure codes and reasons.
+   * - Explicit membership activation: Membership is activated only if eligible (`PENDING` with available capacity).
+   *   Already `ACTIVE` memberships are accepted as active. Ineligible, `CANCELLED`, `EXPIRED`, or missing memberships
+   *   are flagged with `actionRequired = true` and `membershipActivated = false`.
+   *
+   * @param organizationId - Tenant organization ID
+   * @param provider - Payment gateway provider identifier
+   * @param event - Normalized webhook event payload
+   */
   private async applyVerifiedEvent(
     organizationId: string,
     provider: string,
     event: NormalizedGatewayEvent,
   ) {
-    const payment = await this.prisma.client.payment.findFirst({
-      where: { organizationId, idempotencyKey: event.idempotencyKey },
-      include: {
-        paymentInstallment: {
-          include: {
-            paymentSchedule: {
-              include: {
-                membership: { select: { organizationId: true } },
+    return this.prisma.client.$transaction(async (transaction) => {
+      const finishEvent = async (
+        processingStatus: "PROCESSED" | "ACTION_REQUIRED",
+        processedAt = new Date(),
+      ) => {
+        const updatedEvent = await transaction.paymentProviderEvent.updateMany({
+          where: {
+            organizationId,
+            provider,
+            providerEventId: event.providerEventId,
+          },
+          data: { processingStatus, processedAt },
+        });
+        if (updatedEvent.count !== 1) {
+          throw new ConflictException(
+            "Provider event belongs to a different organization",
+          );
+        }
+      };
+
+      const paymentReference = await transaction.payment.findFirst({
+        where: { organizationId, idempotencyKey: event.idempotencyKey },
+        select: { id: true, provider: true },
+      });
+
+      if (!paymentReference || paymentReference.provider !== provider) {
+        await finishEvent("ACTION_REQUIRED");
+        return { processed: false, actionRequired: true };
+      }
+
+      const lockedPayments = await transaction.$queryRaw<Array<{ id: string }>>`
+        SELECT id::text
+        FROM payments
+        WHERE id = ${paymentReference.id}::uuid
+          AND organization_id = ${organizationId}::uuid
+        FOR UPDATE
+      `;
+
+      if (lockedPayments.length !== 1) {
+        await finishEvent("ACTION_REQUIRED");
+        return {
+          processed: false,
+          actionRequired: true,
+          reason: "PAYMENT_NOT_AVAILABLE_FOR_PROCESSING",
+        };
+      }
+
+      const currentEvent = await transaction.paymentProviderEvent.findFirst({
+        where: {
+          organizationId,
+          provider,
+          providerEventId: event.providerEventId,
+        },
+        select: { processingStatus: true },
+      });
+
+      if (!currentEvent) {
+        throw new ConflictException(
+          "Provider event belongs to a different organization",
+        );
+      }
+
+      if (
+        currentEvent.processingStatus === "PROCESSED" ||
+        currentEvent.processingStatus === "ACTION_REQUIRED"
+      ) {
+        return {
+          duplicate: true,
+          providerEventId: event.providerEventId,
+        };
+      }
+
+      const payment = await transaction.payment.findFirst({
+        where: { id: paymentReference.id, organizationId },
+        include: {
+          paymentInstallment: {
+            include: {
+              paymentSchedule: {
+                include: {
+                  membership: { select: { organizationId: true } },
+                },
               },
             },
           },
+          membership: {
+            include: { membershipPlan: true, programmeOffering: true },
+          },
         },
-        membership: {
-          include: { membershipPlan: true, programmeOffering: true },
-        },
-      },
-    });
+      });
 
-    if (!payment || payment.provider !== provider) {
-      await this.finishProviderEvent(
-        organizationId,
-        provider,
-        event.providerEventId,
-        "ACTION_REQUIRED",
-      );
-      return { processed: false, actionRequired: true };
-    }
+      if (!payment || payment.provider !== provider) {
+        await finishEvent("ACTION_REQUIRED");
+        return { processed: false, actionRequired: true };
+      }
 
-    if (
-      (payment.membership &&
-        payment.membership.organizationId !== organizationId) ||
-      (payment.paymentInstallment?.paymentSchedule.membership.organizationId &&
-        payment.paymentInstallment.paymentSchedule.membership.organizationId !==
-          organizationId)
-    ) {
-      await this.finishProviderEvent(
-        organizationId,
-        provider,
-        event.providerEventId,
-        "ACTION_REQUIRED",
-      );
-      return {
-        processed: false,
-        actionRequired: true,
-        reason: "CROSS_ORGANIZATION_PAYMENT_RELATION",
-      };
-    }
+      if (
+        (payment.membership &&
+          payment.membership.organizationId !== organizationId) ||
+        (payment.paymentInstallment?.paymentSchedule.membership
+          .organizationId &&
+          payment.paymentInstallment.paymentSchedule.membership
+            .organizationId !== organizationId)
+      ) {
+        await finishEvent("ACTION_REQUIRED");
+        return {
+          processed: false,
+          actionRequired: true,
+          reason: "CROSS_ORGANIZATION_PAYMENT_RELATION",
+        };
+      }
 
-    if (
-      payment.providerPaymentId &&
-      event.providerPaymentId &&
-      payment.providerPaymentId !== event.providerPaymentId
-    ) {
-      await this.finishProviderEvent(
-        organizationId,
-        provider,
-        event.providerEventId,
-        "ACTION_REQUIRED",
-      );
-      return {
-        processed: false,
-        actionRequired: true,
-        reason: "PROVIDER_PAYMENT_ID_MISMATCH",
-      };
-    }
+      if (
+        payment.providerPaymentId &&
+        event.providerPaymentId &&
+        payment.providerPaymentId !== event.providerPaymentId
+      ) {
+        await finishEvent("ACTION_REQUIRED");
+        return {
+          processed: false,
+          actionRequired: true,
+          reason: "PROVIDER_PAYMENT_ID_MISMATCH",
+        };
+      }
 
-    if (
-      (event.amountMinor !== undefined &&
-        event.amountMinor !== payment.amountMinor) ||
-      (event.currency !== undefined && event.currency !== payment.currency)
-    ) {
-      await this.finishProviderEvent(
-        organizationId,
-        provider,
-        event.providerEventId,
-        "ACTION_REQUIRED",
-      );
-      return {
-        processed: false,
-        actionRequired: true,
-        reason: "PAYMENT_AMOUNT_OR_CURRENCY_MISMATCH",
-      };
-    }
+      if (
+        (event.amountMinor !== undefined &&
+          event.amountMinor !== payment.amountMinor) ||
+        (event.currency !== undefined && event.currency !== payment.currency)
+      ) {
+        await finishEvent("ACTION_REQUIRED");
+        return {
+          processed: false,
+          actionRequired: true,
+          reason: "PAYMENT_AMOUNT_OR_CURRENCY_MISMATCH",
+        };
+      }
 
-    if (payment.status === "PAID") {
-      await this.finishProviderEvent(
-        organizationId,
-        provider,
-        event.providerEventId,
-        "PROCESSED",
-      );
-      return {
-        processed: true,
-        paymentStatus: "PAID",
-        membershipActivated: payment.membership?.status === "ACTIVE",
-        actionRequired: false,
-        ignoredTerminalState: true,
-      };
-    }
+      if (payment.status === "PAID") {
+        await finishEvent("PROCESSED");
+        return {
+          processed: true,
+          paymentStatus: "PAID",
+          membershipActivated: payment.membership?.status === "ACTIVE",
+          actionRequired: false,
+          ignoredTerminalState: true,
+        };
+      }
 
-    if (payment.status === "REFUNDED" || payment.status === "CANCELLED") {
-      await this.finishProviderEvent(
-        organizationId,
-        provider,
-        event.providerEventId,
-        "ACTION_REQUIRED",
-      );
-      return {
-        processed: false,
-        actionRequired: true,
-        reason: "TERMINAL_PAYMENT_STATE_REQUIRES_REVIEW",
-      };
-    }
+      if (payment.status === "REFUNDED" || payment.status === "CANCELLED") {
+        await finishEvent("ACTION_REQUIRED");
+        return {
+          processed: false,
+          actionRequired: true,
+          reason: "TERMINAL_PAYMENT_STATE_REQUIRES_REVIEW",
+        };
+      }
 
-    if (event.eventType === "PAYMENT_FAILED") {
-      await this.prisma.client.$transaction(async (transaction) => {
+      if (event.eventType === "PAYMENT_FAILED") {
+        if (payment.status === "FAILED") {
+          await finishEvent("PROCESSED");
+          return {
+            processed: true,
+            paymentStatus: "FAILED",
+            ignoredTerminalState: true,
+          };
+        }
+
+        const now = new Date();
         await transaction.payment.update({
           where: { id: payment.id },
           data: {
             status: "FAILED",
-            failedAt: new Date(),
+            failedAt: now,
             providerPaymentId:
               event.providerPaymentId ?? payment.providerPaymentId,
             failureCode: event.failureCode ?? null,
@@ -695,29 +922,18 @@ export class BillingService {
           },
         });
         if (payment.paymentInstallmentId) {
-          await transaction.paymentInstallment.update({
-            where: { id: payment.paymentInstallmentId },
+          await transaction.paymentInstallment.updateMany({
+            where: {
+              id: payment.paymentInstallmentId,
+              status: { in: ["SCHEDULED", "PROCESSING", "FAILED", "OVERDUE"] },
+            },
             data: { status: "FAILED" },
           });
         }
-        const updatedEvent = await transaction.paymentProviderEvent.updateMany({
-          where: {
-            organizationId,
-            provider,
-            providerEventId: event.providerEventId,
-          },
-          data: { processingStatus: "PROCESSED", processedAt: new Date() },
-        });
-        if (updatedEvent.count !== 1) {
-          throw new ConflictException(
-            "Provider event belongs to a different organization",
-          );
-        }
-      });
-      return { processed: true, paymentStatus: "FAILED" };
-    }
+        await finishEvent("PROCESSED", now);
+        return { processed: true, paymentStatus: "FAILED" };
+      }
 
-    return this.prisma.client.$transaction(async (transaction) => {
       const now = new Date();
       await transaction.payment.update({
         where: { id: payment.id },
@@ -726,20 +942,35 @@ export class BillingService {
           settledAt: payment.settledAt ?? now,
           providerPaymentId:
             event.providerPaymentId ?? payment.providerPaymentId,
+          failedAt: null,
           failureCode: null,
           safeFailureReason: null,
         },
       });
 
       if (payment.paymentInstallmentId) {
-        await transaction.paymentInstallment.update({
-          where: { id: payment.paymentInstallmentId },
-          data: { status: "PAID", paidAt: now },
+        await transaction.paymentInstallment.updateMany({
+          where: {
+            id: payment.paymentInstallmentId,
+            status: { in: ["SCHEDULED", "PROCESSING", "FAILED", "OVERDUE"] },
+          },
+          data: {
+            status: "PAID",
+            paidAt: payment.paymentInstallment?.paidAt ?? now,
+          },
         });
       }
 
       let actionRequired = false;
-      if (payment.membership?.status === "PENDING") {
+      let membershipActivated = false;
+
+      if (!payment.membership) {
+        actionRequired = true;
+        membershipActivated = false;
+      } else if (payment.membership.status === "ACTIVE") {
+        membershipActivated = true;
+        actionRequired = false;
+      } else if (payment.membership.status === "PENDING") {
         const lockedOfferings = await transaction.$queryRaw<
           Array<{ id: string }>
         >`
@@ -752,6 +983,7 @@ export class BillingService {
 
         if (lockedOfferings.length !== 1) {
           actionRequired = true;
+          membershipActivated = false;
         } else {
           const activeCount = await transaction.membership.count({
             where: {
@@ -762,12 +994,17 @@ export class BillingService {
           });
           if (activeCount >= payment.membership.programmeOffering.capacity) {
             actionRequired = true;
+            membershipActivated = false;
           } else {
             const durationMonths =
               payment.membership.membershipPlan.durationMonths ??
               payment.membership.membershipPlan.commitmentCycles;
-            await transaction.membership.update({
-              where: { id: payment.membership.id },
+            const activated = await transaction.membership.updateMany({
+              where: {
+                id: payment.membership.id,
+                organizationId,
+                status: "PENDING",
+              },
               data: {
                 status: "ACTIVE",
                 startsAt: now,
@@ -777,8 +1014,25 @@ export class BillingService {
                   : null,
               },
             });
+            if (activated.count === 1) {
+              membershipActivated = true;
+            } else {
+              const currentMembership = await transaction.membership.findFirst({
+                where: { id: payment.membership.id, organizationId },
+                select: { status: true },
+              });
+              if (currentMembership?.status === "ACTIVE") {
+                membershipActivated = true;
+              } else {
+                actionRequired = true;
+                membershipActivated = false;
+              }
+            }
           }
         }
+      } else {
+        actionRequired = true;
+        membershipActivated = false;
       }
 
       if (payment.paymentInstallment?.paymentScheduleId) {
@@ -789,56 +1043,61 @@ export class BillingService {
             status: { notIn: ["PAID", "WAIVED", "CANCELLED"] },
           },
         });
-        await transaction.paymentSchedule.update({
-          where: { id: payment.paymentInstallment.paymentScheduleId },
+        await transaction.paymentSchedule.updateMany({
+          where: {
+            id: payment.paymentInstallment.paymentScheduleId,
+            status: { in: ["PENDING", "ACTIVE"] },
+          },
           data: { status: remaining === 0 ? "COMPLETED" : "ACTIVE" },
         });
       }
 
-      const updatedEvent = await transaction.paymentProviderEvent.updateMany({
-        where: {
-          organizationId,
-          provider,
-          providerEventId: event.providerEventId,
-        },
-        data: {
-          processingStatus: actionRequired ? "ACTION_REQUIRED" : "PROCESSED",
-          processedAt: now,
-        },
-      });
-      if (updatedEvent.count !== 1) {
-        throw new ConflictException(
-          "Provider event belongs to a different organization",
-        );
-      }
+      await finishEvent(actionRequired ? "ACTION_REQUIRED" : "PROCESSED", now);
 
       return {
         processed: true,
         paymentStatus: "PAID",
-        membershipActivated: !actionRequired,
+        membershipActivated,
         actionRequired,
       };
     });
   }
 
+  /**
+   * Persists the final processing status of a provider event within an organization.
+   *
+   * @param organizationId - Tenant organization ID
+   * @param provider - Payment gateway provider identifier
+   * @param providerEventId - Gateway-assigned provider event ID
+   * @param processingStatus - Terminal or review status to persist
+   */
   private async finishProviderEvent(
     organizationId: string,
     provider: string,
     providerEventId: string,
     processingStatus: "PROCESSED" | "ACTION_REQUIRED" | "FAILED",
   ) {
-    const event = await this.prisma.client.paymentProviderEvent.findFirst({
+    if (processingStatus === "FAILED") {
+      return this.prisma.client.paymentProviderEvent.updateMany({
+        where: {
+          organizationId,
+          provider,
+          providerEventId,
+          processingStatus: { in: ["RECEIVED", "FAILED"] },
+        },
+        data: { processingStatus: "FAILED", processedAt: new Date() },
+      });
+    }
+
+    const updated = await this.prisma.client.paymentProviderEvent.updateMany({
       where: { organizationId, provider, providerEventId },
-      select: { id: true },
+      data: { processingStatus, processedAt: new Date() },
     });
-    if (!event) {
+    if (updated.count !== 1) {
       throw new ConflictException(
         "Provider event belongs to a different organization",
       );
     }
-    return this.prisma.client.paymentProviderEvent.update({
-      where: { id: event.id },
-      data: { processingStatus, processedAt: new Date() },
-    });
+    return updated;
   }
 }
