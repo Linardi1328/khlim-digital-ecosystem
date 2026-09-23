@@ -1,0 +1,37 @@
+/* Shared accessibility safeguards for public and authenticated web surfaces. */
+:where(a[href], button, input, textarea, select, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 3px;
+}
+
+/* Small amber text must meet WCAG AA contrast on the light public background. */
+.home-section-heading > span,
+.home-gallery-heading > span,
+.home-join-cta > div:first-child > span {
+  color: #b45309;
+}
+
+/* Keep an accessible visual treatment for the carousel arrows instead of removing focus. */
+.home-carousel-arrow:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 3px;
+}
+
+/* Reusable visually-hidden text for CSS-background images and accessible annotations. */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+@media (forced-colors: active) {
+  :where(a[href], button, input, textarea, select, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline: 3px solid CanvasText;
+  }
+}

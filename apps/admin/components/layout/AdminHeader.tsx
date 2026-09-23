@@ -1,0 +1,340 @@
+"use client";
+
+import React, { useState } from "react";
+import { usePathname } from "next/navigation";
+import { useAdminAuth } from "../../lib/auth-context";
+import type { StaffRole } from "../../lib/types";
+
+export interface AdminHeaderProps {
+  onToggleSidebar?: () => void;
+  onOpenMobileNav?: () => void;
+}
+
+const DEMO_ROLES: StaffRole[] = [
+  "SUPER_ADMIN",
+  "MANAGEMENT",
+  "FINANCE_ADMIN",
+  "ACADEMY_ADMIN",
+  "HEAD_COACH",
+  "COACH",
+  "EVENT_STAFF",
+];
+
+export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
+  const pathname = usePathname();
+  const { user, role, setRole, isDemoMode, logout } = useAdminAuth();
+  const [showRoleMenu, setShowRoleMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const availableWorkViews = isDemoMode ? DEMO_ROLES : (user?.roles ?? []);
+  const canSwitchWorkView = Boolean(role && availableWorkViews.length > 1);
+
+  const getSectionTitle = () => {
+    if (pathname === "/" || pathname === "/dashboard") {
+      return "Operations Dashboard";
+    }
+    if (pathname.startsWith("/programmes")) return "Programmes Catalogue";
+    if (pathname.startsWith("/offerings")) return "Programme Offerings";
+    if (pathname.startsWith("/plans")) return "Membership Plans";
+    if (pathname.startsWith("/memberships")) return "Active Memberships";
+    if (pathname.startsWith("/athletes")) return "Athletes Directory";
+    if (pathname.startsWith("/guardians")) return "Guardians Directory";
+    if (pathname.startsWith("/payments")) return "Payment Operations";
+    if (pathname.startsWith("/venues")) return "Venues & Courts";
+    if (pathname.startsWith("/scheduling")) return "Scheduling & Sessions";
+    if (pathname.startsWith("/editorial")) return "Editorial Studio";
+    if (pathname.startsWith("/notifications")) return "Notifications";
+    if (pathname.startsWith("/users")) return "Accounts & Access";
+    if (pathname.startsWith("/staff")) return "Staff & Roles";
+    if (pathname.startsWith("/audit")) return "Audit Trail";
+    if (pathname.startsWith("/settings")) return "Settings";
+    return "Operations Console";
+  };
+
+  return (
+    <header
+      style={{
+        minHeight: "64px",
+        backgroundColor: "#FFFFFF",
+        borderBottom: "1px solid #E2E8F0",
+        padding: "0 16px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: "12px",
+        position: "sticky",
+        top: 0,
+        zIndex: 30,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+          minWidth: 0,
+        }}
+      >
+        <button
+          type="button"
+          onClick={onOpenMobileNav}
+          className="admin-mobile-header-btn"
+          aria-label="Open navigation menu"
+          style={{
+            minWidth: 44,
+            minHeight: 44,
+            background: "none",
+            border: "1px solid #CBD5E1",
+            borderRadius: "8px",
+            fontSize: "1.125rem",
+            cursor: "pointer",
+            color: "#0F172A",
+            flexShrink: 0,
+          }}
+        >
+          ☰
+        </button>
+
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: "1rem", fontWeight: 800, color: "#0F172A" }}>
+            {getSectionTitle()}
+          </div>
+          <div
+            className="hide-on-mobile"
+            style={{ fontSize: "0.6875rem", color: "#64748B" }}
+          >
+            KHLIM Digital Sports Ecosystem • Operations Console
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "flex-end",
+          gap: "8px",
+          flexShrink: 0,
+        }}
+      >
+        <span
+          className="hide-on-mobile"
+          style={{
+            fontSize: "0.6875rem",
+            fontWeight: 800,
+            color: isDemoMode ? "#92400E" : "#166534",
+            backgroundColor: isDemoMode ? "#FEF3C7" : "#F0FDF4",
+            border: `1px solid ${isDemoMode ? "#FDE68A" : "#BBF7D0"}`,
+            padding: "4px 8px",
+            borderRadius: "999px",
+            letterSpacing: "0.04em",
+          }}
+        >
+          {isDemoMode ? "DEMO" : "MFA VERIFIED"}
+        </span>
+
+        <div className="hide-on-mobile" style={{ position: "relative" }}>
+          <button
+            type="button"
+            onClick={() => setShowNotifications((current) => !current)}
+            aria-label="View operational alerts"
+            style={{
+              minWidth: 44,
+              minHeight: 44,
+              background: "none",
+              border: "1px solid #E2E8F0",
+              borderRadius: "8px",
+              cursor: "pointer",
+              fontSize: "1rem",
+            }}
+          >
+            🔔
+          </button>
+
+          {showNotifications && (
+            <div
+              style={{
+                position: "absolute",
+                right: 0,
+                top: "48px",
+                width: "280px",
+                backgroundColor: "#FFFFFF",
+                borderRadius: "10px",
+                border: "1px solid #E2E8F0",
+                boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)",
+                padding: "16px",
+                zIndex: 50,
+              }}
+            >
+              <div style={{ fontWeight: 700, fontSize: "0.875rem" }}>
+                Operational Alerts
+              </div>
+              <p
+                style={{
+                  margin: "8px 0 0",
+                  fontSize: "0.8125rem",
+                  lineHeight: 1.5,
+                  color: "#64748B",
+                }}
+              >
+                {isDemoMode
+                  ? "Demo mode does not display live operational alerts."
+                  : "Use Notifications for persistent guardian and programme communications."}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {role && (
+          <div style={{ position: "relative" }}>
+            <button
+              type="button"
+              onClick={() => {
+                if (canSwitchWorkView) {
+                  setShowRoleMenu((current) => !current);
+                }
+              }}
+              aria-label={
+                canSwitchWorkView
+                  ? "Switch active work view"
+                  : `Active work view: ${role.replaceAll("_", " ")}`
+              }
+              aria-haspopup={canSwitchWorkView ? "menu" : undefined}
+              aria-expanded={canSwitchWorkView ? showRoleMenu : undefined}
+              style={{
+                minHeight: 44,
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "6px 10px",
+                backgroundColor: "#18181B",
+                color: "#FFFFFF",
+                borderRadius: "8px",
+                border: "none",
+                cursor: canSwitchWorkView ? "pointer" : "default",
+                fontSize: "0.75rem",
+                fontWeight: 600,
+              }}
+            >
+              <span style={{ color: "#F59E0B" }}>●</span>
+              <span className="hide-on-mobile">
+                {role.replaceAll("_", " ")}
+              </span>
+              {canSwitchWorkView && (
+                <span style={{ fontSize: "0.625rem" }}>▼</span>
+              )}
+            </button>
+
+            {showRoleMenu && canSwitchWorkView && (
+              <div
+                role="menu"
+                aria-label="Assigned staff work views"
+                style={{
+                  position: "absolute",
+                  right: 0,
+                  top: "48px",
+                  width: "260px",
+                  maxHeight: "70vh",
+                  overflowY: "auto",
+                  backgroundColor: "#FFFFFF",
+                  borderRadius: "10px",
+                  border: "1px solid #E2E8F0",
+                  boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)",
+                  padding: "8px",
+                  zIndex: 50,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "0.6875rem",
+                    fontWeight: 700,
+                    color: "#64748B",
+                    padding: "6px 8px 2px",
+                  }}
+                >
+                  Active work view
+                </div>
+                <p
+                  style={{
+                    fontSize: "0.6875rem",
+                    lineHeight: 1.4,
+                    color: "#64748B",
+                    margin: "2px 8px 8px",
+                  }}
+                >
+                  Changes navigation only. Your signed-in identity and assigned
+                  permissions do not change.
+                </p>
+                {availableWorkViews.map((workView) => (
+                  <button
+                    key={workView}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={role === workView}
+                    onClick={() => {
+                      setRole(workView);
+                      setShowRoleMenu(false);
+                    }}
+                    style={{
+                      width: "100%",
+                      minHeight: 44,
+                      textAlign: "left",
+                      padding: "8px",
+                      fontSize: "0.8125rem",
+                      fontWeight: role === workView ? 700 : 500,
+                      color: role === workView ? "#92400E" : "#0F172A",
+                      backgroundColor:
+                        role === workView ? "#FEF3C7" : "transparent",
+                      border: "none",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {workView.replaceAll("_", " ")}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div
+          title={user?.displayName ?? "Staff user"}
+          aria-label={user?.displayName ?? "Staff user"}
+          style={{
+            width: "38px",
+            height: "38px",
+            borderRadius: "50%",
+            backgroundColor: "#18181B",
+            color: "#F59E0B",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontWeight: 800,
+            fontSize: "0.875rem",
+          }}
+        >
+          {user?.displayName?.[0] ?? "?"}
+        </div>
+
+        {!isDemoMode && (
+          <button
+            type="button"
+            onClick={() => void logout()}
+            style={{
+              minHeight: 44,
+              border: "1px solid #CBD5E1",
+              borderRadius: 8,
+              background: "#FFFFFF",
+              color: "#334155",
+              padding: "0 12px",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            Sign out
+          </button>
+        )}
+      </div>
+    </header>
+  );
+}

@@ -1,0 +1,35 @@
+:root {
+  --khlim-brand-primary: #f59e0b;
+  --khlim-brand-primary-hover: #d97706;
+  --khlim-brand-primary-light: #fef3c7;
+  --khlim-brand-secondary: #e11d48;
+  --khlim-brand-charcoal: #121212;
+  --khlim-brand-obsidian: #18181b;
+  --khlim-brand-navy: #0f172a;
+
+  --khlim-bg-page: #fafafa;
+  --khlim-bg-card: #ffffff;
+  --khlim-border: #e4e4e7;
+  --khlim-text-primary: #18181b;
+  --khlim-text-secondary: #71717a;
+  --khlim-text-muted: #a1a1aa;
+
+  --khlim-status-success-bg: #ecfdf5;
+  --khlim-status-success-text: #065f46;
+  --khlim-status-success-border: #a7f3d0;
+
+  --khlim-status-warning-bg: #fffbeb;
+  --khlim-status-warning-text: #92400e;
+  --khlim-status-warning-border: #fde68a;
+
+  --khlim-status-danger-bg: #fef2f2;
+  --khlim-status-danger-text: #991b1b;
+  --khlim-status-danger-border: #fecaca;
+
+  --khlim-status-info-bg: #eff6ff;
+  --khlim-status-info-text: #1e40af;
+  --khlim-status-info-border: #bfdbfe;
+
+  --khlim-font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", "Noto Sans SC", "Noto Sans TC", "Noto Sans Devanagari", sans-serif;
+  --khlim-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}

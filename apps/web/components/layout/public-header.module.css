@@ -1,0 +1,98 @@
+.mobileQuickActions {
+  display: none;
+}
+
+.brandLogo {
+  width: auto !important;
+  height: 54px !important;
+  flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+  .mobileQuickActions {
+    display: flex;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px 10px;
+    gap: 8px;
+    box-sizing: border-box;
+    border-top: 1px solid #f4f4f5;
+  }
+}
+
+@media (max-width: 640px) {
+  .locale {
+    display: block !important;
+  }
+
+  .inner {
+    height: 68px !important;
+    padding: 0 12px !important;
+  }
+
+  .brand {
+    gap: 8px !important;
+    min-width: 0;
+  }
+
+  .brandLogo {
+    width: auto !important;
+    height: 48px !important;
+  }
+
+  .brandTagline {
+    display: block !important;
+    margin-top: 2px !important;
+    font-size: 0.5rem !important;
+    letter-spacing: 0.025em !important;
+    line-height: 1.1 !important;
+  }
+
+  .locale > div > span {
+    display: none !important;
+  }
+
+  .locale select {
+    width: 92px;
+    max-width: 27vw;
+    padding: 6px !important;
+  }
+
+  .actions {
+    gap: 6px !important;
+  }
+
+  .mobileQuickActions {
+    padding: 0 12px 10px;
+  }
+}
+
+@media (max-width: 360px) {
+  .brand {
+    gap: 6px !important;
+  }
+
+  .brandLogo {
+    width: auto !important;
+    height: 44px !important;
+  }
+
+  .brandName {
+    font-size: 0.75rem !important;
+  }
+
+  .brandTagline {
+    font-size: 0.45rem !important;
+    letter-spacing: 0 !important;
+  }
+
+  .locale select {
+    width: 78px;
+    max-width: 25vw;
+    padding: 5px !important;
+  }
+
+  .actions {
+    gap: 4px !important;
+  }
+}
