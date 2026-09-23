@@ -176,7 +176,7 @@ export function AdminSidebar({
     >
       <div
         style={{
-          minHeight: "64px",
+          minHeight: "72px",
           padding: isCollapsed ? "0 14px" : "0 16px",
           borderBottom: "1px solid #27272A",
           display: "flex",
@@ -198,24 +198,19 @@ export function AdminSidebar({
             overflow: "hidden",
           }}
         >
-          <div
+          <img
+            src="/khs-academy-logo.webp"
+            alt=""
+            aria-hidden="true"
+            width={37}
+            height={44}
             style={{
-              width: "36px",
-              height: "36px",
-              borderRadius: "8px",
-              backgroundColor: "#F59E0B",
-              color: "#18181B",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: 900,
-              fontSize: "1.25rem",
+              width: 37,
+              height: 44,
+              objectFit: "contain",
               flexShrink: 0,
             }}
-            aria-hidden="true"
-          >
-            K
-          </div>
+          />
           {!isCollapsed && (
             <div>
               <div
