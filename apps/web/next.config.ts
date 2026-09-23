@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-const isManagedNextHost = Boolean(process.env.VERCEL || process.env.NETLIFY);
+const isVercel = Boolean(process.env.VERCEL);
 
 function allowedConnectSources(): string[] {
   const sources = new Set(["'self'"]);
@@ -57,7 +57,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  output: isManagedNextHost ? undefined : "standalone",
+  output: isVercel ? undefined : "standalone",
   reactStrictMode: true,
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
