@@ -10,7 +10,7 @@ The deployment strategy prioritizes reliability, environment separation, low ope
 | --- | --- |
 | Public/member website | Vercel |
 | Admin web | Vercel |
-| NestJS API | Railway |
+| NestJS API | Vercel (current pre-alpha deployment) |
 | PostgreSQL | Supabase managed PostgreSQL |
 | Authentication | Supabase Auth |
 | Object/media storage | Supabase Storage |
@@ -83,7 +83,7 @@ Future Expo Super App
           │
           └──────── HTTPS / REST /v1 ────────┐
                                               ▼
-                                  Railway — NestJS API
+                                  Vercel — NestJS API
                                               │
              ┌────────────────────────────────┼───────────────────────────┐
              ▼                                ▼                           ▼
