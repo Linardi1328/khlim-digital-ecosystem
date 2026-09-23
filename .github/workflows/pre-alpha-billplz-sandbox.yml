@@ -37,6 +37,6 @@ jobs:
           BILLPLZ_X_SIGNATURE_KEY: billplz-sandbox-x-signature
           BILLPLZ_SANDBOX: "1"
           BILLPLZ_CALLBACK_URL: https://api.example.test/v1/payments/webhooks/billplz
-          BILLPLZ_REDIRECT_URL: https://portal.example.test/payment/confirmation
+          BILLPLZ_REDIRECT_URL: https://portal.example.test/portal/membership
           KHLIM_BILLPLZ_LIVE_TEST: "0"
         run: pnpm test:pre-alpha:billplz
