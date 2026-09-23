@@ -1,12 +1,6 @@
 "use client";
 
-import React, {
-  Suspense,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../../lib/auth-context";
@@ -177,9 +171,7 @@ function EnrolmentWizardContent() {
 
   const selectedOffering = useMemo(
     () =>
-      eligibleOfferings.find(
-        (offering) => offering.id === selectedOfferingId,
-      ),
+      eligibleOfferings.find((offering) => offering.id === selectedOfferingId),
     [eligibleOfferings, selectedOfferingId],
   );
   const eligiblePlans = useMemo(
