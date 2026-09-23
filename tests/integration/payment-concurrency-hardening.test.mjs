@@ -33,6 +33,8 @@ const IDS = Object.freeze({
   cancelledMembershipAthlete: "72000000-0000-4000-8000-00000000000c",
   expiredMembershipAthlete: "72000000-0000-4000-8000-00000000000d",
   alreadyActiveMembershipAthlete: "72000000-0000-4000-8000-00000000000e",
+  failedRetryAthlete: "72000000-0000-4000-8000-00000000000f",
+  concurrentActionRequiredAthlete: "72000000-0000-4000-8000-00000000001f",
 
   sport: "72000000-0000-4000-8000-000000000010",
   programme: "72000000-0000-4000-8000-000000000011",
@@ -52,6 +54,8 @@ const IDS = Object.freeze({
   cancelledMembership: "72000000-0000-4000-8000-000000000029",
   expiredMembership: "72000000-0000-4000-8000-00000000002a",
   alreadyActiveMembership: "72000000-0000-4000-8000-00000000002b",
+  failedRetryMembership: "72000000-0000-4000-8000-00000000002c",
+  concurrentActionRequiredMembership: "72000000-0000-4000-8000-00000000002d",
 
   checkoutSchedule: "72000000-0000-4000-8000-000000000030",
   capacityScheduleA: "72000000-0000-4000-8000-000000000031",
@@ -65,6 +69,8 @@ const IDS = Object.freeze({
   cancelledMembershipSchedule: "72000000-0000-4000-8000-000000000039",
   expiredMembershipSchedule: "72000000-0000-4000-8000-00000000003a",
   alreadyActiveMembershipSchedule: "72000000-0000-4000-8000-00000000003b",
+  failedRetrySchedule: "72000000-0000-4000-8000-00000000003c",
+  concurrentActionRequiredSchedule: "72000000-0000-4000-8000-00000000003d",
 
   checkoutInstallment: "72000000-0000-4000-8000-000000000040",
   capacityInstallmentA: "72000000-0000-4000-8000-000000000041",
@@ -78,6 +84,8 @@ const IDS = Object.freeze({
   cancelledMembershipInstallment: "72000000-0000-4000-8000-000000000049",
   expiredMembershipInstallment: "72000000-0000-4000-8000-00000000004a",
   alreadyActiveMembershipInstallment: "72000000-0000-4000-8000-00000000004b",
+  failedRetryInstallment: "72000000-0000-4000-8000-00000000004c",
+  concurrentActionRequiredInstallment: "72000000-0000-4000-8000-00000000004d",
 
   checkoutPayment: "72000000-0000-4000-8000-000000000050",
   capacityPaymentA: "72000000-0000-4000-8000-000000000051",
@@ -92,20 +100,33 @@ const IDS = Object.freeze({
   cancelledMembershipPayment: "72000000-0000-4000-8000-00000000005a",
   expiredMembershipPayment: "72000000-0000-4000-8000-00000000005b",
   alreadyActiveMembershipPayment: "72000000-0000-4000-8000-00000000005c",
+  failedRetryPayment: "72000000-0000-4000-8000-00000000005d",
+  concurrentActionRequiredPayment: "72000000-0000-4000-8000-00000000005e",
 
   billingProfile: "72000000-0000-4000-8000-000000000060",
 });
 
+/**
+ * Mock gateway adapter that tracks external checkout calls and simulates external bill IDs.
+ */
 class NonIdempotentGateway {
   provider = PROVIDER;
   checkoutCalls = [];
   newBillCalls = 0;
   beforeNewBillReturn = null;
 
+  /**
+   * Simulates customer creation in the payment provider.
+   */
   async createCustomer() {
     return { providerCustomerId: "preseeded-customer" };
   }
 
+  /**
+   * Simulates checkout creation, reusing existing providerPaymentId or creating a new external bill.
+   *
+   * @param {Record<string, any>} input - Checkout creation parameters
+   */
   async createCheckout(input) {
     this.checkoutCalls.push(input);
     if (input.providerPaymentId) {
@@ -127,13 +148,24 @@ class NonIdempotentGateway {
     };
   }
 
+  /**
+   * Simulates webhook payload signature verification and parsing.
+   *
+   * @param {{ rawBody: Buffer }} param0 - Raw request body buffer
+   */
   async verifyWebhook({ rawBody }) {
     return JSON.parse(rawBody.toString("utf8"));
   }
 
+  /**
+   * Simulates payment refund.
+   */
   async refund() {}
 }
 
+/**
+ * Validates that test database execution is enabled and points to a dedicated test DB.
+ */
 function databaseTestsEnabled() {
   if (process.env.KHLIM_TEST_DATABASE !== "1") return false;
 
@@ -152,10 +184,20 @@ function databaseTestsEnabled() {
   return true;
 }
 
+/**
+ * Generates the deterministic idempotency key for a membership's first installment checkout.
+ *
+ * @param {string} membershipId - Membership ID
+ */
 function paymentKey(membershipId) {
   return `membership:${membershipId}:installment:1`;
 }
 
+/**
+ * Cleans up all test fixtures within the test organization boundary.
+ *
+ * @param {any} client - PrismaClient instance
+ */
 async function cleanup(client) {
   await client.paymentProviderEvent.deleteMany({
     where: { provider: PROVIDER },
@@ -192,6 +234,8 @@ async function cleanup(client) {
     IDS.cancelledMembershipAthlete,
     IDS.expiredMembershipAthlete,
     IDS.alreadyActiveMembershipAthlete,
+    IDS.failedRetryAthlete,
+    IDS.concurrentActionRequiredAthlete,
   ];
   await client.athleteProfile.deleteMany({
     where: { id: { in: athleteIds } },
@@ -206,6 +250,12 @@ async function cleanup(client) {
   await client.organization.deleteMany({ where: { id: ORG_ID } });
 }
 
+/**
+ * Creates a linked payment schedule, installment, and payment chain for test fixtures.
+ *
+ * @param {any} client - PrismaClient instance
+ * @param {Record<string, any>} params - Fixture IDs and statuses
+ */
 async function createPaymentChain(
   client,
   {
@@ -455,6 +505,24 @@ async function seed(client) {
         purchasedByUserId: IDS.payer,
         status: "ACTIVE",
       },
+      {
+        id: IDS.failedRetryMembership,
+        organizationId: ORG_ID,
+        athleteId: IDS.failedRetryAthlete,
+        programmeOfferingId: IDS.checkoutOffering,
+        membershipPlanId: IDS.plan,
+        purchasedByUserId: IDS.payer,
+        status: "PENDING",
+      },
+      {
+        id: IDS.concurrentActionRequiredMembership,
+        organizationId: ORG_ID,
+        athleteId: IDS.concurrentActionRequiredAthlete,
+        programmeOfferingId: IDS.checkoutOffering,
+        membershipPlanId: IDS.plan,
+        purchasedByUserId: IDS.payer,
+        status: "CANCELLED",
+      },
     ],
   });
 
@@ -563,6 +631,31 @@ async function seed(client) {
     installmentId: IDS.alreadyActiveMembershipInstallment,
     paymentId: IDS.alreadyActiveMembershipPayment,
     providerPaymentId: "already-active-payment",
+  });
+  await createPaymentChain(client, {
+    membershipId: IDS.failedRetryMembership,
+    scheduleId: IDS.failedRetrySchedule,
+    installmentId: IDS.failedRetryInstallment,
+    paymentId: IDS.failedRetryPayment,
+    providerPaymentId: "existing-failed-bill",
+    paymentStatus: "FAILED",
+    installmentStatus: "FAILED",
+    scheduleStatus: "ACTIVE",
+  });
+  await client.payment.update({
+    where: { id: IDS.failedRetryPayment },
+    data: {
+      failedAt: new Date(),
+      failureCode: "card_declined",
+      safeFailureReason: "Card declined by issuer",
+    },
+  });
+  await createPaymentChain(client, {
+    membershipId: IDS.concurrentActionRequiredMembership,
+    scheduleId: IDS.concurrentActionRequiredSchedule,
+    installmentId: IDS.concurrentActionRequiredInstallment,
+    paymentId: IDS.concurrentActionRequiredPayment,
+    providerPaymentId: "concurrent-action-req-payment",
   });
 }
 
@@ -1263,6 +1356,171 @@ test(
           ]);
           assert.equal(membership.status, "ACTIVE");
           assert.equal(eventRecord.processingStatus, "PROCESSED");
+        },
+      );
+
+      await t.test(
+        "failed payment with existing provider payment ID reopens for checkout retry and clears failure metadata",
+        async () => {
+          const initialNewBillCalls = gateway.newBillCalls;
+          const result = await billing.prepareMembershipCheckout(
+            ORG_ID,
+            IDS.payer,
+            IDS.failedRetryAthlete,
+            IDS.failedRetryMembership,
+            { acceptTerms: true },
+          );
+
+          assert.equal(result.paymentId, IDS.failedRetryPayment);
+          assert.equal(result.paymentScheduleId, IDS.failedRetrySchedule);
+          assert.equal(
+            result.checkoutUrl,
+            "https://payments.example.test/existing-failed-bill",
+          );
+          assert.equal(gateway.newBillCalls, initialNewBillCalls);
+
+          const [payment, installment, schedule, membership] =
+            await Promise.all([
+              client.payment.findUniqueOrThrow({
+                where: { id: IDS.failedRetryPayment },
+              }),
+              client.paymentInstallment.findUniqueOrThrow({
+                where: { id: IDS.failedRetryInstallment },
+              }),
+              client.paymentSchedule.findUniqueOrThrow({
+                where: { id: IDS.failedRetrySchedule },
+              }),
+              client.membership.findUniqueOrThrow({
+                where: { id: IDS.failedRetryMembership },
+              }),
+            ]);
+
+          assert.equal(payment.status, "PROCESSING");
+          assert.equal(payment.providerPaymentId, "existing-failed-bill");
+          assert.equal(payment.failedAt, null);
+          assert.equal(payment.failureCode, null);
+          assert.equal(payment.safeFailureReason, null);
+          assert.equal(installment.status, "PROCESSING");
+          assert.equal(schedule.status, "ACTIVE");
+          assert.equal(membership.status, "PENDING");
+        },
+      );
+
+      await t.test(
+        "concurrent state change while reopening failed payment fails closed",
+        async () => {
+          const tempPaymentId = "72000000-0000-4000-8000-00000000005f";
+          const tempScheduleId = "72000000-0000-4000-8000-00000000003f";
+          const tempInstallmentId = "72000000-0000-4000-8000-00000000004f";
+          const tempMembershipId = "72000000-0000-4000-8000-00000000002f";
+          const tempAthleteId = "72000000-0000-4000-8000-00000000001f";
+
+          await client.athleteProfile.create({
+            data: {
+              id: tempAthleteId,
+              displayName: "Temp Failed Athlete",
+              dateOfBirth: new Date("2014-01-01T00:00:00.000Z"),
+            },
+          });
+          await client.membership.create({
+            data: {
+              id: tempMembershipId,
+              organizationId: ORG_ID,
+              athleteId: tempAthleteId,
+              membershipPlanId: IDS.plan,
+              programmeOfferingId: IDS.checkoutOffering,
+              purchasedByUserId: IDS.payer,
+              status: "PENDING",
+            },
+          });
+          await createPaymentChain(client, {
+            membershipId: tempMembershipId,
+            scheduleId: tempScheduleId,
+            installmentId: tempInstallmentId,
+            paymentId: tempPaymentId,
+            providerPaymentId: "temp-failed-bill",
+            paymentStatus: "FAILED",
+            installmentStatus: "FAILED",
+            scheduleStatus: "ACTIVE",
+          });
+
+          await client.payment.update({
+            where: { id: tempPaymentId },
+            data: { status: "PAID", settledAt: new Date() },
+          });
+
+          await assert.rejects(
+            () =>
+              billing.prepareMembershipCheckout(
+                ORG_ID,
+                IDS.payer,
+                tempAthleteId,
+                tempMembershipId,
+                { acceptTerms: true },
+              ),
+            (error) => {
+              assert.match(error.message, /First installment is already paid/);
+              return true;
+            },
+          );
+        },
+      );
+
+      await t.test(
+        "concurrent delivery with ineligible CANCELLED membership flags ACTION_REQUIRED and rejects second delivery without overwriting status",
+        async () => {
+          const event = {
+            providerEventId: "concurrent-action-req-event",
+            eventType: "PAYMENT_SUCCEEDED",
+            idempotencyKey: paymentKey(IDS.concurrentActionRequiredMembership),
+            providerPaymentId: "concurrent-action-req-payment",
+            amountMinor: AMOUNT_MINOR,
+            currency: "MYR",
+          };
+          const rawBody = Buffer.from(JSON.stringify(event), "utf8");
+
+          const results = await Promise.all([
+            billing.processVerifiedWebhook(ORG_ID, PROVIDER, {}, rawBody),
+            billing.processVerifiedWebhook(ORG_ID, PROVIDER, {}, rawBody),
+          ]);
+
+          const processed = results.filter((r) => r.processed === true);
+          const duplicates = results.filter((r) => r.duplicate === true);
+
+          assert.equal(processed.length, 1);
+          assert.equal(duplicates.length, 1);
+          assert.equal(processed[0].paymentStatus, "PAID");
+          assert.equal(processed[0].actionRequired, true);
+          assert.equal(processed[0].membershipActivated, false);
+
+          const [payment, membership, providerEvent, eventCount] =
+            await Promise.all([
+              client.payment.findUniqueOrThrow({
+                where: { id: IDS.concurrentActionRequiredPayment },
+              }),
+              client.membership.findUniqueOrThrow({
+                where: { id: IDS.concurrentActionRequiredMembership },
+              }),
+              client.paymentProviderEvent.findUniqueOrThrow({
+                where: {
+                  provider_providerEventId: {
+                    provider: PROVIDER,
+                    providerEventId: event.providerEventId,
+                  },
+                },
+              }),
+              client.paymentProviderEvent.count({
+                where: {
+                  provider: PROVIDER,
+                  providerEventId: event.providerEventId,
+                },
+              }),
+            ]);
+
+          assert.equal(eventCount, 1);
+          assert.equal(providerEvent.processingStatus, "ACTION_REQUIRED");
+          assert.equal(membership.status, "CANCELLED");
+          assert.equal(payment.status, "PAID");
         },
       );
 

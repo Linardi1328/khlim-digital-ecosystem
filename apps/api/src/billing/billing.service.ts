@@ -22,6 +22,9 @@ const DEFAULT_CHECKOUT_HOLD_MINUTES = 45;
 
 type WebhookHeaders = Readonly<Record<string, string | string[] | undefined>>;
 
+/**
+ * Resolves the configured duration in minutes for which checkout holds remain valid.
+ */
 function checkoutHoldMinutes(): number {
   const configured = Number.parseInt(
     process.env.PAYMENT_CHECKOUT_HOLD_MINUTES ?? "",
@@ -32,12 +35,23 @@ function checkoutHoldMinutes(): number {
     : DEFAULT_CHECKOUT_HOLD_MINUTES;
 }
 
+/**
+ * Adds a specified number of calendar months to a UTC Date.
+ *
+ * @param value - Base UTC Date
+ * @param months - Number of months to add
+ */
 function addMonthsUtc(value: Date, months: number): Date {
   const copy = new Date(value);
   copy.setUTCMonth(copy.getUTCMonth() + months);
   return copy;
 }
 
+/**
+ * Determines whether an error is a Prisma unique constraint violation (P2002).
+ *
+ * @param error - The caught error object
+ */
 function isUniqueConstraintError(error: unknown): boolean {
   return (
     typeof error === "object" &&
@@ -47,6 +61,11 @@ function isUniqueConstraintError(error: unknown): boolean {
   );
 }
 
+/**
+ * Resolves the fallback default organization ID in single-tenant mode or throws if multi-org is active.
+ *
+ * @throws ServiceUnavailableException if multi-organization runtime is enabled without explicit org context
+ */
 function compatibilityOrganizationId(): string {
   if (MULTI_ORGANIZATION_RUNTIME_ENABLED) {
     throw new ServiceUnavailableException(
@@ -308,7 +327,42 @@ export class BillingService {
       );
     }
 
-    if (!payment.providerPaymentId) {
+    if (payment.status === "FAILED") {
+      const reopened = await this.prisma.client.payment.updateMany({
+        where: {
+          id: payment.id,
+          organizationId,
+          status: "FAILED",
+        },
+        data: {
+          status: "PROCESSING",
+          failedAt: null,
+          failureCode: null,
+          safeFailureReason: null,
+        },
+      });
+
+      if (reopened.count === 1) {
+        payment = await this.prisma.client.payment.findUniqueOrThrow({
+          where: { id: payment.id },
+        });
+      } else {
+        const current = await this.prisma.client.payment.findUnique({
+          where: { id: payment.id },
+        });
+        if (!current || current.organizationId !== organizationId) {
+          throw new ConflictException(
+            "Payment belongs to a different organization",
+          );
+        }
+        if (current.status === "PAID") {
+          throw new ConflictException("First installment is already paid");
+        }
+        throw new ConflictException(
+          "Payment is no longer available for checkout",
+        );
+      }
+    } else if (!payment.providerPaymentId) {
       const claimed = await this.prisma.client.payment.updateMany({
         where: {
           id: payment.id,
@@ -330,6 +384,14 @@ export class BillingService {
         if (!existing || existing.organizationId !== organizationId) {
           throw new ConflictException(
             "Payment belongs to a different organization",
+          );
+        }
+        if (existing.status === "PAID") {
+          throw new ConflictException("First installment is already paid");
+        }
+        if (existing.status !== "PROCESSING") {
+          throw new ConflictException(
+            "Payment is no longer available for checkout",
           );
         }
         if (!existing.providerPaymentId) {
@@ -376,12 +438,12 @@ export class BillingService {
         await transaction.paymentInstallment.updateMany({
           where: {
             id: firstInstallment.id,
-            status: { in: ["SCHEDULED", "PROCESSING"] },
+            status: { in: ["SCHEDULED", "PROCESSING", "FAILED"] },
           },
           data: { status: "PROCESSING" },
         });
         await transaction.paymentSchedule.updateMany({
-          where: { id: schedule.id, status: "PENDING" },
+          where: { id: schedule.id, status: { in: ["PENDING", "ACTIVE"] } },
           data: { status: "ACTIVE" },
         });
 
@@ -727,6 +789,31 @@ export class BillingService {
         };
       }
 
+      const currentEvent = await transaction.paymentProviderEvent.findFirst({
+        where: {
+          organizationId,
+          provider,
+          providerEventId: event.providerEventId,
+        },
+        select: { processingStatus: true },
+      });
+
+      if (!currentEvent) {
+        throw new ConflictException(
+          "Provider event belongs to a different organization",
+        );
+      }
+
+      if (
+        currentEvent.processingStatus === "PROCESSED" ||
+        currentEvent.processingStatus === "ACTION_REQUIRED"
+      ) {
+        return {
+          duplicate: true,
+          providerEventId: event.providerEventId,
+        };
+      }
+
       const payment = await transaction.payment.findFirst({
         where: { id: paymentReference.id, organizationId },
         include: {
@@ -990,18 +1077,27 @@ export class BillingService {
     providerEventId: string,
     processingStatus: "PROCESSED" | "ACTION_REQUIRED" | "FAILED",
   ) {
-    const event = await this.prisma.client.paymentProviderEvent.findFirst({
+    if (processingStatus === "FAILED") {
+      return this.prisma.client.paymentProviderEvent.updateMany({
+        where: {
+          organizationId,
+          provider,
+          providerEventId,
+          processingStatus: { in: ["RECEIVED", "FAILED"] },
+        },
+        data: { processingStatus: "FAILED", processedAt: new Date() },
+      });
+    }
+
+    const updated = await this.prisma.client.paymentProviderEvent.updateMany({
       where: { organizationId, provider, providerEventId },
-      select: { id: true },
+      data: { processingStatus, processedAt: new Date() },
     });
-    if (!event) {
+    if (updated.count !== 1) {
       throw new ConflictException(
         "Provider event belongs to a different organization",
       );
     }
-    return this.prisma.client.paymentProviderEvent.update({
-      where: { id: event.id },
-      data: { processingStatus, processedAt: new Date() },
-    });
+    return updated;
   }
 }
