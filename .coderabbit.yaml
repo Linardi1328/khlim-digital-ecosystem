@@ -1,0 +1,108 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+language: en-US
+
+tone_instructions: >-
+  Be direct and evidence-driven. Prioritize correctness, security, privacy,
+  payment integrity, authorization, data integrity, reliability, performance,
+  maintainability, and missing failure-path tests over cosmetic style feedback.
+
+reviews:
+  profile: assertive
+  request_changes_workflow: false
+  high_level_summary: true
+  review_status: true
+  review_details: true
+  collapse_walkthrough: false
+  poem: false
+  enable_prompt_for_ai_agents: true
+
+  path_filters:
+    - "!**/node_modules/**"
+    - "!**/.next/**"
+    - "!**/dist/**"
+    - "!**/coverage/**"
+    - "!pnpm-lock.yaml"
+    - "!openapi/khlim-v1.json"
+    - "!packages/api-client/src/schema.d.ts"
+    - "!**/*.webp"
+    - "!**/*.jpg"
+    - "!**/*.png"
+
+  path_instructions:
+    - path: "apps/api/src/auth/**/*.{ts,tsx}"
+      instructions: >-
+        Treat this as a security boundary. Verify authentication and authorization
+        fail closed, MFA and role checks cannot be bypassed, JWT claims are
+        validated correctly, organization context is enforced, errors do not
+        disclose sensitive data, and negative authorization paths are tested.
+
+    - path: "apps/api/src/billing/**/*.{ts,tsx}"
+      instructions: >-
+        Treat payment state as security-critical. Verify prices come from
+        authoritative server data, checkout creation is idempotent, provider
+        callbacks are cryptographically verified, duplicate and stale events are
+        safe, browser redirects never activate memberships, secrets remain
+        server-side, and failure or retry paths cannot double-charge or corrupt
+        membership state.
+
+    - path: "apps/api/src/**/*.{ts,tsx}"
+      instructions: >-
+        Check organization tenancy, input validation, concurrency, transaction
+        boundaries, null and error handling, N+1 database access, unbounded
+        queries, logging of sensitive data, resource exhaustion, and API behavior
+        that could leave partially committed business state.
+
+    - path: "prisma/**"
+      instructions: >-
+        Protect historical membership and payment data. Flag destructive or
+        irreversible migrations without preservation plans, missing uniqueness or
+        foreign-key constraints, unsafe defaults, tenancy leaks, and schema
+        choices that undermine idempotency, auditability, or reconciliation.
+
+    - path: "apps/web/**/*.{ts,tsx}"
+      instructions: >-
+        Treat browser state as untrusted. Flag exposed secrets, client-side
+        authority over prices or membership/payment status, auth race conditions,
+        duplicate submission risks, unsafe redirects, inaccessible critical
+        flows, hydration issues, unnecessary rerenders, and missing error or
+        loading states.
+
+    - path: "apps/admin/**/*.{ts,tsx}"
+      instructions: >-
+        Require authenticated staff context and server-side authorization for
+        privileged operations. Flag demo-mode leakage, stale-auth races, missing
+        MFA gates, overly broad role access, unsafe destructive actions, and UI
+        states that imply success before authoritative API confirmation.
+
+    - path: "tests/**/*.mjs"
+      instructions: >-
+        Prefer behavioral regression coverage for authorization, payments,
+        tenancy, idempotency, concurrency, and failure paths. Flag brittle
+        source-text-only assertions when an executable integration or browser
+        test would materially reduce risk.
+
+    - path: ".github/workflows/**/*.{yml,yaml}"
+      instructions: >-
+        Check least privilege, secret exposure, unsafe pull-request execution,
+        dependency pinning, cache poisoning, artifact trust, environment
+        isolation, and whether release-critical tests can be skipped or report
+        false success.
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    drafts: false
+    base_branches:
+      - main
+
+  finishing_touches:
+    docstrings:
+      enabled: false
+    unit_tests:
+      enabled: true
+    simplify:
+      enabled: true
+
+chat:
+  auto_reply: true
