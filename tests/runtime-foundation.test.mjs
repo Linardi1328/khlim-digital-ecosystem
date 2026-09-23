@@ -25,7 +25,10 @@ test("website and admin have executable Next.js runtime scaffolds", async () => 
     assert.equal(manifest.scripts.build, "next build");
     assert.equal(manifest.scripts.typecheck, "tsc --noEmit");
     if (app === "web") {
-      assert.match(nextConfig, /const isVercel = Boolean\(process\.env\.VERCEL\)/);
+      assert.match(
+        nextConfig,
+        /const isVercel = Boolean\(process\.env\.VERCEL\)/,
+      );
       assert.match(nextConfig, /output: isVercel \? undefined : "standalone"/);
       assert.doesNotMatch(nextConfig, /process\.env\.NETLIFY/);
     } else {
