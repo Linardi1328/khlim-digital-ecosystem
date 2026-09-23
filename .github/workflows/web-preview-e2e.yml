@@ -33,9 +33,7 @@ jobs:
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Build web exact commit in managed-host mode
-        env:
-          NETLIFY: "1"
+      - name: Build web exact commit
         run: pnpm --filter @khlim/web build
 
       - name: Start web server

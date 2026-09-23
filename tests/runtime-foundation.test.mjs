@@ -48,11 +48,12 @@ test("website and admin have executable Next.js runtime scaffolds", async () => 
   }
 });
 
-test("secondary Netlify Git deployments stay disabled", async () => {
-  const netlify = await read("netlify.toml");
-
-  assert.match(netlify, /ignore = "exit 0"/);
-  assert.match(netlify, /Vercel is the/);
+test("Vercel Git auto-deployments are disabled for all application projects", async () => {
+  for (const app of ["web", "admin", "api"]) {
+    const config = await readJson(`apps/${app}/vercel.json`);
+    assert.equal(config.git?.deploymentEnabled, false);
+    assert.equal(config.$schema, "https://openapi.vercel.sh/vercel.json");
+  }
 });
 
 test("API scaffold exposes a versioned health boundary and OpenAPI", async () => {
