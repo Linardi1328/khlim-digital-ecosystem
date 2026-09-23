@@ -1,6 +1,12 @@
 "use client";
 
-import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../../lib/auth-context";
@@ -56,7 +62,9 @@ function cohortAgeForOffering(
 ): number | null {
   if (!dateOfBirth) return null;
   const birthYear = Number(dateOfBirth.slice(0, 4));
-  const intakeDate = offering.startsOn ? new Date(offering.startsOn) : new Date();
+  const intakeDate = offering.startsOn
+    ? new Date(offering.startsOn)
+    : new Date();
   const intakeYear = intakeDate.getUTCFullYear();
   if (!Number.isInteger(birthYear) || Number.isNaN(intakeYear)) return null;
   return intakeYear - birthYear;
