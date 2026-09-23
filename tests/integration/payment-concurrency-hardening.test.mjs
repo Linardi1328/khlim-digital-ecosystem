@@ -26,35 +26,73 @@ const IDS = Object.freeze({
   checkoutRaceAthlete: "72000000-0000-4000-8000-000000000005",
   opposingAthlete: "72000000-0000-4000-8000-000000000006",
   receivedAthlete: "72000000-0000-4000-8000-000000000007",
+  failureFirstAthlete: "72000000-0000-4000-8000-000000000008",
+  retryFailedAthlete: "72000000-0000-4000-8000-000000000009",
+  concurrentReceivedAthlete: "72000000-0000-4000-8000-00000000000a",
+  missingMembershipAthlete: "72000000-0000-4000-8000-00000000000b",
+  cancelledMembershipAthlete: "72000000-0000-4000-8000-00000000000c",
+  expiredMembershipAthlete: "72000000-0000-4000-8000-00000000000d",
+  alreadyActiveMembershipAthlete: "72000000-0000-4000-8000-00000000000e",
+
   sport: "72000000-0000-4000-8000-000000000010",
   programme: "72000000-0000-4000-8000-000000000011",
   checkoutOffering: "72000000-0000-4000-8000-000000000012",
   capacityOffering: "72000000-0000-4000-8000-000000000013",
   plan: "72000000-0000-4000-8000-000000000014",
+
   checkoutMembership: "72000000-0000-4000-8000-000000000020",
   capacityMembershipA: "72000000-0000-4000-8000-000000000021",
   capacityMembershipB: "72000000-0000-4000-8000-000000000022",
   checkoutRaceMembership: "72000000-0000-4000-8000-000000000023",
   opposingMembership: "72000000-0000-4000-8000-000000000024",
   receivedMembership: "72000000-0000-4000-8000-000000000025",
+  failureFirstMembership: "72000000-0000-4000-8000-000000000026",
+  retryFailedMembership: "72000000-0000-4000-8000-000000000027",
+  concurrentReceivedMembership: "72000000-0000-4000-8000-000000000028",
+  cancelledMembership: "72000000-0000-4000-8000-000000000029",
+  expiredMembership: "72000000-0000-4000-8000-00000000002a",
+  alreadyActiveMembership: "72000000-0000-4000-8000-00000000002b",
+
   checkoutSchedule: "72000000-0000-4000-8000-000000000030",
   capacityScheduleA: "72000000-0000-4000-8000-000000000031",
   capacityScheduleB: "72000000-0000-4000-8000-000000000032",
   checkoutRaceSchedule: "72000000-0000-4000-8000-000000000033",
   opposingSchedule: "72000000-0000-4000-8000-000000000034",
   receivedSchedule: "72000000-0000-4000-8000-000000000035",
+  failureFirstSchedule: "72000000-0000-4000-8000-000000000036",
+  retryFailedSchedule: "72000000-0000-4000-8000-000000000037",
+  concurrentReceivedSchedule: "72000000-0000-4000-8000-000000000038",
+  cancelledMembershipSchedule: "72000000-0000-4000-8000-000000000039",
+  expiredMembershipSchedule: "72000000-0000-4000-8000-00000000003a",
+  alreadyActiveMembershipSchedule: "72000000-0000-4000-8000-00000000003b",
+
   checkoutInstallment: "72000000-0000-4000-8000-000000000040",
   capacityInstallmentA: "72000000-0000-4000-8000-000000000041",
   capacityInstallmentB: "72000000-0000-4000-8000-000000000042",
   checkoutRaceInstallment: "72000000-0000-4000-8000-000000000043",
   opposingInstallment: "72000000-0000-4000-8000-000000000044",
   receivedInstallment: "72000000-0000-4000-8000-000000000045",
+  failureFirstInstallment: "72000000-0000-4000-8000-000000000046",
+  retryFailedInstallment: "72000000-0000-4000-8000-000000000047",
+  concurrentReceivedInstallment: "72000000-0000-4000-8000-000000000048",
+  cancelledMembershipInstallment: "72000000-0000-4000-8000-000000000049",
+  expiredMembershipInstallment: "72000000-0000-4000-8000-00000000004a",
+  alreadyActiveMembershipInstallment: "72000000-0000-4000-8000-00000000004b",
+
   checkoutPayment: "72000000-0000-4000-8000-000000000050",
   capacityPaymentA: "72000000-0000-4000-8000-000000000051",
   capacityPaymentB: "72000000-0000-4000-8000-000000000052",
   checkoutRacePayment: "72000000-0000-4000-8000-000000000053",
   opposingPayment: "72000000-0000-4000-8000-000000000054",
   receivedPayment: "72000000-0000-4000-8000-000000000055",
+  failureFirstPayment: "72000000-0000-4000-8000-000000000056",
+  retryFailedPayment: "72000000-0000-4000-8000-000000000057",
+  concurrentReceivedPayment: "72000000-0000-4000-8000-000000000058",
+  missingMembershipPayment: "72000000-0000-4000-8000-000000000059",
+  cancelledMembershipPayment: "72000000-0000-4000-8000-00000000005a",
+  expiredMembershipPayment: "72000000-0000-4000-8000-00000000005b",
+  alreadyActiveMembershipPayment: "72000000-0000-4000-8000-00000000005c",
+
   billingProfile: "72000000-0000-4000-8000-000000000060",
 });
 
@@ -122,68 +160,44 @@ async function cleanup(client) {
   await client.paymentProviderEvent.deleteMany({
     where: { provider: PROVIDER },
   });
-  await client.payment.deleteMany({ where: { payerUserId: IDS.payer } });
+  await client.payment.deleteMany({ where: { organizationId: ORG_ID } });
   await client.membershipAgreement.deleteMany({
+    where: { acceptedByUserId: IDS.payer },
+  });
+  await client.paymentInstallment.deleteMany({
     where: {
-      membershipId: {
-        in: [
-          IDS.checkoutMembership,
-          IDS.capacityMembershipA,
-          IDS.capacityMembershipB,
-          IDS.checkoutRaceMembership,
-          IDS.opposingMembership,
-          IDS.receivedMembership,
-        ],
-      },
+      paymentSchedule: { membership: { organizationId: ORG_ID } },
     },
   });
   await client.paymentSchedule.deleteMany({
-    where: {
-      membershipId: {
-        in: [
-          IDS.checkoutMembership,
-          IDS.capacityMembershipA,
-          IDS.capacityMembershipB,
-          IDS.checkoutRaceMembership,
-          IDS.opposingMembership,
-          IDS.receivedMembership,
-        ],
-      },
-    },
+    where: { membership: { organizationId: ORG_ID } },
   });
   await client.billingProfile.deleteMany({
     where: { id: IDS.billingProfile },
   });
   await client.membership.deleteMany({
-    where: {
-      id: {
-        in: [
-          IDS.checkoutMembership,
-          IDS.capacityMembershipA,
-          IDS.capacityMembershipB,
-          IDS.checkoutRaceMembership,
-          IDS.opposingMembership,
-          IDS.receivedMembership,
-        ],
-      },
-    },
+    where: { organizationId: ORG_ID },
   });
+  const athleteIds = [
+    IDS.checkoutAthlete,
+    IDS.capacityAthleteA,
+    IDS.capacityAthleteB,
+    IDS.checkoutRaceAthlete,
+    IDS.opposingAthlete,
+    IDS.receivedAthlete,
+    IDS.failureFirstAthlete,
+    IDS.retryFailedAthlete,
+    IDS.concurrentReceivedAthlete,
+    IDS.missingMembershipAthlete,
+    IDS.cancelledMembershipAthlete,
+    IDS.expiredMembershipAthlete,
+    IDS.alreadyActiveMembershipAthlete,
+  ];
   await client.athleteProfile.deleteMany({
-    where: {
-      id: {
-        in: [
-          IDS.checkoutAthlete,
-          IDS.capacityAthleteA,
-          IDS.capacityAthleteB,
-          IDS.checkoutRaceAthlete,
-          IDS.opposingAthlete,
-          IDS.receivedAthlete,
-        ],
-      },
-    },
+    where: { id: { in: athleteIds } },
   });
   await client.programmeOffering.deleteMany({
-    where: { id: { in: [IDS.checkoutOffering, IDS.capacityOffering] } },
+    where: { organizationId: ORG_ID },
   });
   await client.membershipPlan.deleteMany({ where: { id: IDS.plan } });
   await client.programme.deleteMany({ where: { id: IDS.programme } });
@@ -194,7 +208,16 @@ async function cleanup(client) {
 
 async function createPaymentChain(
   client,
-  { membershipId, scheduleId, installmentId, paymentId, providerPaymentId },
+  {
+    membershipId,
+    scheduleId,
+    installmentId,
+    paymentId,
+    providerPaymentId,
+    scheduleStatus,
+    installmentStatus,
+    paymentStatus,
+  },
 ) {
   await client.paymentSchedule.create({
     data: {
@@ -205,7 +228,7 @@ async function createPaymentChain(
       amountPerInstallmentMinor: AMOUNT_MINOR,
       currency: "MYR",
       startsAt: new Date(),
-      status: providerPaymentId ? "ACTIVE" : "PENDING",
+      status: scheduleStatus ?? (providerPaymentId ? "ACTIVE" : "PENDING"),
     },
   });
   await client.paymentInstallment.create({
@@ -216,7 +239,8 @@ async function createPaymentChain(
       dueAt: new Date(),
       amountMinor: AMOUNT_MINOR,
       currency: "MYR",
-      status: providerPaymentId ? "PROCESSING" : "SCHEDULED",
+      status:
+        installmentStatus ?? (providerPaymentId ? "PROCESSING" : "SCHEDULED"),
     },
   });
   await client.payment.create({
@@ -231,7 +255,7 @@ async function createPaymentChain(
       idempotencyKey: paymentKey(membershipId),
       amountMinor: AMOUNT_MINOR,
       currency: "MYR",
-      status: providerPaymentId ? "PROCESSING" : "PENDING",
+      status: paymentStatus ?? (providerPaymentId ? "PROCESSING" : "PENDING"),
     },
   });
 }
@@ -251,15 +275,23 @@ async function seed(client) {
       email: "payment-concurrency@example.test",
     },
   });
+  const athleteIds = [
+    IDS.checkoutAthlete,
+    IDS.capacityAthleteA,
+    IDS.capacityAthleteB,
+    IDS.checkoutRaceAthlete,
+    IDS.opposingAthlete,
+    IDS.receivedAthlete,
+    IDS.failureFirstAthlete,
+    IDS.retryFailedAthlete,
+    IDS.concurrentReceivedAthlete,
+    IDS.missingMembershipAthlete,
+    IDS.cancelledMembershipAthlete,
+    IDS.expiredMembershipAthlete,
+    IDS.alreadyActiveMembershipAthlete,
+  ];
   await client.athleteProfile.createMany({
-    data: [
-      IDS.checkoutAthlete,
-      IDS.capacityAthleteA,
-      IDS.capacityAthleteB,
-      IDS.checkoutRaceAthlete,
-      IDS.opposingAthlete,
-      IDS.receivedAthlete,
-    ].map((id, index) => ({
+    data: athleteIds.map((id, index) => ({
       id,
       displayName: `Security Athlete ${index + 1}`,
       dateOfBirth: new Date("2014-01-01T00:00:00.000Z"),
@@ -369,6 +401,60 @@ async function seed(client) {
         purchasedByUserId: IDS.payer,
         status: "PENDING",
       },
+      {
+        id: IDS.failureFirstMembership,
+        organizationId: ORG_ID,
+        athleteId: IDS.failureFirstAthlete,
+        programmeOfferingId: IDS.checkoutOffering,
+        membershipPlanId: IDS.plan,
+        purchasedByUserId: IDS.payer,
+        status: "PENDING",
+      },
+      {
+        id: IDS.retryFailedMembership,
+        organizationId: ORG_ID,
+        athleteId: IDS.retryFailedAthlete,
+        programmeOfferingId: IDS.checkoutOffering,
+        membershipPlanId: IDS.plan,
+        purchasedByUserId: IDS.payer,
+        status: "PENDING",
+      },
+      {
+        id: IDS.concurrentReceivedMembership,
+        organizationId: ORG_ID,
+        athleteId: IDS.concurrentReceivedAthlete,
+        programmeOfferingId: IDS.checkoutOffering,
+        membershipPlanId: IDS.plan,
+        purchasedByUserId: IDS.payer,
+        status: "PENDING",
+      },
+      {
+        id: IDS.cancelledMembership,
+        organizationId: ORG_ID,
+        athleteId: IDS.cancelledMembershipAthlete,
+        programmeOfferingId: IDS.checkoutOffering,
+        membershipPlanId: IDS.plan,
+        purchasedByUserId: IDS.payer,
+        status: "CANCELLED",
+      },
+      {
+        id: IDS.expiredMembership,
+        organizationId: ORG_ID,
+        athleteId: IDS.expiredMembershipAthlete,
+        programmeOfferingId: IDS.checkoutOffering,
+        membershipPlanId: IDS.plan,
+        purchasedByUserId: IDS.payer,
+        status: "EXPIRED",
+      },
+      {
+        id: IDS.alreadyActiveMembership,
+        organizationId: ORG_ID,
+        athleteId: IDS.alreadyActiveMembershipAthlete,
+        programmeOfferingId: IDS.checkoutOffering,
+        membershipPlanId: IDS.plan,
+        purchasedByUserId: IDS.payer,
+        status: "ACTIVE",
+      },
     ],
   });
 
@@ -435,6 +521,48 @@ async function seed(client) {
     installmentId: IDS.receivedInstallment,
     paymentId: IDS.receivedPayment,
     providerPaymentId: "received-payment",
+  });
+  await createPaymentChain(client, {
+    membershipId: IDS.failureFirstMembership,
+    scheduleId: IDS.failureFirstSchedule,
+    installmentId: IDS.failureFirstInstallment,
+    paymentId: IDS.failureFirstPayment,
+    providerPaymentId: "failure-first-payment",
+  });
+  await createPaymentChain(client, {
+    membershipId: IDS.retryFailedMembership,
+    scheduleId: IDS.retryFailedSchedule,
+    installmentId: IDS.retryFailedInstallment,
+    paymentId: IDS.retryFailedPayment,
+    providerPaymentId: "retry-failed-payment",
+  });
+  await createPaymentChain(client, {
+    membershipId: IDS.concurrentReceivedMembership,
+    scheduleId: IDS.concurrentReceivedSchedule,
+    installmentId: IDS.concurrentReceivedInstallment,
+    paymentId: IDS.concurrentReceivedPayment,
+    providerPaymentId: "concurrent-received-payment",
+  });
+  await createPaymentChain(client, {
+    membershipId: IDS.cancelledMembership,
+    scheduleId: IDS.cancelledMembershipSchedule,
+    installmentId: IDS.cancelledMembershipInstallment,
+    paymentId: IDS.cancelledMembershipPayment,
+    providerPaymentId: "cancelled-membership-payment",
+  });
+  await createPaymentChain(client, {
+    membershipId: IDS.expiredMembership,
+    scheduleId: IDS.expiredMembershipSchedule,
+    installmentId: IDS.expiredMembershipInstallment,
+    paymentId: IDS.expiredMembershipPayment,
+    providerPaymentId: "expired-membership-payment",
+  });
+  await createPaymentChain(client, {
+    membershipId: IDS.alreadyActiveMembership,
+    scheduleId: IDS.alreadyActiveMembershipSchedule,
+    installmentId: IDS.alreadyActiveMembershipInstallment,
+    paymentId: IDS.alreadyActiveMembershipPayment,
+    providerPaymentId: "already-active-payment",
   });
 }
 
@@ -531,14 +659,23 @@ test(
           };
 
           try {
-            const checkout = await billing.prepareMembershipCheckout(
-              ORG_ID,
-              IDS.payer,
-              IDS.checkoutRaceAthlete,
-              IDS.checkoutRaceMembership,
-              { acceptTerms: true },
+            await assert.rejects(
+              () =>
+                billing.prepareMembershipCheckout(
+                  ORG_ID,
+                  IDS.payer,
+                  IDS.checkoutRaceAthlete,
+                  IDS.checkoutRaceMembership,
+                  { acceptTerms: true },
+                ),
+              (error) => {
+                assert.match(
+                  error.message,
+                  /First installment is already paid/,
+                );
+                return true;
+              },
             );
-            assert.equal(checkout.paymentId, IDS.checkoutRacePayment);
           } finally {
             gateway.beforeNewBillReturn = null;
           }
@@ -568,7 +705,7 @@ test(
       );
 
       await t.test(
-        "opposing callbacks cannot downgrade a successful payment",
+        "opposing callbacks: success then failure preserves paid state and ignores failure",
         async () => {
           const successEvent = {
             providerEventId: "opposing-success",
@@ -589,22 +726,25 @@ test(
             safeFailureReason: "Payment was not completed",
           };
 
-          await Promise.all([
-            billing.processVerifiedWebhook(
-              ORG_ID,
-              PROVIDER,
-              {},
-              Buffer.from(JSON.stringify(successEvent), "utf8"),
-            ),
-            billing.processVerifiedWebhook(
-              ORG_ID,
-              PROVIDER,
-              {},
-              Buffer.from(JSON.stringify(failureEvent), "utf8"),
-            ),
-          ]);
+          const successResult = await billing.processVerifiedWebhook(
+            ORG_ID,
+            PROVIDER,
+            {},
+            Buffer.from(JSON.stringify(successEvent), "utf8"),
+          );
+          const failureResult = await billing.processVerifiedWebhook(
+            ORG_ID,
+            PROVIDER,
+            {},
+            Buffer.from(JSON.stringify(failureEvent), "utf8"),
+          );
 
-          const [payment, installment, membership, schedule] =
+          assert.equal(successResult.paymentStatus, "PAID");
+          assert.equal(successResult.membershipActivated, true);
+          assert.equal(failureResult.paymentStatus, "PAID");
+          assert.equal(failureResult.ignoredTerminalState, true);
+
+          const [payment, installment, membership, schedule, events] =
             await Promise.all([
               client.payment.findUniqueOrThrow({
                 where: { id: IDS.opposingPayment },
@@ -618,12 +758,109 @@ test(
               client.paymentSchedule.findUniqueOrThrow({
                 where: { id: IDS.opposingSchedule },
               }),
+              client.paymentProviderEvent.findMany({
+                where: {
+                  provider: PROVIDER,
+                  providerEventId: {
+                    in: ["opposing-success", "opposing-failure"],
+                  },
+                },
+              }),
             ]);
 
           assert.equal(payment.status, "PAID");
+          assert.equal(payment.failedAt, null);
           assert.equal(installment.status, "PAID");
           assert.equal(membership.status, "ACTIVE");
           assert.equal(schedule.status, "COMPLETED");
+          assert.equal(events.length, 2);
+          assert.ok(
+            events.every((event) => event.processingStatus === "PROCESSED"),
+          );
+        },
+      );
+
+      await t.test(
+        "opposing callbacks: failure then success recovers payment to paid and activates membership",
+        async () => {
+          const failureEvent = {
+            providerEventId: "failure-first-fail",
+            eventType: "PAYMENT_FAILED",
+            idempotencyKey: paymentKey(IDS.failureFirstMembership),
+            providerPaymentId: "failure-first-payment",
+            amountMinor: AMOUNT_MINOR,
+            currency: "MYR",
+            failureCode: "card_declined",
+            safeFailureReason: "Card declined by issuer",
+          };
+          const successEvent = {
+            providerEventId: "failure-first-success",
+            eventType: "PAYMENT_SUCCEEDED",
+            idempotencyKey: paymentKey(IDS.failureFirstMembership),
+            providerPaymentId: "failure-first-payment",
+            amountMinor: AMOUNT_MINOR,
+            currency: "MYR",
+          };
+
+          const failureResult = await billing.processVerifiedWebhook(
+            ORG_ID,
+            PROVIDER,
+            {},
+            Buffer.from(JSON.stringify(failureEvent), "utf8"),
+          );
+          assert.equal(failureResult.paymentStatus, "FAILED");
+
+          const intermediatePayment = await client.payment.findUniqueOrThrow({
+            where: { id: IDS.failureFirstPayment },
+          });
+          assert.equal(intermediatePayment.status, "FAILED");
+          assert.ok(intermediatePayment.failedAt !== null);
+          assert.equal(intermediatePayment.failureCode, "card_declined");
+
+          const successResult = await billing.processVerifiedWebhook(
+            ORG_ID,
+            PROVIDER,
+            {},
+            Buffer.from(JSON.stringify(successEvent), "utf8"),
+          );
+          assert.equal(successResult.paymentStatus, "PAID");
+          assert.equal(successResult.membershipActivated, true);
+
+          const [payment, installment, membership, schedule, events] =
+            await Promise.all([
+              client.payment.findUniqueOrThrow({
+                where: { id: IDS.failureFirstPayment },
+              }),
+              client.paymentInstallment.findUniqueOrThrow({
+                where: { id: IDS.failureFirstInstallment },
+              }),
+              client.membership.findUniqueOrThrow({
+                where: { id: IDS.failureFirstMembership },
+              }),
+              client.paymentSchedule.findUniqueOrThrow({
+                where: { id: IDS.failureFirstSchedule },
+              }),
+              client.paymentProviderEvent.findMany({
+                where: {
+                  provider: PROVIDER,
+                  providerEventId: {
+                    in: ["failure-first-fail", "failure-first-success"],
+                  },
+                },
+              }),
+            ]);
+
+          assert.equal(payment.status, "PAID");
+          assert.equal(payment.failedAt, null);
+          assert.equal(payment.failureCode, null);
+          assert.equal(payment.safeFailureReason, null);
+          assert.equal(installment.status, "PAID");
+          assert.equal(membership.status, "ACTIVE");
+          assert.equal(schedule.status, "COMPLETED");
+          assert.equal(events.length, 2);
+          assert.ok(
+            events.every((event) => event.processingStatus === "PROCESSED"),
+          );
         },
       );
 
@@ -663,6 +900,110 @@ test(
           const [payment, providerEvent] = await Promise.all([
             client.payment.findUniqueOrThrow({
               where: { id: IDS.receivedPayment },
+            }),
+            client.paymentProviderEvent.findUniqueOrThrow({
+              where: {
+                provider_providerEventId: {
+                  provider: PROVIDER,
+                  providerEventId: event.providerEventId,
+                },
+              },
+            }),
+          ]);
+          assert.equal(payment.status, "PAID");
+          assert.equal(providerEvent.processingStatus, "PROCESSED");
+        },
+      );
+
+      await t.test(
+        "a previously FAILED provider event can be retried and processed to PAID",
+        async () => {
+          const event = {
+            providerEventId: "retry-failed-event",
+            eventType: "PAYMENT_SUCCEEDED",
+            idempotencyKey: paymentKey(IDS.retryFailedMembership),
+            providerPaymentId: "retry-failed-payment",
+            amountMinor: AMOUNT_MINOR,
+            currency: "MYR",
+          };
+          const rawBody = Buffer.from(JSON.stringify(event), "utf8");
+          await client.paymentProviderEvent.create({
+            data: {
+              organizationId: ORG_ID,
+              provider: PROVIDER,
+              providerEventId: event.providerEventId,
+              eventType: event.eventType,
+              payloadHash: createHash("sha256").update(rawBody).digest("hex"),
+              safeMetadata: { idempotencyKey: event.idempotencyKey },
+              processingStatus: "FAILED",
+            },
+          });
+
+          const result = await billing.processVerifiedWebhook(
+            ORG_ID,
+            PROVIDER,
+            {},
+            rawBody,
+          );
+          assert.equal(result.processed, true);
+          assert.equal(result.paymentStatus, "PAID");
+          assert.equal(result.membershipActivated, true);
+
+          const [payment, providerEvent] = await Promise.all([
+            client.payment.findUniqueOrThrow({
+              where: { id: IDS.retryFailedPayment },
+            }),
+            client.paymentProviderEvent.findUniqueOrThrow({
+              where: {
+                provider_providerEventId: {
+                  provider: PROVIDER,
+                  providerEventId: event.providerEventId,
+                },
+              },
+            }),
+          ]);
+          assert.equal(payment.status, "PAID");
+          assert.equal(providerEvent.processingStatus, "PROCESSED");
+        },
+      );
+
+      await t.test(
+        "concurrent repeated delivery of an existing RECEIVED event is idempotent and finishes PROCESSED",
+        async () => {
+          const event = {
+            providerEventId: "concurrent-received-event",
+            eventType: "PAYMENT_SUCCEEDED",
+            idempotencyKey: paymentKey(IDS.concurrentReceivedMembership),
+            providerPaymentId: "concurrent-received-payment",
+            amountMinor: AMOUNT_MINOR,
+            currency: "MYR",
+          };
+          const rawBody = Buffer.from(JSON.stringify(event), "utf8");
+          await client.paymentProviderEvent.create({
+            data: {
+              organizationId: ORG_ID,
+              provider: PROVIDER,
+              providerEventId: event.providerEventId,
+              eventType: event.eventType,
+              payloadHash: createHash("sha256").update(rawBody).digest("hex"),
+              safeMetadata: { idempotencyKey: event.idempotencyKey },
+              processingStatus: "RECEIVED",
+            },
+          });
+
+          const results = await Promise.all([
+            billing.processVerifiedWebhook(ORG_ID, PROVIDER, {}, rawBody),
+            billing.processVerifiedWebhook(ORG_ID, PROVIDER, {}, rawBody),
+          ]);
+
+          const processedResults = results.filter(
+            (r) => r.processed === true || r.duplicate === true,
+          );
+          assert.equal(processedResults.length, 2);
+
+          const [payment, providerEvent] = await Promise.all([
+            client.payment.findUniqueOrThrow({
+              where: { id: IDS.concurrentReceivedPayment },
             }),
             client.paymentProviderEvent.findUniqueOrThrow({
               where: {
@@ -744,6 +1085,184 @@ test(
             }),
             2,
           );
+        },
+      );
+
+      await t.test(
+        "successful payment with missing membership flags ACTION_REQUIRED and membershipActivated=false",
+        async () => {
+          const event = {
+            providerEventId: "missing-membership-success",
+            eventType: "PAYMENT_SUCCEEDED",
+            idempotencyKey: `standalone-payment:${IDS.missingMembershipPayment}`,
+            providerPaymentId: "missing-membership-pay",
+            amountMinor: AMOUNT_MINOR,
+            currency: "MYR",
+          };
+
+          await client.payment.create({
+            data: {
+              id: IDS.missingMembershipPayment,
+              organizationId: ORG_ID,
+              payerUserId: IDS.payer,
+              membershipId: null,
+              provider: PROVIDER,
+              providerPaymentId: "missing-membership-pay",
+              idempotencyKey: event.idempotencyKey,
+              amountMinor: AMOUNT_MINOR,
+              currency: "MYR",
+              status: "PROCESSING",
+            },
+          });
+
+          const result = await billing.processVerifiedWebhook(
+            ORG_ID,
+            PROVIDER,
+            {},
+            Buffer.from(JSON.stringify(event), "utf8"),
+          );
+
+          assert.equal(result.processed, true);
+          assert.equal(result.paymentStatus, "PAID");
+          assert.equal(result.actionRequired, true);
+          assert.equal(result.membershipActivated, false);
+
+          const eventRecord =
+            await client.paymentProviderEvent.findUniqueOrThrow({
+              where: {
+                provider_providerEventId: {
+                  provider: PROVIDER,
+                  providerEventId: event.providerEventId,
+                },
+              },
+            });
+          assert.equal(eventRecord.processingStatus, "ACTION_REQUIRED");
+        },
+      );
+
+      await t.test(
+        "successful payment with CANCELLED membership flags ACTION_REQUIRED and membershipActivated=false",
+        async () => {
+          const event = {
+            providerEventId: "cancelled-membership-success",
+            eventType: "PAYMENT_SUCCEEDED",
+            idempotencyKey: paymentKey(IDS.cancelledMembership),
+            providerPaymentId: "cancelled-membership-payment",
+            amountMinor: AMOUNT_MINOR,
+            currency: "MYR",
+          };
+
+          const result = await billing.processVerifiedWebhook(
+            ORG_ID,
+            PROVIDER,
+            {},
+            Buffer.from(JSON.stringify(event), "utf8"),
+          );
+
+          assert.equal(result.processed, true);
+          assert.equal(result.paymentStatus, "PAID");
+          assert.equal(result.actionRequired, true);
+          assert.equal(result.membershipActivated, false);
+
+          const [membership, eventRecord] = await Promise.all([
+            client.membership.findUniqueOrThrow({
+              where: { id: IDS.cancelledMembership },
+            }),
+            client.paymentProviderEvent.findUniqueOrThrow({
+              where: {
+                provider_providerEventId: {
+                  provider: PROVIDER,
+                  providerEventId: event.providerEventId,
+                },
+              },
+            }),
+          ]);
+          assert.equal(membership.status, "CANCELLED");
+          assert.equal(eventRecord.processingStatus, "ACTION_REQUIRED");
+        },
+      );
+
+      await t.test(
+        "successful payment with EXPIRED membership flags ACTION_REQUIRED and membershipActivated=false",
+        async () => {
+          const event = {
+            providerEventId: "expired-membership-success",
+            eventType: "PAYMENT_SUCCEEDED",
+            idempotencyKey: paymentKey(IDS.expiredMembership),
+            providerPaymentId: "expired-membership-payment",
+            amountMinor: AMOUNT_MINOR,
+            currency: "MYR",
+          };
+
+          const result = await billing.processVerifiedWebhook(
+            ORG_ID,
+            PROVIDER,
+            {},
+            Buffer.from(JSON.stringify(event), "utf8"),
+          );
+
+          assert.equal(result.processed, true);
+          assert.equal(result.paymentStatus, "PAID");
+          assert.equal(result.actionRequired, true);
+          assert.equal(result.membershipActivated, false);
+
+          const [membership, eventRecord] = await Promise.all([
+            client.membership.findUniqueOrThrow({
+              where: { id: IDS.expiredMembership },
+            }),
+            client.paymentProviderEvent.findUniqueOrThrow({
+              where: {
+                provider_providerEventId: {
+                  provider: PROVIDER,
+                  providerEventId: event.providerEventId,
+                },
+              },
+            }),
+          ]);
+          assert.equal(membership.status, "EXPIRED");
+          assert.equal(eventRecord.processingStatus, "ACTION_REQUIRED");
+        },
+      );
+
+      await t.test(
+        "successful payment with already ACTIVE membership returns PROCESSED and membershipActivated=true",
+        async () => {
+          const event = {
+            providerEventId: "already-active-success",
+            eventType: "PAYMENT_SUCCEEDED",
+            idempotencyKey: paymentKey(IDS.alreadyActiveMembership),
+            providerPaymentId: "already-active-payment",
+            amountMinor: AMOUNT_MINOR,
+            currency: "MYR",
+          };
+
+          const result = await billing.processVerifiedWebhook(
+            ORG_ID,
+            PROVIDER,
+            {},
+            Buffer.from(JSON.stringify(event), "utf8"),
+          );
+
+          assert.equal(result.processed, true);
+          assert.equal(result.paymentStatus, "PAID");
+          assert.equal(result.actionRequired, false);
+          assert.equal(result.membershipActivated, true);
+
+          const [membership, eventRecord] = await Promise.all([
+            client.membership.findUniqueOrThrow({
+              where: { id: IDS.alreadyActiveMembership },
+            }),
+            client.paymentProviderEvent.findUniqueOrThrow({
+              where: {
+                provider_providerEventId: {
+                  provider: PROVIDER,
+                  providerEventId: event.providerEventId,
+                },
+              },
+            }),
+          ]);
+          assert.equal(membership.status, "ACTIVE");
+          assert.equal(eventRecord.processingStatus, "PROCESSED");
         },
       );
 

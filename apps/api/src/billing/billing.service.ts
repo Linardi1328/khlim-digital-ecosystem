@@ -56,6 +56,13 @@ function compatibilityOrganizationId(): string {
   return DEFAULT_ORGANIZATION_ID;
 }
 
+/**
+ * Core billing and payment orchestration service for the KHLIM platform.
+ *
+ * Enforces organization-tenant boundaries, row-level locking concurrency controls,
+ * terminal payment state protections, idempotent provider-event ingestion, and
+ * server-authoritative membership activation.
+ */
 @Injectable()
 export class BillingService {
   constructor(
@@ -63,6 +70,15 @@ export class BillingService {
     private readonly gateways: PaymentGatewayRegistry,
   ) {}
 
+  /**
+   * Retrieves the authoritative billing state for a membership, including its
+   * payment schedule, installments, and payment attempts within an organization.
+   *
+   * @param organizationIdOrAthleteId - Organization ID (when 3 args) or Athlete ID (legacy compatibility)
+   * @param athleteIdOrMembershipId - Athlete ID (when 3 args) or Membership ID (legacy compatibility)
+   * @param maybeMembershipId - Membership ID when explicit organization context is provided
+   * @throws NotFoundException if the membership is not found within the organization boundary
+   */
   async getMembershipBilling(
     organizationIdOrAthleteId: string,
     athleteIdOrMembershipId: string,
@@ -103,6 +119,25 @@ export class BillingService {
     return membership;
   }
 
+  /**
+   * Prepares and initiates a checkout session for a membership's initial payment.
+   *
+   * Coordinates payment reservation, membership terms agreement snapshotting,
+   * external checkout creation via the configured payment gateway, and atomic
+   * database status updates.
+   *
+   * If a concurrent webhook or external settlement finalizes the payment while the
+   * gateway call is inflight (causing the conditional status update to affect 0 rows),
+   * this method refuses to return the checkout URL and throws a ConflictException.
+   *
+   * @param organizationIdOrPayerUserId - Organization ID or Payer User ID
+   * @param payerUserIdOrAthleteId - Payer User ID or Athlete ID
+   * @param athleteIdOrMembershipId - Athlete ID or Membership ID
+   * @param membershipIdOrBody - Membership ID or checkout payload DTO
+   * @param maybeBody - Checkout payload DTO when explicit organization context is provided
+   * @throws BadRequestException if terms have not been accepted
+   * @throws ConflictException if payment is already paid, locked, or belongs to another organization
+   */
   async prepareMembershipCheckout(
     organizationIdOrPayerUserId: string,
     payerUserIdOrAthleteId: string,
@@ -317,34 +352,50 @@ export class BillingService {
       providerPaymentId: payment.providerPaymentId ?? undefined,
     });
 
-    await this.prisma.client.$transaction(async (transaction) => {
-      const stillProcessing = await transaction.payment.updateMany({
-        where: {
-          id: payment.id,
-          organizationId,
-          status: "PROCESSING",
-        },
-        data: {
-          providerPaymentId: checkout.providerPaymentId ?? undefined,
-        },
-      });
+    const checkoutState = await this.prisma.client.$transaction(
+      async (transaction) => {
+        const stillProcessing = await transaction.payment.updateMany({
+          where: {
+            id: payment.id,
+            organizationId,
+            status: "PROCESSING",
+          },
+          data: {
+            providerPaymentId: checkout.providerPaymentId ?? undefined,
+          },
+        });
 
-      if (stillProcessing.count === 0) {
-        return;
-      }
+        if (stillProcessing.count === 0) {
+          const current = await transaction.payment.findFirst({
+            where: { id: payment.id, organizationId },
+            select: { status: true },
+          });
+          return current?.status ?? null;
+        }
 
-      await transaction.paymentInstallment.updateMany({
-        where: {
-          id: firstInstallment.id,
-          status: { in: ["SCHEDULED", "PROCESSING"] },
-        },
-        data: { status: "PROCESSING" },
-      });
-      await transaction.paymentSchedule.updateMany({
-        where: { id: schedule.id, status: "PENDING" },
-        data: { status: "ACTIVE" },
-      });
-    });
+        await transaction.paymentInstallment.updateMany({
+          where: {
+            id: firstInstallment.id,
+            status: { in: ["SCHEDULED", "PROCESSING"] },
+          },
+          data: { status: "PROCESSING" },
+        });
+        await transaction.paymentSchedule.updateMany({
+          where: { id: schedule.id, status: "PENDING" },
+          data: { status: "ACTIVE" },
+        });
+
+        return "PROCESSING" as const;
+      },
+    );
+
+    if (checkoutState !== "PROCESSING") {
+      throw new ConflictException(
+        checkoutState === "PAID"
+          ? "First installment is already paid"
+          : "Payment is no longer available for checkout",
+      );
+    }
 
     return {
       membershipId,
@@ -355,6 +406,15 @@ export class BillingService {
     };
   }
 
+  /**
+   * Reconciles stale processing checkouts that exceed the configured hold duration.
+   *
+   * Unclaimed pre-provider holds are released back to CANCELLED state to free capacity,
+   * while sessions already assigned a provider payment reference are flagged for manual review.
+   *
+   * @param organizationIdOrNow - Organization ID or reference Date
+   * @param maybeNow - Reference Date when explicit organization context is provided
+   */
   async reconcileStaleCheckoutHolds(
     organizationIdOrNow?: string | Date,
     maybeNow?: Date,
@@ -442,6 +502,14 @@ export class BillingService {
     };
   }
 
+  /**
+   * Ensures an authoritative billing profile exists for a customer with the payment provider.
+   *
+   * @param organizationId - Tenant organization ID
+   * @param gateway - Configured payment gateway adapter
+   * @param userId - KHLIM customer user ID
+   * @param email - Customer email address
+   */
   private async ensureBillingProfile(
     organizationId: string,
     gateway: ReturnType<PaymentGatewayRegistry["requireConfigured"]>,
@@ -475,6 +543,20 @@ export class BillingService {
     });
   }
 
+  /**
+   * Ingests and processes a verified webhook payload from an external payment gateway.
+   *
+   * Guarantees idempotency via cryptographic payload hashing and unique provider event
+   * tracking. Stale or duplicated events already PROCESSED or marked ACTION_REQUIRED
+   * return early without re-executing state transitions.
+   *
+   * @param organizationIdOrProvider - Tenant organization ID or payment provider identifier
+   * @param providerOrHeaders - Payment provider identifier or raw webhook headers
+   * @param headersOrRawBody - Raw webhook headers or raw webhook body buffer
+   * @param maybeRawBody - Raw webhook body buffer when explicit organization context is provided
+   * @throws UnauthorizedException if webhook signature verification fails
+   * @throws ConflictException if the provider event is invalid or belongs to another organization
+   */
   async processVerifiedWebhook(
     organizationIdOrProvider: string,
     providerOrHeaders: string | WebhookHeaders,
@@ -576,6 +658,23 @@ export class BillingService {
     }
   }
 
+  /**
+   * Applies a verified gateway event within an isolated database transaction with row-level locking.
+   *
+   * Enforces the following security and concurrency guarantees:
+   * - Acquires a row lock (`SELECT ... FOR UPDATE`) on the target payment record.
+   * - Verifies tenant organization boundaries across payment, schedule, and membership relations.
+   * - Terminal state protection: A `PAID` payment cannot be overwritten or downgraded by a late `FAILED` event.
+   * - Success recovery: A previously `FAILED` payment transitions to `PAID` upon verified success,
+   *   clearing prior failure codes and reasons.
+   * - Explicit membership activation: Membership is activated only if eligible (`PENDING` with available capacity).
+   *   Already `ACTIVE` memberships are accepted as active. Ineligible, `CANCELLED`, `EXPIRED`, or missing memberships
+   *   are flagged with `actionRequired = true` and `membershipActivated = false`.
+   *
+   * @param organizationId - Tenant organization ID
+   * @param provider - Payment gateway provider identifier
+   * @param event - Normalized webhook event payload
+   */
   private async applyVerifiedEvent(
     organizationId: string,
     provider: string,
@@ -776,7 +875,15 @@ export class BillingService {
       }
 
       let actionRequired = false;
-      if (payment.membership?.status === "PENDING") {
+      let membershipActivated = false;
+
+      if (!payment.membership) {
+        actionRequired = true;
+        membershipActivated = false;
+      } else if (payment.membership.status === "ACTIVE") {
+        membershipActivated = true;
+        actionRequired = false;
+      } else if (payment.membership.status === "PENDING") {
         const lockedOfferings = await transaction.$queryRaw<
           Array<{ id: string }>
         >`
@@ -789,6 +896,7 @@ export class BillingService {
 
         if (lockedOfferings.length !== 1) {
           actionRequired = true;
+          membershipActivated = false;
         } else {
           const activeCount = await transaction.membership.count({
             where: {
@@ -799,6 +907,7 @@ export class BillingService {
           });
           if (activeCount >= payment.membership.programmeOffering.capacity) {
             actionRequired = true;
+            membershipActivated = false;
           } else {
             const durationMonths =
               payment.membership.membershipPlan.durationMonths ??
@@ -818,15 +927,25 @@ export class BillingService {
                   : null,
               },
             });
-            if (activated.count !== 1) {
+            if (activated.count === 1) {
+              membershipActivated = true;
+            } else {
               const currentMembership = await transaction.membership.findFirst({
                 where: { id: payment.membership.id, organizationId },
                 select: { status: true },
               });
-              actionRequired = currentMembership?.status !== "ACTIVE";
+              if (currentMembership?.status === "ACTIVE") {
+                membershipActivated = true;
+              } else {
+                actionRequired = true;
+                membershipActivated = false;
+              }
             }
           }
         }
+      } else {
+        actionRequired = true;
+        membershipActivated = false;
       }
 
       if (payment.paymentInstallment?.paymentScheduleId) {
@@ -851,12 +970,20 @@ export class BillingService {
       return {
         processed: true,
         paymentStatus: "PAID",
-        membershipActivated: !actionRequired,
+        membershipActivated,
         actionRequired,
       };
     });
   }
 
+  /**
+   * Persists the final processing status of a provider event within an organization.
+   *
+   * @param organizationId - Tenant organization ID
+   * @param provider - Payment gateway provider identifier
+   * @param providerEventId - Gateway-assigned provider event ID
+   * @param processingStatus - Terminal or review status to persist
+   */
   private async finishProviderEvent(
     organizationId: string,
     provider: string,
