@@ -24,30 +24,40 @@ test("payment storage excludes raw card credentials", async () => {
   assert.match(schema, /lastFour/);
 });
 
-test("deployment templates use the canonical Billplz callback and safe portal return route", async () => {
-  const rootEnv = await read(".env.example");
-  const stagingEnv = await read("config/environments/staging.env.example");
-  const productionEnv = await read("config/environments/production.env.example");
-  const sandboxWorkflow = await read(
-    ".github/workflows/pre-alpha-billplz-sandbox.yml",
-  );
+test(
+  "deployment templates use the canonical Billplz callback and safe portal return route",
+  async () => {
+    const rootEnv = await read(".env.example");
+    const stagingEnv = await read("config/environments/staging.env.example");
+    const productionEnv = await read(
+      "config/environments/production.env.example",
+    );
+    const sandboxWorkflow = await read(
+      ".github/workflows/pre-alpha-billplz-sandbox.yml",
+    );
 
-  for (const source of [rootEnv, stagingEnv, productionEnv, sandboxWorkflow]) {
-    assert.match(source, /\/v1\/payments\/webhooks\/billplz/);
-    assert.match(source, /\/portal\/membership/);
-    assert.doesNotMatch(source, /\/billing\/webhooks\/billplz/);
-    assert.doesNotMatch(source, /\/payment\/confirmation/);
-  }
+    for (const source of [
+      rootEnv,
+      stagingEnv,
+      productionEnv,
+      sandboxWorkflow,
+    ]) {
+      assert.match(source, /\/v1\/payments\/webhooks\/billplz/);
+      assert.match(source, /\/portal\/membership/);
+      assert.doesNotMatch(source, /\/billing\/webhooks\/billplz/);
+      assert.doesNotMatch(source, /\/payment\/confirmation/);
+    }
 
-  for (const source of [stagingEnv, productionEnv]) {
-    assert.match(source, /PAYMENT_PROVIDER=billplz/);
-    assert.match(source, /BILLPLZ_SECRET_KEY=/);
-    assert.match(source, /BILLPLZ_COLLECTION_ID=/);
-    assert.match(source, /BILLPLZ_X_SIGNATURE_KEY=/);
-    assert.match(source, /NEXT_PUBLIC_BUSINESS_REGISTRATION_NO=/);
-    assert.match(source, /CORS_ALLOWED_ORIGINS=/);
-  }
-});
+    for (const source of [stagingEnv, productionEnv]) {
+      assert.match(source, /PAYMENT_PROVIDER=billplz/);
+      assert.match(source, /BILLPLZ_SECRET_KEY=/);
+      assert.match(source, /BILLPLZ_COLLECTION_ID=/);
+      assert.match(source, /BILLPLZ_X_SIGNATURE_KEY=/);
+      assert.match(source, /NEXT_PUBLIC_BUSINESS_REGISTRATION_NO=/);
+      assert.match(source, /CORS_ALLOWED_ORIGINS=/);
+    }
+  },
+);
 
 test("gateway boundary refuses to fake production payment success", async () => {
   const gateway = await read("apps/api/src/billing/payment-gateway.ts");
