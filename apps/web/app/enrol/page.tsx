@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../../lib/auth-context";
@@ -50,6 +50,31 @@ function isUnder18(dateOfBirth: string | null | undefined): boolean {
   return today < eighteenthBirthday;
 }
 
+function cohortAgeForOffering(
+  dateOfBirth: string | null | undefined,
+  offering: PublicOfferingItem,
+): number | null {
+  if (!dateOfBirth) return null;
+  const birthYear = Number(dateOfBirth.slice(0, 4));
+  const intakeDate = offering.startsOn ? new Date(offering.startsOn) : new Date();
+  const intakeYear = intakeDate.getUTCFullYear();
+  if (!Number.isInteger(birthYear) || Number.isNaN(intakeYear)) return null;
+  return intakeYear - birthYear;
+}
+
+function isOfferingEligibleForAthlete(
+  dateOfBirth: string | null | undefined,
+  offering: PublicOfferingItem,
+): boolean {
+  const cohortAge = cohortAgeForOffering(dateOfBirth, offering);
+  if (cohortAge === null) return true;
+  const { minimumAge, maximumAge } = offering.programme;
+  return (
+    (minimumAge === null || cohortAge >= minimumAge) &&
+    (maximumAge === null || cohortAge <= maximumAge)
+  );
+}
+
 function EnrolmentWizardContent() {
   const { t, formatCurrency, formatDate } = useI18n();
   const router = useRouter();
@@ -75,6 +100,7 @@ function EnrolmentWizardContent() {
   const [recurringConsent, setRecurringConsent] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState("");
+  const childCreationInFlight = useRef(false);
 
   const businessDetails = getPublicBusinessDetails();
   const commerceReady = isCommerceBusinessDetailsComplete(businessDetails);
@@ -88,7 +114,6 @@ function EnrolmentWizardContent() {
       .then((data) => {
         if (cancelled) return;
         setOfferings(data);
-        setSelectedOfferingId((current) => current || data[0]?.id || "");
       })
       .catch(() => {
         if (!cancelled) setError(t("enrol.error.loadOfferings"));
@@ -114,9 +139,40 @@ function EnrolmentWizardContent() {
     }
   }, [activeChild, athletes, preAthleteId, selectedChildId]);
 
+  const selectedAthlete = athletes.find(
+    (athlete) => athlete.id === selectedChildId,
+  );
+  const selectedDateOfBirth =
+    selectedChildId === "new" ? newChildDob : selectedAthlete?.dateOfBirth;
+  const eligibleOfferings = useMemo(
+    () =>
+      offerings.filter((offering) =>
+        isOfferingEligibleForAthlete(selectedDateOfBirth, offering),
+      ),
+    [offerings, selectedDateOfBirth],
+  );
+
+  useEffect(() => {
+    if (eligibleOfferings.length === 0) {
+      setSelectedOfferingId("");
+      return;
+    }
+    if (
+      !eligibleOfferings.some((offering) => offering.id === selectedOfferingId)
+    ) {
+      const requested = eligibleOfferings.find(
+        (offering) => offering.id === preOfferingId,
+      );
+      setSelectedOfferingId(requested?.id ?? eligibleOfferings[0]!.id);
+    }
+  }, [eligibleOfferings, preOfferingId, selectedOfferingId]);
+
   const selectedOffering = useMemo(
-    () => offerings.find((offering) => offering.id === selectedOfferingId),
-    [offerings, selectedOfferingId],
+    () =>
+      eligibleOfferings.find(
+        (offering) => offering.id === selectedOfferingId,
+      ),
+    [eligibleOfferings, selectedOfferingId],
   );
   const eligiblePlans = useMemo(
     () => selectedOffering?.planEligibilities.map(({ plan }) => plan) ?? [],
@@ -137,11 +193,6 @@ function EnrolmentWizardContent() {
   const selectedPlan: MembershipPlanItem | undefined = eligiblePlans.find(
     (plan) => plan.id === selectedPlanId,
   );
-  const selectedAthlete = athletes.find(
-    (athlete) => athlete.id === selectedChildId,
-  );
-  const selectedDateOfBirth =
-    selectedChildId === "new" ? newChildDob : selectedAthlete?.dateOfBirth;
   const requiresGuardianConsent = isUnder18(selectedDateOfBirth);
   const chargeMinor = selectedPlan ? getPlanChargeMinor(selectedPlan) : null;
   const requiresRecurringConsent = selectedPlan?.billingFrequency === "MONTHLY";
@@ -194,6 +245,9 @@ function EnrolmentWizardContent() {
           setError(t("compliance.enrol.guardianConsentRequired"));
           return;
         }
+        if (childCreationInFlight.current) return;
+        childCreationInFlight.current = true;
+        setIsProcessing(true);
         try {
           const created = await addChild({
             displayName: newChildName.trim(),
@@ -214,6 +268,9 @@ function EnrolmentWizardContent() {
               : t("enrol.error.createAthlete"),
           );
           return;
+        } finally {
+          childCreationInFlight.current = false;
+          setIsProcessing(false);
         }
       }
       setCurrentStep(2);
@@ -490,14 +547,14 @@ function EnrolmentWizardContent() {
                 </CardHeader>
                 {offeringsLoading ? (
                   <p>{t("enrol.loadingOfferings")}</p>
-                ) : offerings.length === 0 ? (
+                ) : eligibleOfferings.length === 0 ? (
                   <Alert variant="warning">{t("enrol.noOfferings")}</Alert>
                 ) : (
                   <RadioGroup
                     name="offering"
                     value={selectedOfferingId}
                     onChange={setSelectedOfferingId}
-                    options={offerings.map((offering) => ({
+                    options={eligibleOfferings.map((offering) => ({
                       value: offering.id,
                       title: `${offering.name} — ${offering.programme.name}`,
                       description: `${offering.venue?.name ?? t("enrol.venueToBeConfirmed")}${offering.startsOn ? ` • ${t("enrol.starts", { date: formatDate(offering.startsOn) })}` : ""}`,
