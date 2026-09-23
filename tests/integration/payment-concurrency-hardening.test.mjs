@@ -34,7 +34,8 @@ const IDS = Object.freeze({
   expiredMembershipAthlete: "72000000-0000-4000-8000-00000000000d",
   alreadyActiveMembershipAthlete: "72000000-0000-4000-8000-00000000000e",
   failedRetryAthlete: "72000000-0000-4000-8000-00000000000f",
-  concurrentActionRequiredAthlete: "72000000-0000-4000-8000-00000000001f",
+  concurrentActionRequiredAthlete: "72000000-0000-4000-8000-000000000015",
+  failedReopenRaceAthlete: "72000000-0000-4000-8000-000000000016",
 
   sport: "72000000-0000-4000-8000-000000000010",
   programme: "72000000-0000-4000-8000-000000000011",
@@ -56,6 +57,7 @@ const IDS = Object.freeze({
   alreadyActiveMembership: "72000000-0000-4000-8000-00000000002b",
   failedRetryMembership: "72000000-0000-4000-8000-00000000002c",
   concurrentActionRequiredMembership: "72000000-0000-4000-8000-00000000002d",
+  failedReopenRaceMembership: "72000000-0000-4000-8000-00000000002e",
 
   checkoutSchedule: "72000000-0000-4000-8000-000000000030",
   capacityScheduleA: "72000000-0000-4000-8000-000000000031",
@@ -71,6 +73,7 @@ const IDS = Object.freeze({
   alreadyActiveMembershipSchedule: "72000000-0000-4000-8000-00000000003b",
   failedRetrySchedule: "72000000-0000-4000-8000-00000000003c",
   concurrentActionRequiredSchedule: "72000000-0000-4000-8000-00000000003d",
+  failedReopenRaceSchedule: "72000000-0000-4000-8000-00000000003e",
 
   checkoutInstallment: "72000000-0000-4000-8000-000000000040",
   capacityInstallmentA: "72000000-0000-4000-8000-000000000041",
@@ -86,6 +89,7 @@ const IDS = Object.freeze({
   alreadyActiveMembershipInstallment: "72000000-0000-4000-8000-00000000004b",
   failedRetryInstallment: "72000000-0000-4000-8000-00000000004c",
   concurrentActionRequiredInstallment: "72000000-0000-4000-8000-00000000004d",
+  failedReopenRaceInstallment: "72000000-0000-4000-8000-00000000004e",
 
   checkoutPayment: "72000000-0000-4000-8000-000000000050",
   capacityPaymentA: "72000000-0000-4000-8000-000000000051",
@@ -102,6 +106,7 @@ const IDS = Object.freeze({
   alreadyActiveMembershipPayment: "72000000-0000-4000-8000-00000000005c",
   failedRetryPayment: "72000000-0000-4000-8000-00000000005d",
   concurrentActionRequiredPayment: "72000000-0000-4000-8000-00000000005e",
+  failedReopenRacePayment: "72000000-0000-4000-8000-00000000005f",
 
   billingProfile: "72000000-0000-4000-8000-000000000060",
 });
@@ -236,6 +241,7 @@ async function cleanup(client) {
     IDS.alreadyActiveMembershipAthlete,
     IDS.failedRetryAthlete,
     IDS.concurrentActionRequiredAthlete,
+    IDS.failedReopenRaceAthlete,
   ];
   await client.athleteProfile.deleteMany({
     where: { id: { in: athleteIds } },
@@ -339,6 +345,8 @@ async function seed(client) {
     IDS.cancelledMembershipAthlete,
     IDS.expiredMembershipAthlete,
     IDS.alreadyActiveMembershipAthlete,
+    IDS.failedRetryAthlete,
+    IDS.concurrentActionRequiredAthlete,
   ];
   await client.athleteProfile.createMany({
     data: athleteIds.map((id, index) => ({
@@ -1403,30 +1411,29 @@ test(
           assert.equal(installment.status, "PROCESSING");
           assert.equal(schedule.status, "ACTIVE");
           assert.equal(membership.status, "PENDING");
+
+          await client.payment.update({
+            where: { id: IDS.failedRetryPayment },
+            data: { status: "FAILED" },
+          });
         },
       );
 
       await t.test(
         "concurrent state change while reopening failed payment fails closed",
         async () => {
-          const tempPaymentId = "72000000-0000-4000-8000-00000000005f";
-          const tempScheduleId = "72000000-0000-4000-8000-00000000003f";
-          const tempInstallmentId = "72000000-0000-4000-8000-00000000004f";
-          const tempMembershipId = "72000000-0000-4000-8000-00000000002f";
-          const tempAthleteId = "72000000-0000-4000-8000-00000000001f";
-
           await client.athleteProfile.create({
             data: {
-              id: tempAthleteId,
-              displayName: "Temp Failed Athlete",
+              id: IDS.failedReopenRaceAthlete,
+              displayName: "Failed Reopen Race Athlete",
               dateOfBirth: new Date("2014-01-01T00:00:00.000Z"),
             },
           });
           await client.membership.create({
             data: {
-              id: tempMembershipId,
+              id: IDS.failedReopenRaceMembership,
               organizationId: ORG_ID,
-              athleteId: tempAthleteId,
+              athleteId: IDS.failedReopenRaceAthlete,
               membershipPlanId: IDS.plan,
               programmeOfferingId: IDS.checkoutOffering,
               purchasedByUserId: IDS.payer,
@@ -1434,35 +1441,70 @@ test(
             },
           });
           await createPaymentChain(client, {
-            membershipId: tempMembershipId,
-            scheduleId: tempScheduleId,
-            installmentId: tempInstallmentId,
-            paymentId: tempPaymentId,
-            providerPaymentId: "temp-failed-bill",
+            membershipId: IDS.failedReopenRaceMembership,
+            scheduleId: IDS.failedReopenRaceSchedule,
+            installmentId: IDS.failedReopenRaceInstallment,
+            paymentId: IDS.failedReopenRacePayment,
+            providerPaymentId: "failed-reopen-race-bill",
             paymentStatus: "FAILED",
             installmentStatus: "FAILED",
             scheduleStatus: "ACTIVE",
           });
-
           await client.payment.update({
-            where: { id: tempPaymentId },
-            data: { status: "PAID", settledAt: new Date() },
+            where: { id: IDS.failedReopenRacePayment },
+            data: {
+              failedAt: new Date(),
+              failureCode: "insufficient_funds",
+              safeFailureReason: "Insufficient funds",
+            },
           });
 
-          await assert.rejects(
-            () =>
-              billing.prepareMembershipCheckout(
-                ORG_ID,
-                IDS.payer,
-                tempAthleteId,
-                tempMembershipId,
-                { acceptTerms: true },
-              ),
-            (error) => {
-              assert.match(error.message, /First installment is already paid/);
-              return true;
-            },
+          const checkoutCallsBefore = gateway.checkoutCalls.length;
+          const originalUpdateMany = prisma.client.payment.updateMany.bind(
+            prisma.client.payment,
           );
+
+          try {
+            prisma.client.payment.updateMany = async (args) => {
+              if (
+                args?.where?.id === IDS.failedReopenRacePayment &&
+                args?.where?.status === "FAILED"
+              ) {
+                await client.payment.update({
+                  where: { id: IDS.failedReopenRacePayment },
+                  data: { status: "PAID", settledAt: new Date() },
+                });
+              }
+              return originalUpdateMany(args);
+            };
+
+            await assert.rejects(
+              () =>
+                billing.prepareMembershipCheckout(
+                  ORG_ID,
+                  IDS.payer,
+                  IDS.failedReopenRaceAthlete,
+                  IDS.failedReopenRaceMembership,
+                  { acceptTerms: true },
+                ),
+              (error) => {
+                assert.match(
+                  error.message,
+                  /First installment is already paid/,
+                );
+                return true;
+              },
+            );
+          } finally {
+            prisma.client.payment.updateMany = originalUpdateMany;
+          }
+
+          assert.equal(gateway.checkoutCalls.length, checkoutCallsBefore);
+
+          const payment = await client.payment.findUniqueOrThrow({
+            where: { id: IDS.failedReopenRacePayment },
+          });
+          assert.equal(payment.status, "PAID");
         },
       );
 
@@ -1527,6 +1569,15 @@ test(
       await t.test(
         "stale checkout recovery cancels only pre-provider claims",
         async () => {
+          await client.payment.updateMany({
+            where: {
+              organizationId: ORG_ID,
+              status: "PROCESSING",
+              id: { not: IDS.checkoutPayment },
+            },
+            data: { status: "FAILED" },
+          });
+
           const now = new Date(Date.now() + 2 * 60 * 60 * 1000);
           await client.payment.update({
             where: { id: IDS.checkoutPayment },
