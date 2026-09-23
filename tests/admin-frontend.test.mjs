@@ -117,10 +117,7 @@ test("Admin dashboard waits for authenticated AAL2 before loading privileged ove
     dashboard,
     /if \(!isDemoMode && \(!isAuthenticated \|\| !mfaSatisfied\)\)/,
   );
-  assert.match(
-    dashboard,
-    /\[isDemoMode, isAuthenticated, mfaSatisfied\]/,
-  );
+  assert.match(dashboard, /\[isDemoMode, isAuthenticated, mfaSatisfied\]/);
 
   const authGuardIndex = dashboard.indexOf(
     "if (!isDemoMode && (!isAuthenticated || !mfaSatisfied))",
