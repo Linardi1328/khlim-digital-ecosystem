@@ -1,4 +1,8 @@
 [build]
+  # Secondary Netlify deployments are intentionally disabled. Vercel is the
+  # canonical host for KHLIM Web/Admin/API. Netlify interprets exit code 0 from
+  # the ignore command as "skip this build" for Git-triggered deployments.
+  ignore = "exit 0"
   command = "pnpm --filter @khlim/admin build"
   publish = "apps/admin/out"
 
