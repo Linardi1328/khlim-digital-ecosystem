@@ -25,14 +25,9 @@ test("website and admin have executable Next.js runtime scaffolds", async () => 
     assert.equal(manifest.scripts.build, "next build");
     assert.equal(manifest.scripts.typecheck, "tsc --noEmit");
     if (app === "web") {
-      assert.match(
-        nextConfig,
-        /process\.env\.VERCEL \|\| process\.env\.NETLIFY/,
-      );
-      assert.match(
-        nextConfig,
-        /output: isManagedNextHost \? undefined : "standalone"/,
-      );
+      assert.match(nextConfig, /const isVercel = Boolean\(process\.env\.VERCEL\)/);
+      assert.match(nextConfig, /output: isVercel \? undefined : "standalone"/);
+      assert.doesNotMatch(nextConfig, /process\.env\.NETLIFY/);
     } else {
       assert.match(
         nextConfig,
@@ -48,6 +43,13 @@ test("website and admin have executable Next.js runtime scaffolds", async () => 
       assert.match(page, /KHLIM/);
     }
   }
+});
+
+test("secondary Netlify Git deployments stay disabled", async () => {
+  const netlify = await read("netlify.toml");
+
+  assert.match(netlify, /ignore = "exit 0"/);
+  assert.match(netlify, /Vercel is the/);
 });
 
 test("API scaffold exposes a versioned health boundary and OpenAPI", async () => {
