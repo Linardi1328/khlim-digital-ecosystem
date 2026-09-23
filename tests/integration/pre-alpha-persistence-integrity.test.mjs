@@ -325,7 +325,7 @@ test(
       );
 
       await t.test(
-        "programme age eligibility is enforced on the offering start date",
+        "programme age eligibility uses intake year minus birth year",
         async () => {
           await client.programme.update({
             where: { id: IDS.programme },
@@ -334,21 +334,21 @@ test(
 
           await client.athleteProfile.update({
             where: { id: IDS.athleteA },
-            data: { dateOfBirth: new Date("2014-02-01T00:00:00.000Z") },
+            data: { dateOfBirth: new Date("2014-12-31T00:00:00.000Z") },
           });
-          const boundaryMembership = await academy.createPendingMembership(
+          const sameCohortMembership = await academy.createPendingMembership(
             IDS.guardianUser,
             IDS.athleteA,
             { offeringId: IDS.offering, planId: IDS.plan },
           );
-          assert.equal(boundaryMembership.status, "PENDING");
+          assert.equal(sameCohortMembership.status, "PENDING");
           await client.membership.delete({
-            where: { id: boundaryMembership.id },
+            where: { id: sameCohortMembership.id },
           });
 
           await client.athleteProfile.update({
             where: { id: IDS.athleteA },
-            data: { dateOfBirth: new Date("2014-02-02T00:00:00.000Z") },
+            data: { dateOfBirth: new Date("2015-01-01T00:00:00.000Z") },
           });
           await assert.rejects(
             () =>
@@ -364,7 +364,7 @@ test(
 
           await client.athleteProfile.update({
             where: { id: IDS.athleteA },
-            data: { dateOfBirth: new Date("2013-01-31T00:00:00.000Z") },
+            data: { dateOfBirth: new Date("2013-12-31T00:00:00.000Z") },
           });
           await assert.rejects(
             () =>
