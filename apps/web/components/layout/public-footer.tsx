@@ -47,7 +47,7 @@ export function PublicFooter() {
               marginBottom: "18px",
             }}
           >
-            <BrandLogo height={44} />
+            <BrandLogo height={64} />
             <div style={{ lineHeight: 1.05 }}>
               <div
                 style={{
