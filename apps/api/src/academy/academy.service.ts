@@ -32,16 +32,8 @@ const capacityHoldingMembershipStatuses = [
   "SUSPENDED",
 ] as const;
 
-function ageOnDate(dateOfBirth: Date, referenceDate: Date): number {
-  let age = referenceDate.getUTCFullYear() - dateOfBirth.getUTCFullYear();
-  const monthDelta = referenceDate.getUTCMonth() - dateOfBirth.getUTCMonth();
-  if (
-    monthDelta < 0 ||
-    (monthDelta === 0 && referenceDate.getUTCDate() < dateOfBirth.getUTCDate())
-  ) {
-    age -= 1;
-  }
-  return age;
+function cohortAgeForYear(dateOfBirth: Date, referenceDate: Date): number {
+  return referenceDate.getUTCFullYear() - dateOfBirth.getUTCFullYear();
 }
 
 @Injectable()
@@ -462,7 +454,7 @@ export class AcademyService {
       }
 
       const eligibilityDate = eligibility.offering.startsOn ?? new Date();
-      const athleteAge = ageOnDate(athlete.dateOfBirth, eligibilityDate);
+      const athleteAge = cohortAgeForYear(athlete.dateOfBirth, eligibilityDate);
       const { minimumAge, maximumAge } = eligibility.offering.programme;
       if (
         (minimumAge !== null && athleteAge < minimumAge) ||
