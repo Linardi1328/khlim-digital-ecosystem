@@ -26,7 +26,7 @@ Where supported and operationally sensible, production compute/data should start
 
 Infrastructure providers are replaceable dependencies; business domains should depend on interfaces/contracts rather than vendor SDK details throughout the codebase.
 
-For the current pre-alpha deployment, **Vercel is the only application hosting/deployment target** for Web, Admin, and API. Automatic Git-triggered deployments are intentionally disabled (`git.deploymentEnabled = false`) across all three projects (`apps/web`, `apps/admin`, and `apps/api`) to protect deployment quotas during active development, with deployments triggered manually when needed. Legacy Netlify preview deployments and the Render `khlim-api-staging` service are retired and must not auto-deploy from this repository. `netlify.toml` is retained only as a temporary defensive guard (`ignore = "exit 0"`) to suppress builds until the project is disconnected from the Netlify dashboard.
+For the current pre-alpha deployment, **Vercel is the only application hosting/deployment target** for Web, Admin, and API. Automatic Git-triggered deployments are intentionally disabled (`git.deploymentEnabled = false`) across all three projects (`apps/web`, `apps/admin`, and `apps/api`) to protect deployment quotas during active development, with deployments triggered manually when needed. Legacy Netlify preview deployments and the Render `khlim-api-staging` service are retired and must not auto-deploy from this repository.
 
 ## Current environment priority
 
