@@ -65,13 +65,27 @@ const QUICK_ACTIONS: QuickAction[] = [
 ];
 
 export default function AdminDashboardPage() {
-  const { canAccessFinance, hasRole, isDemoMode, user } = useAdminAuth();
+  const {
+    canAccessFinance,
+    hasRole,
+    isAuthenticated,
+    isDemoMode,
+    mfaSatisfied,
+    user,
+  } = useAdminAuth();
   const canViewFinance = canAccessFinance();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!isDemoMode && (!isAuthenticated || !mfaSatisfied)) {
+      setMetrics(null);
+      setError(null);
+      setLoading(true);
+      return;
+    }
+
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -101,7 +115,7 @@ export default function AdminDashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [isDemoMode]);
+  }, [isDemoMode, isAuthenticated, mfaSatisfied]);
 
   const availableActions = QUICK_ACTIONS.filter(
     (action) => !action.roles || hasRole(action.roles),
