@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { test } from "node:test";
 
 const root = new URL("../", import.meta.url);
@@ -18,6 +18,17 @@ test("Admin app reuses workspace aliases without redundant lockfile declarations
   assert.equal(manifest.dependencies["@khlim/i18n"], undefined);
   assert.match(tsconfig, /@khlim\/api-client/);
   assert.match(tsconfig, /@khlim\/i18n/);
+});
+
+test("Admin surfaces use the official KHLIM Sports Academy logo", async () => {
+  const shell = await read("apps/admin/components/layout/AdminShell.tsx");
+  const sidebar = await read("apps/admin/components/layout/AdminSidebar.tsx");
+  const layout = await read("apps/admin/app/layout.tsx");
+
+  await access(new URL("apps/admin/public/khs-academy-logo.webp", root));
+  assert.match(shell, /\/khs-academy-logo\.webp/);
+  assert.match(sidebar, /\/khs-academy-logo\.webp/);
+  assert.match(layout, /\/khs-academy-logo\.webp/);
 });
 
 test("Admin console implements all required reusable UI components", async () => {
