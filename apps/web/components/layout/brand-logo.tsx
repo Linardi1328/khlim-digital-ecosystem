@@ -4,6 +4,7 @@ import { useState } from "react";
 
 const LOGO_ASPECT_RATIO = 256 / 301;
 const LOGO_ALT = "KHLIM Sports Academy";
+const LOGO_FALLBACK = "KHS";
 
 export function BrandLogo({
   size,
@@ -42,7 +43,7 @@ export function BrandLogo({
           flexShrink: 0,
         }}
       >
-        KHS
+        {LOGO_FALLBACK}
       </span>
     );
   }
