@@ -3,6 +3,8 @@
 }
 
 .brandLogo {
+  width: auto !important;
+  height: 54px !important;
   flex-shrink: 0;
 }
 
@@ -24,7 +26,7 @@
   }
 
   .inner {
-    height: 64px !important;
+    height: 68px !important;
     padding: 0 12px !important;
   }
 
@@ -34,8 +36,8 @@
   }
 
   .brandLogo {
-    width: 40px !important;
-    height: 40px !important;
+    width: auto !important;
+    height: 48px !important;
   }
 
   .brandTagline {
@@ -71,8 +73,8 @@
   }
 
   .brandLogo {
-    width: 36px !important;
-    height: 36px !important;
+    width: auto !important;
+    height: 44px !important;
   }
 
   .brandName {
