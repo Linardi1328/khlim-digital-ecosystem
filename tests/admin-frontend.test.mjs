@@ -323,9 +323,7 @@ test("managed hosts disable standalone output without changing Admin deployment 
   const webConfig = await read("apps/web/next.config.ts");
 
   assert.match(adminConfig, /process\.env\.VERCEL \? undefined : "standalone"/);
-  assert.match(webConfig, /process\.env\.VERCEL \|\| process\.env\.NETLIFY/);
-  assert.match(
-    webConfig,
-    /output: isManagedNextHost \? undefined : "standalone"/,
-  );
+  assert.match(webConfig, /const isVercel = Boolean\(process\.env\.VERCEL\)/);
+  assert.match(webConfig, /output: isVercel \? undefined : "standalone"/);
+  assert.doesNotMatch(webConfig, /process\.env\.NETLIFY/);
 });
