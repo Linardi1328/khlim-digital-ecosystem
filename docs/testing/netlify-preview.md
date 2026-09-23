@@ -6,10 +6,8 @@ KHLIM no longer uses Netlify as a deployment or preview target for this
 repository. Vercel is the canonical deployment platform for the public/member
 Web app, Admin app, and API.
 
-The root `netlify.toml` intentionally sets the Netlify build ignore command to
-exit successfully so Git-triggered Netlify builds are skipped. This keeps any
-still-connected Netlify projects dormant while provider-side Git connections
-are removed.
+The provider-side Netlify Git integration has been fully disconnected and
+`netlify.toml` has been removed from the repository.
 
 Do not use Netlify previews as acceptance evidence for KHLIM. Use the Vercel
 deployment associated with the exact commit under review together with the
