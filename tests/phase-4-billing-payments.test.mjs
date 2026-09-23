@@ -24,6 +24,35 @@ test("payment storage excludes raw card credentials", async () => {
   assert.match(schema, /lastFour/);
 });
 
+test("Billplz deployment templates use canonical routes", async () => {
+  const rootEnv = await read(".env.example");
+  const stagingEnv = await read("config/environments/staging.env.example");
+  const productionEnv = await read(
+    "config/environments/production.env.example",
+  );
+  const sandboxWorkflow = await read(
+    ".github/workflows/pre-alpha-billplz-sandbox.yml",
+  );
+
+  const sources = [rootEnv, stagingEnv, productionEnv, sandboxWorkflow];
+  for (const source of sources) {
+    assert.match(source, /\/v1\/payments\/webhooks\/billplz/);
+    assert.match(source, /\/portal\/membership/);
+    assert.doesNotMatch(source, /\/billing\/webhooks\/billplz/);
+    assert.doesNotMatch(source, /\/payment\/confirmation/);
+  }
+
+  const deployedTemplates = [stagingEnv, productionEnv];
+  for (const source of deployedTemplates) {
+    assert.match(source, /PAYMENT_PROVIDER=billplz/);
+    assert.match(source, /BILLPLZ_SECRET_KEY=/);
+    assert.match(source, /BILLPLZ_COLLECTION_ID=/);
+    assert.match(source, /BILLPLZ_X_SIGNATURE_KEY=/);
+    assert.match(source, /NEXT_PUBLIC_BUSINESS_REGISTRATION_NO=/);
+    assert.match(source, /CORS_ALLOWED_ORIGINS=/);
+  }
+});
+
 test("gateway boundary refuses to fake production payment success", async () => {
   const gateway = await read("apps/api/src/billing/payment-gateway.ts");
   assert.match(gateway, /PaymentGatewayAdapter/);
