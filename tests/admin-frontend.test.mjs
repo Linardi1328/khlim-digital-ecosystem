@@ -108,6 +108,26 @@ test("Admin dashboard renders persisted snapshot metrics without fake trends", a
   assert.doesNotMatch(dashboard, /\+8\.4%|\+3\.2%/);
 });
 
+test("Admin dashboard waits for authenticated AAL2 before loading privileged overview data", async () => {
+  const dashboard = await read("apps/admin/app/page.tsx");
+
+  assert.match(dashboard, /isAuthenticated/);
+  assert.match(dashboard, /mfaSatisfied/);
+  assert.match(
+    dashboard,
+    /if \(!isDemoMode && \(!isAuthenticated \|\| !mfaSatisfied\)\)/,
+  );
+  assert.match(dashboard, /\[isDemoMode, isAuthenticated, mfaSatisfied\]/);
+
+  const authGuardIndex = dashboard.indexOf(
+    "if (!isDemoMode && (!isAuthenticated || !mfaSatisfied))",
+  );
+  const overviewFetchIndex = dashboard.indexOf("getAdminOverview()");
+
+  assert.ok(authGuardIndex >= 0);
+  assert.ok(overviewFetchIndex > authGuardIndex);
+});
+
 test("Admin operations console preserves strict domain rules", async () => {
   const programmes = await read("apps/admin/app/programmes/page.tsx");
   const memberships = await read("apps/admin/app/memberships/page.tsx");
