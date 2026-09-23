@@ -654,7 +654,8 @@ export class BillingService {
       if (
         (payment.membership &&
           payment.membership.organizationId !== organizationId) ||
-        (payment.paymentInstallment?.paymentSchedule.membership.organizationId &&
+        (payment.paymentInstallment?.paymentSchedule.membership
+          .organizationId &&
           payment.paymentInstallment.paymentSchedule.membership
             .organizationId !== organizationId)
       ) {
