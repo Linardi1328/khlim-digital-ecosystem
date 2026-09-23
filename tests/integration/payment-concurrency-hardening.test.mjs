@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { test } from "node:test";
 
@@ -22,6 +23,9 @@ const IDS = Object.freeze({
   checkoutAthlete: "72000000-0000-4000-8000-000000000002",
   capacityAthleteA: "72000000-0000-4000-8000-000000000003",
   capacityAthleteB: "72000000-0000-4000-8000-000000000004",
+  checkoutRaceAthlete: "72000000-0000-4000-8000-000000000005",
+  opposingAthlete: "72000000-0000-4000-8000-000000000006",
+  receivedAthlete: "72000000-0000-4000-8000-000000000007",
   sport: "72000000-0000-4000-8000-000000000010",
   programme: "72000000-0000-4000-8000-000000000011",
   checkoutOffering: "72000000-0000-4000-8000-000000000012",
@@ -30,15 +34,27 @@ const IDS = Object.freeze({
   checkoutMembership: "72000000-0000-4000-8000-000000000020",
   capacityMembershipA: "72000000-0000-4000-8000-000000000021",
   capacityMembershipB: "72000000-0000-4000-8000-000000000022",
+  checkoutRaceMembership: "72000000-0000-4000-8000-000000000023",
+  opposingMembership: "72000000-0000-4000-8000-000000000024",
+  receivedMembership: "72000000-0000-4000-8000-000000000025",
   checkoutSchedule: "72000000-0000-4000-8000-000000000030",
   capacityScheduleA: "72000000-0000-4000-8000-000000000031",
   capacityScheduleB: "72000000-0000-4000-8000-000000000032",
+  checkoutRaceSchedule: "72000000-0000-4000-8000-000000000033",
+  opposingSchedule: "72000000-0000-4000-8000-000000000034",
+  receivedSchedule: "72000000-0000-4000-8000-000000000035",
   checkoutInstallment: "72000000-0000-4000-8000-000000000040",
   capacityInstallmentA: "72000000-0000-4000-8000-000000000041",
   capacityInstallmentB: "72000000-0000-4000-8000-000000000042",
+  checkoutRaceInstallment: "72000000-0000-4000-8000-000000000043",
+  opposingInstallment: "72000000-0000-4000-8000-000000000044",
+  receivedInstallment: "72000000-0000-4000-8000-000000000045",
   checkoutPayment: "72000000-0000-4000-8000-000000000050",
   capacityPaymentA: "72000000-0000-4000-8000-000000000051",
   capacityPaymentB: "72000000-0000-4000-8000-000000000052",
+  checkoutRacePayment: "72000000-0000-4000-8000-000000000053",
+  opposingPayment: "72000000-0000-4000-8000-000000000054",
+  receivedPayment: "72000000-0000-4000-8000-000000000055",
   billingProfile: "72000000-0000-4000-8000-000000000060",
 });
 
@@ -46,6 +62,7 @@ class NonIdempotentGateway {
   provider = PROVIDER;
   checkoutCalls = [];
   newBillCalls = 0;
+  beforeNewBillReturn = null;
 
   async createCustomer() {
     return { providerCustomerId: "preseeded-customer" };
@@ -62,6 +79,9 @@ class NonIdempotentGateway {
 
     this.newBillCalls += 1;
     const providerPaymentId = `external-bill-${this.newBillCalls}`;
+    if (this.beforeNewBillReturn) {
+      await this.beforeNewBillReturn({ input, providerPaymentId });
+    }
     await new Promise((resolve) => setTimeout(resolve, 75));
     return {
       checkoutUrl: `https://payments.example.test/${providerPaymentId}`,
@@ -110,6 +130,9 @@ async function cleanup(client) {
           IDS.checkoutMembership,
           IDS.capacityMembershipA,
           IDS.capacityMembershipB,
+          IDS.checkoutRaceMembership,
+          IDS.opposingMembership,
+          IDS.receivedMembership,
         ],
       },
     },
@@ -121,6 +144,9 @@ async function cleanup(client) {
           IDS.checkoutMembership,
           IDS.capacityMembershipA,
           IDS.capacityMembershipB,
+          IDS.checkoutRaceMembership,
+          IDS.opposingMembership,
+          IDS.receivedMembership,
         ],
       },
     },
@@ -135,6 +161,9 @@ async function cleanup(client) {
           IDS.checkoutMembership,
           IDS.capacityMembershipA,
           IDS.capacityMembershipB,
+          IDS.checkoutRaceMembership,
+          IDS.opposingMembership,
+          IDS.receivedMembership,
         ],
       },
     },
@@ -142,7 +171,14 @@ async function cleanup(client) {
   await client.athleteProfile.deleteMany({
     where: {
       id: {
-        in: [IDS.checkoutAthlete, IDS.capacityAthleteA, IDS.capacityAthleteB],
+        in: [
+          IDS.checkoutAthlete,
+          IDS.capacityAthleteA,
+          IDS.capacityAthleteB,
+          IDS.checkoutRaceAthlete,
+          IDS.opposingAthlete,
+          IDS.receivedAthlete,
+        ],
       },
     },
   });
@@ -216,13 +252,18 @@ async function seed(client) {
     },
   });
   await client.athleteProfile.createMany({
-    data: [IDS.checkoutAthlete, IDS.capacityAthleteA, IDS.capacityAthleteB].map(
-      (id, index) => ({
+    data: [
+      IDS.checkoutAthlete,
+      IDS.capacityAthleteA,
+      IDS.capacityAthleteB,
+      IDS.checkoutRaceAthlete,
+      IDS.opposingAthlete,
+      IDS.receivedAthlete,
+    ].map((id, index) => ({
         id,
         displayName: `Security Athlete ${index + 1}`,
         dateOfBirth: new Date("2014-01-01T00:00:00.000Z"),
-      }),
-    ),
+      })),
   });
   await client.sport.create({
     data: {
@@ -301,6 +342,33 @@ async function seed(client) {
         purchasedByUserId: IDS.payer,
         status: "PENDING",
       },
+      {
+        id: IDS.checkoutRaceMembership,
+        organizationId: ORG_ID,
+        athleteId: IDS.checkoutRaceAthlete,
+        programmeOfferingId: IDS.checkoutOffering,
+        membershipPlanId: IDS.plan,
+        purchasedByUserId: IDS.payer,
+        status: "PENDING",
+      },
+      {
+        id: IDS.opposingMembership,
+        organizationId: ORG_ID,
+        athleteId: IDS.opposingAthlete,
+        programmeOfferingId: IDS.checkoutOffering,
+        membershipPlanId: IDS.plan,
+        purchasedByUserId: IDS.payer,
+        status: "PENDING",
+      },
+      {
+        id: IDS.receivedMembership,
+        organizationId: ORG_ID,
+        athleteId: IDS.receivedAthlete,
+        programmeOfferingId: IDS.checkoutOffering,
+        membershipPlanId: IDS.plan,
+        purchasedByUserId: IDS.payer,
+        status: "PENDING",
+      },
     ],
   });
 
@@ -346,6 +414,27 @@ async function seed(client) {
     installmentId: IDS.capacityInstallmentB,
     paymentId: IDS.capacityPaymentB,
     providerPaymentId: "capacity-payment-b",
+  });
+  await createPaymentChain(client, {
+    membershipId: IDS.checkoutRaceMembership,
+    scheduleId: IDS.checkoutRaceSchedule,
+    installmentId: IDS.checkoutRaceInstallment,
+    paymentId: IDS.checkoutRacePayment,
+    providerPaymentId: null,
+  });
+  await createPaymentChain(client, {
+    membershipId: IDS.opposingMembership,
+    scheduleId: IDS.opposingSchedule,
+    installmentId: IDS.opposingInstallment,
+    paymentId: IDS.opposingPayment,
+    providerPaymentId: "opposing-payment",
+  });
+  await createPaymentChain(client, {
+    membershipId: IDS.receivedMembership,
+    scheduleId: IDS.receivedSchedule,
+    installmentId: IDS.receivedInstallment,
+    paymentId: IDS.receivedPayment,
+    providerPaymentId: "received-payment",
   });
 }
 
@@ -413,6 +502,179 @@ test(
           );
           assert.equal(retry.paymentId, IDS.checkoutPayment);
           assert.equal(gateway.newBillCalls, 1);
+        },
+      );
+
+      await t.test(
+        "checkout completion cannot overwrite a verified successful payment",
+        async () => {
+          let webhookResult = null;
+          gateway.beforeNewBillReturn = async ({
+            input,
+            providerPaymentId,
+          }) => {
+            if (input.membershipId !== IDS.checkoutRaceMembership) return;
+            const event = {
+              providerEventId: "checkout-return-race-success",
+              eventType: "PAYMENT_SUCCEEDED",
+              idempotencyKey: paymentKey(IDS.checkoutRaceMembership),
+              providerPaymentId,
+              amountMinor: AMOUNT_MINOR,
+              currency: "MYR",
+            };
+            webhookResult = await billing.processVerifiedWebhook(
+              ORG_ID,
+              PROVIDER,
+              {},
+              Buffer.from(JSON.stringify(event), "utf8"),
+            );
+          };
+
+          try {
+            const checkout = await billing.prepareMembershipCheckout(
+              ORG_ID,
+              IDS.payer,
+              IDS.checkoutRaceAthlete,
+              IDS.checkoutRaceMembership,
+              { acceptTerms: true },
+            );
+            assert.equal(checkout.paymentId, IDS.checkoutRacePayment);
+          } finally {
+            gateway.beforeNewBillReturn = null;
+          }
+
+          assert.equal(webhookResult?.paymentStatus, "PAID");
+          const [payment, installment, membership, schedule] =
+            await Promise.all([
+              client.payment.findUniqueOrThrow({
+                where: { id: IDS.checkoutRacePayment },
+              }),
+              client.paymentInstallment.findUniqueOrThrow({
+                where: { id: IDS.checkoutRaceInstallment },
+              }),
+              client.membership.findUniqueOrThrow({
+                where: { id: IDS.checkoutRaceMembership },
+              }),
+              client.paymentSchedule.findUniqueOrThrow({
+                where: { id: IDS.checkoutRaceSchedule },
+              }),
+            ]);
+
+          assert.equal(payment.status, "PAID");
+          assert.equal(installment.status, "PAID");
+          assert.equal(membership.status, "ACTIVE");
+          assert.equal(schedule.status, "COMPLETED");
+        },
+      );
+
+      await t.test(
+        "opposing callbacks cannot downgrade a successful payment",
+        async () => {
+          const successEvent = {
+            providerEventId: "opposing-success",
+            eventType: "PAYMENT_SUCCEEDED",
+            idempotencyKey: paymentKey(IDS.opposingMembership),
+            providerPaymentId: "opposing-payment",
+            amountMinor: AMOUNT_MINOR,
+            currency: "MYR",
+          };
+          const failureEvent = {
+            providerEventId: "opposing-failure",
+            eventType: "PAYMENT_FAILED",
+            idempotencyKey: paymentKey(IDS.opposingMembership),
+            providerPaymentId: "opposing-payment",
+            amountMinor: AMOUNT_MINOR,
+            currency: "MYR",
+            failureCode: "declined",
+            safeFailureReason: "Payment was not completed",
+          };
+
+          await Promise.all([
+            billing.processVerifiedWebhook(
+              ORG_ID,
+              PROVIDER,
+              {},
+              Buffer.from(JSON.stringify(successEvent), "utf8"),
+            ),
+            billing.processVerifiedWebhook(
+              ORG_ID,
+              PROVIDER,
+              {},
+              Buffer.from(JSON.stringify(failureEvent), "utf8"),
+            ),
+          ]);
+
+          const [payment, installment, membership, schedule] =
+            await Promise.all([
+              client.payment.findUniqueOrThrow({
+                where: { id: IDS.opposingPayment },
+              }),
+              client.paymentInstallment.findUniqueOrThrow({
+                where: { id: IDS.opposingInstallment },
+              }),
+              client.membership.findUniqueOrThrow({
+                where: { id: IDS.opposingMembership },
+              }),
+              client.paymentSchedule.findUniqueOrThrow({
+                where: { id: IDS.opposingSchedule },
+              }),
+            ]);
+
+          assert.equal(payment.status, "PAID");
+          assert.equal(installment.status, "PAID");
+          assert.equal(membership.status, "ACTIVE");
+          assert.equal(schedule.status, "COMPLETED");
+        },
+      );
+
+      await t.test(
+        "a previously received provider event can recover after a crash",
+        async () => {
+          const event = {
+            providerEventId: "received-recovery-success",
+            eventType: "PAYMENT_SUCCEEDED",
+            idempotencyKey: paymentKey(IDS.receivedMembership),
+            providerPaymentId: "received-payment",
+            amountMinor: AMOUNT_MINOR,
+            currency: "MYR",
+          };
+          const rawBody = Buffer.from(JSON.stringify(event), "utf8");
+          await client.paymentProviderEvent.create({
+            data: {
+              organizationId: ORG_ID,
+              provider: PROVIDER,
+              providerEventId: event.providerEventId,
+              eventType: event.eventType,
+              payloadHash: createHash("sha256").update(rawBody).digest("hex"),
+              safeMetadata: { idempotencyKey: event.idempotencyKey },
+              processingStatus: "RECEIVED",
+            },
+          });
+
+          const result = await billing.processVerifiedWebhook(
+            ORG_ID,
+            PROVIDER,
+            {},
+            rawBody,
+          );
+          assert.equal(result.processed, true);
+          assert.equal(result.paymentStatus, "PAID");
+
+          const [payment, providerEvent] = await Promise.all([
+            client.payment.findUniqueOrThrow({
+              where: { id: IDS.receivedPayment },
+            }),
+            client.paymentProviderEvent.findUniqueOrThrow({
+              where: {
+                provider_providerEventId: {
+                  provider: PROVIDER,
+                  providerEventId: event.providerEventId,
+                },
+              },
+            }),
+          ]);
+          assert.equal(payment.status, "PAID");
+          assert.equal(providerEvent.processingStatus, "PROCESSED");
         },
       );
 
