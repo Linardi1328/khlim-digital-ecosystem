@@ -1,0 +1,108 @@
+name: Web Preview E2E
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  playwright:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:3001/v1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.0 --activate
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Build web exact commit in managed-host mode
+        env:
+          NETLIFY: "1"
+        run: pnpm --filter @khlim/web build
+
+      - name: Start web server
+        run: |
+          pnpm --filter @khlim/web start > /tmp/khlim-web.log 2>&1 &
+          echo $! > /tmp/khlim-web.pid
+
+      - name: Wait for web server
+        run: |
+          for attempt in {1..30}; do
+            if curl --fail --silent "$PLAYWRIGHT_BASE_URL/" --output /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/khlim-web.log
+          exit 1
+
+      - name: Build public walkthrough snapshot
+        run: |
+          rm -rf walkthrough-web
+          mkdir -p walkthrough-web/_next walkthrough-web/about walkthrough-web/academy walkthrough-web/programmes walkthrough-web/contact walkthrough-web/privacy walkthrough-web/terms
+          cp -R apps/web/.next/static walkthrough-web/_next/static
+          cp -R apps/web/public/. walkthrough-web/
+          curl --fail --silent --show-error "$PLAYWRIGHT_BASE_URL/" -o walkthrough-web/index.html
+          curl --fail --silent --show-error "$PLAYWRIGHT_BASE_URL/about" -o walkthrough-web/about/index.html
+          curl --fail --silent --show-error "$PLAYWRIGHT_BASE_URL/academy" -o walkthrough-web/academy/index.html
+          curl --fail --silent --show-error "$PLAYWRIGHT_BASE_URL/programmes" -o walkthrough-web/programmes/index.html
+          curl --fail --silent --show-error "$PLAYWRIGHT_BASE_URL/contact" -o walkthrough-web/contact/index.html
+          curl --fail --silent --show-error "$PLAYWRIGHT_BASE_URL/privacy" -o walkthrough-web/privacy/index.html
+          curl --fail --silent --show-error "$PLAYWRIGHT_BASE_URL/terms" -o walkthrough-web/terms/index.html
+          test -s walkthrough-web/index.html
+          test -f walkthrough-web/media/khero/khero-meaning.webp
+
+      - name: Run browser tests
+        run: pnpm exec playwright test --config=playwright.preview.config.mjs
+
+      - name: Upload browser QA artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-preview-e2e-artifacts
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload public walkthrough site
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-walkthrough-site
+          path: walkthrough-web/
+          if-no-files-found: error
+          retention-days: 7
+
+  remote-preview-reachable:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      QA_PREVIEW_URL: ${{ vars.KHLIM_WEB_QA_URL }}
+    steps:
+      - name: Verify configured shared QA preview is reachable
+        if: ${{ env.QA_PREVIEW_URL != '' }}
+        run: curl --fail --silent --show-error --retry 5 --retry-delay 3 "$QA_PREVIEW_URL" --output /dev/null
+
+      - name: Record that remote QA preview is not configured
+        if: ${{ env.QA_PREVIEW_URL == '' }}
+        run: echo "KHLIM_WEB_QA_URL is not configured; exact-head local browser acceptance remains authoritative for this CI run."

@@ -1,0 +1,33 @@
+name: Pre-Alpha Runtime Boundaries
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-boundaries:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.0 --activate
+          pnpm --version
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run pre-alpha runtime boundary tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/khlim_validation
+        run: pnpm test:pre-alpha

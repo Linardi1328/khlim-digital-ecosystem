@@ -1,0 +1,796 @@
+// Prisma 7 keeps connection URLs in prisma.config.ts rather than the schema.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../apps/api/src/generated/prisma"
+  engineType   = "client"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum UserRoleCode {
+  GUARDIAN
+  ATHLETE
+  COACH
+  SUPER_ADMIN
+  MANAGEMENT
+  FINANCE_ADMIN
+  ACADEMY_ADMIN
+  HEAD_COACH
+  EVENT_STAFF
+}
+
+enum GuardianAthleteLinkStatus {
+  PENDING
+  ACTIVE
+  REVOKED
+}
+
+enum GuardianInvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+enum ProgrammeOfferingStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  INACTIVE
+}
+
+enum BillingFrequency {
+  MONTHLY
+  UPFRONT
+}
+
+enum MembershipStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+  COMPLETED
+  EXPIRED
+}
+
+enum BillingProfileStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PaymentMethodStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PaymentScheduleStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentInstallmentStatus {
+  SCHEDULED
+  PROCESSING
+  PAID
+  FAILED
+  OVERDUE
+  WAIVED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum PaymentProviderEventProcessingStatus {
+  RECEIVED
+  PROCESSED
+  ACTION_REQUIRED
+  FAILED
+}
+
+model User {
+  id                           String                    @id @default(uuid()) @db.Uuid
+  authProviderSubject          String                    @unique @map("auth_provider_subject")
+  email                        String?
+  status                       UserStatus                @default(ACTIVE)
+  preferredLocale              String                    @default("en") @map("preferred_locale")
+  createdAt                    DateTime                  @default(now()) @map("created_at")
+  updatedAt                    DateTime                  @updatedAt @map("updated_at")
+  roleAssignments              UserRoleAssignment[]
+  organizationMemberships      OrganizationMembership[]
+  guardianProfile              GuardianProfile?
+  coachProfile                 CoachProfile?
+  athleteProfile               AthleteProfile?           @relation("AthleteAccount")
+  guardianAthleteLinks         GuardianAthleteLink[]      @relation("GuardianFamilyLinks")
+  createdGuardianAthleteLinks  GuardianAthleteLink[]      @relation("CreatedFamilyLinks")
+  createdGuardianInvitations   GuardianInvitation[]       @relation("CreatedGuardianInvitations")
+  acceptedGuardianInvitations  GuardianInvitation[]       @relation("AcceptedGuardianInvitations")
+  purchasedMemberships         Membership[]               @relation("MembershipPurchaser")
+  billingProfiles              BillingProfile[]
+  acceptedMembershipAgreements MembershipAgreement[]      @relation("MembershipAgreementAcceptor")
+  payments                     Payment[]                  @relation("PaymentPayer")
+
+  @@index([status])
+  @@map("users")
+}
+
+model UserRoleAssignment {
+  id        String       @id @default(uuid()) @db.Uuid
+  userId    String       @map("user_id") @db.Uuid
+  role      UserRoleCode
+  createdAt DateTime     @default(now()) @map("created_at")
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@index([role])
+  @@map("user_role_assignments")
+}
+
+model Organization {
+  id                    String                   @id @default(uuid()) @db.Uuid
+  slug                  String                   @unique @db.VarChar(80)
+  name                  String                   @db.VarChar(180)
+  status                String                   @default("ACTIVE") @db.VarChar(24)
+  createdAt             DateTime                 @default(now()) @map("created_at")
+  updatedAt             DateTime                 @updatedAt @map("updated_at")
+  memberships           OrganizationMembership[]
+  setting               OrganizationSetting?
+  branding              OrganizationBranding?
+  sports                OrganizationSport[]
+  venues                Venue[]
+  programmes            Programme[]
+  programmeOfferings    ProgrammeOffering[]
+  membershipPlans       MembershipPlan[]
+  academyMemberships    Membership[]
+  trainingSessions      TrainingSession[]
+  notifications         Notification[]
+  billingProfiles       BillingProfile[]
+  paymentMethods        PaymentMethod[]
+  payments              Payment[]
+  paymentProviderEvents PaymentProviderEvent[]
+  editorialEntries      EditorialEntry[]
+  auditEvents           AuditEvent[]
+
+  @@index([status])
+  @@map("organizations")
+}
+
+model OrganizationMembership {
+  id              String                       @id @default(uuid()) @db.Uuid
+  organizationId  String                       @map("organization_id") @db.Uuid
+  userId          String                       @map("user_id") @db.Uuid
+  status          String                       @default("ACTIVE") @db.VarChar(24)
+  createdAt       DateTime                     @default(now()) @map("created_at")
+  updatedAt       DateTime                     @updatedAt @map("updated_at")
+  organization    Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  user            User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleAssignments OrganizationRoleAssignment[]
+
+  @@unique([organizationId, userId])
+  @@index([userId, status])
+  @@index([organizationId, status])
+  @@map("organization_memberships")
+}
+
+model OrganizationRoleAssignment {
+  id                       String                 @id @default(uuid()) @db.Uuid
+  organizationMembershipId String                 @map("organization_membership_id") @db.Uuid
+  role                     String                 @db.VarChar(40)
+  createdAt                DateTime               @default(now()) @map("created_at")
+  organizationMembership   OrganizationMembership @relation(fields: [organizationMembershipId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationMembershipId, role])
+  @@index([role])
+  @@map("organization_role_assignments")
+}
+
+model OrganizationSetting {
+  organizationId String       @id @map("organization_id") @db.Uuid
+  currency       String       @default("MYR") @db.VarChar(3)
+  timezone       String       @default("Asia/Kuala_Lumpur") @db.VarChar(80)
+  version        Int          @default(1)
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("organization_settings")
+}
+
+model OrganizationBranding {
+  organizationId String       @id @map("organization_id") @db.Uuid
+  displayName    String       @map("display_name") @db.VarChar(180)
+  logoUrl        String?      @map("logo_url") @db.Text
+  primaryColor   String?      @map("primary_color") @db.VarChar(20)
+  secondaryColor String?      @map("secondary_color") @db.VarChar(20)
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("organization_branding")
+}
+
+model OrganizationSport {
+  organizationId String       @map("organization_id") @db.Uuid
+  sportId        String       @map("sport_id") @db.Uuid
+  active         Boolean      @default(true)
+  sortOrder      Int          @default(0) @map("sort_order")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sport          Sport        @relation(fields: [sportId], references: [id], onDelete: Restrict)
+
+  @@id([organizationId, sportId])
+  @@index([organizationId, active, sortOrder])
+  @@map("organization_sports")
+}
+
+model GuardianProfile {
+  userId      String   @id @map("user_id") @db.Uuid
+  displayName String   @map("display_name")
+  phone       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("guardian_profiles")
+}
+
+model CoachProfile {
+  userId      String   @id @map("user_id") @db.Uuid
+  displayName String   @map("display_name")
+  bio         String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("coach_profiles")
+}
+
+model AthleteProfile {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  userId              String?                @unique @map("user_id") @db.Uuid
+  displayName         String                 @map("display_name")
+  dateOfBirth         DateTime               @map("date_of_birth") @db.Date
+  preferredLocale     String                 @default("en") @map("preferred_locale")
+  createdAt           DateTime               @default(now()) @map("created_at")
+  updatedAt           DateTime               @updatedAt @map("updated_at")
+  user                User?                  @relation("AthleteAccount", fields: [userId], references: [id], onDelete: SetNull)
+  guardianLinks       GuardianAthleteLink[]
+  guardianInvitations GuardianInvitation[]
+  memberships         Membership[]
+
+  @@index([dateOfBirth])
+  @@map("athlete_profiles")
+}
+
+model GuardianAthleteLink {
+  id               String                    @id @default(uuid()) @db.Uuid
+  guardianUserId   String                    @map("guardian_user_id") @db.Uuid
+  athleteId        String                    @map("athlete_id") @db.Uuid
+  relationshipType String?                   @map("relationship_type")
+  status           GuardianAthleteLinkStatus @default(PENDING)
+  createdByUserId  String?                   @map("created_by_user_id") @db.Uuid
+  approvedAt       DateTime?                 @map("approved_at")
+  revokedAt        DateTime?                 @map("revoked_at")
+  createdAt        DateTime                  @default(now()) @map("created_at")
+  updatedAt        DateTime                  @updatedAt @map("updated_at")
+  guardian         User                      @relation("GuardianFamilyLinks", fields: [guardianUserId], references: [id], onDelete: Restrict)
+  athlete          AthleteProfile            @relation(fields: [athleteId], references: [id], onDelete: Restrict)
+  createdBy        User?                     @relation("CreatedFamilyLinks", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([guardianUserId, athleteId])
+  @@index([guardianUserId, status])
+  @@index([athleteId, status])
+  @@map("guardian_athlete_links")
+}
+
+model GuardianInvitation {
+  id               String                   @id @default(uuid()) @db.Uuid
+  athleteId        String                   @map("athlete_id") @db.Uuid
+  invitedByUserId  String                   @map("invited_by_user_id") @db.Uuid
+  inviteeEmail     String                   @map("invitee_email")
+  relationshipType String?                  @map("relationship_type")
+  tokenHash        String                   @unique @map("token_hash")
+  status           GuardianInvitationStatus @default(PENDING)
+  expiresAt        DateTime                 @map("expires_at")
+  acceptedByUserId String?                  @map("accepted_by_user_id") @db.Uuid
+  acceptedAt       DateTime?                @map("accepted_at")
+  revokedAt        DateTime?                @map("revoked_at")
+  createdAt        DateTime                 @default(now()) @map("created_at")
+  updatedAt        DateTime                 @updatedAt @map("updated_at")
+  athlete          AthleteProfile           @relation(fields: [athleteId], references: [id], onDelete: Cascade)
+  invitedBy        User                     @relation("CreatedGuardianInvitations", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+  acceptedBy       User?                    @relation("AcceptedGuardianInvitations", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([athleteId, status])
+  @@index([inviteeEmail, status])
+  @@map("guardian_invitations")
+}
+
+model Sport {
+  id            String              @id @default(uuid()) @db.Uuid
+  code          String              @unique
+  defaultName   String              @map("default_name")
+  active        Boolean             @default(true)
+  sortOrder     Int                 @default(0) @map("sort_order")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+  programmes    Programme[]
+  organizations OrganizationSport[]
+
+  @@index([active, sortOrder])
+  @@map("sports")
+}
+
+model Venue {
+  id             String              @id @default(uuid()) @db.Uuid
+  organizationId String              @map("organization_id") @db.Uuid
+  name           String
+  address        String?
+  active         Boolean             @default(true)
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  courts         Court[]
+  offerings      ProgrammeOffering[]
+
+  @@index([organizationId, active])
+  @@map("venues")
+}
+
+model Court {
+  id        String   @id @default(uuid()) @db.Uuid
+  venueId   String   @map("venue_id") @db.Uuid
+  name      String
+  capacity  Int?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  venue     Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([venueId, name])
+  @@index([venueId, active])
+  @@map("courts")
+}
+
+model Programme {
+  id             String              @id @default(uuid()) @db.Uuid
+  organizationId String              @map("organization_id") @db.Uuid
+  sportId        String              @map("sport_id") @db.Uuid
+  code           String
+  name           String
+  description    String?
+  minimumAge     Int?                @map("minimum_age")
+  maximumAge     Int?                @map("maximum_age")
+  level          String?
+  active         Boolean             @default(true)
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  sport          Sport               @relation(fields: [sportId], references: [id], onDelete: Restrict)
+  offerings      ProgrammeOffering[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, sportId, active])
+  @@map("programmes")
+}
+
+model ProgrammeOffering {
+  id                 String                              @id @default(uuid()) @db.Uuid
+  organizationId     String                              @map("organization_id") @db.Uuid
+  programmeId        String                              @map("programme_id") @db.Uuid
+  venueId            String?                             @map("venue_id") @db.Uuid
+  name               String
+  capacity           Int
+  enrollmentOpensAt  DateTime?                           @map("enrollment_opens_at")
+  enrollmentClosesAt DateTime?                           @map("enrollment_closes_at")
+  startsOn           DateTime?                           @map("starts_on") @db.Date
+  endsOn             DateTime?                           @map("ends_on") @db.Date
+  status             ProgrammeOfferingStatus             @default(DRAFT)
+  createdAt          DateTime                            @default(now()) @map("created_at")
+  updatedAt          DateTime                            @updatedAt @map("updated_at")
+  organization       Organization                        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  programme          Programme                           @relation(fields: [programmeId], references: [id], onDelete: Restrict)
+  venue              Venue?                              @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  planEligibilities  MembershipPlanOfferingEligibility[]
+  memberships        Membership[]
+
+  @@index([organizationId, programmeId, status])
+  @@index([organizationId, venueId, status])
+  @@map("programme_offerings")
+}
+
+model MembershipPlan {
+  id                    String                              @id @default(uuid()) @db.Uuid
+  organizationId        String                              @map("organization_id") @db.Uuid
+  name                  String
+  durationMonths        Int?                                @map("duration_months")
+  commitmentCycles      Int?                                @map("commitment_cycles")
+  billingFrequency      BillingFrequency                    @map("billing_frequency")
+  recurringAmountMinor  Int?                                @map("recurring_amount_minor")
+  upfrontAmountMinor    Int?                                @map("upfront_amount_minor")
+  currency              String                              @default("MYR")
+  sessionAllowance      Int?                                @map("session_allowance")
+  benefitsSummary       String?                             @map("benefits_summary")
+  active                Boolean                             @default(true)
+  createdAt             DateTime                            @default(now()) @map("created_at")
+  updatedAt             DateTime                            @updatedAt @map("updated_at")
+  organization          Organization                        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  offeringEligibilities MembershipPlanOfferingEligibility[]
+  memberships           Membership[]
+
+  @@index([organizationId, active])
+  @@map("membership_plans")
+}
+
+model MembershipPlanOfferingEligibility {
+  id         String            @id @default(uuid()) @db.Uuid
+  planId     String            @map("plan_id") @db.Uuid
+  offeringId String            @map("offering_id") @db.Uuid
+  createdAt  DateTime          @default(now()) @map("created_at")
+  plan       MembershipPlan    @relation(fields: [planId], references: [id], onDelete: Cascade)
+  offering   ProgrammeOffering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, offeringId])
+  @@index([offeringId])
+  @@map("membership_plan_offering_eligibilities")
+}
+
+model Membership {
+  id                  String            @id @default(uuid()) @db.Uuid
+  organizationId      String            @map("organization_id") @db.Uuid
+  athleteId           String            @map("athlete_id") @db.Uuid
+  programmeOfferingId String            @map("programme_offering_id") @db.Uuid
+  membershipPlanId    String            @map("membership_plan_id") @db.Uuid
+  purchasedByUserId   String?           @map("purchased_by_user_id") @db.Uuid
+  status              MembershipStatus  @default(PENDING)
+  startsAt            DateTime?         @map("starts_at")
+  endsAt              DateTime?         @map("ends_at")
+  activatedAt         DateTime?         @map("activated_at")
+  suspendedAt         DateTime?         @map("suspended_at")
+  cancelledAt         DateTime?         @map("cancelled_at")
+  completedAt         DateTime?         @map("completed_at")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+  organization        Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  athlete             AthleteProfile    @relation(fields: [athleteId], references: [id], onDelete: Restrict)
+  programmeOffering   ProgrammeOffering @relation(fields: [programmeOfferingId], references: [id], onDelete: Restrict)
+  membershipPlan      MembershipPlan    @relation(fields: [membershipPlanId], references: [id], onDelete: Restrict)
+  purchasedBy         User?             @relation("MembershipPurchaser", fields: [purchasedByUserId], references: [id], onDelete: SetNull)
+  agreements          MembershipAgreement[]
+  paymentSchedule     PaymentSchedule?
+  payments            Payment[]
+
+  @@index([organizationId, athleteId, status])
+  @@index([organizationId, programmeOfferingId, status])
+  @@index([organizationId, membershipPlanId, status])
+  @@map("memberships")
+}
+
+model MembershipAgreement {
+  id                       String           @id @default(uuid()) @db.Uuid
+  membershipId             String           @map("membership_id") @db.Uuid
+  termsVersion             String           @map("terms_version")
+  acceptedByUserId         String           @map("accepted_by_user_id") @db.Uuid
+  acceptedAt               DateTime         @default(now()) @map("accepted_at")
+  amountMinorSnapshot      Int              @map("amount_minor_snapshot")
+  currencySnapshot         String           @map("currency_snapshot")
+  billingFrequencySnapshot BillingFrequency @map("billing_frequency_snapshot")
+  installmentCountSnapshot Int              @map("installment_count_snapshot")
+  createdAt                DateTime         @default(now()) @map("created_at")
+  membership               Membership       @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+  acceptedBy               User             @relation("MembershipAgreementAcceptor", fields: [acceptedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([membershipId, termsVersion])
+  @@index([acceptedByUserId])
+  @@map("membership_agreements")
+}
+
+model BillingProfile {
+  id                 String               @id @default(uuid()) @db.Uuid
+  organizationId     String               @map("organization_id") @db.Uuid
+  userId             String               @map("user_id") @db.Uuid
+  provider           String
+  providerCustomerId String               @map("provider_customer_id")
+  status             BillingProfileStatus @default(ACTIVE)
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+  organization       Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
+  paymentMethods     PaymentMethod[]
+
+  @@unique([organizationId, userId, provider])
+  @@unique([provider, providerCustomerId])
+  @@index([organizationId, status])
+  @@map("billing_profiles")
+}
+
+model PaymentMethod {
+  id                             String              @id @default(uuid()) @db.Uuid
+  organizationId                 String              @map("organization_id") @db.Uuid
+  billingProfileId               String              @map("billing_profile_id") @db.Uuid
+  provider                       String
+  providerPaymentMethodReference String              @map("provider_payment_method_reference")
+  methodType                     String              @map("method_type")
+  brand                          String?
+  lastFour                       String?              @map("last_four")
+  expiryMonth                    Int?                 @map("expiry_month")
+  expiryYear                     Int?                 @map("expiry_year")
+  status                         PaymentMethodStatus @default(ACTIVE)
+  createdAt                      DateTime             @default(now()) @map("created_at")
+  updatedAt                      DateTime             @updatedAt @map("updated_at")
+  organization                   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  billingProfile                 BillingProfile      @relation(fields: [billingProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerPaymentMethodReference])
+  @@index([organizationId, billingProfileId, status])
+  @@map("payment_methods")
+}
+
+model PaymentSchedule {
+  id                            String                @id @default(uuid()) @db.Uuid
+  membershipId                  String                @unique @map("membership_id") @db.Uuid
+  frequency                     BillingFrequency
+  installmentCount              Int                   @map("installment_count")
+  amountPerInstallmentMinor     Int                   @map("amount_per_installment_minor")
+  currency                      String
+  startsAt                      DateTime               @map("starts_at")
+  status                        PaymentScheduleStatus @default(PENDING)
+  providerSubscriptionReference String?                @map("provider_subscription_reference")
+  createdAt                     DateTime               @default(now()) @map("created_at")
+  updatedAt                     DateTime               @updatedAt @map("updated_at")
+  membership                    Membership             @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+  installments                  PaymentInstallment[]
+
+  @@index([status])
+  @@map("payment_schedules")
+}
+
+model PaymentInstallment {
+  id                String                   @id @default(uuid()) @db.Uuid
+  paymentScheduleId String                   @map("payment_schedule_id") @db.Uuid
+  sequenceNumber    Int                      @map("sequence_number")
+  dueAt             DateTime                 @map("due_at")
+  amountMinor       Int                      @map("amount_minor")
+  currency          String
+  status            PaymentInstallmentStatus @default(SCHEDULED)
+  paidAt            DateTime?                @map("paid_at")
+  createdAt         DateTime                 @default(now()) @map("created_at")
+  updatedAt         DateTime                 @updatedAt @map("updated_at")
+  paymentSchedule   PaymentSchedule          @relation(fields: [paymentScheduleId], references: [id], onDelete: Cascade)
+  payments          Payment[]
+
+  @@unique([paymentScheduleId, sequenceNumber])
+  @@index([status, dueAt])
+  @@map("payment_installments")
+}
+
+model Payment {
+  id                   String              @id @default(uuid()) @db.Uuid
+  organizationId       String              @map("organization_id") @db.Uuid
+  payerUserId          String              @map("payer_user_id") @db.Uuid
+  membershipId         String?             @map("membership_id") @db.Uuid
+  paymentInstallmentId String?             @map("payment_installment_id") @db.Uuid
+  provider             String
+  providerPaymentId    String?             @map("provider_payment_id")
+  idempotencyKey       String              @unique @map("idempotency_key")
+  amountMinor          Int                 @map("amount_minor")
+  currency             String
+  status               PaymentStatus       @default(PENDING)
+  attemptNumber        Int                 @default(1) @map("attempt_number")
+  attemptedAt          DateTime            @default(now()) @map("attempted_at")
+  settledAt            DateTime?           @map("settled_at")
+  failedAt             DateTime?           @map("failed_at")
+  failureCode          String?             @map("failure_code")
+  safeFailureReason    String?             @map("safe_failure_reason")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @updatedAt @map("updated_at")
+  organization         Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  payer                User                @relation("PaymentPayer", fields: [payerUserId], references: [id], onDelete: Restrict)
+  membership           Membership?         @relation(fields: [membershipId], references: [id], onDelete: SetNull)
+  paymentInstallment   PaymentInstallment? @relation(fields: [paymentInstallmentId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, providerPaymentId])
+  @@index([organizationId, membershipId, status])
+  @@index([organizationId, paymentInstallmentId, status])
+  @@index([organizationId, status, attemptedAt])
+  @@map("payments")
+}
+
+model PaymentProviderEvent {
+  id               String                               @id @default(uuid()) @db.Uuid
+  organizationId   String                               @map("organization_id") @db.Uuid
+  provider         String
+  providerEventId  String                               @map("provider_event_id")
+  eventType        String                               @map("event_type")
+  receivedAt       DateTime                             @default(now()) @map("received_at")
+  processedAt      DateTime?                            @map("processed_at")
+  processingStatus PaymentProviderEventProcessingStatus @default(RECEIVED) @map("processing_status")
+  payloadHash      String                               @map("payload_hash")
+  safeMetadata     Json?                                @map("safe_metadata")
+  organization     Organization                         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([provider, providerEventId])
+  @@index([organizationId, processingStatus, receivedAt])
+  @@map("payment_provider_events")
+}
+
+enum EditorialEntryType {
+  ACHIEVEMENT
+  PLAYER_SPOTLIGHT
+}
+
+enum EditorialEntryStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model EditorialEntry {
+  id                String               @id @default(uuid()) @db.Uuid
+  organizationId    String               @map("organization_id") @db.Uuid
+  type              EditorialEntryType
+  slug              String?              @db.VarChar(160)
+  title             String               @db.VarChar(220)
+  eventName         String               @db.VarChar(220)
+  summary           String               @db.Text
+  yearLabel         String?              @db.VarChar(80)
+  playerName        String?              @db.VarChar(160)
+  achievement       String?              @db.VarChar(220)
+  achievedOnLabel   String?              @db.VarChar(120)
+  articleParagraphs Json?
+  photoLabel        String               @db.VarChar(220)
+  imageUrl          String?              @db.Text
+  factsVerified     Boolean              @default(false)
+  aiAssisted        Boolean              @default(false)
+  status            EditorialEntryStatus @default(DRAFT)
+  publishedAt       DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  organization      Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, type, status, publishedAt])
+  @@map("editorial_entries")
+}
+
+enum TrainingSessionStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  EXCUSED
+  LATE
+}
+
+model TrainingSession {
+  id                  String                @id @default(uuid()) @db.Uuid
+  organizationId      String                @map("organization_id") @db.Uuid
+  programmeOfferingId String?               @map("programme_offering_id") @db.Uuid
+  title               String                @db.VarChar(180)
+  startsAt            DateTime              @map("starts_at")
+  endsAt              DateTime              @map("ends_at")
+  venueName           String                @map("venue_name") @db.VarChar(180)
+  courtName           String?               @map("court_name") @db.VarChar(120)
+  coachName           String?               @map("coach_name") @db.VarChar(160)
+  notes               String?               @db.Text
+  status              TrainingSessionStatus @default(SCHEDULED)
+  cancellationReason  String?               @map("cancellation_reason") @db.Text
+  createdAt           DateTime              @default(now()) @map("created_at")
+  updatedAt           DateTime              @updatedAt @map("updated_at")
+  organization        Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  attendances         AttendanceRecord[]
+
+  @@index([organizationId, programmeOfferingId, startsAt, status])
+  @@index([organizationId, startsAt, status])
+  @@map("training_sessions")
+}
+
+model AttendanceRecord {
+  id          String           @id @default(uuid()) @db.Uuid
+  sessionId   String           @map("session_id") @db.Uuid
+  athleteId   String           @map("athlete_id") @db.Uuid
+  athleteName String           @map("athlete_name") @db.VarChar(160)
+  status      AttendanceStatus @default(PRESENT)
+  notes       String?          @db.Text
+  markedAt    DateTime         @default(now()) @map("marked_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  session     TrainingSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, athleteId])
+  @@index([athleteId, markedAt])
+  @@map("attendance_records")
+}
+
+enum NotificationType {
+  ANNOUNCEMENT
+  SCHEDULE_CHANGE
+  BILLING
+  EDITORIAL
+  SYSTEM
+}
+
+model Notification {
+  id                  String                @id @default(uuid()) @db.Uuid
+  organizationId      String                @map("organization_id") @db.Uuid
+  type                NotificationType      @default(ANNOUNCEMENT)
+  title               String                @db.VarChar(180)
+  body                String                @db.Text
+  programmeOfferingId String?               @map("programme_offering_id") @db.Uuid
+  createdByUserId     String?               @map("created_by_user_id") @db.Uuid
+  createdAt           DateTime              @default(now()) @map("created_at")
+  organization        Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  receipts            NotificationReceipt[]
+
+  @@index([organizationId, programmeOfferingId, createdAt])
+  @@index([organizationId, type, createdAt])
+  @@map("notifications")
+}
+
+model NotificationReceipt {
+  id             String       @id @default(uuid()) @db.Uuid
+  notificationId String       @map("notification_id") @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  readAt         DateTime?    @map("read_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, userId])
+  @@index([userId, readAt, createdAt])
+  @@map("notification_receipts")
+}
+
+model AuditEvent {
+  id             String        @id @default(uuid()) @db.Uuid
+  organizationId String?       @map("organization_id") @db.Uuid
+  actorUserId    String?       @map("actor_user_id") @db.Uuid
+  actorEmail     String?       @map("actor_email") @db.VarChar(320)
+  actorRoles     String        @map("actor_roles") @db.VarChar(320)
+  action         String        @db.VarChar(120)
+  entityType     String        @map("entity_type") @db.VarChar(120)
+  entityId       String        @map("entity_id") @db.VarChar(180)
+  summary        String        @db.Text
+  metadata       Json?
+  createdAt      DateTime      @default(now()) @map("created_at")
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([organizationId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([entityType, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_events")
+}
+
+model PlatformSetting {
+  id        String   @id @db.VarChar(80)
+  currency  String   @default("MYR") @db.VarChar(3)
+  timezone  String   @default("Asia/Kuala_Lumpur") @db.VarChar(80)
+  version   Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_settings")
+}

@@ -1,0 +1,53 @@
+{
+  "name": "khlim-digital-ecosystem",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.15.0",
+  "engines": {
+    "node": "24.x",
+    "pnpm": "10.15.0"
+  },
+  "scripts": {
+    "build": "pnpm prisma:generate && turbo run build",
+    "dev": "turbo run dev",
+    "lint": "eslint .",
+    "format": "prettier --write \"apps/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,mjs,json}\" \"tests/**/*.mjs\" \"scripts/**/*.mjs\" \"*.{json,mjs}\" \".github/workflows/*.yml\"",
+    "format:check": "prettier --check \"apps/**/*.{ts,tsx,json}\" \"packages/**/*.{ts,mjs,json}\" \"tests/**/*.mjs\" \"scripts/**/*.mjs\" \"*.{json,mjs}\" \".github/workflows/*.yml\"",
+    "test": "node --test tests/*.test.mjs",
+    "test:pre-alpha": "pnpm prisma:generate && pnpm --filter @khlim/api build && node --test tests/integration/*.test.mjs",
+    "test:pre-alpha:persistence": "pnpm prisma:generate && pnpm exec prisma migrate deploy && pnpm --filter @khlim/api build && node --test tests/integration/supabase-data-api-rls-lockdown.test.mjs tests/integration/pre-alpha-persistence-integrity.test.mjs tests/integration/admin-governance-persistence.test.mjs tests/integration/organization-tenancy-isolation.test.mjs tests/integration/organization-finance-isolation.test.mjs tests/integration/organization-access-editorial-isolation.test.mjs",
+    "test:pre-alpha:admin": "pnpm prisma:generate && pnpm exec prisma migrate deploy && pnpm --filter @khlim/api build && node --test tests/integration/pre-alpha-admin-http-integration.test.mjs tests/integration/phase-2-admin-academy-writes.test.mjs",
+    "test:pre-alpha:payments": "pnpm prisma:generate && pnpm exec prisma migrate deploy && pnpm --filter @khlim/api build && node --test tests/integration/pre-alpha-payment-webhook-integration.test.mjs tests/integration/payment-concurrency-hardening.test.mjs",
+    "test:pre-alpha:billplz": "pnpm prisma:generate && pnpm --filter @khlim/api build && node --test tests/integration/pre-alpha-billplz-sandbox.test.mjs",
+    "typecheck": "pnpm prisma:generate && turbo run typecheck",
+    "prisma:generate": "prisma generate",
+    "prisma:validate": "prisma validate",
+    "openapi:export": "pnpm --filter @khlim/api openapi:export",
+    "openapi:types": "openapi-typescript openapi/khlim-v1.json -o packages/api-client/src/schema.d.ts",
+    "openapi:generate": "pnpm prisma:generate && pnpm openapi:export && pnpm openapi:types",
+    "openapi:check": "pnpm openapi:generate && git diff --exit-code -- openapi/khlim-v1.json packages/api-client/src/schema.d.ts",
+    "bootstrap:verify": "node scripts/verify-bootstrap.mjs",
+    "i18n:audit": "node scripts/audit-web-i18n.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.55.0",
+    "dotenv": "17.4.2",
+    "eslint": "10.9.1",
+    "openapi-typescript": "7.13.0",
+    "prettier": "3.9.6",
+    "prisma": "7.9.1",
+    "turbo": "2.5.6",
+    "typescript": "5.9.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/engines",
+      "prisma"
+    ],
+    "ignoredBuiltDependencies": [
+      "@scarf/scarf",
+      "@sentry/cli",
+      "unrs-resolver"
+    ]
+  }
+}

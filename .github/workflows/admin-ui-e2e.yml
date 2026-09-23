@@ -1,0 +1,70 @@
+name: Admin UI E2E
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  playwright:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_PUBLIC_ADMIN_DEMO_MODE: "true"
+      NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:3001/v1
+      PLAYWRIGHT_ADMIN_BASE_URL: http://127.0.0.1:3002
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.0 --activate
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Build admin exact commit
+        env:
+          VERCEL: "1"
+        run: pnpm --filter @khlim/admin build
+
+      - name: Start admin server
+        run: |
+          pnpm --filter @khlim/admin start > /tmp/khlim-admin.log 2>&1 &
+          echo $! > /tmp/khlim-admin.pid
+
+      - name: Wait for admin server
+        run: |
+          for attempt in {1..30}; do
+            if curl --fail --silent "$PLAYWRIGHT_ADMIN_BASE_URL/" --output /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/khlim-admin.log
+          exit 1
+
+      - name: Run admin browser tests
+        run: pnpm exec playwright test --config=playwright.admin.config.mjs
+
+      - name: Upload admin browser QA artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-ui-e2e-artifacts
+          path: |
+            playwright-admin-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
