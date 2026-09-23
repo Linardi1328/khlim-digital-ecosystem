@@ -38,9 +38,19 @@ function StaffSignIn() {
   return (
     <main className="admin-access-gate">
       <form className="admin-access-card" onSubmit={submit}>
-        <div className="admin-access-mark" aria-hidden="true">
-          K
-        </div>
+        <img
+          src="/khs-academy-logo.webp"
+          alt="KHLIM Sports Academy"
+          width={68}
+          height={80}
+          style={{
+            width: 68,
+            height: 80,
+            objectFit: "contain",
+            display: "block",
+            margin: "0 auto 12px",
+          }}
+        />
         <h1>KHLIM Operations Console</h1>
         <p>
           Sign in with your approved staff account. Admin access is checked
@@ -236,9 +246,19 @@ function MfaGate() {
   return (
     <main className="admin-access-gate">
       <div className="admin-access-card">
-        <div className="admin-access-mark" aria-hidden="true">
-          2
-        </div>
+        <img
+          src="/khs-academy-logo.webp"
+          alt="KHLIM Sports Academy"
+          width={68}
+          height={80}
+          style={{
+            width: 68,
+            height: 80,
+            objectFit: "contain",
+            display: "block",
+            margin: "0 auto 12px",
+          }}
+        />
         <h1>MFA verification required</h1>
         <p>
           Your staff password was accepted, but KHLIM admin operations require
