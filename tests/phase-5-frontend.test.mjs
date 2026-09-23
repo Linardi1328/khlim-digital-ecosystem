@@ -54,6 +54,16 @@ test("Phase 5 uses backend membership DTO names and never activates memberships 
   assert.doesNotMatch(api, /INITIAL_(PROGRAMMES|OFFERINGS|MEMBERSHIP_PLANS)/);
 });
 
+test("Phase 5 enrolment filters programmes by birth-year cohort and guards child creation", async () => {
+  const enrol = await read("apps/web/app/enrol/page.tsx");
+  assert.match(enrol, /return intakeYear - birthYear/);
+  assert.match(enrol, /eligibleOfferings = useMemo/);
+  assert.match(enrol, /isOfferingEligibleForAthlete\(selectedDateOfBirth, offering\)/);
+  assert.match(enrol, /options=\{eligibleOfferings\.map/);
+  assert.match(enrol, /childCreationInFlight\.current/);
+  assert.match(enrol, /setIsProcessing\(true\)/);
+});
+
 test("Phase 5 checkout never renders KHLIM-owned card or CVV fields", async () => {
   const enrol = await read("apps/web/app/enrol/page.tsx");
   assert.doesNotMatch(enrol, /label=["']Card Number["']/i);
