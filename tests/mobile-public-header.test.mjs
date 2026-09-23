@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { test } from "node:test";
 
 const root = new URL("../", import.meta.url);
@@ -53,18 +53,20 @@ test("age-inclusive public controls preserve 44px interaction targets", async ()
   assert.match(carousel, /height: "44px"/);
 });
 
-test("public logo uses the committed JPEG directly without build-time conversion", async () => {
+test("public surfaces use the committed official academy logo without build-time conversion", async () => {
   const logo = await read("apps/web/components/layout/brand-logo.tsx");
   const manifest = JSON.parse(await read("apps/web/package.json"));
   const nextConfig = await read("apps/web/next.config.ts");
   const gitignore = await read(".gitignore");
 
-  assert.match(logo, /src="\/khlim-logo\.jpg"/);
+  await access(new URL("apps/web/public/khs-academy-logo.webp", root));
+  assert.match(logo, /src="\/khs-academy-logo\.webp"/);
+  assert.match(logo, /KHLIM Sports Academy/);
   assert.match(logo, /onError=\{\(\) => setImageFailed\(true\)\}/);
   assert.equal(manifest.scripts.build, "next build");
   assert.equal(manifest.scripts.dev, "next dev");
   assert.equal(manifest.scripts.start, "next start");
-  assert.doesNotMatch(nextConfig, /khlim-logo/);
+  assert.doesNotMatch(nextConfig, /khs-academy-logo/);
   assert.doesNotMatch(nextConfig, /writeFileSync|readFileSync|data:image/);
-  assert.doesNotMatch(gitignore, /apps\/web\/public\/khlim-logo/);
+  assert.doesNotMatch(gitignore, /apps\/web\/public\/khs-academy-logo/);
 });
