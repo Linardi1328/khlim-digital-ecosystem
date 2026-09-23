@@ -75,6 +75,17 @@ test("Phase 5 checkout never renders KHLIM-owned card or CVV fields", async () =
   assert.match(enrol, /window\.location\.assign\(checkout\.checkoutUrl\)/);
 });
 
+test("Phase 5 parent portal can resume provider checkout for an existing pending membership", async () => {
+  const membership = await read("apps/web/app/portal/membership/page.tsx");
+  assert.match(membership, /prepareCheckout\(/);
+  assert.match(membership, /activeChild\.id/);
+  assert.match(membership, /membershipId/);
+  assert.match(membership, /acceptTerms:\s*true/);
+  assert.match(membership, /window\.location\.assign\(checkout\.checkoutUrl\)/);
+  assert.match(membership, /membership\.status === "PENDING"/);
+  assert.doesNotMatch(membership, /status:\s*["']ACTIVE["']/);
+});
+
 test("Phase 5 confirmation requires verified backend state and has an explicit verification error state", async () => {
   const confirmation = await read("apps/web/app/enrol/confirmation/page.tsx");
   const catalogue = await read("packages/i18n/src/messages/enrol-web.ts");

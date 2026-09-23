@@ -20,6 +20,10 @@ export default function MembershipPage() {
   const { activeChild } = useFamily();
   const [memberships, setMemberships] = useState<AthleteMembershipItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [checkoutMembershipId, setCheckoutMembershipId] = useState<
+    string | null
+  >(null);
+  const [checkoutError, setCheckoutError] = useState("");
 
   useEffect(() => {
     if (!activeChild) {
@@ -34,6 +38,27 @@ export default function MembershipPage() {
       .catch(() => setMemberships([]))
       .finally(() => setLoading(false));
   }, [activeChild]);
+
+  const resumeCheckout = async (membershipId: string) => {
+    if (!activeChild || checkoutMembershipId) return;
+    setCheckoutError("");
+    setCheckoutMembershipId(membershipId);
+    try {
+      const checkout = await apiService.prepareCheckout(
+        activeChild.id,
+        membershipId,
+        { acceptTerms: true },
+      );
+      window.location.assign(checkout.checkoutUrl);
+    } catch (caught) {
+      setCheckoutError(
+        caught instanceof Error
+          ? caught.message
+          : t("portal.membership.checkoutError"),
+      );
+      setCheckoutMembershipId(null);
+    }
+  };
 
   return (
     <PortalShell>
@@ -106,15 +131,32 @@ export default function MembershipPage() {
                   </div>
                 </div>
                 {membership.status === "PENDING" ? (
-                  <p style={{ color: "#b45309" }}>
-                    {t("portal.membership.pendingSafety")}
-                  </p>
+                  <>
+                    <p style={{ color: "#b45309" }}>
+                      {t("portal.membership.pendingSafety")}
+                    </p>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      disabled={checkoutMembershipId !== null}
+                      onClick={() => void resumeCheckout(membership.id)}
+                    >
+                      {checkoutMembershipId === membership.id
+                        ? t("portal.membership.openingCheckout")
+                        : t("portal.membership.continuePayment")}
+                    </Button>
+                  </>
                 ) : null}
                 <Link href="/portal/payments">
                   <Button variant="outline" size="sm">
                     {t("portal.membership.viewBilling")}
                   </Button>
                 </Link>
+                {checkoutError && checkoutMembershipId === null ? (
+                  <p role="alert" style={{ color: "#b91c1c" }}>
+                    {checkoutError}
+                  </p>
+                ) : null}
               </Card>
             );
           })

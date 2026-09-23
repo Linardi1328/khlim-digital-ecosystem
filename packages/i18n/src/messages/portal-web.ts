@@ -41,6 +41,10 @@ const en = {
   "portal.membership.pendingSafety":
     "Pending memberships are not treated as active until verified backend billing state changes them.",
   "portal.membership.viewBilling": "View billing",
+  "portal.membership.continuePayment": "Continue to payment",
+  "portal.membership.openingCheckout": "Opening secure checkout…",
+  "portal.membership.checkoutError":
+    "Unable to open the payment provider checkout.",
   "portal.notifications.error": "Could not load notifications right now.",
   "portal.notifications.description":
     "Official announcements, schedule changes, billing notices and other KHLIM updates.",
@@ -164,6 +168,10 @@ const ms: Catalogue = {
   "portal.membership.pendingSafety":
     "Keahlian menunggu tidak dianggap aktif sehingga status pengebilan pelayan yang disahkan mengubahnya.",
   "portal.membership.viewBilling": "Lihat pengebilan",
+  "portal.membership.continuePayment": "Teruskan ke pembayaran",
+  "portal.membership.openingCheckout": "Membuka pembayaran selamat…",
+  "portal.membership.checkoutError":
+    "Tidak dapat membuka pembayaran penyedia pembayaran.",
   "portal.notifications.error": "Tidak dapat memuatkan pemberitahuan sekarang.",
   "portal.notifications.description":
     "Pengumuman rasmi, perubahan jadual, notis pengebilan dan kemas kini KHLIM yang lain.",
@@ -280,6 +288,9 @@ const zhHans: Catalogue = {
   "portal.membership.pendingSafety":
     "待处理会籍不会被视为已生效，只有经验证的后端账单状态更新后才会改变。",
   "portal.membership.viewBilling": "查看账单",
+  "portal.membership.continuePayment": "继续付款",
+  "portal.membership.openingCheckout": "正在打开安全结账…",
+  "portal.membership.checkoutError": "无法打开支付服务商的结账页面。",
   "portal.notifications.error": "目前无法加载通知。",
   "portal.notifications.description":
     "官方公告、日程变更、账单通知及其他 KHLIM 更新。",
@@ -504,6 +515,10 @@ const hi: Catalogue = {
   "portal.membership.pendingSafety":
     "लंबित सदस्यता को तब तक सक्रिय नहीं माना जाता जब तक सत्यापित बैकएंड बिलिंग स्थिति इसे बदल न दे।",
   "portal.membership.viewBilling": "बिलिंग देखें",
+  "portal.membership.continuePayment": "भुगतान जारी रखें",
+  "portal.membership.openingCheckout": "सुरक्षित चेकआउट खुल रहा है…",
+  "portal.membership.checkoutError":
+    "भुगतान प्रदाता का चेकआउट नहीं खोला जा सका।",
   "portal.notifications.error": "अभी सूचनाएँ लोड नहीं की जा सकीं।",
   "portal.notifications.description":
     "आधिकारिक घोषणाएँ, अनुसूची परिवर्तन, बिलिंग नोटिस और अन्य KHLIM अपडेट।",
