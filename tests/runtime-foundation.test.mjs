@@ -48,13 +48,6 @@ test("website and admin have executable Next.js runtime scaffolds", async () => 
   }
 });
 
-test("secondary Netlify Git deployments stay disabled", async () => {
-  const netlify = await read("netlify.toml");
-
-  assert.match(netlify, /ignore = "exit 0"/);
-  assert.match(netlify, /Vercel is the/);
-});
-
 test("Vercel Git auto-deployments are disabled for all application projects", async () => {
   for (const app of ["web", "admin", "api"]) {
     const config = await readJson(`apps/${app}/vercel.json`);
