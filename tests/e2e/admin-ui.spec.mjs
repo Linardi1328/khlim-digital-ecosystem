@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 const adminRoutes = [
   "/",
+  "/leads",
   "/reports",
   "/programmes",
   "/offerings",
@@ -58,6 +59,7 @@ test("desktop navigation reaches every core operations domain", async ({
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
   for (const [label, path] of [
+    ["Leads", "/leads"],
     ["Reports", "/reports"],
     ["Programmes", "/programmes"],
     ["Offerings", "/offerings"],

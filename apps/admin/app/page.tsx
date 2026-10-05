@@ -7,7 +7,12 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { MetricCard } from "../components/ui/MetricCard";
 import { Button } from "../components/ui/Button";
 import { useAdminAuth } from "../lib/auth-context";
-import { adminApi, getAdminOverview } from "../lib/admin-api";
+import {
+  adminApi,
+  getAdminOverview,
+  getAdminLeadSummary,
+  type AdminLeadSummaryResponse,
+} from "../lib/admin-api";
 import type { DashboardMetrics } from "../lib/types";
 
 interface QuickAction {
@@ -18,6 +23,12 @@ interface QuickAction {
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
+  {
+    href: "/leads",
+    title: "Academy leads",
+    description: "Manage interest registrations and follow up on WhatsApp.",
+    roles: ["SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN"],
+  },
   {
     href: "/offerings",
     title: "Programme offerings",
@@ -74,9 +85,53 @@ export default function AdminDashboardPage() {
     user,
   } = useAdminAuth();
   const canViewFinance = canAccessFinance();
+  const canViewLeads = hasRole(["SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN"]);
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [leadSummary, setLeadSummary] =
+    useState<AdminLeadSummaryResponse | null>(null);
+  const [leadsLoading, setLeadsLoading] = useState(false);
+  const [leadsError, setLeadsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!canViewLeads) {
+      setLeadSummary(null);
+      setLeadsError(null);
+      return;
+    }
+    if (!isDemoMode && (!isAuthenticated || !mfaSatisfied)) {
+      setLeadSummary(null);
+      setLeadsError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setLeadsLoading(true);
+    setLeadsError(null);
+
+    void getAdminLeadSummary()
+      .then((res) => {
+        if (!cancelled) setLeadSummary(res);
+      })
+      .catch((reason) => {
+        if (!cancelled) {
+          setLeadsError(
+            reason instanceof Error
+              ? reason.message
+              : "Lead summary could not be loaded.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLeadsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canViewLeads, isDemoMode, isAuthenticated, mfaSatisfied]);
 
   useEffect(() => {
     if (!isDemoMode && (!isAuthenticated || !mfaSatisfied)) {
@@ -223,6 +278,68 @@ export default function AdminDashboardPage() {
             variant="success"
             icon="📈"
           />
+          {canViewLeads && (
+            <>
+              <Link
+                href="/leads?status=NEW"
+                style={{
+                  textDecoration: "none",
+                  color: "inherit",
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
+                <MetricCard
+                  title="New Leads"
+                  value={
+                    leadsLoading
+                      ? "…"
+                      : leadSummary
+                        ? leadSummary.newLeads
+                        : leadsError
+                          ? "!"
+                          : "—"
+                  }
+                  subtitle="Awaiting initial contact"
+                  variant={
+                    leadSummary && leadSummary.newLeads > 0
+                      ? "warning"
+                      : "default"
+                  }
+                  icon="★"
+                />
+              </Link>
+              <Link
+                href="/leads?status=NEEDS_FOLLOW_UP"
+                style={{
+                  textDecoration: "none",
+                  color: "inherit",
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
+                <MetricCard
+                  title="Needs Follow-up"
+                  value={
+                    leadsLoading
+                      ? "…"
+                      : leadSummary
+                        ? leadSummary.needsFollowUp
+                        : leadsError
+                          ? "!"
+                          : "—"
+                  }
+                  subtitle="New, contacted, or qualified"
+                  variant={
+                    leadSummary && leadSummary.needsFollowUp > 0
+                      ? "warning"
+                      : "default"
+                  }
+                  icon="📋"
+                />
+              </Link>
+            </>
+          )}
           {canViewFinance ? (
             <MetricCard
               title="Payments Requiring Action"

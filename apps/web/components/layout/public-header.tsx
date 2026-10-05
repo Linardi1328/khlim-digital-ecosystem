@@ -19,6 +19,7 @@ export function PublicHeader() {
     { href: "/", label: t("nav.home") },
     { href: "/academy", label: t("nav.academy") },
     { href: "/programmes", label: t("nav.programmes") },
+    { href: "/interest", label: t("nav.registerInterest") },
     { href: "/about", label: t("nav.about") },
     { href: "/contact", label: t("nav.contact") },
   ];
@@ -276,6 +277,15 @@ export function PublicHeader() {
                 </Button>
               </Link>
             )}
+            <Link href="/interest" onClick={() => setMobileMenuOpen(false)}>
+              <Button
+                variant="outline"
+                size="md"
+                style={{ width: "100%", minHeight: "44px" }}
+              >
+                {t("nav.registerInterest")}
+              </Button>
+            </Link>
             <Link href="/enrol" onClick={() => setMobileMenuOpen(false)}>
               <Button variant="primary" size="md" style={{ width: "100%" }}>
                 {t("hero.cta.join")}

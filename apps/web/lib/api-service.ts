@@ -135,4 +135,24 @@ export const apiService = {
   ): Promise<{ id: string; readAt: string | null }> {
     return apiClient.post(`/me/notifications/${receiptId}/read`, {});
   },
+
+  async createLead(data: {
+    guardianName: string;
+    phone: string;
+    email?: string | null;
+    childAge: number;
+    programmeOfferingId?: string | null;
+    source?: string | null;
+    consent: boolean;
+    idempotencyKey?: string;
+  }): Promise<{
+    id: string;
+    status: string;
+    message: string;
+    createdAt: string;
+  }> {
+    return apiClient.post("/academy/leads", data, {
+      authenticated: false,
+    });
+  },
 };

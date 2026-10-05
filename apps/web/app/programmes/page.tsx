@@ -1,8 +1,13 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { apiService } from "../../lib/api-service";
+import {
+  buildUrlWithSource,
+  resolveCampaignSource,
+} from "../../lib/campaign-source";
 import { useI18n } from "../../lib/i18n-context";
 import type { PublicOfferingItem } from "../../lib/types";
 import { PublicFooter } from "../../components/layout/public-footer";
@@ -18,11 +23,19 @@ import {
   CardTitle,
 } from "../../components/ui/card";
 
-export default function ProgrammesPage() {
+function ProgrammesContent() {
   const { t, formatDate } = useI18n();
+  const searchParams = useSearchParams();
+  const querySource = searchParams?.get("source");
+  const [campaignSource, setCampaignSource] = useState<string | null>(null);
+
   const [offerings, setOfferings] = useState<PublicOfferingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [level, setLevel] = useState("ALL");
+
+  useEffect(() => {
+    setCampaignSource(resolveCampaignSource(querySource));
+  }, [querySource]);
 
   useEffect(() => {
     apiService
@@ -48,6 +61,11 @@ export default function ProgrammesPage() {
       ? offerings
       : offerings.filter((item) => item.programme.level === level);
 
+  const registerInterestGeneralUrl = buildUrlWithSource(
+    "/interest",
+    campaignSource,
+  );
+
   return (
     <div
       style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
@@ -67,6 +85,16 @@ export default function ProgrammesPage() {
           <Badge variant="brand">{t("programmes.catalogue")}</Badge>
           <h1>{t("programmes.title")}</h1>
           <p style={{ color: "#71717a" }}>{t("programmes.subtitle")}</p>
+          <div style={{ marginTop: 16 }}>
+            <Link
+              href={registerInterestGeneralUrl}
+              style={{ textDecoration: "none" }}
+            >
+              <Button variant="primary" size="md">
+                {t("programmes.registerInterest")}
+              </Button>
+            </Link>
+          </div>
         </div>
         {levels.length > 1 ? (
           <div
@@ -141,13 +169,28 @@ export default function ProgrammesPage() {
                     {t("programmes.capacity")} {offering.capacity}
                   </Badge>
                 </CardContent>
-                <CardFooter>
+                <CardFooter
+                  style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                >
                   <Link
-                    href={`/programmes/${offering.id}`}
+                    href={buildUrlWithSource(
+                      `/programmes/${offering.id}`,
+                      campaignSource,
+                    )}
+                    style={{ width: "100%" }}
+                  >
+                    <Button variant="outline" style={{ width: "100%" }}>
+                      {t("programmes.viewDetails")}
+                    </Button>
+                  </Link>
+                  <Link
+                    href={buildUrlWithSource("/interest", campaignSource, {
+                      offeringId: offering.id,
+                    })}
                     style={{ width: "100%" }}
                   >
                     <Button variant="primary" style={{ width: "100%" }}>
-                      {t("programmes.viewDetails")}
+                      {t("programmes.registerInterest")}
                     </Button>
                   </Link>
                 </CardFooter>
@@ -158,5 +201,15 @@ export default function ProgrammesPage() {
       </main>
       <PublicFooter />
     </div>
+  );
+}
+
+export default function ProgrammesPage() {
+  return (
+    <Suspense
+      fallback={<div aria-busy="true" style={{ minHeight: "100vh" }} />}
+    >
+      <ProgrammesContent />
+    </Suspense>
   );
 }

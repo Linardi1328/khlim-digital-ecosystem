@@ -10,6 +10,7 @@ dist/
 out/
 coverage/
 apps/api/src/generated/prisma/
+*.tsbuildinfo
 
 # Expo / React Native
 .expo/

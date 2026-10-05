@@ -1032,6 +1032,38 @@
         ]
       }
     },
+    "/v1/academy/leads": {
+      "post": {
+        "operationId": "AcademyLeadsController_createLead",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAcademyLeadDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Lead successfully recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateAcademyLeadResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Register interest in KHLIM Academy programmes without an account",
+        "tags": [
+          "academy"
+        ]
+      }
+    },
     "/v1/admin/academy/sports": {
       "post": {
         "operationId": "AcademyAdminController_createSport",
@@ -1240,6 +1272,203 @@
             "supabase": []
           }
         ],
+        "tags": [
+          "admin-academy"
+        ]
+      }
+    },
+    "/v1/admin/academy/leads": {
+      "get": {
+        "operationId": "AcademyLeadsAdminController_listLeads",
+        "parameters": [
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Search guardian name, phone, or email",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by status or NEEDS_FOLLOW_UP (NEW, CONTACTED, QUALIFIED)",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "NEW",
+                "CONTACTED",
+                "QUALIFIED",
+                "ENROLLED",
+                "CLOSED",
+                "NEEDS_FOLLOW_UP"
+              ]
+            }
+          },
+          {
+            "name": "source",
+            "required": false,
+            "in": "query",
+            "description": "Filter by campaign source token",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offeringId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by programme offering ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcademyLeadListResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "List tenant Academy interest leads with bounded pagination, newest-first ordering, and filters",
+        "tags": [
+          "admin-academy"
+        ]
+      }
+    },
+    "/v1/admin/academy/leads/summary": {
+      "get": {
+        "operationId": "AcademyLeadsAdminController_getSummary",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcademyLeadSummaryResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Get role-gated counts for new leads and leads requiring operator follow-up",
+        "tags": [
+          "admin-academy"
+        ]
+      }
+    },
+    "/v1/admin/academy/leads/{id}": {
+      "get": {
+        "operationId": "AcademyLeadsAdminController_getLeadDetail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcademyLeadItemDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Retrieve tenant-scoped Academy lead detail",
+        "tags": [
+          "admin-academy"
+        ]
+      },
+      "patch": {
+        "operationId": "AcademyLeadsAdminController_updateLead",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAcademyLeadDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcademyLeadItemDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Update lead status and operational notes with concurrency detection",
         "tags": [
           "admin-academy"
         ]
@@ -2090,6 +2319,91 @@
           "planId"
         ]
       },
+      "CreateAcademyLeadDto": {
+        "type": "object",
+        "properties": {
+          "guardianName": {
+            "type": "string",
+            "example": "Lim Wei Hong",
+            "description": "Guardian full name",
+            "maxLength": 120
+          },
+          "phone": {
+            "type": "string",
+            "example": "+60123456789",
+            "description": "Mobile phone or WhatsApp number"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true,
+            "example": "guardian@example.com",
+            "description": "Optional contact email",
+            "maxLength": 254
+          },
+          "childAge": {
+            "type": "number",
+            "example": 10,
+            "description": "Child age in years (3-18)",
+            "minimum": 3,
+            "maximum": 18
+          },
+          "programmeOfferingId": {
+            "type": "string",
+            "example": "00000000-0000-4000-8000-000000000001",
+            "description": "Optional programme offering UUID"
+          },
+          "source": {
+            "type": "string",
+            "example": "3x3-oct24",
+            "description": "Optional campaign source token",
+            "maxLength": 64
+          },
+          "consent": {
+            "type": "boolean",
+            "example": true,
+            "description": "Explicit privacy and follow-up consent"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "example": "idemp-123e4567-e89b-12d3-a456-426614174000",
+            "description": "Optional client retry idempotency token",
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "guardianName",
+          "phone",
+          "childAge",
+          "consent"
+        ]
+      },
+      "CreateAcademyLeadResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "00000000-0000-4000-8000-000000000001"
+          },
+          "status": {
+            "type": "string",
+            "example": "RECEIVED"
+          },
+          "message": {
+            "type": "string",
+            "example": "Thank you for registering your interest with KHLIM Academy. Our team will follow up with you."
+          },
+          "createdAt": {
+            "type": "string",
+            "example": "2026-10-06T04:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "message",
+          "createdAt"
+        ]
+      },
       "CreateSportDto": {
         "type": "object",
         "properties": {
@@ -2272,6 +2586,197 @@
           "planId",
           "offeringId"
         ]
+      },
+      "AcademyLeadItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "organizationId": {
+            "type": "string"
+          },
+          "guardianName": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "email": {
+            "type": "object"
+          },
+          "childAge": {
+            "type": "number"
+          },
+          "programmeOfferingId": {
+            "type": "object"
+          },
+          "offeringName": {
+            "type": "object"
+          },
+          "programmeName": {
+            "type": "object"
+          },
+          "source": {
+            "type": "object"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "NEW",
+              "CONTACTED",
+              "QUALIFIED",
+              "ENROLLED",
+              "CLOSED"
+            ]
+          },
+          "notes": {
+            "type": "object"
+          },
+          "consentAt": {
+            "type": "string"
+          },
+          "consentVersion": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "organizationId",
+          "guardianName",
+          "phone",
+          "childAge",
+          "status",
+          "consentAt",
+          "consentVersion",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "AcademyLeadListResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AcademyLeadItemDto"
+            }
+          },
+          "total": {
+            "type": "number",
+            "example": 42
+          },
+          "page": {
+            "type": "number",
+            "example": 1
+          },
+          "limit": {
+            "type": "number",
+            "example": 20
+          },
+          "totalPages": {
+            "type": "number",
+            "example": 3
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "limit",
+          "totalPages"
+        ]
+      },
+      "AcademyLeadStatusCountsDto": {
+        "type": "object",
+        "properties": {
+          "NEW": {
+            "type": "number",
+            "example": 5
+          },
+          "CONTACTED": {
+            "type": "number",
+            "example": 3
+          },
+          "QUALIFIED": {
+            "type": "number",
+            "example": 2
+          },
+          "ENROLLED": {
+            "type": "number",
+            "example": 1
+          },
+          "CLOSED": {
+            "type": "number",
+            "example": 4
+          }
+        },
+        "required": [
+          "NEW",
+          "CONTACTED",
+          "QUALIFIED",
+          "ENROLLED",
+          "CLOSED"
+        ]
+      },
+      "AcademyLeadSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "newLeads": {
+            "type": "number",
+            "example": 5,
+            "description": "Count of NEW leads"
+          },
+          "needsFollowUp": {
+            "type": "number",
+            "example": 10,
+            "description": "Count of NEW + CONTACTED + QUALIFIED leads requiring follow-up"
+          },
+          "byStatus": {
+            "$ref": "#/components/schemas/AcademyLeadStatusCountsDto"
+          },
+          "total": {
+            "type": "number",
+            "example": 15
+          }
+        },
+        "required": [
+          "newLeads",
+          "needsFollowUp",
+          "byStatus",
+          "total"
+        ]
+      },
+      "UpdateAcademyLeadDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "NEW",
+              "CONTACTED",
+              "QUALIFIED",
+              "ENROLLED",
+              "CLOSED"
+            ]
+          },
+          "notes": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000,
+            "description": "Plain-text operational notes"
+          },
+          "expectedUpdatedAt": {
+            "type": "string",
+            "description": "ISO timestamp of updatedAt when the record was viewed, for concurrency conflict detection"
+          }
+        }
       },
       "PrepareMembershipCheckoutDto": {
         "type": "object",
