@@ -306,7 +306,7 @@ test(
       await client.submissionRateLimit.create({
         data: {
           key: "lead:expired:test-row",
-          attempts: 5,
+          count: 5,
           expiresAt: new Date(Date.now() - 60000),
         },
       });
