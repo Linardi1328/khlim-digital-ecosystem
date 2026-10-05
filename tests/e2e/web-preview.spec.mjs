@@ -257,3 +257,29 @@ test("unknown route returns a real not-found response rather than a server crash
   expect(response).not.toBeNull();
   expect(response.status()).toBe(404);
 });
+
+test("interest registration form supports campaign attribution and responsive layout", async ({
+  page,
+}) => {
+  await page.goto("/interest?source=3x3-oct24", {
+    waitUntil: "domcontentloaded",
+  });
+
+  // Verify form inputs and actions
+  await expect(page.locator('input[autoComplete="name"]')).toBeVisible();
+  await expect(page.locator('input[type="tel"]')).toBeVisible();
+  await expect(page.locator('input[type="email"]')).toBeVisible();
+  await expect(page.locator('input[type="number"]')).toBeVisible();
+  await expect(page.locator("#interest-privacy-consent")).toBeVisible();
+  await expect(page.locator('button[type="submit"]')).toBeVisible();
+
+  // Test responsive viewports for horizontal overflow
+  for (const width of [390, 412, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    const overflow = await page.evaluate(() => {
+      const root = document.documentElement;
+      return root.scrollWidth > root.clientWidth + 2;
+    });
+    expect(overflow, `Horizontal overflow detected at ${width}px`).toBe(false);
+  }
+});

@@ -68,7 +68,7 @@ export class AcademyLeadsAdminController {
   getSummary(
     @CurrentUser() user: AuthenticatedUserContext,
   ): Promise<AcademyLeadSummaryResponseDto> {
-    return this.leadsService.getAdminLeadsSummary(organizationId(user));
+    return this.leadsService.getAdminLeadSummary(organizationId(user));
   }
 
   @Get(":id")

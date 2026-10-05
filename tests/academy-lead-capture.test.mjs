@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import crypto from "node:crypto";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 
 const root = new URL("../", import.meta.url);
 
@@ -9,15 +12,38 @@ async function read(path) {
   return readFile(new URL(path, root), "utf8");
 }
 
-test("phone normalization handles Malaysian local, prefix, and E.164 formats", async () => {
-  const { normalizePhoneNumber } =
-    await import("../apps/api/src/academy/academy-leads.validation.js").catch(
-      async () => {
-        // If ts not compiled directly into js in src, import from dist
-        return import("../apps/api/dist/academy/academy-leads.validation.js");
-      },
-    );
+const distValidationUrl = new URL(
+  "../apps/api/dist/academy/academy-leads.validation.js",
+  import.meta.url,
+);
 
+if (!existsSync(distValidationUrl)) {
+  execFileSync("pnpm", ["--filter", "@khlim/api", "build"], {
+    cwd: fileURLToPath(root),
+    stdio: "pipe",
+  });
+}
+
+const {
+  normalizePhoneNumber,
+  validateChildAge,
+  validateGuardianName,
+  validateConsent,
+  sanitizeCampaignSource,
+  validateUuid,
+  validateOptionalUuid,
+  validateIsoTimestamp,
+  parsePositiveInteger,
+} = await import(distValidationUrl.href);
+
+const { resolveClientIp } = await import(
+  new URL(
+    "../apps/api/dist/academy/academy-leads.controller.js",
+    import.meta.url,
+  ).href
+);
+
+test("phone normalization handles Malaysian local, prefix, and E.164 formats", () => {
   // Malaysian local
   assert.equal(normalizePhoneNumber("0123456789"), "+60123456789");
   assert.equal(normalizePhoneNumber("012-345 6789"), "+60123456789");
@@ -40,14 +66,7 @@ test("phone normalization handles Malaysian local, prefix, and E.164 formats", a
   assert.throws(() => normalizePhoneNumber(123456789), /must be a string/);
 });
 
-test("child age validation enforces range between 3 and 18 years inclusive", async () => {
-  const { validateChildAge } =
-    await import("../apps/api/src/academy/academy-leads.validation.js").catch(
-      async () => {
-        return import("../apps/api/dist/academy/academy-leads.validation.js");
-      },
-    );
-
+test("child age validation enforces range between 3 and 18 years inclusive", () => {
   assert.equal(validateChildAge(3), 3);
   assert.equal(validateChildAge(10), 10);
   assert.equal(validateChildAge(18), 18);
@@ -62,14 +81,7 @@ test("child age validation enforces range between 3 and 18 years inclusive", asy
   assert.throws(() => validateChildAge("ten"), /integer/);
 });
 
-test("guardian name and consent validations enforce required fields", async () => {
-  const { validateGuardianName, validateConsent } =
-    await import("../apps/api/src/academy/academy-leads.validation.js").catch(
-      async () => {
-        return import("../apps/api/dist/academy/academy-leads.validation.js");
-      },
-    );
-
+test("guardian name and consent validations enforce required fields", () => {
   assert.equal(validateGuardianName("Lim Wei Hong"), "Lim Wei Hong");
   assert.equal(validateGuardianName("  Sarah Tan  "), "Sarah Tan");
   assert.throws(() => validateGuardianName(""), /required/);
@@ -83,14 +95,7 @@ test("guardian name and consent validations enforce required fields", async () =
   assert.throws(() => validateConsent(undefined), /consent is required/);
 });
 
-test("campaign source sanitation and web helper preserve clean attribution tokens", async () => {
-  const { sanitizeCampaignSource } =
-    await import("../apps/api/src/academy/academy-leads.validation.js").catch(
-      async () => {
-        return import("../apps/api/dist/academy/academy-leads.validation.js");
-      },
-    );
-
+test("campaign source sanitation and web helper preserve clean attribution tokens", () => {
   assert.equal(sanitizeCampaignSource("3x3-oct24"), "3x3-oct24");
   assert.equal(sanitizeCampaignSource("ig_stories_ad"), "ig_stories_ad");
   assert.equal(sanitizeCampaignSource(null), null);
@@ -104,6 +109,84 @@ test("campaign source sanitation and web helper preserve clean attribution token
     /alphanumeric/,
   );
   assert.throws(() => sanitizeCampaignSource("x".repeat(65)), /64 characters/);
+});
+
+test("UUID and ISO timestamp validators enforce strict formats", () => {
+  const validUuid = "00000000-0000-4000-8000-000000000001";
+  assert.equal(validateUuid(validUuid, "leadId"), validUuid);
+  assert.throws(() => validateUuid("not-a-uuid", "leadId"), /valid UUID/);
+  assert.throws(() => validateUuid(12345, "leadId"), /valid UUID/);
+  assert.throws(() => validateUuid(null, "leadId"), /valid UUID/);
+
+  assert.equal(validateOptionalUuid(validUuid, "offeringId"), validUuid);
+  assert.equal(validateOptionalUuid(null, "offeringId"), null);
+  assert.equal(validateOptionalUuid(undefined, "offeringId"), null);
+  assert.equal(validateOptionalUuid("", "offeringId"), null);
+  assert.throws(
+    () => validateOptionalUuid("invalid", "offeringId"),
+    /valid UUID/,
+  );
+
+  const validIso = "2026-10-06T05:00:00.000Z";
+  assert.equal(validateIsoTimestamp(validIso, "expectedUpdatedAt"), validIso);
+  assert.throws(
+    () => validateIsoTimestamp("not-iso", "expectedUpdatedAt"),
+    /valid ISO 8601/,
+  );
+  assert.throws(
+    () => validateIsoTimestamp("invalid-date", "expectedUpdatedAt"),
+    /valid ISO 8601/,
+  );
+});
+
+test("parsePositiveInteger clamps and defaults appropriately", () => {
+  assert.equal(parsePositiveInteger(5, 1, 100, "page"), 5);
+  assert.equal(parsePositiveInteger("10", 1, 100, "limit"), 10);
+  assert.equal(parsePositiveInteger(undefined, 20, 100, "limit"), 20);
+  assert.equal(parsePositiveInteger(null, 20, 100, "limit"), 20);
+  assert.throws(
+    () => parsePositiveInteger(0, 20, 100, "limit"),
+    /greater than or equal to 1/,
+  );
+  assert.throws(
+    () => parsePositiveInteger(-5, 20, 100, "limit"),
+    /greater than or equal to 1/,
+  );
+  assert.throws(
+    () => parsePositiveInteger("abc", 20, 100, "limit"),
+    /positive integer/,
+  );
+  assert.equal(parsePositiveInteger(500, 20, 100, "limit"), 100);
+});
+
+test("resolveClientIp enforces trusted proxy boundaries against header spoofing", () => {
+  // Direct connection (trustedProxy = false): ignores x-forwarded-for spoofing
+  const directReq = {
+    headers: { "x-forwarded-for": "203.0.113.195" },
+    ip: "127.0.0.1",
+  };
+  assert.equal(resolveClientIp(directReq, false), "127.0.0.1");
+
+  // Direct socket fallback
+  const socketReq = {
+    headers: { "x-forwarded-for": "203.0.113.195" },
+    socket: { remoteAddress: "192.168.1.50" },
+  };
+  assert.equal(resolveClientIp(socketReq, false), "192.168.1.50");
+
+  // Trusted proxy connection (trustedProxy = true): extracts client IP from forwarded header
+  const proxyReq = {
+    headers: { "x-forwarded-for": "203.0.113.195, 10.0.0.1" },
+    ip: "10.0.0.1",
+  };
+  assert.equal(resolveClientIp(proxyReq, true), "203.0.113.195");
+
+  // Real-IP header when trusted proxy
+  const realIpReq = {
+    headers: { "x-real-ip": "198.51.100.22" },
+    ip: "10.0.0.1",
+  };
+  assert.equal(resolveClientIp(realIpReq, true), "198.51.100.22");
 });
 
 test("idempotency hash determinism matches identical payloads and differentiates altered payloads", () => {

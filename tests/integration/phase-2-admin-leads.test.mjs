@@ -16,6 +16,12 @@ const {
 const {
   SupabaseJwtService,
 } = require("../../apps/api/dist/auth/supabase-jwt.service.js");
+const {
+  AcademyLeadsService,
+} = require("../../apps/api/dist/academy/academy-leads.service.js");
+const {
+  resolveClientIp,
+} = require("../../apps/api/dist/academy/academy-leads.controller.js");
 
 const KHLIM_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001";
 const FOREIGN_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000093";
@@ -113,10 +119,20 @@ async function jsonRequest(baseUrl, path, options = {}) {
 
 async function cleanup(client) {
   await client.academyLead.deleteMany({
-    where: { guardianName: { startsWith: "Test Lead" } },
+    where: {
+      OR: [
+        { guardianName: { startsWith: "Test Lead" } },
+        { organizationId: FOREIGN_ORGANIZATION_ID },
+      ],
+    },
   });
   await client.submissionRateLimit.deleteMany({
-    where: { key: { startsWith: "test-rate-limit" } },
+    where: {
+      OR: [{ key: { startsWith: "test-" } }, { key: { startsWith: "lead:" } }],
+    },
+  });
+  await client.auditLog.deleteMany({
+    where: { entityType: "ACADEMY_LEAD" },
   });
   await client.organizationMembership.deleteMany({
     where: { userId: { in: [USER_ID, COACH_USER_ID] } },
@@ -228,6 +244,90 @@ test(
       });
       assert.equal(conflictRes.response.status, 409);
 
+      // 3b. Rate limiting: 3 per hour per phone
+      const ratePhone = "0198881111";
+      for (let i = 1; i <= 3; i++) {
+        const res = await jsonRequest(baseUrl, "/v1/academy/leads", {
+          method: "POST",
+          body: {
+            guardianName: `Test Lead Rate ${i}`,
+            phone: ratePhone,
+            childAge: 10,
+            consent: true,
+            idempotencyKey: `test-rate-token-${i}`,
+          },
+          clientIp: "10.0.0.2",
+        });
+        assert.equal(res.response.status, 201);
+      }
+
+      // 4th submission with same phone exhausts rate limit -> 429
+      const rateLimitExceededRes = await jsonRequest(
+        baseUrl,
+        "/v1/academy/leads",
+        {
+          method: "POST",
+          body: {
+            guardianName: "Test Lead Rate 4",
+            phone: ratePhone,
+            childAge: 10,
+            consent: true,
+            idempotencyKey: "test-rate-token-4",
+          },
+          clientIp: "10.0.0.2",
+        },
+      );
+      assert.equal(rateLimitExceededRes.response.status, 429);
+      assert.ok(rateLimitExceededRes.response.headers.get("retry-after"));
+      assert.match(
+        String(rateLimitExceededRes.body?.message),
+        /Too many registration submissions/,
+      );
+
+      // Replay of previous submission (test-rate-token-1) returns 201 receipt even when rate limits are exhausted
+      const rateReplayRes = await jsonRequest(baseUrl, "/v1/academy/leads", {
+        method: "POST",
+        body: {
+          guardianName: "Test Lead Rate 1",
+          phone: ratePhone,
+          childAge: 10,
+          consent: true,
+          idempotencyKey: "test-rate-token-1",
+        },
+        clientIp: "10.0.0.2",
+      });
+      assert.equal(rateReplayRes.response.status, 201);
+      assert.equal(rateReplayRes.body.status, "RECEIVED");
+
+      // 3c. Cleanup of expired rate limits
+      await client.submissionRateLimit.create({
+        data: {
+          key: "lead:expired:test-row",
+          attempts: 5,
+          expiresAt: new Date(Date.now() - 60000),
+        },
+      });
+      const leadsService = app.get(AcademyLeadsService);
+      const cleanedRows = await leadsService.cleanupExpiredRateLimits();
+      assert.ok(cleanedRows >= 1);
+      const expiredCheck = await client.submissionRateLimit.findUnique({
+        where: { key: "lead:expired:test-row" },
+      });
+      assert.equal(expiredCheck, null);
+
+      // 3d. Direct caller IP spoofing protection
+      const directIp = resolveClientIp(
+        { headers: { "x-forwarded-for": "203.0.113.195" }, ip: "127.0.0.1" },
+        false,
+      );
+      assert.equal(directIp, "127.0.0.1");
+
+      const proxyIp = resolveClientIp(
+        { headers: { "x-forwarded-for": "203.0.113.195, 10.0.0.1" } },
+        true,
+      );
+      assert.equal(proxyIp, "203.0.113.195");
+
       // 4. Role and MFA gating on Admin endpoints
       // 4a. Unauthenticated -> 401
       const unauthRes = await jsonRequest(baseUrl, "/v1/admin/academy/leads");
@@ -258,6 +358,59 @@ test(
       assert.ok(found);
       assert.equal(found.guardianName, "Test Lead Guardian One");
       assert.equal(found.phone, "+60123456789");
+
+      // 4e. Foreign tenant isolation
+      await client.$executeRaw`
+        INSERT INTO organizations (id, slug, name, default_locale, time_zone, created_at, updated_at)
+        VALUES (${FOREIGN_ORGANIZATION_ID}::uuid, 'foreign-org', 'Foreign Org', 'en-MY', 'Asia/Kuala_Lumpur', NOW(), NOW())
+        ON CONFLICT (id) DO NOTHING
+      `;
+      const foreignLead = await client.academyLead.create({
+        data: {
+          organizationId: FOREIGN_ORGANIZATION_ID,
+          guardianName: "Test Lead Foreign Tenant",
+          phone: "+60181112233",
+          childAge: 11,
+          status: "NEW",
+          consentVersion: "2026-10-v1",
+          consentAt: new Date(),
+        },
+      });
+
+      // KHLIM admin list should NOT include foreign lead
+      const khlimListRes = await jsonRequest(
+        baseUrl,
+        "/v1/admin/academy/leads",
+        { token: "academy-aal2" },
+      );
+      assert.equal(khlimListRes.response.status, 200);
+      const foundForeign = khlimListRes.body.items.find(
+        (i) => i.id === foreignLead.id,
+      );
+      assert.equal(foundForeign, undefined);
+
+      // KHLIM admin detail on foreign lead should return 404
+      const foreignDetailRes = await jsonRequest(
+        baseUrl,
+        `/v1/admin/academy/leads/${foreignLead.id}`,
+        { token: "academy-aal2" },
+      );
+      assert.equal(foreignDetailRes.response.status, 404);
+
+      // KHLIM admin update on foreign lead should return 404
+      const foreignUpdateRes = await jsonRequest(
+        baseUrl,
+        `/v1/admin/academy/leads/${foreignLead.id}`,
+        {
+          method: "PATCH",
+          token: "academy-aal2",
+          body: {
+            status: "CONTACTED",
+            expectedUpdatedAt: foreignLead.updatedAt.toISOString(),
+          },
+        },
+      );
+      assert.equal(foreignUpdateRes.response.status, 404);
 
       // 5. Admin Detail endpoint
       const detailRes = await jsonRequest(
@@ -304,6 +457,57 @@ test(
         },
       );
       assert.equal(staleUpdateRes.response.status, 409);
+
+      // 7b. Concurrent staff writes: exactly one 200, one 409, and only one audit log
+      const concurrentLead = await client.academyLead.create({
+        data: {
+          organizationId: KHLIM_ORGANIZATION_ID,
+          guardianName: "Test Lead Concurrent Race",
+          phone: "+60172223344",
+          childAge: 12,
+          status: "NEW",
+          consentVersion: "2026-10-v1",
+          consentAt: new Date(),
+        },
+      });
+      const initialUpdatedAtIso = concurrentLead.updatedAt.toISOString();
+
+      const [concurrentResA, concurrentResB] = await Promise.all([
+        jsonRequest(baseUrl, `/v1/admin/academy/leads/${concurrentLead.id}`, {
+          method: "PATCH",
+          token: "academy-aal2",
+          body: {
+            status: "QUALIFIED",
+            notes: "Update attempt A",
+            expectedUpdatedAt: initialUpdatedAtIso,
+          },
+        }),
+        jsonRequest(baseUrl, `/v1/admin/academy/leads/${concurrentLead.id}`, {
+          method: "PATCH",
+          token: "academy-aal2",
+          body: {
+            status: "ENROLLED",
+            notes: "Update attempt B",
+            expectedUpdatedAt: initialUpdatedAtIso,
+          },
+        }),
+      ]);
+
+      const concurrentStatuses = [
+        concurrentResA.response.status,
+        concurrentResB.response.status,
+      ].sort();
+      assert.deepEqual(concurrentStatuses, [200, 409]);
+
+      // Check audit logs: only 1 audit log created for this lead
+      const leadAuditLogs = await client.auditLog.findMany({
+        where: {
+          entityType: "ACADEMY_LEAD",
+          entityId: concurrentLead.id,
+        },
+      });
+      assert.equal(leadAuditLogs.length, 1);
+      assert.equal(leadAuditLogs[0].action, "ACADEMY_LEAD_UPDATED");
 
       // 8. Lead Summary endpoint
       const summaryRes = await jsonRequest(

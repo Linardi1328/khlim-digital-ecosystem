@@ -17,10 +17,29 @@ export function sanitizeCampaignToken(
   return null;
 }
 
-export function resolveCampaignSource(
-  querySource?: string | null,
+export function extractCampaignCandidate(
+  paramInput?: string | null | { get(key: string): string | null },
 ): string | null {
-  const sanitizedQuery = sanitizeCampaignToken(querySource);
+  if (!paramInput) return null;
+  if (typeof paramInput === "string") {
+    return paramInput;
+  }
+  if (typeof paramInput === "object" && typeof paramInput.get === "function") {
+    return (
+      paramInput.get("source") ||
+      paramInput.get("utm_source") ||
+      paramInput.get("ref") ||
+      paramInput.get("campaign")
+    );
+  }
+  return null;
+}
+
+export function resolveCampaignSource(
+  querySource?: string | null | { get(key: string): string | null },
+): string | null {
+  const candidate = extractCampaignCandidate(querySource);
+  const sanitizedQuery = sanitizeCampaignToken(candidate);
   if (sanitizedQuery) {
     if (typeof window !== "undefined") {
       try {

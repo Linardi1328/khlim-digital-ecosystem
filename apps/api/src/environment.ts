@@ -5,6 +5,7 @@ export interface ApiRuntimeConfig {
   nodeEnv: NodeEnvironment;
   deploymentEnv: DeploymentEnvironment;
   port: number;
+  trustedProxy: boolean;
 }
 
 const allowedNodeEnvironments = new Set<NodeEnvironment>([
@@ -51,9 +52,17 @@ export function loadApiRuntimeConfig(
     throw new Error(`Invalid PORT: ${environment.PORT ?? ""}`);
   }
 
+  const trustProxyVal =
+    environment.TRUST_PROXY ?? environment.KHLIM_TRUST_PROXY ?? "";
+  const trustedProxy =
+    trustProxyVal === "true" ||
+    trustProxyVal === "1" ||
+    (environment.VERCEL === "1" && nodeEnv === "production");
+
   return {
     nodeEnv: nodeEnv as NodeEnvironment,
     deploymentEnv: deploymentEnv as DeploymentEnvironment,
     port,
+    trustedProxy,
   };
 }

@@ -1,6 +1,12 @@
 "use client";
 
-import React, { Suspense, useCallback, useEffect, useState } from "react";
+import React, {
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useSearchParams } from "next/navigation";
 import { AdminShell } from "../../components/layout/AdminShell";
 import { PageHeader } from "../../components/ui/PageHeader";
@@ -61,8 +67,10 @@ function LeadsInboxContent() {
   // Filters & Pagination
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>(initialStatusParam);
+  const [sourceFilter, setSourceFilter] = useState<string>("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const requestSeq = useRef(0);
 
   // Drawer / Selection State
   const [selectedLead, setSelectedLead] = useState<AdminLeadItem | null>(null);
@@ -77,6 +85,7 @@ function LeadsInboxContent() {
   // Fetch leads list
   const fetchLeads = useCallback(async () => {
     if (!canView) return;
+    const seq = ++requestSeq.current;
     setLoading(true);
     setError(null);
     try {
@@ -90,19 +99,25 @@ function LeadsInboxContent() {
         limit: pageSize,
         q: search.trim() || undefined,
         status: queryStatus,
+        source: sourceFilter.trim() || undefined,
       });
+
+      if (seq !== requestSeq.current) return;
 
       setLeads(res.items);
       setTotalItems(res.total);
       setTotalPages(Math.max(1, res.totalPages));
     } catch (err) {
+      if (seq !== requestSeq.current) return;
       const msg =
         err instanceof Error ? err.message : "Failed to load Academy leads";
       setError(msg);
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) {
+        setLoading(false);
+      }
     }
-  }, [canView, page, pageSize, search, statusFilter]);
+  }, [canView, page, pageSize, search, statusFilter, sourceFilter]);
 
   useEffect(() => {
     void fetchLeads();
@@ -169,10 +184,11 @@ function LeadsInboxContent() {
       setDrawerNotes(updated.notes || "");
       setSaveSuccess("Lead updated successfully.");
 
-      // Update in table list
+      // Update in table list and refresh to respect active filters
       setLeads((prev) =>
         prev.map((item) => (item.id === updated.id ? updated : item)),
       );
+      void fetchLeads();
     } catch (err: unknown) {
       const errorObj = err as { status?: number; message?: string };
       if (
@@ -347,7 +363,10 @@ function LeadsInboxContent() {
     );
   }
 
-  const hasActiveFilters = statusFilter !== "ALL" || Boolean(search.trim());
+  const hasActiveFilters =
+    statusFilter !== "ALL" ||
+    Boolean(search.trim()) ||
+    Boolean(sourceFilter.trim());
 
   return (
     <AdminShell>
@@ -382,6 +401,7 @@ function LeadsInboxContent() {
           onReset={() => {
             setSearch("");
             setStatusFilter("ALL");
+            setSourceFilter("");
             setPage(1);
           }}
         >
@@ -393,6 +413,41 @@ function LeadsInboxContent() {
             }}
             placeholder="Search name, phone, email..."
           />
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              fontSize: "0.875rem",
+            }}
+          >
+            <label
+              htmlFor="lead-source-filter"
+              style={{ fontWeight: 500, color: "#475569" }}
+            >
+              Source:
+            </label>
+            <input
+              id="lead-source-filter"
+              type="text"
+              value={sourceFilter}
+              onChange={(e) => {
+                setSourceFilter(e.target.value);
+                setPage(1);
+              }}
+              placeholder="Filter by source..."
+              style={{
+                padding: "6px 12px",
+                borderRadius: "6px",
+                border: "1px solid #CBD5E1",
+                backgroundColor: "#FFFFFF",
+                fontSize: "0.875rem",
+                color: "#1E293B",
+                width: "160px",
+              }}
+            />
+          </div>
 
           <div
             style={{

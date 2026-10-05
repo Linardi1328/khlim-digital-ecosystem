@@ -37,6 +37,11 @@ function getStaffWhatsAppUrl(): string | null {
     ? `60${digits.slice(1)}`
     : digits;
 
+  // Strict E.164 Malaysian (+601x) or international format validation
+  if (!/^(601\d{8,9}|[1-9]\d{7,14})$/.test(internationalDigits)) {
+    return null;
+  }
+
   return `https://wa.me/${internationalDigits}`;
 }
 
@@ -45,7 +50,6 @@ function InterestForm() {
   const searchParams = useSearchParams();
 
   // Campaign source handling with precedence: query param -> sessionStorage -> direct
-  const querySource = searchParams?.get("source");
   const queryOfferingId = searchParams?.get("offeringId");
 
   const [campaignSource, setCampaignSource] = useState<string | null>(null);
@@ -67,8 +71,16 @@ function InterestForm() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  // Idempotency token generated per form session
-  const [idempotencyKey, setIdempotencyKey] = useState<string>("");
+  // Idempotency token generated once per form session, independent of campaign changes
+  const [idempotencyKey] = useState<string>(() => {
+    if (
+      typeof crypto !== "undefined" &&
+      typeof crypto.randomUUID === "function"
+    ) {
+      return `lead-idem-${crypto.randomUUID()}`;
+    }
+    return `lead-idem-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  });
 
   const guardianNameRef = useRef<HTMLInputElement>(null);
   const phoneRef = useRef<HTMLInputElement>(null);
@@ -76,18 +88,9 @@ function InterestForm() {
   const offeringSelectId = useId();
 
   useEffect(() => {
-    const resolved = resolveCampaignSource(querySource);
+    const resolved = resolveCampaignSource(searchParams);
     setCampaignSource(resolved);
-
-    // Generate unique idempotency key for this submission attempt session
-    if (typeof crypto !== "undefined" && crypto.randomUUID) {
-      setIdempotencyKey(`lead-idem-${crypto.randomUUID()}`);
-    } else {
-      setIdempotencyKey(
-        `lead-idem-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      );
-    }
-  }, [querySource]);
+  }, [searchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -208,13 +211,31 @@ function InterestForm() {
         err && typeof err === "object" && "status" in err
           ? (err as { status: number }).status
           : 0;
+      const errMessage =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: unknown }).message)
+          : "";
 
       if (status === 429) {
         setErrorMessage(t("interest.rateLimited"));
+      } else if (status === 409) {
+        setErrorMessage(
+          "A registration with this session token has already been submitted with different details. Please refresh the page to submit a new enquiry.",
+        );
+      } else if (
+        status === 400 &&
+        (errMessage.toLowerCase().includes("offering") ||
+          errMessage.toLowerCase().includes("closed") ||
+          errMessage.toLowerCase().includes("unavailable"))
+      ) {
+        setSelectedOfferingId("");
+        setErrorMessage(
+          "The selected programme intake is currently closed or unavailable. Your contact information is preserved — you can continue submitting as General Academy Interest.",
+        );
       } else if (err instanceof TypeError && err.message.includes("fetch")) {
         setErrorMessage(t("interest.offlineError"));
-      } else if (err && typeof err === "object" && "message" in err) {
-        setErrorMessage(String((err as { message: unknown }).message));
+      } else if (errMessage) {
+        setErrorMessage(errMessage);
       } else {
         setErrorMessage(t("common.error"));
       }

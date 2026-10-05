@@ -275,13 +275,22 @@ Optional external integrations should degrade independently where possible. For 
 
 Use feature flags selectively for controlled rollout/disable, not as a replacement for authorization.
 
+## Reverse Proxy Trust & Rate Limiting Security
+
+Public endpoints (such as `/v1/academy/leads`) enforce sliding-window submission rate limits to protect backend resources from flood abuse and credential stuffing.
+
+- **Direct Connections (Default):** Caller-provided `x-forwarded-for` and `x-real-ip` headers are strictly ignored. The application resolves the client IP directly from the TCP socket (`req.ip` / `socket.remoteAddress`) to prevent malicious IP spoofing.
+- **Reverse Proxy Deployments (`TRUST_PROXY=true` or `KHLIM_TRUST_PROXY=true`):** When deployed behind an authoritative reverse proxy (e.g., Cloudflare, AWS ALB, Nginx), Express is configured with `app.set("trust proxy", 1)`, and the outermost forwarded IP is validated and resolved.
+- **Vercel Production Auto-Detection:** In Vercel production serverless environments (`VERCEL=1 && NODE_ENV=production`), proxy trust is enabled automatically.
+- **Launch Gate Requirement:** Environments deployed behind custom proxies or ALBs must explicitly verify that `TRUST_PROXY=true` is set and that direct public connections bypass-protected proxies cannot reach the backend directly.
+
 ## Public launch gate
 
 The release date is a target, not permission to bypass safety.
 
 No public launch with unresolved:
 
-- **P0:** security/privacy breach, data loss/corruption, double/incorrect charging, authentication outage;
+- **P0:** security/privacy breach, data loss/corruption, double/incorrect charging, authentication outage, unverified proxy boundary allowing IP rate-limit spoofing;
 - **P1:** broken core registration/payment/membership workflow, major authorization failure, unusable critical admin operation or materially incorrect family schedule.
 
 Final 1–2 weeks should prioritize feature freeze, bug fixing, payment/security/recovery/performance verification.

@@ -222,3 +222,78 @@ export function validateLeadStatus(value: unknown): AcademyLeadStatus {
   }
   return value as AcademyLeadStatus;
 }
+
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/**
+ * Validates a scalar UUID string.
+ */
+export function validateUuid(value: unknown, fieldName: string): string {
+  if (typeof value !== "string") {
+    throw new BadRequestException(`${fieldName} must be a valid UUID string`);
+  }
+  const trimmed = value.trim();
+  if (!UUID_REGEX.test(trimmed)) {
+    throw new BadRequestException(`${fieldName} must be a valid UUID`);
+  }
+  return trimmed.toLowerCase();
+}
+
+/**
+ * Validates an optional UUID string, returning null if absent.
+ */
+export function validateOptionalUuid(
+  value: unknown,
+  fieldName: string,
+): string | null {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+  return validateUuid(value, fieldName);
+}
+
+/**
+ * Validates an ISO timestamp string.
+ */
+export function validateIsoTimestamp(
+  value: unknown,
+  fieldName: string,
+): string {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new BadRequestException(
+      `${fieldName} is required and must be an ISO 8601 timestamp`,
+    );
+  }
+  const date = new Date(value.trim());
+  if (Number.isNaN(date.getTime())) {
+    throw new BadRequestException(
+      `${fieldName} must be a valid ISO 8601 timestamp`,
+    );
+  }
+  return date.toISOString();
+}
+
+/**
+ * Safely parses a bounded, finite positive integer from a query parameter.
+ */
+export function parsePositiveInteger(
+  value: unknown,
+  defaultValue: number,
+  max: number,
+  fieldName: string,
+): number {
+  if (value === undefined || value === null || value === "") {
+    return defaultValue;
+  }
+  if (typeof value !== "string" && typeof value !== "number") {
+    throw new BadRequestException(`${fieldName} must be a scalar integer`);
+  }
+  const num = Number(value);
+  if (!Number.isFinite(num) || !Number.isInteger(num) || num < 1) {
+    throw new BadRequestException(
+      `${fieldName} must be a positive integer greater than or equal to 1`,
+    );
+  }
+  return Math.min(num, max);
+}
