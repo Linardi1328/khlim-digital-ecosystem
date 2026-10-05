@@ -284,11 +284,18 @@ test(
       await inbox
         .locator("#lead-drawer-notes")
         .fill("Browser acceptance: manual follow-up planned.");
+      const saved = inbox.waitForResponse(
+        (response) =>
+          response.url().endsWith(`/v1/admin/academy/leads/${receipt.id}`) &&
+          response.request().method() === "PATCH",
+      );
       await inbox
         .getByRole("button", { name: "Save Changes", exact: true })
         .click();
+      const savedResponse = await saved;
+      assert.equal(savedResponse.status(), 200, await savedResponse.text());
       await expect(
-        inbox.getByText("Lead updated successfully.", { exact: true }),
+        inbox.getByText("Lead updated successfully.", { exact: false }),
       ).toBeVisible();
       const updated = await client.academyLead.findUnique({
         where: { id: receipt.id },
