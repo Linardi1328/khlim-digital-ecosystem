@@ -143,9 +143,9 @@ async function cleanup(client) {
   await client.user.deleteMany({
     where: { id: { in: [USER_ID, COACH_USER_ID] } },
   });
-  await client.$executeRaw`
-    DELETE FROM organizations WHERE id = ${FOREIGN_ORGANIZATION_ID}::uuid
-  `;
+  await client.organization.deleteMany({
+    where: { id: FOREIGN_ORGANIZATION_ID },
+  });
 }
 
 const enabled = databaseTestsEnabled();
@@ -363,11 +363,16 @@ test(
       assert.equal(found.phone, "+60123456789");
 
       // 4e. Foreign tenant isolation
-      await client.$executeRaw`
-        INSERT INTO organizations (id, slug, name, default_locale, time_zone, created_at, updated_at)
-        VALUES (${FOREIGN_ORGANIZATION_ID}::uuid, 'foreign-org', 'Foreign Org', 'en-MY', 'Asia/Kuala_Lumpur', NOW(), NOW())
-        ON CONFLICT (id) DO NOTHING
-      `;
+      await client.organization.upsert({
+        where: { id: FOREIGN_ORGANIZATION_ID },
+        update: { status: "ACTIVE" },
+        create: {
+          id: FOREIGN_ORGANIZATION_ID,
+          slug: "foreign-org",
+          name: "Foreign Org",
+          status: "ACTIVE",
+        },
+      });
       const foreignLead = await client.academyLead.create({
         data: {
           organizationId: FOREIGN_ORGANIZATION_ID,
