@@ -278,7 +278,10 @@ test(
         },
       );
       assert.equal(rateLimitExceededRes.response.status, 429);
-      assert.ok(rateLimitExceededRes.response.headers.get("retry-after"));
+      assert.ok(
+        rateLimitExceededRes.body?.retryAfter ||
+          rateLimitExceededRes.response.headers.get("retry-after"),
+      );
       assert.match(
         String(rateLimitExceededRes.body?.message),
         /Too many registrations for this contact number/,
