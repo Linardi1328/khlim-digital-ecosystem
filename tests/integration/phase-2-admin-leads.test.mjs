@@ -131,9 +131,6 @@ async function cleanup(client) {
       OR: [{ key: { startsWith: "test-" } }, { key: { startsWith: "lead:" } }],
     },
   });
-  await client.auditEvent.deleteMany({
-    where: { entityType: "ACADEMY_LEAD" },
-  });
   await client.organizationMembership.deleteMany({
     where: { userId: { in: [USER_ID, COACH_USER_ID] } },
   });
