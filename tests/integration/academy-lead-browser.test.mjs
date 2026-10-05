@@ -74,7 +74,7 @@ async function startNext(app, port) {
           throw new Error(`${app} exited: ${output}`);
         try {
           const response = await fetch(
-            `http://127.0.0.1:${port}/${app === "web" ? "interest" : "login"}`,
+            `http://127.0.0.1:${port}/${app === "web" ? "interest" : "leads"}`,
             { signal: AbortSignal.timeout(3000) },
           );
           if (response.ok) return;
@@ -322,7 +322,7 @@ test(
       if (browser) await browser.close();
       await Promise.all(processes.map((server) => server.stop()));
       try {
-        await client.auditEvent.deleteMany({ where: { actorUserId: userId } });
+        // Append-only audit records remain in this disposable CI database.
         await client.academyLead.deleteMany({
           where: { organizationId, guardianName: guardian },
         });

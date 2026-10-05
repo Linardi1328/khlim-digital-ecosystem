@@ -127,9 +127,7 @@ const ownedRatePrefixes = [
 ];
 
 async function cleanup(client) {
-  await client.auditEvent.deleteMany({
-    where: { actorUserId: { in: [USER_ID, COACH_USER_ID] } },
-  });
+  // Audit rows are append-only; retain synthetic audit evidence until the test DB is discarded.
   await client.academyLead.deleteMany({
     where: {
       OR: [
