@@ -244,9 +244,9 @@ test(
       });
       assert.equal(conflictRes.response.status, 409);
 
-      // 3b. Rate limiting: 3 per hour per phone
+      // 3b. Rate limiting: 5 per hour per phone
       const ratePhone = "0198881111";
-      for (let i = 1; i <= 3; i++) {
+      for (let i = 1; i <= 5; i++) {
         const res = await jsonRequest(baseUrl, "/v1/academy/leads", {
           method: "POST",
           body: {
@@ -256,32 +256,32 @@ test(
             consent: true,
             idempotencyKey: `test-rate-token-${i}`,
           },
-          clientIp: "10.0.0.2",
+          clientIp: `10.0.1.${i}`,
         });
         assert.equal(res.response.status, 201);
       }
 
-      // 4th submission with same phone exhausts rate limit -> 429
+      // 6th submission with same phone exhausts rate limit -> 429
       const rateLimitExceededRes = await jsonRequest(
         baseUrl,
         "/v1/academy/leads",
         {
           method: "POST",
           body: {
-            guardianName: "Test Lead Rate 4",
+            guardianName: "Test Lead Rate 6",
             phone: ratePhone,
             childAge: 10,
             consent: true,
-            idempotencyKey: "test-rate-token-4",
+            idempotencyKey: "test-rate-token-6",
           },
-          clientIp: "10.0.0.2",
+          clientIp: "10.0.1.6",
         },
       );
       assert.equal(rateLimitExceededRes.response.status, 429);
       assert.ok(rateLimitExceededRes.response.headers.get("retry-after"));
       assert.match(
         String(rateLimitExceededRes.body?.message),
-        /Too many registration submissions/,
+        /Too many registrations for this contact number/,
       );
 
       // Replay of previous submission (test-rate-token-1) returns 201 receipt even when rate limits are exhausted
@@ -294,7 +294,7 @@ test(
           consent: true,
           idempotencyKey: "test-rate-token-1",
         },
-        clientIp: "10.0.0.2",
+        clientIp: "10.0.1.1",
       });
       assert.equal(rateReplayRes.response.status, 201);
       assert.equal(rateReplayRes.body.status, "RECEIVED");
