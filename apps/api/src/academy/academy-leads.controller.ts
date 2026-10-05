@@ -1,4 +1,11 @@
-import { Body, Controller, Post, Req } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  HttpException,
+  Post,
+  Req,
+  Res,
+} from "@nestjs/common";
 import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { Public } from "../auth/authorization.decorators";
 import {
@@ -13,35 +20,9 @@ export interface IncomingRequest {
   socket?: { remoteAddress?: string };
 }
 
-/**
- * Resolves caller IP adhering strictly to verified trusted proxy configuration.
- * Direct connections ignore caller-supplied x-forwarded-for to prevent spoofing.
- */
-export function resolveClientIp(
-  req: IncomingRequest,
-  trustedProxy: boolean = Boolean(
-    process.env.TRUST_PROXY === "true" ||
-    process.env.TRUST_PROXY === "1" ||
-    process.env.KHLIM_TRUST_PROXY === "true" ||
-    (process.env.VERCEL === "1" && process.env.NODE_ENV === "production"),
-  ),
-): string {
-  if (trustedProxy) {
-    const rawForwardedFor = req.headers?.["x-forwarded-for"];
-    const forwardedIp = Array.isArray(rawForwardedFor)
-      ? rawForwardedFor[0]
-      : typeof rawForwardedFor === "string"
-        ? rawForwardedFor.split(",")[0]
-        : undefined;
-    const realIp =
-      typeof req.headers?.["x-real-ip"] === "string"
-        ? (req.headers["x-real-ip"] as string)
-        : undefined;
-    const candidate = forwardedIp?.trim() || realIp?.trim();
-    if (candidate) return candidate;
-  }
-
-  return req.ip || req.socket?.remoteAddress || "127.0.0.1";
+/** Use Express's address resolution under the single runtime proxy policy. */
+export function resolveClientIp(req: IncomingRequest): string {
+  return req.ip || req.socket?.remoteAddress || "unknown";
 }
 
 @ApiTags("academy")
@@ -59,11 +40,32 @@ export class AcademyLeadsController {
     type: CreateAcademyLeadResponseDto,
     description: "Lead successfully recorded",
   })
-  createLead(
+  async createLead(
     @Body() body: CreateAcademyLeadDto,
     @Req() req: IncomingRequest,
+    @Res({ passthrough: true })
+    response: { setHeader(name: string, value: string): void },
   ): Promise<CreateAcademyLeadResponseDto> {
     const clientIp = resolveClientIp(req);
-    return this.leadsService.createPublicLead(body, clientIp);
+    try {
+      return await this.leadsService.createPublicLead(body, clientIp);
+    } catch (error) {
+      if (
+        error instanceof HttpException &&
+        [429, 503].includes(error.getStatus())
+      ) {
+        const payload = error.getResponse();
+        if (
+          typeof payload === "object" &&
+          "retryAfter" in payload &&
+          typeof payload.retryAfter === "number" &&
+          Number.isInteger(payload.retryAfter) &&
+          payload.retryAfter > 0
+        ) {
+          response.setHeader("Retry-After", String(payload.retryAfter));
+        }
+      }
+      throw error;
+    }
   }
 }

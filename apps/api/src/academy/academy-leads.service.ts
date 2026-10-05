@@ -4,6 +4,7 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import * as crypto from "node:crypto";
@@ -73,19 +74,42 @@ function mapLeadItem(lead: LeadWithOffering): AcademyLeadItemDto {
 
 @Injectable()
 export class AcademyLeadsService {
+  private readonly logger = new Logger(AcademyLeadsService.name);
+  private nextCleanupAt = 0;
+
   constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * Bounded purge of expired rate limit windows using the indexed expiresAt column.
-   */
+  /** At most 500 expired lead counters per batch; unrelated limiters are untouched. */
   async cleanupExpiredRateLimits(now = new Date()): Promise<number> {
     try {
-      const res = await this.prisma.client.submissionRateLimit.deleteMany({
-        where: { expiresAt: { lt: now } },
+      const expired = await this.prisma.client.submissionRateLimit.findMany({
+        where: { key: { startsWith: "lead:" }, expiresAt: { lt: now } },
+        select: { key: true },
+        orderBy: [{ expiresAt: "asc" }, { key: "asc" }],
+        take: 500,
       });
-      return res.count;
+      if (!expired.length) return 0;
+      const result = await this.prisma.client.submissionRateLimit.deleteMany({
+        where: {
+          key: { in: expired.map((row) => row.key) },
+          expiresAt: { lt: now },
+        },
+      });
+      return result.count;
     } catch {
-      return 0;
+      // Never log database exceptions: their messages can contain submitted PII.
+      this.logger.error("academy.leads.rate_limit_cleanup_failed");
+      throw new Error("Lead rate-limit cleanup unavailable");
+    }
+  }
+
+  private async maybeCleanupRateLimits(now: Date): Promise<void> {
+    if (now.getTime() < this.nextCleanupAt) return;
+    this.nextCleanupAt = now.getTime() + 10 * 60 * 1000;
+    try {
+      await this.cleanupExpiredRateLimits(now);
+    } catch {
+      // Failure was logged above. Maintenance must not replace quota enforcement.
     }
   }
 
@@ -101,6 +125,7 @@ export class AcademyLeadsService {
     normalizedPhone: string,
   ): Promise<void> {
     const now = new Date();
+    await this.maybeCleanupRateLimits(now);
 
     try {
       if (clientIp) {
@@ -162,6 +187,7 @@ export class AcademyLeadsService {
       if (error instanceof HttpException) {
         throw error;
       }
+      this.logger.error("academy.leads.rate_limit_storage_failed");
       // Never fail open: storage or connectivity failure prevents write with retryable status
       throw new HttpException(
         {
@@ -249,16 +275,14 @@ export class AcademyLeadsService {
             createdAt: existing.createdAt.toISOString(),
           };
         }
-        throw new ConflictException(
-          "Submission token already used with a different payload",
-        );
+        throw new ConflictException({
+          code: "LEAD_IDEMPOTENCY_CONFLICT",
+          message: "Submission token already used with a different payload",
+        });
       }
     }
 
-    // 5. Rate limit enforcement for new submission
-    await this.checkRateLimits(clientIp, phone);
-
-    // 6. Offering eligibility predicate (matches AcademyService.listPublicOfferings)
+    // 5. Offering eligibility predicate (matches AcademyService.listPublicOfferings)
     if (programmeOfferingId) {
       const now = new Date();
       const offering = await this.prisma.client.programmeOffering.findFirst({
@@ -287,11 +311,15 @@ export class AcademyLeadsService {
       });
 
       if (!offering) {
-        throw new BadRequestException(
-          "Selected programme offering is unavailable or closed",
-        );
+        throw new BadRequestException({
+          code: "LEAD_OFFERING_UNAVAILABLE",
+          message: "Selected programme offering is unavailable or closed",
+        });
       }
     }
+
+    // 6. Invalid offerings do not consume quota. Replays have already returned.
+    await this.checkRateLimits(clientIp, phone);
 
     // 7. Attempt creation with concurrent unique constraint race fallback
     try {
@@ -342,9 +370,10 @@ export class AcademyLeadsService {
             createdAt: existing.createdAt.toISOString(),
           };
         }
-        throw new ConflictException(
-          "Submission token already used with a different payload",
-        );
+        throw new ConflictException({
+          code: "LEAD_IDEMPOTENCY_CONFLICT",
+          message: "Submission token already used with a different payload",
+        });
       }
       throw error;
     }
@@ -556,7 +585,7 @@ export class AcademyLeadsService {
         data: {
           ...(nextStatus ? { status: nextStatus } : {}),
           ...(nextNotes !== undefined ? { notes: nextNotes } : {}),
-          updatedAt: new Date(),
+          updatedAt: new Date(Math.max(Date.now(), actualMillis + 1)),
         },
         include: {
           programmeOffering: {

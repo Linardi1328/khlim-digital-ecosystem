@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import crypto from "node:crypto";
-import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
-import { fileURLToPath } from "node:url";
 
 const root = new URL("../", import.meta.url);
 
@@ -16,25 +12,6 @@ const distValidationUrl = new URL(
   "../apps/api/dist/academy/academy-leads.validation.js",
   import.meta.url,
 );
-
-if (!existsSync(distValidationUrl)) {
-  const env = {
-    ...process.env,
-    DATABASE_URL:
-      process.env.DATABASE_URL ||
-      "postgresql://localhost:5432/khlim_validation",
-  };
-  execFileSync("pnpm", ["prisma:generate"], {
-    cwd: fileURLToPath(root),
-    stdio: "pipe",
-    env,
-  });
-  execFileSync("pnpm", ["--filter", "@khlim/api", "build"], {
-    cwd: fileURLToPath(root),
-    stdio: "pipe",
-    env,
-  });
-}
 
 const {
   normalizePhoneNumber,
@@ -139,6 +116,17 @@ test("UUID and ISO timestamp validators enforce strict formats", () => {
     /valid UUID/,
   );
 
+  for (const invalid of [
+    "2026-10-06",
+    "10/06/2026",
+    "2026-02-30T05:00:00.000Z",
+    "2026-10-06T05:00:00.000",
+  ]) {
+    assert.throws(
+      () => validateIsoTimestamp(invalid, "expectedUpdatedAt"),
+      /valid ISO 8601/,
+    );
+  }
   const validIso = "2026-10-06T05:00:00.000Z";
   assert.equal(validateIsoTimestamp(validIso, "expectedUpdatedAt"), validIso);
   assert.throws(
@@ -171,77 +159,21 @@ test("parsePositiveInteger clamps and defaults appropriately", () => {
   assert.equal(parsePositiveInteger(500, 20, 100, "limit"), 100);
 });
 
-test("resolveClientIp enforces trusted proxy boundaries against header spoofing", () => {
-  // Direct connection (trustedProxy = false): ignores x-forwarded-for spoofing
-  const directReq = {
-    headers: { "x-forwarded-for": "203.0.113.195" },
-    ip: "127.0.0.1",
-  };
-  assert.equal(resolveClientIp(directReq, false), "127.0.0.1");
-
-  // Direct socket fallback
-  const socketReq = {
-    headers: { "x-forwarded-for": "203.0.113.195" },
-    socket: { remoteAddress: "192.168.1.50" },
-  };
-  assert.equal(resolveClientIp(socketReq, false), "192.168.1.50");
-
-  // Trusted proxy connection (trustedProxy = true): extracts client IP from forwarded header
-  const proxyReq = {
-    headers: { "x-forwarded-for": "203.0.113.195, 10.0.0.1" },
-    ip: "10.0.0.1",
-  };
-  assert.equal(resolveClientIp(proxyReq, true), "203.0.113.195");
-
-  // Real-IP header when trusted proxy
-  const realIpReq = {
-    headers: { "x-real-ip": "198.51.100.22" },
-    ip: "10.0.0.1",
-  };
-  assert.equal(resolveClientIp(realIpReq, true), "198.51.100.22");
-});
-
-test("idempotency hash determinism matches identical payloads and differentiates altered payloads", () => {
-  const payload1 = {
-    guardianName: "Lim Wei Hong",
-    phone: "+60123456789",
-    email: "lim.wh@example.test",
-    childAge: 10,
-    programmeOfferingId: "00000000-0000-4000-8000-000000000002",
-    source: "3x3-oct24",
-  };
-
-  const payload1Copy = {
-    guardianName: "Lim Wei Hong",
-    phone: "+60123456789",
-    email: "lim.wh@example.test",
-    childAge: 10,
-    programmeOfferingId: "00000000-0000-4000-8000-000000000002",
-    source: "3x3-oct24",
-  };
-
-  const payload2 = {
-    ...payload1,
-    guardianName: "Tan Wei Hong",
-  };
-
-  const hash1 = crypto
-    .createHash("sha256")
-    .update(JSON.stringify(payload1))
-    .digest("hex");
-
-  const hash1Copy = crypto
-    .createHash("sha256")
-    .update(JSON.stringify(payload1Copy))
-    .digest("hex");
-
-  const hash2 = crypto
-    .createHash("sha256")
-    .update(JSON.stringify(payload2))
-    .digest("hex");
-
-  assert.equal(hash1, hash1Copy);
-  assert.notEqual(hash1, hash2);
+test("resolveClientIp uses the server-resolved IP and never parses headers", () => {
+  assert.equal(
+    resolveClientIp({
+      ip: "198.51.100.20",
+      headers: {
+        "x-forwarded-for": "203.0.113.195",
+        "x-real-ip": "203.0.113.196",
+      },
+    }),
+    "198.51.100.20",
+  );
+  assert.equal(
+    resolveClientIp({ socket: { remoteAddress: "127.0.0.1" } }),
+    "127.0.0.1",
+  );
 });
 
 test("RLS migration guarantees row-level security and permission revocation on leads tables", async () => {

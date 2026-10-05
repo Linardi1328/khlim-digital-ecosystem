@@ -277,12 +277,17 @@ Use feature flags selectively for controlled rollout/disable, not as a replaceme
 
 ## Reverse Proxy Trust & Rate-Limiting Security
 
-Public endpoints (such as `/v1/academy/leads`) enforce sliding-window submission rate limits to protect backend resources from flood abuse and credential stuffing.
+`POST /v1/academy/leads` uses database-backed **fixed windows**: 30 new attempts per resolved IP per 10-minute slot and 5 per normalized phone per hourly slot. Both are SHA-256 hashed before storage. This is not a sliding window or comprehensive flood protection; continue using the existing edge controls.
 
-- **Direct Connections (Default):** Caller-provided `x-forwarded-for` and `x-real-ip` headers are strictly ignored. The application resolves the client IP directly from the TCP socket (`req.ip` / `socket.remoteAddress`) to prevent malicious IP spoofing.
-- **Reverse Proxy Deployments (`TRUST_PROXY=true` or `KHLIM_TRUST_PROXY=true`):** When deployed behind an authoritative reverse proxy (e.g., Cloudflare, AWS ALB, Nginx), Express is configured with `app.set("trust proxy", 1)`, and the outermost forwarded IP is validated and resolved.
-- **Vercel Production Auto-Detection:** In Vercel production serverless environments (`VERCEL=1 && NODE_ENV=production`), proxy trust is enabled automatically.
-- **Launch Gate Requirement:** Environments deployed behind custom proxies or ALBs must explicitly verify that `TRUST_PROXY=true` is set and that direct public connections bypass-protected proxies cannot reach the backend directly.
+- **Default / direct connections:** `TRUST_PROXY=false`. Express ignores forwarding headers and resolves the socket peer. The lead controller only consumes `req.ip`; it never parses XFF or X-Real-IP itself.
+- **Verified reverse proxies:** set `TRUST_PROXY=true` and `TRUST_PROXY_ADDRESSES` to a comma-separated allowlist of the actual proxy IPs/CIDRs. Express walks the chain from the socket toward the client and stops at the nearest untrusted address. A supplied leftmost address cannot bypass that boundary. Blanket trust and fixed hop counts are not used.
+- **Configuration:** `TRUST_PROXY` takes precedence over legacy `KHLIM_TRUST_PROXY`; both accept true/1 or false/0. Enabling trust without a valid address allowlist fails startup. Vercel does not enable trust automatically. Never allowlist client networks or shared private ranges merely because they are private.
+- **Deployment gate:** verify the actual Render/API ingress topology and forwarded-header behavior before setting the allowlist. Do not invent provider CIDRs. Restrict direct backend access to the intended ingress where possible. Until verified, leave trust disabled; proxy-shared quotas may then be stricter than intended. This operational gate remains open.
+- **Failures:** exhausted quotas return 429; limiter storage failures return 503. Both include a Retry-After header and JSON retryAfter seconds. Raw database errors, phone numbers and IPs are not logged; static error event names identify limiter/cleanup failure.
+- **Maintenance:** the first new eligible submission, then at most once per 10 minutes per API process, awaits a cleanup batch of at most 500 expired lead counters. Selection uses expiresAt and deletion is restricted to the selected keys that are still expired. Cleanup failure is logged and quota enforcement still runs; maintenance never converts a limiter failure to an accepted submission. Idle instances need no timer; a high-volume backlog may require additional scheduled maintenance later.
+- **Recovery:** exact persisted replays return the original receipt before offering/quota checks. Unavailable offerings return 400 with code `LEAD_OFFERING_UNAVAILABLE` without consuming quota. Changed-payload token reuse returns 409 with code `LEAD_IDEMPOTENCY_CONFLICT`.
+
+Regression coverage: `tests/academy-lead-boundaries.test.mjs` exercises real HTTP proxy resolution and spoof-resistant quota identity with a counter-store double. `tests/integration/phase-2-admin-leads.test.mjs` verifies PostgreSQL persistence, concurrent submission/update behavior and real authorization guards with JWT doubles. See `docs/testing/academy-lead-acceptance.md` for browser evidence and the remaining launch gates.
 
 ## Public launch gate
 

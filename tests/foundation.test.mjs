@@ -32,7 +32,10 @@ test("root tooling is pinned to the Phase 1 baseline", async () => {
   assert.equal(manifest.devDependencies.turbo, "2.5.6");
   assert.equal(manifest.devDependencies.typescript, "5.9.2");
   assert.equal(manifest.scripts.dev, "turbo run dev");
-  assert.equal(manifest.scripts.test, "node --test tests/*.test.mjs");
+  assert.equal(
+    manifest.scripts.test,
+    "node scripts/build-test-api.mjs && node --test tests/*.test.mjs",
+  );
   assert.equal(manifest.scripts["prisma:validate"], "prisma validate");
 });
 

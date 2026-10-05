@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash, randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { test } from "node:test";
 
@@ -19,16 +20,13 @@ const {
 const {
   AcademyLeadsService,
 } = require("../../apps/api/dist/academy/academy-leads.service.js");
-const {
-  resolveClientIp,
-} = require("../../apps/api/dist/academy/academy-leads.controller.js");
 
 const KHLIM_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000001";
-const FOREIGN_ORGANIZATION_ID = "00000000-0000-4000-8000-000000000093";
-const USER_ID = "93939393-9393-4393-8393-939393939393";
-const COACH_USER_ID = "94949494-9494-4494-8494-949494949494";
-const SUBJECT = "phase-2-admin-leads-subject";
-const COACH_SUBJECT = "phase-2-coach-leads-subject";
+const FOREIGN_ORGANIZATION_ID = randomUUID();
+const USER_ID = randomUUID();
+const COACH_USER_ID = randomUUID();
+const SUBJECT = `phase-2-admin-leads-${USER_ID}`;
+const COACH_SUBJECT = `phase-2-coach-leads-${COACH_USER_ID}`;
 
 function databaseTestsEnabled() {
   if (process.env.KHLIM_TEST_DATABASE !== "1") return false;
@@ -117,18 +115,35 @@ async function jsonRequest(baseUrl, path, options = {}) {
   };
 }
 
+const ownedRatePrefixes = [
+  ...["127.0.0.1", "::ffff:127.0.0.1"].map(
+    (value) =>
+      `lead:ip:${createHash("sha256").update(value).digest("hex").slice(0, 32)}:`,
+  ),
+  ...["+60123456789", "+60198881111"].map(
+    (value) =>
+      `lead:phone:${createHash("sha256").update(value).digest("hex").slice(0, 32)}:`,
+  ),
+];
+
 async function cleanup(client) {
+  await client.auditEvent.deleteMany({
+    where: { actorUserId: { in: [USER_ID, COACH_USER_ID] } },
+  });
   await client.academyLead.deleteMany({
     where: {
       OR: [
-        { guardianName: { startsWith: "Test Lead" } },
+        { guardianName: { startsWith: `Test Lead ${USER_ID}` } },
         { organizationId: FOREIGN_ORGANIZATION_ID },
       ],
     },
   });
   await client.submissionRateLimit.deleteMany({
     where: {
-      OR: [{ key: { startsWith: "test-" } }, { key: { startsWith: "lead:" } }],
+      OR: [
+        ...ownedRatePrefixes.map((prefix) => ({ key: { startsWith: prefix } })),
+        { key: "lead:expired:test-row" },
+      ],
     },
   });
   await client.organizationMembership.deleteMany({
@@ -204,11 +219,11 @@ test(
     try {
       // 1. Public lead submission
       const leadPayload = {
-        guardianName: "Test Lead Guardian One",
+        guardianName: `Test Lead ${USER_ID} Guardian One`,
         phone: "0123456789",
         email: "test.lead.1@example.test",
         childAge: 10,
-        source: "soft-launch-oct26",
+        source: "3x3-oct24",
         consent: true,
         idempotencyKey: "test-token-uuid-1",
       };
@@ -223,6 +238,63 @@ test(
       assert.equal(createRes.body.status, "RECEIVED");
       assert.ok(createRes.body.id);
       const leadId = createRes.body.id;
+      const persisted = await client.academyLead.findUnique({
+        where: { id: leadId },
+      });
+      assert.equal(persisted.organizationId, KHLIM_ORGANIZATION_ID);
+      assert.equal(persisted.source, "3x3-oct24");
+      assert.equal(persisted.phone, "+60123456789");
+      assert.deepEqual(Object.keys(createRes.body).sort(), [
+        "createdAt",
+        "id",
+        "message",
+        "status",
+      ]);
+
+      // Simultaneous identical submissions persist exactly one record.
+      const concurrentPayload = {
+        ...leadPayload,
+        idempotencyKey: `concurrent-${USER_ID}`,
+      };
+      const receipts = await Promise.all(
+        [1, 2].map(() =>
+          jsonRequest(baseUrl, "/v1/academy/leads", {
+            method: "POST",
+            body: concurrentPayload,
+          }),
+        ),
+      );
+      assert.deepEqual(
+        receipts.map((item) => item.response.status),
+        [201, 201],
+      );
+      assert.equal(receipts[0].body.id, receipts[1].body.id);
+      assert.equal(
+        await client.academyLead.count({
+          where: {
+            organizationId: KHLIM_ORGANIZATION_ID,
+            idempotencyKey: concurrentPayload.idempotencyKey,
+          },
+        }),
+        1,
+      );
+
+      const countersBeforeInvalidOffering =
+        await client.submissionRateLimit.findMany({ orderBy: { key: "asc" } });
+      const unavailable = await jsonRequest(baseUrl, "/v1/academy/leads", {
+        method: "POST",
+        body: {
+          ...leadPayload,
+          idempotencyKey: `unavailable-${USER_ID}`,
+          programmeOfferingId: randomUUID(),
+        },
+      });
+      assert.equal(unavailable.response.status, 400);
+      assert.equal(unavailable.body.code, "LEAD_OFFERING_UNAVAILABLE");
+      assert.deepEqual(
+        await client.submissionRateLimit.findMany({ orderBy: { key: "asc" } }),
+        countersBeforeInvalidOffering,
+      );
 
       // 2. Idempotency: exact replay returns 201 with identical receipt
       const replayRes = await jsonRequest(baseUrl, "/v1/academy/leads", {
@@ -236,10 +308,11 @@ test(
       // 3. Idempotency conflict: same token, different payload returns 409
       const conflictRes = await jsonRequest(baseUrl, "/v1/academy/leads", {
         method: "POST",
-        body: { ...leadPayload, guardianName: "Test Lead Altered" },
+        body: { ...leadPayload, guardianName: `Test Lead ${USER_ID} Altered` },
         clientIp: "10.0.0.1",
       });
       assert.equal(conflictRes.response.status, 409);
+      assert.equal(conflictRes.body.code, "LEAD_IDEMPOTENCY_CONFLICT");
 
       // 3b. Rate limiting: 5 per hour per phone
       const ratePhone = "0198881111";
@@ -247,7 +320,7 @@ test(
         const res = await jsonRequest(baseUrl, "/v1/academy/leads", {
           method: "POST",
           body: {
-            guardianName: `Test Lead Rate ${i}`,
+            guardianName: `Test Lead ${USER_ID} Rate ${i}`,
             phone: ratePhone,
             childAge: 10,
             consent: true,
@@ -265,7 +338,7 @@ test(
         {
           method: "POST",
           body: {
-            guardianName: "Test Lead Rate 6",
+            guardianName: `Test Lead ${USER_ID} Rate 6`,
             phone: ratePhone,
             childAge: 10,
             consent: true,
@@ -275,9 +348,9 @@ test(
         },
       );
       assert.equal(rateLimitExceededRes.response.status, 429);
-      assert.ok(
-        rateLimitExceededRes.body?.retryAfter ||
-          rateLimitExceededRes.response.headers.get("retry-after"),
+      assert.equal(
+        rateLimitExceededRes.response.headers.get("retry-after"),
+        "3600",
       );
       assert.match(
         String(rateLimitExceededRes.body?.message),
@@ -288,7 +361,7 @@ test(
       const rateReplayRes = await jsonRequest(baseUrl, "/v1/academy/leads", {
         method: "POST",
         body: {
-          guardianName: "Test Lead Rate 1",
+          guardianName: `Test Lead ${USER_ID} Rate 1`,
           phone: ratePhone,
           childAge: 10,
           consent: true,
@@ -314,19 +387,6 @@ test(
         where: { key: "lead:expired:test-row" },
       });
       assert.equal(expiredCheck, null);
-
-      // 3d. Direct caller IP spoofing protection
-      const directIp = resolveClientIp(
-        { headers: { "x-forwarded-for": "203.0.113.195" }, ip: "127.0.0.1" },
-        false,
-      );
-      assert.equal(directIp, "127.0.0.1");
-
-      const proxyIp = resolveClientIp(
-        { headers: { "x-forwarded-for": "203.0.113.195, 10.0.0.1" } },
-        true,
-      );
-      assert.equal(proxyIp, "203.0.113.195");
 
       // 4. Role and MFA gating on Admin endpoints
       // 4a. Unauthenticated -> 401
@@ -356,7 +416,7 @@ test(
       assert.ok(Array.isArray(adminListRes.body.items));
       const found = adminListRes.body.items.find((i) => i.id === leadId);
       assert.ok(found);
-      assert.equal(found.guardianName, "Test Lead Guardian One");
+      assert.equal(found.guardianName, `Test Lead ${USER_ID} Guardian One`);
       assert.equal(found.phone, "+60123456789");
 
       // 4e. Foreign tenant isolation
@@ -365,7 +425,7 @@ test(
         update: { status: "ACTIVE" },
         create: {
           id: FOREIGN_ORGANIZATION_ID,
-          slug: "foreign-org",
+          slug: `foreign-org-${FOREIGN_ORGANIZATION_ID}`,
           name: "Foreign Org",
           status: "ACTIVE",
         },
@@ -373,7 +433,7 @@ test(
       const foreignLead = await client.academyLead.create({
         data: {
           organizationId: FOREIGN_ORGANIZATION_ID,
-          guardianName: "Test Lead Foreign Tenant",
+          guardianName: `Test Lead ${USER_ID} Foreign Tenant`,
           phone: "+60181112233",
           childAge: 11,
           status: "NEW",
@@ -467,7 +527,7 @@ test(
       const concurrentLead = await client.academyLead.create({
         data: {
           organizationId: KHLIM_ORGANIZATION_ID,
-          guardianName: "Test Lead Concurrent Race",
+          guardianName: `Test Lead ${USER_ID} Concurrent Race`,
           phone: "+60172223344",
           childAge: 12,
           status: "NEW",
@@ -526,8 +586,11 @@ test(
       assert.ok(summaryRes.body.byStatus);
       assert.ok(typeof summaryRes.body.byStatus.CONTACTED === "number");
     } finally {
-      await app.close();
-      await cleanup(client);
+      try {
+        await cleanup(client);
+      } finally {
+        await app.close();
+      }
     }
   },
 );

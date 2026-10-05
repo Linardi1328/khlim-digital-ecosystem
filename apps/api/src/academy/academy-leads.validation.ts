@@ -265,8 +265,14 @@ export function validateIsoTimestamp(
       `${fieldName} is required and must be an ISO 8601 timestamp`,
     );
   }
-  const date = new Date(value.trim());
-  if (Number.isNaN(date.getTime())) {
+  const timestamp = value.trim();
+  const date = new Date(timestamp);
+  // Optimistic-lock tokens must be the canonical UTC timestamp returned by the API.
+  if (
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(timestamp) ||
+    Number.isNaN(date.getTime()) ||
+    date.toISOString() !== timestamp
+  ) {
     throw new BadRequestException(
       `${fieldName} must be a valid ISO 8601 timestamp`,
     );
