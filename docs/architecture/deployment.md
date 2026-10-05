@@ -275,7 +275,7 @@ Optional external integrations should degrade independently where possible. For 
 
 Use feature flags selectively for controlled rollout/disable, not as a replacement for authorization.
 
-## Reverse Proxy Trust & Rate Limiting Security
+## Reverse Proxy Trust & Rate-Limiting Security
 
 Public endpoints (such as `/v1/academy/leads`) enforce sliding-window submission rate limits to protect backend resources from flood abuse and credential stuffing.
 

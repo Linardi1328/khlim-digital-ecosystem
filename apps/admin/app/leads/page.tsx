@@ -55,7 +55,7 @@ function LeadsInboxContent() {
   const searchParams = useSearchParams();
   const initialStatusParam = searchParams.get("status") || "ALL";
 
-  const { hasRole, isDemoMode } = useAdminAuth();
+  const { hasRole, isAuthenticated, isDemoMode, mfaSatisfied } = useAdminAuth();
   const canView = hasRole(["SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN"]);
 
   const [leads, setLeads] = useState<AdminLeadItem[]>([]);
@@ -85,6 +85,12 @@ function LeadsInboxContent() {
   // Fetch leads list
   const fetchLeads = useCallback(async () => {
     if (!canView) return;
+    if (!isDemoMode && (!isAuthenticated || !mfaSatisfied)) {
+      setLeads([]);
+      setError(null);
+      setLoading(true);
+      return;
+    }
     const seq = ++requestSeq.current;
     setLoading(true);
     setError(null);
@@ -117,7 +123,17 @@ function LeadsInboxContent() {
         setLoading(false);
       }
     }
-  }, [canView, page, pageSize, search, statusFilter, sourceFilter]);
+  }, [
+    canView,
+    isDemoMode,
+    isAuthenticated,
+    mfaSatisfied,
+    page,
+    pageSize,
+    search,
+    statusFilter,
+    sourceFilter,
+  ]);
 
   useEffect(() => {
     void fetchLeads();
