@@ -131,7 +131,7 @@ async function cleanup(client) {
       OR: [{ key: { startsWith: "test-" } }, { key: { startsWith: "lead:" } }],
     },
   });
-  await client.auditLog.deleteMany({
+  await client.auditEvent.deleteMany({
     where: { entityType: "ACADEMY_LEAD" },
   });
   await client.organizationMembership.deleteMany({
@@ -500,7 +500,7 @@ test(
       assert.deepEqual(concurrentStatuses, [200, 409]);
 
       // Check audit logs: only 1 audit log created for this lead
-      const leadAuditLogs = await client.auditLog.findMany({
+      const leadAuditLogs = await client.auditEvent.findMany({
         where: {
           entityType: "ACADEMY_LEAD",
           entityId: concurrentLead.id,

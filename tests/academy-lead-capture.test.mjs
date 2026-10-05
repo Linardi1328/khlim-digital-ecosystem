@@ -18,9 +18,21 @@ const distValidationUrl = new URL(
 );
 
 if (!existsSync(distValidationUrl)) {
+  const env = {
+    ...process.env,
+    DATABASE_URL:
+      process.env.DATABASE_URL ||
+      "postgresql://localhost:5432/khlim_validation",
+  };
+  execFileSync("pnpm", ["prisma:generate"], {
+    cwd: fileURLToPath(root),
+    stdio: "pipe",
+    env,
+  });
   execFileSync("pnpm", ["--filter", "@khlim/api", "build"], {
     cwd: fileURLToPath(root),
     stdio: "pipe",
+    env,
   });
 }
 
