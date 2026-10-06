@@ -216,6 +216,27 @@ test(
       });
       await context.tracing.start({ screenshots: true, snapshots: true });
       const page = await context.newPage();
+      // Exercise rendered attribution links on every public entry point.
+      for (const alias of ["utm_source", "ref", "campaign"]) {
+        for (const path of [
+          "/",
+          "/programmes",
+          `/programmes/${offeringFixture.id}`,
+        ]) {
+          const source = `${alias}-browser`;
+          await page.goto(`http://127.0.0.1:3100${path}?${alias}=${source}`);
+          const links = page.locator('a[href^="/interest"]');
+          await expect(links.first()).toBeVisible();
+          for (const href of await links.evaluateAll((nodes) =>
+            nodes.map((node) => node.getAttribute("href")),
+          )) {
+            assert.equal(
+              new URL(href, "http://localhost").searchParams.get("source"),
+              source,
+            );
+          }
+        }
+      }
       await page.goto(
         `http://127.0.0.1:3100/interest?offeringId=${offeringFixture.id}&source=3x3-oct24`,
       );
@@ -331,6 +352,10 @@ test(
       assert.equal(response.request().headers().authorization, undefined);
       const receipt = await response.json();
       const payload = response.request().postDataJSON();
+      assert.equal(
+        payload.idempotencyKey,
+        offeringResponse.request().postDataJSON().idempotencyKey,
+      );
       assert.equal(payload.programmeOfferingId, null);
       assert.equal(receipt.status, "RECEIVED");
       await expect(
@@ -427,6 +452,173 @@ test(
         path: `${root}test-results/academy-lead-admin-updated.png`,
         fullPage: true,
       });
+      await expect(
+        inbox.getByRole("button", { name: "Save Changes", exact: true }),
+      ).toBeEnabled();
+
+      // Hold an actual save response across sign-out/sign-in without reloading
+      // the page: LeadsInboxContent must invalidate its mounted drawer state.
+      let releaseSave;
+      const saveHeld = new Promise((resolve) => {
+        releaseSave = resolve;
+      });
+      let notifySave;
+      const saveStarted = new Promise((resolve) => {
+        notifySave = resolve;
+      });
+      let finishSave;
+      const saveFinished = new Promise((resolve) => {
+        finishSave = resolve;
+      });
+      await inbox.route(
+        `**/v1/admin/academy/leads/${receipt.id}`,
+        async (route) => {
+          if (route.request().method() !== "PATCH") return route.continue();
+          notifySave();
+          await saveHeld;
+          await route.fulfill({
+            json: { ...updated, notes: "STALE STAFF RESPONSE" },
+          });
+          finishSave();
+        },
+      );
+      // Auth transport and the next session are explicit browser-only doubles.
+      await inbox.route(
+        "https://auth.browser-test.invalid/auth/v1/**",
+        async (route) => {
+          if (route.request().url().includes("/logout"))
+            return route.fulfill({ status: 204 });
+          await route.fulfill({
+            json: {
+              access_token: "second-browser-session",
+              refresh_token: "test-only",
+              expires_in: 3600,
+              expires_at: Math.floor(Date.now() / 1000) + 3600,
+              token_type: "bearer",
+              user: { id: "second-browser-user", email: "second@example.test" },
+            },
+          });
+        },
+      );
+      await inbox.locator("#lead-drawer-notes").fill("Pending old staff save");
+      await inbox
+        .getByRole("button", { name: "Save Changes", exact: true })
+        .click();
+      await saveStarted;
+      // Invoke the real sign-out handler while the pending drawer remains open.
+      await inbox
+        .getByRole("button", { name: "Sign out", exact: true })
+        .evaluate((button) => button.click());
+      await expect(inbox.getByLabel("Staff email")).toBeVisible();
+      await inbox.route("**/v1/admin/session", (route) =>
+        route.fulfill({
+          json: {
+            id: "second-browser-user",
+            email: "second@example.test",
+            displayName: "Second Staff",
+            roles: ["ACADEMY_ADMIN"],
+            mfaSatisfied: true,
+            authenticatorAssuranceLevel: "aal2",
+          },
+        }),
+      );
+      await inbox.route(/\/v1\/admin\/academy\/leads(?:\?.*)?$/, (route) =>
+        route.fulfill({
+          json: {
+            items: [],
+            total: 0,
+            totalPages: 1,
+            page: 1,
+            limit: 10,
+          },
+        }),
+      );
+      await inbox.getByLabel("Staff email").fill("second@example.test");
+      await inbox
+        .getByLabel("Password", { exact: true })
+        .fill("browser-only-password");
+      await inbox
+        .getByRole("button", { name: "Sign in to Admin Console" })
+        .click();
+      await expect(
+        inbox.getByRole("button", { name: "Sign out", exact: true }),
+      ).toBeVisible();
+      const lateResponse = inbox.waitForResponse(
+        (response) => response.request().method() === "PATCH",
+      );
+      releaseSave();
+      await saveFinished;
+      await (await lateResponse).finished();
+      await inbox.evaluate(
+        () =>
+          new Promise((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(resolve)),
+          ),
+      );
+      await expect(inbox.locator("#lead-drawer-notes")).toHaveCount(0);
+      await expect(inbox.getByText("STALE STAFF RESPONSE")).toHaveCount(0);
+      await expect(
+        inbox.getByRole("row").filter({ hasText: guardian }),
+      ).toHaveCount(0);
+      // A list response started before sign-out must also remain discarded.
+      let releaseList;
+      const listHeld = new Promise((resolve) => {
+        releaseList = resolve;
+      });
+      let notifyList;
+      const listStarted = new Promise((resolve) => {
+        notifyList = resolve;
+      });
+      let holdNextList = true;
+      await inbox.route(
+        /\/v1\/admin\/academy\/leads(?:\?.*)?$/,
+        async (route) => {
+          if (!holdNextList)
+            return route.fulfill({
+              json: { items: [], total: 0, totalPages: 1 },
+            });
+          holdNextList = false;
+          notifyList();
+          await listHeld;
+          await route.fulfill({
+            json: { items: [updated], total: 1, totalPages: 1 },
+          });
+        },
+      );
+      await inbox
+        .getByPlaceholder("Search name, phone, email...")
+        .fill("pending");
+      await listStarted;
+      await inbox
+        .getByRole("button", { name: "Sign out", exact: true })
+        .click();
+      await expect(inbox.getByLabel("Staff email")).toBeVisible();
+      await inbox.getByLabel("Staff email").fill("second@example.test");
+      await inbox
+        .getByLabel("Password", { exact: true })
+        .fill("browser-only-password");
+      await inbox
+        .getByRole("button", { name: "Sign in to Admin Console" })
+        .click();
+      await expect(
+        inbox.getByRole("button", { name: "Sign out", exact: true }),
+      ).toBeVisible();
+      const lateList = inbox.waitForResponse(
+        (response) =>
+          response.url().includes("/admin/academy/leads?") &&
+          response.request().method() === "GET",
+      );
+      releaseList();
+      await (await lateList).finished();
+      await inbox.evaluate(
+        () =>
+          new Promise((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(resolve)),
+          ),
+      );
+      await expect(
+        inbox.getByRole("row").filter({ hasText: guardian }),
+      ).toHaveCount(0);
       await staff.close();
       // Obtain the real service to ensure test setup did not replace business logic.
       assert.ok(app.get(AcademyLeadsService));

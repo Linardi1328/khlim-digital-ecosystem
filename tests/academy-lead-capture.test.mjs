@@ -295,60 +295,6 @@ test("Campaign attribution resolves utm_source, ref, and campaign aliases and pr
   }
 });
 
-test("Admin leads inbox invalidates pending list requests when auth or MFA eligibility is lost", async () => {
-  const adminLeadsPage = await read("apps/admin/app/leads/page.tsx");
-
-  // State and sequence invalidation
-  assert.match(adminLeadsPage, /isEligible/);
-  assert.match(adminLeadsPage, /requestSeq\.current\s*\+=\s*1/);
-  assert.match(adminLeadsPage, /setSelectedLead\(null\)/);
-  assert.match(adminLeadsPage, /staffUserId/);
-
-  // In-flight request simulation
-  let requestSeq = 0;
-  let leads = [];
-  let selectedLead = { id: "open-lead" };
-
-  // Request 1 starts while eligible
-  const inFlightSeq = ++requestSeq;
-
-  // Eligibility is lost before response arrives
-  const isEligible = false;
-  if (!isEligible) {
-    requestSeq += 1;
-    leads = [];
-    selectedLead = null;
-  }
-
-  // Late response arrives from Request 1
-  const responseData = [{ id: "stale-lead" }];
-  if (inFlightSeq === requestSeq) {
-    leads = responseData;
-  }
-
-  // Verify stale rows and drawer state are NOT restored
-  assert.deepEqual(leads, []);
-  assert.equal(selectedLead, null);
-  assert.equal(requestSeq, 2);
-
-  // Simulate in-flight save/refresh discarding late response when staff identity changes
-  let staffUserId = "staff-user-1";
-  const startStaffId = staffUserId;
-  const actionSeq = ++requestSeq;
-  let actionResult = null;
-
-  // Staff identity switches before response returns
-  staffUserId = "staff-user-2";
-  requestSeq += 1;
-
-  // Late response resolves
-  if (actionSeq === requestSeq && staffUserId === startStaffId) {
-    actionResult = { id: "saved-lead" };
-  }
-  assert.equal(actionResult, null);
-  assert.equal(requestSeq, 4);
-});
-
 test("Web interest page matches backend error codes and uses localized messages without arbitrary server strings", async () => {
   const interestPage = await read("apps/web/app/interest/page.tsx");
 

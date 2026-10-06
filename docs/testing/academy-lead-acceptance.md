@@ -12,28 +12,18 @@ Browser coverage uses real production Next builds, Nest HTTP routes, Prisma and 
 
 Two explicit test doubles exist: the JWT verifier supplies a known staff identity with aal2, and an injected limiter-store outage exercises the failure path. The real API authorization guards, tenant lookup and database writes still execute. This is **not** evidence of real Supabase sign-in/TOTP.
 
-## Remaining gates
+## Current acceptance state
 
-| Gate | Status at implementation | Required evidence |
-| --- | --- | --- |
-| Backend regressions and browser CI | Pending execution on final commit | Green check links for the exact SHA; inspect uploaded browser evidence |
-| Closed-offering automatic UI recovery and translated errors | BLOCKED — frontend implementation pending | Antigravity fix and browser regression using real ApiError responseBody |
-| Real staff sign-in and MFA | BLOCKED — no authorized rehearsal session provided | Staff login/TOTP, inbox and update in the intended environment |
-| Deployment proxy topology | BLOCKED — provider ingress not verified | Actual trusted proxy addresses/header behavior before enabling trust |
-| Latest CodeRabbit review | Pending final commit review | Review the new SHA and reconcile still-valid threads |
+Antigravity implemented structured error handling, EN/BM recovery, campaign aliases and staff-session guards. Follow-up development separates list and drawer request lifetimes, resets operation state on identity/eligibility changes, and invalidates drawer responses when selection changes. This prevents successful saves remaining busy after list refresh.
 
-## Antigravity: focused frontend implementation
+Browser coverage now also checks every campaign alias on home/list/detail pages, save-button recovery, a deferred save across staff sign-out/sign-in, and a deferred list across lost eligibility. Auth transport and the replacement staff session are browser-only doubles at `https://auth.browser-test.invalid`; no hosted authentication or database is modified. The CI checkout does not persist Git credentials.
 
-Continue PR #85's existing branch after fetching its latest remote head. Preserve backend changes and the browser acceptance harness. Do not merge/deploy or start Slice 2.
+| Gate | Required evidence |
+| --- | --- |
+| Final branch validation | Green CI and CodeRabbit review on the new commit, including browser regressions |
+| Real staff sign-in and MFA | Login/TOTP, inbox and update in the intended rehearsal environment |
+| Deployment proxy topology | Verify actual ingress addresses and forwarded-header behavior before launch |
 
-In `apps/web/app/interest/page.tsx`, stop inspecting `ApiError.message` for offering words. The shared client uses a generic status message and exposes the server payload as `responseBody`.
+Proxy configuration is `TRUST_PROXY=true` plus explicit `TRUST_PROXY_ADDRESSES` IP/CIDR entries; `KHLIM_TRUST_PROXY` is the legacy flag fallback. `KHLIM_API_TRUSTED_PROXY` is not a supported setting. Leave trust disabled until the actual API ingress topology is established. Do not assume a Cloudflare or Render address range from the frontend host.
 
-1. Narrow `ApiError.responseBody` safely. For status 400 and code `LEAD_OFFERING_UNAVAILABLE`, clear the unavailable selection, refresh available options (handle refresh failure safely), retain guardian/contact/age/consent and the existing token, and explain how to submit general interest or choose another intake.
-2. For status 409 and code `LEAD_IDEMPOTENCY_CONFLICT`, do not advise refreshing for a new token. Explain that the earlier submission may already be recorded and direct the visitor to staff or to retry the original details. Do not silently rotate the token.
-3. Translate offering recovery, token conflict and generic failure messages in EN/BM through the existing localization system. Do not display arbitrary server errors. Preserve the existing 429/network recovery.
-4. Extend the browser harness: create an OPEN offering fixture, load/select it, close it in the database before submitting, assert the 400 recovery clears/reloads options and preserves entered details, then submit general interest with the same token and confirm one lead. Use real ApiError/client behavior. Add EN/BM coverage; fixture deletion must be scoped to its owned IDs.
-5. In the Admin leads page, invalidate pending list requests when auth/MFA or role eligibility is lost (increment the request sequence before clearing state), so old responses cannot restore stale rows. Cover an in-flight response arriving after eligibility changes.
-6. Fix campaign attribution on home/programme list/detail entry points: pass the full search-parameter object to `resolveCampaignSource`, not just `get("source")`, so supported utm_source/ref/campaign aliases reach /interest. Add navigation coverage for these aliases.
-7. Keep the existing mobile checks and inspect the failure/success visuals. Return exact final SHA, commands and workflow evidence, with remaining gates marked honestly.
-
-The backend error contract is now `{ code: "LEAD_OFFERING_UNAVAILABLE", message: ... }` (400) or `{ code: "LEAD_IDEMPOTENCY_CONFLICT", message: ... }` (409). The frontend must match codes, not server message substrings.
+The real-auth and ingress gates remain open. This change does not authorize merging, deploying or changing the hosted database.
