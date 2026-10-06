@@ -332,7 +332,7 @@ test(
       const receipt = await response.json();
       const payload = response.request().postDataJSON();
       assert.equal(payload.programmeOfferingId, null);
-      assert.equal(receipt.programmeOfferingId, null);
+      assert.equal(receipt.status, "RECEIVED");
       await expect(
         page.getByRole("heading", { name: "Interest Received!" }),
       ).toBeVisible();
