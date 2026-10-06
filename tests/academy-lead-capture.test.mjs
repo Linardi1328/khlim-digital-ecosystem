@@ -301,10 +301,12 @@ test("Admin leads inbox invalidates pending list requests when auth or MFA eligi
   // State and sequence invalidation
   assert.match(adminLeadsPage, /isEligible/);
   assert.match(adminLeadsPage, /requestSeq\.current\s*\+=\s*1/);
+  assert.match(adminLeadsPage, /setSelectedLead\(null\)/);
 
   // In-flight request simulation
   let requestSeq = 0;
   let leads = [];
+  let selectedLead = { id: "open-lead" };
 
   // Request 1 starts while eligible
   const inFlightSeq = ++requestSeq;
@@ -314,6 +316,7 @@ test("Admin leads inbox invalidates pending list requests when auth or MFA eligi
   if (!isEligible) {
     requestSeq += 1;
     leads = [];
+    selectedLead = null;
   }
 
   // Late response arrives from Request 1
@@ -322,8 +325,9 @@ test("Admin leads inbox invalidates pending list requests when auth or MFA eligi
     leads = responseData;
   }
 
-  // Verify stale rows are NOT restored
+  // Verify stale rows and drawer state are NOT restored
   assert.deepEqual(leads, []);
+  assert.equal(selectedLead, null);
   assert.equal(requestSeq, 2);
 });
 

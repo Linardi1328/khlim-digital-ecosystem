@@ -90,6 +90,7 @@ function LeadsInboxContent() {
     if (!isEligible) {
       requestSeq.current += 1;
       setLeads([]);
+      setSelectedLead(null);
       setError(null);
     }
   }, [isEligible]);
@@ -99,6 +100,7 @@ function LeadsInboxContent() {
     if (!isEligible) {
       requestSeq.current += 1;
       setLeads([]);
+      setSelectedLead(null);
       setError(null);
       setLoading(false);
       return;

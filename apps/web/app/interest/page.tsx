@@ -245,6 +245,7 @@ function InterestForm() {
       } else if (status === 409 && code === "LEAD_IDEMPOTENCY_CONFLICT") {
         setErrorMessageKey("interest.idempotencyConflict");
       } else if (status === 400 && code === "LEAD_OFFERING_UNAVAILABLE") {
+        const rejectedId = selectedOfferingId;
         setSelectedOfferingId("");
         void apiService
           .getPublicOfferings()
@@ -252,7 +253,12 @@ function InterestForm() {
             setOfferings(items);
           })
           .catch(() => {
-            // Safely ignore refresh failure; preserve entered details and token
+            // If refresh fails, filter out the rejected offering ID from local state
+            if (rejectedId) {
+              setOfferings((prev) =>
+                prev.filter((item) => item.id !== rejectedId),
+              );
+            }
           });
         setErrorMessageKey("interest.offeringUnavailable");
       } else if (err instanceof TypeError && err.message.includes("fetch")) {
