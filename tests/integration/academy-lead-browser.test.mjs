@@ -146,6 +146,10 @@ test(
     const processes = [];
     let browser;
     let context;
+    let sportFixture;
+    let programmeFixture;
+    let venueFixture;
+    let offeringFixture;
     await mkdir(`${root}test-results`, { recursive: true });
     try {
       await client.user.create({
@@ -164,6 +168,41 @@ test(
           roleAssignments: { create: [{ role: "ACADEMY_ADMIN" }] },
         },
       });
+      const sportCode = `BROWSER-SPORT-${run}`;
+      sportFixture = await client.sport.create({
+        data: { code: sportCode, defaultName: "Browser Badminton Sport" },
+      });
+      await client.organizationSport.create({
+        data: {
+          organizationId,
+          sportId: sportFixture.id,
+          active: true,
+        },
+      });
+      programmeFixture = await client.programme.create({
+        data: {
+          organizationId,
+          sportId: sportFixture.id,
+          code: `BROWSER-PRG-${run}`,
+          name: "Browser Junior Development",
+        },
+      });
+      venueFixture = await client.venue.create({
+        data: {
+          organizationId,
+          name: "Browser Sports Arena",
+        },
+      });
+      offeringFixture = await client.programmeOffering.create({
+        data: {
+          organizationId,
+          programmeId: programmeFixture.id,
+          venueId: venueFixture.id,
+          name: "Saturday Morning Junior Elite",
+          capacity: 15,
+          status: "OPEN",
+        },
+      });
       await app.listen(3101, "127.0.0.1");
       for (const [name, port] of [
         ["web", 3100],
@@ -177,8 +216,75 @@ test(
       });
       await context.tracing.start({ screenshots: true, snapshots: true });
       const page = await context.newPage();
-      await page.goto("http://127.0.0.1:3100/interest?source=3x3-oct24");
+      await page.goto(
+        `http://127.0.0.1:3100/interest?offeringId=${offeringFixture.id}&source=3x3-oct24`,
+      );
       await fillInterest(page, guardian, phone);
+      await expect(
+        page.getByLabel("Programme Interest", { exact: true }),
+      ).toHaveValue(offeringFixture.id);
+
+      // Close the offering in the database before submission to simulate intake closure
+      await client.programmeOffering.update({
+        where: { id: offeringFixture.id },
+        data: { status: "CLOSED" },
+      });
+
+      const offeringFailure = page.waitForResponse(
+        (response) =>
+          response.url().endsWith("/v1/academy/leads") &&
+          response.request().method() === "POST",
+      );
+      await page
+        .getByRole("button", { name: "Submit Interest", exact: true })
+        .click();
+      const offeringResponse = await offeringFailure;
+      assert.equal(offeringResponse.status(), 400);
+      const offeringErrorBody = await offeringResponse.json();
+      assert.equal(offeringErrorBody.code, "LEAD_OFFERING_UNAVAILABLE");
+
+      // Verify UI recovery in English
+      await expect(page.getByRole("alert").first()).toBeVisible();
+      await expect(page.getByRole("alert").first()).toContainText(
+        "The selected programme intake is currently closed or unavailable.",
+      );
+
+      // Add EN/BM coverage: switch to Bahasa Melayu and verify localized recovery text
+      await page.getByLabel("Select Language").selectOption("ms");
+      await expect(page.getByRole("alert").first()).toContainText(
+        "Tawaran program yang dipilih kini ditutup atau tidak tersedia.",
+      );
+
+      // Switch back to English
+      await page.getByLabel("Pilih Bahasa").selectOption("en");
+      await expect(page.getByRole("alert").first()).toContainText(
+        "The selected programme intake is currently closed or unavailable.",
+      );
+
+      // Verify selection is cleared to general interest ("")
+      await expect(
+        page.getByLabel("Programme Interest", { exact: true }),
+      ).toHaveValue("");
+
+      // Verify options are reloaded and closed offering is removed
+      await expect(
+        page.locator(`option[value="${offeringFixture.id}"]`),
+      ).toHaveCount(0);
+
+      // Verify form inputs and consent are preserved
+      await expect(
+        page.getByLabel("Guardian Full Name", { exact: false }),
+      ).toHaveValue(guardian);
+      await expect(
+        page.getByLabel("Mobile / WhatsApp Number", { exact: false }),
+      ).toHaveValue(phone);
+      await expect(page.getByLabel("Email Address (Optional)")).toHaveValue(
+        "browser.guardian@example.test",
+      );
+      await expect(
+        page.getByLabel("Child's Age (in years)", { exact: false }),
+      ).toHaveValue("10");
+      await expect(page.locator("#interest-privacy-consent")).toBeChecked();
 
       // Inject a storage outage only inside this test process. The production limiter
       // and controller still execute, including fail-closed response handling.
@@ -225,6 +331,8 @@ test(
       assert.equal(response.request().headers().authorization, undefined);
       const receipt = await response.json();
       const payload = response.request().postDataJSON();
+      assert.equal(payload.programmeOfferingId, null);
+      assert.equal(receipt.programmeOfferingId, null);
       await expect(
         page.getByRole("heading", { name: "Interest Received!" }),
       ).toBeVisible();
@@ -235,6 +343,7 @@ test(
       assert.equal(persisted.source, "3x3-oct24");
       assert.equal(persisted.phone, normalizedPhone);
       assert.equal(persisted.email, "browser.guardian@example.test");
+      assert.equal(persisted.programmeOfferingId, null);
       const replay = await fetch("http://127.0.0.1:3101/v1/academy/leads", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -329,6 +438,29 @@ test(
       if (browser) await browser.close();
       await Promise.all(processes.map((server) => server.stop()));
       try {
+        if (offeringFixture?.id) {
+          await client.programmeOffering.deleteMany({
+            where: { id: offeringFixture.id, organizationId },
+          });
+        }
+        if (venueFixture?.id) {
+          await client.venue.deleteMany({
+            where: { id: venueFixture.id, organizationId },
+          });
+        }
+        if (programmeFixture?.id) {
+          await client.programme.deleteMany({
+            where: { id: programmeFixture.id, organizationId },
+          });
+        }
+        if (sportFixture?.id) {
+          await client.organizationSport.deleteMany({
+            where: { sportId: sportFixture.id, organizationId },
+          });
+          await client.sport.deleteMany({
+            where: { id: sportFixture.id },
+          });
+        }
         // Append-only audit records remain in this disposable CI database.
         await client.academyLead.deleteMany({
           where: { organizationId, guardianName: guardian },

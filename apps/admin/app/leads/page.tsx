@@ -82,13 +82,25 @@ function LeadsInboxContent() {
   const [isConflict, setIsConflict] = useState(false);
   const [isRefreshingDetail, setIsRefreshingDetail] = useState(false);
 
-  // Fetch leads list
-  const fetchLeads = useCallback(async () => {
-    if (!canView) return;
-    if (!isDemoMode && (!isAuthenticated || !mfaSatisfied)) {
+  const isEligible =
+    canView && (isDemoMode || (isAuthenticated && mfaSatisfied));
+
+  // Invalidate pending list requests and clear stale rows when role or MFA eligibility is lost
+  useEffect(() => {
+    if (!isEligible) {
+      requestSeq.current += 1;
       setLeads([]);
       setError(null);
-      setLoading(true);
+    }
+  }, [isEligible]);
+
+  // Fetch leads list
+  const fetchLeads = useCallback(async () => {
+    if (!isEligible) {
+      requestSeq.current += 1;
+      setLeads([]);
+      setError(null);
+      setLoading(false);
       return;
     }
     const seq = ++requestSeq.current;
@@ -123,17 +135,7 @@ function LeadsInboxContent() {
         setLoading(false);
       }
     }
-  }, [
-    canView,
-    isDemoMode,
-    isAuthenticated,
-    mfaSatisfied,
-    page,
-    pageSize,
-    search,
-    statusFilter,
-    sourceFilter,
-  ]);
+  }, [isEligible, page, pageSize, search, statusFilter, sourceFilter]);
 
   useEffect(() => {
     void fetchLeads();

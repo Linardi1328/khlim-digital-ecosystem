@@ -1,6 +1,7 @@
 "use client";
 
-import { createApiClient, type ApiClient } from "@khlim/api-client";
+import { createApiClient, ApiError, type ApiClient } from "@khlim/api-client";
+export { ApiError };
 import { getValidAccessToken } from "./supabase-auth";
 import type {
   PublicOfferingItem,

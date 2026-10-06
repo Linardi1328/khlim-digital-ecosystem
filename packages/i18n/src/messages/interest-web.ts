@@ -35,6 +35,12 @@ export const interestWebMessages = {
     "interest.errorTitle": "Unable to submit interest",
     "interest.rateLimited":
       "Too many registrations from this connection. Please wait before trying again.",
+    "interest.offeringUnavailable":
+      "The selected programme intake is currently closed or unavailable. Your entered details have been preserved. You can select another intake or choose 'Not sure yet / General Academy Interest' to proceed.",
+    "interest.idempotencyConflict":
+      "This submission session has already been recorded with earlier details. If you need to make changes, please contact our academy staff directly or submit using your original details.",
+    "interest.genericError":
+      "Unable to submit interest registration at this time. Please try again later or contact us directly.",
     "interest.offlineError":
       "Network connection issue. Please check your internet and try again.",
     "interest.error.guardianName": "Please enter guardian full name.",
@@ -81,6 +87,12 @@ export const interestWebMessages = {
     "interest.errorTitle": "Tidak dapat menghantar pendaftaran minat",
     "interest.rateLimited":
       "Terlalu banyak pendaftaran daripada sambungan ini. Sila tunggu sebentar sebelum mencuba lagi.",
+    "interest.offeringUnavailable":
+      "Tawaran program yang dipilih kini ditutup atau tidak tersedia. Maklumat yang anda masukkan telah dikekalkan. Anda boleh memilih pengambilan lain atau memilih 'Belum pasti lagi / Minat Umum Akademi' untuk meneruskan.",
+    "interest.idempotencyConflict":
+      "Sesi penyerahan ini telah direkodkan dengan butiran terdahulu. Jika anda perlu membuat perubahan, sila hubungi kakitangan akademi kami secara langsung atau hantar menggunakan butiran asal anda.",
+    "interest.genericError":
+      "Tidak dapat menghantar pendaftaran minat buat masa ini. Sila cuba lagi sebentar lagi atau hubungi kami secara langsung.",
     "interest.offlineError":
       "Masalah sambungan rangkaian. Sila semak sambungan internet anda dan cuba lagi.",
     "interest.error.guardianName": "Sila masukkan nama penuh penjaga.",
@@ -126,6 +138,11 @@ export const interestWebMessages = {
     "interest.exploreAction": "浏览课程",
     "interest.errorTitle": "无法提交意向登记",
     "interest.rateLimited": "提交过于频繁，请稍后再试。",
+    "interest.offeringUnavailable":
+      "所选课程目前已关闭或不可用。您输入的信息已保留。您可以选择其他课程或选择“暂未确定 / 综合学院意向”继续提交。",
+    "interest.idempotencyConflict":
+      "此提交会话已记录早前的登记信息。如需更改，请直接联系我们的学院工作人员，或使用原始信息重试。",
+    "interest.genericError": "暂时无法提交意向登记。请稍后重试或直接联系我们。",
     "interest.offlineError": "网络连接错误，请检查您的网络后重试。",
     "interest.error.guardianName": "请输入监护人全名。",
     "interest.error.phone": "请输入有效的马来西亚或国际电话号码。",
@@ -167,6 +184,11 @@ export const interestWebMessages = {
     "interest.exploreAction": "瀏覽課程",
     "interest.errorTitle": "無法提交意向登記",
     "interest.rateLimited": "提交過於頻繁，請稍後再試。",
+    "interest.offeringUnavailable":
+      "所選課程目前已關閉或不可用。您輸入的資料已保留。您可以選擇其他課程或選擇「暫未確定 / 綜合學院意向」繼續提交。",
+    "interest.idempotencyConflict":
+      "此提交工作階段已記錄早前的登記資料。如需更改，請直接聯絡我們的學院工作人員，或使用原始資料重試。",
+    "interest.genericError": "暫時無法提交意向登記。請稍後重試或直接聯絡我們。",
     "interest.offlineError": "網絡連接錯誤，請檢查您的網絡後重試。",
     "interest.error.guardianName": "請輸入監護人全名。",
     "interest.error.phone": "請輸入有效的馬來西亞或國際電話號碼。",
@@ -209,6 +231,12 @@ export const interestWebMessages = {
     "interest.errorTitle": "रुचि सबमिट करने में असमर्थ",
     "interest.rateLimited":
       "बहुत सारे अनुरोध। कृपया कुछ समय बाद पुनः प्रयास करें।",
+    "interest.offeringUnavailable":
+      "चयनित कार्यक्रम वर्तमान में बंद या अनुपलब्ध है। आपका विवरण सुरक्षित है। आप दूसरा कार्यक्रम चुन सकते हैं या आगे बढ़ने के लिए सामान्य रुचि चुन सकते हैं।",
+    "interest.idempotencyConflict":
+      "यह सत्र पहले के विवरणों के साथ पहले ही दर्ज किया जा चुका है। यदि आपको परिवर्तन करने की आवश्यकता है, तो कृपया हमारे कर्मचारियों से संपर्क करें।",
+    "interest.genericError":
+      "इस समय रुचि पंजीकरण सबमिट करने में असमर्थ। कृपया बाद में पुनः प्रयास करें।",
     "interest.offlineError":
       "नेटवर्क त्रुटि। कृपया अपना इंटरनेट कनेक्शन जांचें।",
     "interest.error.guardianName": "कृपया अभिभावक का पूरा नाम दर्ज करें।",

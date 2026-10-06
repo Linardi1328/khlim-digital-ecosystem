@@ -3,7 +3,7 @@
 import React, { Suspense, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { apiService } from "../../lib/api-service";
+import { apiService, ApiError } from "../../lib/api-service";
 import { getPublicBusinessDetails } from "../../lib/business-details";
 import {
   buildUrlWithSource,
@@ -68,7 +68,7 @@ function InterestForm() {
   // State management
   const [submitting, setSubmitting] = useState(false);
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessageKey, setErrorMessageKey] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Idempotency token generated once per form session, independent of campaign changes
@@ -185,7 +185,7 @@ function InterestForm() {
     event.preventDefault();
     if (submitting) return;
 
-    setErrorMessage(null);
+    setErrorMessageKey(null);
 
     if (!validateLocal()) {
       return;
@@ -207,37 +207,58 @@ function InterestForm() {
 
       setSubmissionSuccess(true);
     } catch (err: unknown) {
-      const status =
-        err && typeof err === "object" && "status" in err
-          ? (err as { status: number }).status
-          : 0;
-      const errMessage =
-        err && typeof err === "object" && "message" in err
-          ? String((err as { message: unknown }).message)
-          : "";
+      let status = 0;
+      let code: string | undefined;
+
+      if (err instanceof ApiError) {
+        status = err.status;
+        if (
+          err.responseBody &&
+          typeof err.responseBody === "object" &&
+          "code" in err.responseBody &&
+          typeof (err.responseBody as { code?: unknown }).code === "string"
+        ) {
+          code = (err.responseBody as { code: string }).code;
+        }
+      } else if (err && typeof err === "object") {
+        if (
+          "status" in err &&
+          typeof (err as { status: unknown }).status === "number"
+        ) {
+          status = (err as { status: number }).status;
+        }
+        if (
+          "responseBody" in err &&
+          (err as { responseBody: unknown }).responseBody &&
+          typeof (err as { responseBody: unknown }).responseBody === "object"
+        ) {
+          const body = (err as { responseBody: { code?: unknown } })
+            .responseBody;
+          if (typeof body.code === "string") {
+            code = body.code;
+          }
+        }
+      }
 
       if (status === 429) {
-        setErrorMessage(t("interest.rateLimited"));
-      } else if (status === 409) {
-        setErrorMessage(
-          "A registration with this session token has already been submitted with different details. Please refresh the page to submit a new enquiry.",
-        );
-      } else if (
-        status === 400 &&
-        (errMessage.toLowerCase().includes("offering") ||
-          errMessage.toLowerCase().includes("closed") ||
-          errMessage.toLowerCase().includes("unavailable"))
-      ) {
+        setErrorMessageKey("interest.rateLimited");
+      } else if (status === 409 && code === "LEAD_IDEMPOTENCY_CONFLICT") {
+        setErrorMessageKey("interest.idempotencyConflict");
+      } else if (status === 400 && code === "LEAD_OFFERING_UNAVAILABLE") {
         setSelectedOfferingId("");
-        setErrorMessage(
-          "The selected programme intake is currently closed or unavailable. Your contact information is preserved — you can continue submitting as General Academy Interest.",
-        );
+        void apiService
+          .getPublicOfferings()
+          .then((items) => {
+            setOfferings(items);
+          })
+          .catch(() => {
+            // Safely ignore refresh failure; preserve entered details and token
+          });
+        setErrorMessageKey("interest.offeringUnavailable");
       } else if (err instanceof TypeError && err.message.includes("fetch")) {
-        setErrorMessage(t("interest.offlineError"));
-      } else if (errMessage) {
-        setErrorMessage(errMessage);
+        setErrorMessageKey("interest.offlineError");
       } else {
-        setErrorMessage(t("common.error"));
+        setErrorMessageKey("interest.genericError");
       }
     } finally {
       setSubmitting(false);
@@ -376,10 +397,10 @@ function InterestForm() {
               </div>
             ) : null}
 
-            {errorMessage ? (
+            {errorMessageKey ? (
               <div style={{ marginBottom: 20 }} role="alert">
                 <Alert variant="danger" title={t("interest.errorTitle")}>
-                  {errorMessage}
+                  {t(errorMessageKey)}
                 </Alert>
               </div>
             ) : null}

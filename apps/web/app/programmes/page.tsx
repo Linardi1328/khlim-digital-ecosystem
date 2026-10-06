@@ -26,7 +26,6 @@ import {
 function ProgrammesContent() {
   const { t, formatDate } = useI18n();
   const searchParams = useSearchParams();
-  const querySource = searchParams?.get("source");
   const [campaignSource, setCampaignSource] = useState<string | null>(null);
 
   const [offerings, setOfferings] = useState<PublicOfferingItem[]>([]);
@@ -34,8 +33,8 @@ function ProgrammesContent() {
   const [level, setLevel] = useState("ALL");
 
   useEffect(() => {
-    setCampaignSource(resolveCampaignSource(querySource));
-  }, [querySource]);
+    setCampaignSource(resolveCampaignSource(searchParams));
+  }, [searchParams]);
 
   useEffect(() => {
     apiService

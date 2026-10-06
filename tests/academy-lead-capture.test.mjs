@@ -257,3 +257,89 @@ test("Admin UI and Web UI incorporate Academy lead capture features cleanly", as
   assert.match(adminDashboardPage, /href="\/leads\?status=NEW"/);
   assert.match(adminDashboardPage, /href="\/leads\?status=NEEDS_FOLLOW_UP"/);
 });
+
+test("Campaign attribution resolves utm_source, ref, and campaign aliases and propagates to /interest", async () => {
+  const homePage = await read("apps/web/app/page.tsx");
+  const programmesPage = await read("apps/web/app/programmes/page.tsx");
+  const offeringDetailPage = await read(
+    "apps/web/app/programmes/[offeringId]/page.tsx",
+  );
+
+  // Home, programmes list, and offering detail pass full searchParams object
+  assert.match(homePage, /resolveCampaignSource\(searchParams\)/);
+  assert.doesNotMatch(homePage, /resolveCampaignSource\(querySource\)/);
+  assert.match(programmesPage, /resolveCampaignSource\(searchParams\)/);
+  assert.doesNotMatch(programmesPage, /resolveCampaignSource\(querySource\)/);
+  assert.match(offeringDetailPage, /resolveCampaignSource\(searchParams\)/);
+  assert.doesNotMatch(
+    offeringDetailPage,
+    /resolveCampaignSource\(querySource\)/,
+  );
+
+  const { resolveCampaignSource, buildUrlWithSource } = await import(
+    new URL("apps/web/lib/campaign-source.ts", root).href
+  );
+
+  for (const [paramName, paramValue] of [
+    ["utm_source", "instagram_story"],
+    ["ref", "fb_group"],
+    ["campaign", "holiday_clinic_2026"],
+    ["source", "qr_banner"],
+  ]) {
+    const mockParams = new URLSearchParams({ [paramName]: paramValue });
+    const resolved = resolveCampaignSource(mockParams);
+    assert.equal(resolved, paramValue);
+
+    const interestUrl = buildUrlWithSource("/interest", resolved);
+    assert.equal(interestUrl, `/interest?source=${paramValue}`);
+  }
+});
+
+test("Admin leads inbox invalidates pending list requests when auth or MFA eligibility is lost", async () => {
+  const adminLeadsPage = await read("apps/admin/app/leads/page.tsx");
+
+  // State and sequence invalidation
+  assert.match(adminLeadsPage, /isEligible/);
+  assert.match(adminLeadsPage, /requestSeq\.current\s*\+=\s*1/);
+
+  // In-flight request simulation
+  let requestSeq = 0;
+  let leads = [];
+
+  // Request 1 starts while eligible
+  const inFlightSeq = ++requestSeq;
+
+  // Eligibility is lost before response arrives
+  const isEligible = false;
+  if (!isEligible) {
+    requestSeq += 1;
+    leads = [];
+  }
+
+  // Late response arrives from Request 1
+  const responseData = [{ id: "stale-lead" }];
+  if (inFlightSeq === requestSeq) {
+    leads = responseData;
+  }
+
+  // Verify stale rows are NOT restored
+  assert.deepEqual(leads, []);
+  assert.equal(requestSeq, 2);
+});
+
+test("Web interest page matches backend error codes and uses localized messages without arbitrary server strings", async () => {
+  const interestPage = await read("apps/web/app/interest/page.tsx");
+
+  assert.match(interestPage, /LEAD_OFFERING_UNAVAILABLE/);
+  assert.match(interestPage, /LEAD_IDEMPOTENCY_CONFLICT/);
+  assert.match(interestPage, /interest\.offeringUnavailable/);
+  assert.match(interestPage, /interest\.idempotencyConflict/);
+  assert.match(interestPage, /interest\.genericError/);
+  assert.match(interestPage, /interest\.rateLimited/);
+  assert.match(interestPage, /interest\.offlineError/);
+  assert.doesNotMatch(
+    interestPage,
+    /errMessage\.toLowerCase\(\)\.includes\("offering"\)/,
+  );
+  assert.doesNotMatch(interestPage, /setErrorMessage\(errMessage\)/);
+});

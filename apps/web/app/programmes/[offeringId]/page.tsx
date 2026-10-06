@@ -27,15 +27,14 @@ import {
 function OfferingDetailContent({ offeringId }: { offeringId: string }) {
   const { t, formatCurrency, formatDate } = useI18n();
   const searchParams = useSearchParams();
-  const querySource = searchParams?.get("source");
   const [campaignSource, setCampaignSource] = useState<string | null>(null);
 
   const [offering, setOffering] = useState<PublicOfferingItem | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setCampaignSource(resolveCampaignSource(querySource));
-  }, [querySource]);
+    setCampaignSource(resolveCampaignSource(searchParams));
+  }, [searchParams]);
 
   useEffect(() => {
     apiService
