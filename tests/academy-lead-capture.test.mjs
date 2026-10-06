@@ -302,6 +302,7 @@ test("Admin leads inbox invalidates pending list requests when auth or MFA eligi
   assert.match(adminLeadsPage, /isEligible/);
   assert.match(adminLeadsPage, /requestSeq\.current\s*\+=\s*1/);
   assert.match(adminLeadsPage, /setSelectedLead\(null\)/);
+  assert.match(adminLeadsPage, /staffUserId/);
 
   // In-flight request simulation
   let requestSeq = 0;
@@ -329,6 +330,23 @@ test("Admin leads inbox invalidates pending list requests when auth or MFA eligi
   assert.deepEqual(leads, []);
   assert.equal(selectedLead, null);
   assert.equal(requestSeq, 2);
+
+  // Simulate in-flight save/refresh discarding late response when staff identity changes
+  let staffUserId = "staff-user-1";
+  const startStaffId = staffUserId;
+  const actionSeq = ++requestSeq;
+  let actionResult = null;
+
+  // Staff identity switches before response returns
+  staffUserId = "staff-user-2";
+  requestSeq += 1;
+
+  // Late response resolves
+  if (actionSeq === requestSeq && staffUserId === startStaffId) {
+    actionResult = { id: "saved-lead" };
+  }
+  assert.equal(actionResult, null);
+  assert.equal(requestSeq, 4);
 });
 
 test("Web interest page matches backend error codes and uses localized messages without arbitrary server strings", async () => {

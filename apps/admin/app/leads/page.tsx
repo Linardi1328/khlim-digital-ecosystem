@@ -55,7 +55,9 @@ function LeadsInboxContent() {
   const searchParams = useSearchParams();
   const initialStatusParam = searchParams.get("status") || "ALL";
 
-  const { hasRole, isAuthenticated, isDemoMode, mfaSatisfied } = useAdminAuth();
+  const { user, hasRole, isAuthenticated, isDemoMode, mfaSatisfied } =
+    useAdminAuth();
+  const staffUserId = user?.id || null;
   const canView = hasRole(["SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN"]);
 
   const [leads, setLeads] = useState<AdminLeadItem[]>([]);
@@ -84,6 +86,15 @@ function LeadsInboxContent() {
 
   const isEligible =
     canView && (isDemoMode || (isAuthenticated && mfaSatisfied));
+
+  // Invalidate in-flight operations and clear drawer selection when staff identity changes
+  useEffect(() => {
+    requestSeq.current += 1;
+    setSelectedLead(null);
+    setSaveSuccess(null);
+    setSaveError(null);
+    setIsConflict(false);
+  }, [staffUserId]);
 
   // Invalidate pending list requests and clear stale rows when role or MFA eligibility is lost
   useEffect(() => {
@@ -162,12 +173,15 @@ function LeadsInboxContent() {
 
   // Refresh single lead in drawer (especially useful after 409 conflict)
   const handleRefreshSelectedLead = async () => {
-    if (!selectedLead) return;
+    if (!selectedLead || !isEligible) return;
+    const startStaffId = staffUserId;
+    const seq = ++requestSeq.current;
     setIsRefreshingDetail(true);
     setSaveError(null);
     setIsConflict(false);
     try {
       const fresh = await getAdminLeadDetail(selectedLead.id);
+      if (seq !== requestSeq.current || staffUserId !== startStaffId) return;
       setSelectedLead(fresh);
       setDrawerStatus(fresh.status);
       setDrawerNotes(fresh.notes || "");
@@ -176,16 +190,21 @@ function LeadsInboxContent() {
         prev.map((item) => (item.id === fresh.id ? fresh : item)),
       );
     } catch {
+      if (seq !== requestSeq.current || staffUserId !== startStaffId) return;
       setSaveError("Failed to refresh latest lead data.");
     } finally {
-      setIsRefreshingDetail(false);
+      if (seq === requestSeq.current && staffUserId === startStaffId) {
+        setIsRefreshingDetail(false);
+      }
     }
   };
 
   // Handle save from drawer
   const handleSaveLead = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedLead) return;
+    if (!selectedLead || !isEligible) return;
+    const startStaffId = staffUserId;
+    const seq = ++requestSeq.current;
 
     setIsSaving(true);
     setSaveSuccess(null);
@@ -199,6 +218,8 @@ function LeadsInboxContent() {
         expectedUpdatedAt: selectedLead.updatedAt,
       });
 
+      if (seq !== requestSeq.current || staffUserId !== startStaffId) return;
+
       setSelectedLead(updated);
       setDrawerStatus(updated.status);
       setDrawerNotes(updated.notes || "");
@@ -210,6 +231,8 @@ function LeadsInboxContent() {
       );
       void fetchLeads();
     } catch (err: unknown) {
+      if (seq !== requestSeq.current || staffUserId !== startStaffId) return;
+
       const errorObj = err as { status?: number; message?: string };
       if (
         errorObj.status === 409 ||
@@ -230,7 +253,9 @@ function LeadsInboxContent() {
         );
       }
     } finally {
-      setIsSaving(false);
+      if (seq === requestSeq.current && staffUserId === startStaffId) {
+        setIsSaving(false);
+      }
     }
   };
 
