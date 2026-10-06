@@ -225,11 +225,13 @@ test(
         ]) {
           const source = `${alias}-browser`;
           await page.goto(`http://127.0.0.1:3100${path}?${alias}=${source}`);
-          const links = page.locator('a[href^="/interest"]');
+          const links = page.locator('main a[href^="/interest"]');
           await expect(links.first()).toBeVisible();
-          for (const href of await links.evaluateAll((nodes) =>
-            nodes.map((node) => node.getAttribute("href")),
-          )) {
+          for (const href of await page
+            .locator('a[href^="/interest"]')
+            .evaluateAll((nodes) =>
+              nodes.map((node) => node.getAttribute("href")),
+            )) {
             assert.equal(
               new URL(href, "http://localhost").searchParams.get("source"),
               source,
@@ -543,6 +545,9 @@ test(
       await expect(
         inbox.getByRole("button", { name: "Sign out", exact: true }),
       ).toBeVisible();
+      await expect(
+        inbox.getByText("No leads found", { exact: true }),
+      ).toBeVisible();
       const lateResponse = inbox.waitForResponse(
         (response) => response.request().method() === "PATCH",
       );
@@ -602,6 +607,9 @@ test(
         .click();
       await expect(
         inbox.getByRole("button", { name: "Sign out", exact: true }),
+      ).toBeVisible();
+      await expect(
+        inbox.getByText("No leads found", { exact: true }),
       ).toBeVisible();
       const lateList = inbox.waitForResponse(
         (response) =>

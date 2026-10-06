@@ -77,7 +77,7 @@ function HomeContent() {
     <div
       style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
     >
-      <PublicHeader />
+      <PublicHeader campaignSource={campaignSource} />
       <main style={{ flex: 1 }}>
         <HeroCarousel
           slides={heroSlides}

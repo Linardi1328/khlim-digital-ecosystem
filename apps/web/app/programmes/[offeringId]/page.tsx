@@ -49,7 +49,7 @@ function OfferingDetailContent({ offeringId }: { offeringId: string }) {
   if (loading)
     return (
       <div>
-        <PublicHeader />
+        <PublicHeader campaignSource={campaignSource} />
         <main aria-busy="true" style={{ padding: 48, textAlign: "center" }}>
           {t("programmes.loadingOffering")}
         </main>
@@ -60,7 +60,7 @@ function OfferingDetailContent({ offeringId }: { offeringId: string }) {
   if (!offering)
     return (
       <div>
-        <PublicHeader />
+        <PublicHeader campaignSource={campaignSource} />
         <main style={{ padding: 48, textAlign: "center" }}>
           <h1>{t("programmes.unavailable")}</h1>
           <Link href={buildUrlWithSource("/programmes", campaignSource)}>
@@ -80,7 +80,7 @@ function OfferingDetailContent({ offeringId }: { offeringId: string }) {
     <div
       style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
     >
-      <PublicHeader />
+      <PublicHeader campaignSource={campaignSource} />
       <main
         style={{
           flex: 1,
