@@ -1,8 +1,13 @@
 "use client";
 
-import React, { use, useEffect, useState } from "react";
+import React, { Suspense, use, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { apiService } from "../../../lib/api-service";
+import {
+  buildUrlWithSource,
+  resolveCampaignSource,
+} from "../../../lib/campaign-source";
 import { useI18n } from "../../../lib/i18n-context";
 import {
   getPlanChargeMinor,
@@ -19,15 +24,17 @@ import {
   CardTitle,
 } from "../../../components/ui/card";
 
-export default function OfferingDetailPage({
-  params,
-}: {
-  params: Promise<{ offeringId: string }>;
-}) {
-  const { offeringId } = use(params);
+function OfferingDetailContent({ offeringId }: { offeringId: string }) {
   const { t, formatCurrency, formatDate } = useI18n();
+  const searchParams = useSearchParams();
+  const [campaignSource, setCampaignSource] = useState<string | null>(null);
+
   const [offering, setOffering] = useState<PublicOfferingItem | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setCampaignSource(resolveCampaignSource(searchParams));
+  }, [searchParams]);
 
   useEffect(() => {
     apiService
@@ -42,31 +49,38 @@ export default function OfferingDetailPage({
   if (loading)
     return (
       <div>
-        <PublicHeader />
-        <main style={{ padding: 48, textAlign: "center" }}>
+        <PublicHeader campaignSource={campaignSource} />
+        <main aria-busy="true" style={{ padding: 48, textAlign: "center" }}>
           {t("programmes.loadingOffering")}
         </main>
         <PublicFooter />
       </div>
     );
+
   if (!offering)
     return (
       <div>
-        <PublicHeader />
+        <PublicHeader campaignSource={campaignSource} />
         <main style={{ padding: 48, textAlign: "center" }}>
           <h1>{t("programmes.unavailable")}</h1>
-          <Link href="/programmes">{t("programmes.returnToProgrammes")}</Link>
+          <Link href={buildUrlWithSource("/programmes", campaignSource)}>
+            {t("programmes.returnToProgrammes")}
+          </Link>
         </main>
         <PublicFooter />
       </div>
     );
 
   const plans = offering.planEligibilities.map(({ plan }) => plan);
+  const registerInterestUrl = buildUrlWithSource("/interest", campaignSource, {
+    offeringId: offering.id,
+  });
+
   return (
     <div
       style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
     >
-      <PublicHeader />
+      <PublicHeader campaignSource={campaignSource} />
       <main
         style={{
           flex: 1,
@@ -77,9 +91,26 @@ export default function OfferingDetailPage({
           boxSizing: "border-box",
         }}
       >
-        <p>
-          <Link href="/programmes">{t("programmes.allProgrammes")}</Link>
-        </p>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 16,
+            flexWrap: "wrap",
+            gap: 12,
+          }}
+        >
+          <Link href={buildUrlWithSource("/programmes", campaignSource)}>
+            ← {t("programmes.allProgrammes")}
+          </Link>
+          <Link href={registerInterestUrl} style={{ textDecoration: "none" }}>
+            <Button variant="primary" size="sm">
+              {t("programmes.registerInterest")}
+            </Button>
+          </Link>
+        </div>
+
         <Card>
           <Badge variant="brand">
             {offering.programme.level ?? t("programmes.academyProgramme")}
@@ -91,6 +122,7 @@ export default function OfferingDetailPage({
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
               gap: 16,
+              marginBottom: 20,
             }}
           >
             <div>
@@ -118,7 +150,15 @@ export default function OfferingDetailPage({
               </p>
             </div>
           </div>
+          <div>
+            <Link href={registerInterestUrl} style={{ textDecoration: "none" }}>
+              <Button variant="outline" size="md">
+                {t("programmes.registerInterest")}
+              </Button>
+            </Link>
+          </div>
         </Card>
+
         <h2 style={{ marginTop: 32 }}>{t("programmes.eligiblePlans")}</h2>
         {plans.length === 0 ? (
           <Card>{t("programmes.noActivePlans")}</Card>
@@ -156,7 +196,10 @@ export default function OfferingDetailPage({
                       <p>{plan.benefitsSummary}</p>
                     ) : null}
                     <Link
-                      href={`/enrol?offeringId=${encodeURIComponent(offering.id)}&planId=${encodeURIComponent(plan.id)}`}
+                      href={buildUrlWithSource("/enrol", campaignSource, {
+                        offeringId: offering.id,
+                        planId: plan.id,
+                      })}
                     >
                       <Button variant="primary">
                         {t("programmes.selectPlan")}
@@ -171,5 +214,21 @@ export default function OfferingDetailPage({
       </main>
       <PublicFooter />
     </div>
+  );
+}
+
+export default function OfferingDetailPage({
+  params,
+}: {
+  params: Promise<{ offeringId: string }>;
+}) {
+  const { offeringId } = use(params);
+
+  return (
+    <Suspense
+      fallback={<div aria-busy="true" style={{ minHeight: "100vh" }} />}
+    >
+      <OfferingDetailContent offeringId={offeringId} />
+    </Suspense>
   );
 }

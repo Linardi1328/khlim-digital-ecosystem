@@ -1,8 +1,13 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { apiService } from "../lib/api-service";
+import {
+  buildUrlWithSource,
+  resolveCampaignSource,
+} from "../lib/campaign-source";
 import { useI18n } from "../lib/i18n-context";
 import type { PublicOfferingItem } from "../lib/types";
 import { AcademyPillarsSection } from "../components/home/academy-pillars-section";
@@ -39,10 +44,16 @@ function ageLabel(
   return t("programmes.ageEligibilityVaries");
 }
 
-export default function HomePage() {
+function HomeContent() {
   const { t } = useI18n();
+  const searchParams = useSearchParams();
+  const [campaignSource, setCampaignSource] = useState<string | null>(null);
   const [offerings, setOfferings] = useState<PublicOfferingItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setCampaignSource(resolveCampaignSource(searchParams));
+  }, [searchParams]);
 
   useEffect(() => {
     apiService
@@ -66,7 +77,7 @@ export default function HomePage() {
     <div
       style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
     >
-      <PublicHeader />
+      <PublicHeader campaignSource={campaignSource} />
       <main style={{ flex: 1 }}>
         <HeroCarousel
           slides={heroSlides}
@@ -75,6 +86,7 @@ export default function HomePage() {
           subtitle={t("home.academyHero.subtitle")}
           primaryCtaLabel={t("hero.cta.join")}
           secondaryCtaLabel={t("hero.cta.explore")}
+          source={campaignSource}
         />
 
         <AcademyPillarsSection />
@@ -117,13 +129,28 @@ export default function HomePage() {
                       {offering.startsOn ?? t("common.toBeConfirmed")}
                     </p>
                   </CardContent>
-                  <CardFooter>
+                  <CardFooter
+                    style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                  >
                     <Link
-                      href={`/programmes/${offering.id}`}
+                      href={buildUrlWithSource(
+                        `/programmes/${offering.id}`,
+                        campaignSource,
+                      )}
                       style={{ width: "100%" }}
                     >
                       <Button variant="outline" style={{ width: "100%" }}>
                         {t("programmes.viewDetails")}
+                      </Button>
+                    </Link>
+                    <Link
+                      href={buildUrlWithSource("/interest", campaignSource, {
+                        offeringId: offering.id,
+                      })}
+                      style={{ width: "100%" }}
+                    >
+                      <Button variant="primary" style={{ width: "100%" }}>
+                        {t("nav.registerInterest")}
                       </Button>
                     </Link>
                   </CardFooter>
@@ -146,13 +173,27 @@ export default function HomePage() {
             <p>{t("home.join.description")}</p>
           </div>
           <div className="home-join-cta-actions">
-            <Link href="/programmes" style={{ textDecoration: "none" }}>
+            <Link
+              href={buildUrlWithSource("/interest", campaignSource)}
+              style={{ textDecoration: "none" }}
+            >
+              <Button variant="primary" size="lg">
+                {t("nav.registerInterest")}
+              </Button>
+            </Link>
+            <Link
+              href={buildUrlWithSource("/programmes", campaignSource)}
+              style={{ textDecoration: "none" }}
+            >
               <Button variant="outline" size="lg">
                 {t("hero.cta.explore")}
               </Button>
             </Link>
-            <Link href="/enrol" style={{ textDecoration: "none" }}>
-              <Button variant="primary" size="lg">
+            <Link
+              href={buildUrlWithSource("/enrol", campaignSource)}
+              style={{ textDecoration: "none" }}
+            >
+              <Button variant="outline" size="lg">
                 {t("hero.cta.join")}
               </Button>
             </Link>
@@ -161,5 +202,15 @@ export default function HomePage() {
       </main>
       <PublicFooter />
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense
+      fallback={<div aria-busy="true" style={{ minHeight: "100vh" }} />}
+    >
+      <HomeContent />
+    </Suspense>
   );
 }

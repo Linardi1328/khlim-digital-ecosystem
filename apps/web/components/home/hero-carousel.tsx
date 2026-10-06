@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "../../lib/i18n-context";
+import { buildUrlWithSource } from "../../lib/campaign-source";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 
@@ -21,6 +22,7 @@ export interface HeroCarouselProps {
   subtitle: string;
   primaryCtaLabel: string;
   secondaryCtaLabel: string;
+  source?: string | null;
 }
 
 const AUTOPLAY_MS = 6000;
@@ -33,6 +35,7 @@ export function HeroCarousel({
   subtitle,
   primaryCtaLabel,
   secondaryCtaLabel,
+  source,
 }: HeroCarouselProps) {
   const { t } = useI18n();
   const safeSlides = useMemo(() => (slides.length > 0 ? slides : []), [slides]);
@@ -118,12 +121,26 @@ export function HeroCarousel({
           <h1>{title}</h1>
           <p>{subtitle}</p>
           <div className="home-hero-actions">
-            <Link href="/enrol" style={{ textDecoration: "none" }}>
+            <Link
+              href={buildUrlWithSource("/interest", source)}
+              style={{ textDecoration: "none" }}
+            >
               <Button variant="primary" size="lg">
+                {t("nav.registerInterest")}
+              </Button>
+            </Link>
+            <Link
+              href={buildUrlWithSource("/enrol", source)}
+              style={{ textDecoration: "none" }}
+            >
+              <Button variant="outline" size="lg">
                 {primaryCtaLabel}
               </Button>
             </Link>
-            <Link href="/programmes" style={{ textDecoration: "none" }}>
+            <Link
+              href={buildUrlWithSource("/programmes", source)}
+              style={{ textDecoration: "none" }}
+            >
               <Button variant="outline" size="lg">
                 {secondaryCtaLabel}
               </Button>

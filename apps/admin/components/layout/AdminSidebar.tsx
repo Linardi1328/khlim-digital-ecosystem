@@ -72,6 +72,12 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     roles: ACADEMY_MANAGEMENT,
   },
   {
+    href: "/leads",
+    label: "Leads",
+    icon: "📥",
+    roles: ACADEMY_MANAGEMENT,
+  },
+  {
     href: "/memberships",
     label: "Memberships",
     icon: "🏅",

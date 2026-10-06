@@ -8,9 +8,14 @@ import { BrandLogo } from "./brand-logo";
 import { LocaleSwitcher } from "./locale-switcher";
 import { Button } from "../ui/button";
 import { Sheet } from "../ui/sheet";
+import { buildUrlWithSource } from "../../lib/campaign-source";
 import styles from "./public-header.module.css";
 
-export function PublicHeader() {
+export function PublicHeader({
+  campaignSource = null,
+}: {
+  campaignSource?: string | null;
+}) {
   const { t } = useI18n();
   const { isAuthenticated } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -19,6 +24,10 @@ export function PublicHeader() {
     { href: "/", label: t("nav.home") },
     { href: "/academy", label: t("nav.academy") },
     { href: "/programmes", label: t("nav.programmes") },
+    {
+      href: buildUrlWithSource("/interest", campaignSource),
+      label: t("nav.registerInterest"),
+    },
     { href: "/about", label: t("nav.about") },
     { href: "/contact", label: t("nav.contact") },
   ];
@@ -276,6 +285,18 @@ export function PublicHeader() {
                 </Button>
               </Link>
             )}
+            <Link
+              href={buildUrlWithSource("/interest", campaignSource)}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <Button
+                variant="outline"
+                size="md"
+                style={{ width: "100%", minHeight: "44px" }}
+              >
+                {t("nav.registerInterest")}
+              </Button>
+            </Link>
             <Link href="/enrol" onClick={() => setMobileMenuOpen(false)}>
               <Button variant="primary" size="md" style={{ width: "100%" }}>
                 {t("hero.cta.join")}

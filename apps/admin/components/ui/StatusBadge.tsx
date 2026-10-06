@@ -20,11 +20,28 @@ export function StatusBadge({
   let border = "#CBD5E1";
   let icon = "•";
 
-  if (["ACTIVE", "PAID", "OPEN", "COMPLETED"].includes(normalized)) {
+  if (
+    ["ACTIVE", "PAID", "OPEN", "COMPLETED", "ENROLLED"].includes(normalized)
+  ) {
     bg = "#ECFDF5";
     text = "#065F46";
     border = "#A7F3D0";
     icon = "✓";
+  } else if (normalized === "NEW") {
+    bg = "#EFF6FF";
+    text = "#1D4ED8";
+    border = "#BFDBFE";
+    icon = "★";
+  } else if (normalized === "CONTACTED") {
+    bg = "#FFFBEB";
+    text = "#B45309";
+    border = "#FDE68A";
+    icon = "💬";
+  } else if (normalized === "QUALIFIED") {
+    bg = "#F5F3FF";
+    text = "#6D28D9";
+    border = "#DDD6FE";
+    icon = "✦";
   } else if (
     ["PENDING", "PROCESSING", "SCHEDULED", "DRAFT"].includes(normalized)
   ) {

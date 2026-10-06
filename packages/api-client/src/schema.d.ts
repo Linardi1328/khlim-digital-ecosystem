@@ -566,6 +566,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/academy/leads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Register interest in KHLIM Academy programmes without an account */
+        post: operations["AcademyLeadsController_createLead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/academy/sports": {
         parameters: {
             query?: never;
@@ -677,6 +694,58 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/academy/leads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List tenant Academy interest leads with bounded pagination, newest-first ordering, and filters */
+        get: operations["AcademyLeadsAdminController_listLeads"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/academy/leads/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get role-gated counts for new leads and leads requiring operator follow-up */
+        get: operations["AcademyLeadsAdminController_getSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/academy/leads/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Retrieve tenant-scoped Academy lead detail */
+        get: operations["AcademyLeadsAdminController_getLeadDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update lead status and operational notes with concurrency detection */
+        patch: operations["AcademyLeadsAdminController_updateLead"];
         trace?: never;
     };
     "/v1/athletes/{athleteId}/memberships/{membershipId}/billing": {
@@ -1125,6 +1194,58 @@ export interface components {
             offeringId: string;
             planId: string;
         };
+        CreateAcademyLeadDto: {
+            /**
+             * @description Guardian full name
+             * @example Lim Wei Hong
+             */
+            guardianName: string;
+            /**
+             * @description Mobile phone or WhatsApp number
+             * @example +60123456789
+             */
+            phone: string;
+            /**
+             * @description Optional contact email
+             * @example guardian@example.com
+             */
+            email?: string | null;
+            /**
+             * @description Child age in years (3-18)
+             * @example 10
+             */
+            childAge: number;
+            /**
+             * @description Optional programme offering UUID
+             * @example 00000000-0000-4000-8000-000000000001
+             */
+            programmeOfferingId?: string;
+            /**
+             * @description Optional campaign source token
+             * @example 3x3-oct24
+             */
+            source?: string;
+            /**
+             * @description Explicit privacy and follow-up consent
+             * @example true
+             */
+            consent: boolean;
+            /**
+             * @description Optional client retry idempotency token
+             * @example idemp-123e4567-e89b-12d3-a456-426614174000
+             */
+            idempotencyKey?: string;
+        };
+        CreateAcademyLeadResponseDto: {
+            /** @example 00000000-0000-4000-8000-000000000001 */
+            id: string;
+            /** @example RECEIVED */
+            status: string;
+            /** @example Thank you for registering your interest with KHLIM Academy. Our team will follow up with you. */
+            message: string;
+            /** @example 2026-10-06T04:00:00.000Z */
+            createdAt: string;
+        };
         CreateSportDto: {
             /** @example BASKETBALL */
             code: string;
@@ -1188,6 +1309,71 @@ export interface components {
         LinkPlanOfferingDto: {
             planId: string;
             offeringId: string;
+        };
+        AcademyLeadItemDto: {
+            id: string;
+            organizationId: string;
+            guardianName: string;
+            phone: string;
+            email?: Record<string, never>;
+            childAge: number;
+            programmeOfferingId?: Record<string, never>;
+            offeringName?: Record<string, never>;
+            programmeName?: Record<string, never>;
+            source?: Record<string, never>;
+            /** @enum {string} */
+            status: "NEW" | "CONTACTED" | "QUALIFIED" | "ENROLLED" | "CLOSED";
+            notes?: Record<string, never>;
+            consentAt: string;
+            consentVersion: string;
+            createdAt: string;
+            updatedAt: string;
+        };
+        AcademyLeadListResponseDto: {
+            items: components["schemas"]["AcademyLeadItemDto"][];
+            /** @example 42 */
+            total: number;
+            /** @example 1 */
+            page: number;
+            /** @example 20 */
+            limit: number;
+            /** @example 3 */
+            totalPages: number;
+        };
+        AcademyLeadStatusCountsDto: {
+            /** @example 5 */
+            NEW: number;
+            /** @example 3 */
+            CONTACTED: number;
+            /** @example 2 */
+            QUALIFIED: number;
+            /** @example 1 */
+            ENROLLED: number;
+            /** @example 4 */
+            CLOSED: number;
+        };
+        AcademyLeadSummaryResponseDto: {
+            /**
+             * @description Count of NEW leads
+             * @example 5
+             */
+            newLeads: number;
+            /**
+             * @description Count of NEW + CONTACTED + QUALIFIED leads requiring follow-up
+             * @example 10
+             */
+            needsFollowUp: number;
+            byStatus: components["schemas"]["AcademyLeadStatusCountsDto"];
+            /** @example 15 */
+            total: number;
+        };
+        UpdateAcademyLeadDto: {
+            /** @enum {string} */
+            status?: "NEW" | "CONTACTED" | "QUALIFIED" | "ENROLLED" | "CLOSED";
+            /** @description Plain-text operational notes */
+            notes?: string | null;
+            /** @description ISO timestamp of updatedAt when the record was viewed, for concurrency conflict detection */
+            expectedUpdatedAt?: string;
         };
         PrepareMembershipCheckoutDto: {
             /** @example true */
@@ -1917,6 +2103,30 @@ export interface operations {
             };
         };
     };
+    AcademyLeadsController_createLead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAcademyLeadDto"];
+            };
+        };
+        responses: {
+            /** @description Lead successfully recorded */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateAcademyLeadResponseDto"];
+                };
+            };
+        };
+    };
     AcademyAdminController_createSport: {
         parameters: {
             query?: never;
@@ -2063,6 +2273,101 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    AcademyLeadsAdminController_listLeads: {
+        parameters: {
+            query?: {
+                page?: number;
+                limit?: number;
+                /** @description Search guardian name, phone, or email */
+                q?: string;
+                /** @description Filter by status or NEEDS_FOLLOW_UP (NEW, CONTACTED, QUALIFIED) */
+                status?: "NEW" | "CONTACTED" | "QUALIFIED" | "ENROLLED" | "CLOSED" | "NEEDS_FOLLOW_UP";
+                /** @description Filter by campaign source token */
+                source?: string;
+                /** @description Filter by programme offering ID */
+                offeringId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcademyLeadListResponseDto"];
+                };
+            };
+        };
+    };
+    AcademyLeadsAdminController_getSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcademyLeadSummaryResponseDto"];
+                };
+            };
+        };
+    };
+    AcademyLeadsAdminController_getLeadDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcademyLeadItemDto"];
+                };
+            };
+        };
+    };
+    AcademyLeadsAdminController_updateLead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAcademyLeadDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcademyLeadItemDto"];
+                };
             };
         };
     };

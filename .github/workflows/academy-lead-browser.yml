@@ -1,0 +1,63 @@
+name: Academy Lead Browser Acceptance
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  academy-lead-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: khlim_browser_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/khlim_browser_test
+      KHLIM_TEST_BROWSER_DATABASE: "1"
+      NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:3101/v1
+      NEXT_PUBLIC_ADMIN_DEMO_MODE: "false"
+      NEXT_PUBLIC_SUPABASE_URL: https://auth.browser-test.invalid
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: browser-test-public-key
+      SENTRY_DSN: ""
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.0 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Prepare isolated database and production apps
+        run: |
+          pnpm prisma:generate
+          pnpm exec prisma migrate deploy
+          pnpm --filter @khlim/api build
+          pnpm --filter @khlim/web build
+          pnpm --filter @khlim/admin build
+      - name: Run real-service browser journey (staff JWT double)
+        run: node --test tests/integration/academy-lead-browser.test.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: academy-lead-browser-evidence
+          path: test-results/
+          retention-days: 7

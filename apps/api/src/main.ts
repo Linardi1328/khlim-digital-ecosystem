@@ -89,8 +89,10 @@ async function bootstrap() {
 
   const expressApp = app.getHttpAdapter().getInstance() as {
     disable(name: string): void;
+    set(name: string, value: unknown): void;
   };
   expressApp.disable("x-powered-by");
+  expressApp.set("trust proxy", runtime.trustedProxy);
 
   app.use(
     (_request: unknown, response: HeaderResponse, next: () => void): void => {

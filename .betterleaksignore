@@ -1,0 +1,5 @@
+# Reviewed false positives: literal credentials for the disposable localhost CI
+# PostgreSQL service, not hosted credentials. These exact historical findings
+# are ignored; no rule, path or future commit is exempted.
+1cdac07cabd5827fa98b43e14b50540e447f4724:.github/workflows/academy-lead-browser.yml:generic-password:19
+1cdac07cabd5827fa98b43e14b50540e447f4724:.github/workflows/academy-lead-browser.yml:generic-credential-uri:28

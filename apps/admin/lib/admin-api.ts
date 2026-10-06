@@ -427,3 +427,194 @@ const realAdminApi: LegacyAdminApi = {
 export const adminApi: LegacyAdminApi = ADMIN_DEMO_MODE
   ? demoAdminApi
   : realAdminApi;
+
+export type AdminLeadStatus =
+  "NEW" | "CONTACTED" | "QUALIFIED" | "ENROLLED" | "CLOSED";
+
+export interface AdminLeadItem {
+  id: string;
+  organizationId: string;
+  guardianName: string;
+  phone: string;
+  email: string | null;
+  childAge: number;
+  programmeOfferingId: string | null;
+  offeringName: string | null;
+  programmeName: string | null;
+  source: string | null;
+  status: AdminLeadStatus;
+  notes: string | null;
+  consentAt: string;
+  consentVersion: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminLeadListResponse {
+  items: AdminLeadItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface AdminLeadSummaryResponse {
+  newLeads: number;
+  needsFollowUp: number;
+  byStatus: Record<AdminLeadStatus, number>;
+  total: number;
+}
+
+export interface AdminLeadQuery {
+  page?: number;
+  limit?: number;
+  q?: string;
+  status?: AdminLeadStatus | "NEEDS_FOLLOW_UP" | "";
+  source?: string;
+  offeringId?: string;
+}
+
+export interface UpdateAdminLeadDto {
+  status?: AdminLeadStatus;
+  notes?: string | null;
+  expectedUpdatedAt?: string;
+}
+
+const DEMO_LEADS: AdminLeadItem[] = [
+  {
+    id: "demo-lead-1",
+    organizationId: "00000000-0000-4000-8000-000000000001",
+    guardianName: "Lim Wei Hong",
+    phone: "+60123456789",
+    email: "lim.wh@example.test",
+    childAge: 10,
+    programmeOfferingId: null,
+    offeringName: null,
+    programmeName: null,
+    source: "3x3-oct24",
+    status: "NEW",
+    notes: null,
+    consentAt: new Date().toISOString(),
+    consentVersion: "2026-10-v1",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "demo-lead-2",
+    organizationId: "00000000-0000-4000-8000-000000000001",
+    guardianName: "Nurul Aisyah",
+    phone: "+60198765432",
+    email: "nurul.aisyah@example.test",
+    childAge: 8,
+    programmeOfferingId: null,
+    offeringName: null,
+    programmeName: null,
+    source: null,
+    status: "CONTACTED",
+    notes: "Spoke on WhatsApp. Interested in Saturday morning sessions.",
+    consentAt: new Date(Date.now() - 3600000).toISOString(),
+    consentVersion: "2026-10-v1",
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+    updatedAt: new Date(Date.now() - 1800000).toISOString(),
+  },
+];
+
+export function listAdminLeads(
+  query: AdminLeadQuery = {},
+): Promise<AdminLeadListResponse> {
+  if (ADMIN_DEMO_MODE) {
+    const filtered = DEMO_LEADS.filter((item) => {
+      if (query.status === "NEEDS_FOLLOW_UP") {
+        if (!["NEW", "CONTACTED", "QUALIFIED"].includes(item.status))
+          return false;
+      } else if (query.status && item.status !== query.status) {
+        return false;
+      }
+      if (query.source && item.source !== query.source) return false;
+      if (query.q) {
+        const q = query.q.toLowerCase();
+        return (
+          item.guardianName.toLowerCase().includes(q) ||
+          item.phone.includes(q) ||
+          Boolean(item.email && item.email.toLowerCase().includes(q))
+        );
+      }
+      return true;
+    });
+    return Promise.resolve({
+      items: filtered,
+      total: filtered.length,
+      page: query.page || 1,
+      limit: query.limit || 20,
+      totalPages: 1,
+    });
+  }
+
+  const params = new URLSearchParams();
+  if (query.page) params.set("page", String(query.page));
+  if (query.limit) params.set("limit", String(query.limit));
+  if (query.q) params.set("q", query.q);
+  if (query.status) params.set("status", query.status);
+  if (query.source) params.set("source", query.source);
+  if (query.offeringId) params.set("offeringId", query.offeringId);
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return adminApiClient.get<AdminLeadListResponse>(
+    `/admin/academy/leads${suffix}`,
+  );
+}
+
+export function getAdminLeadSummary(): Promise<AdminLeadSummaryResponse> {
+  if (ADMIN_DEMO_MODE) {
+    const newLeads = DEMO_LEADS.filter((l) => l.status === "NEW").length;
+    const needsFollowUp = DEMO_LEADS.filter(
+      (l) =>
+        l.status === "NEW" ||
+        l.status === "CONTACTED" ||
+        l.status === "QUALIFIED",
+    ).length;
+    return Promise.resolve({
+      newLeads,
+      needsFollowUp,
+      byStatus: {
+        NEW: newLeads,
+        CONTACTED: DEMO_LEADS.filter((l) => l.status === "CONTACTED").length,
+        QUALIFIED: DEMO_LEADS.filter((l) => l.status === "QUALIFIED").length,
+        ENROLLED: DEMO_LEADS.filter((l) => l.status === "ENROLLED").length,
+        CLOSED: DEMO_LEADS.filter((l) => l.status === "CLOSED").length,
+      },
+      total: DEMO_LEADS.length,
+    });
+  }
+  return adminApiClient.get<AdminLeadSummaryResponse>(
+    "/admin/academy/leads/summary",
+  );
+}
+
+export function getAdminLeadDetail(id: string): Promise<AdminLeadItem> {
+  if (ADMIN_DEMO_MODE) {
+    const lead = DEMO_LEADS.find((l) => l.id === id);
+    if (!lead) return Promise.reject(new Error("Lead not found"));
+    return Promise.resolve({ ...lead });
+  }
+  return adminApiClient.get<AdminLeadItem>(
+    `/admin/academy/leads/${encodeURIComponent(id)}`,
+  );
+}
+
+export function updateAdminLead(
+  id: string,
+  body: UpdateAdminLeadDto,
+): Promise<AdminLeadItem> {
+  if (ADMIN_DEMO_MODE) {
+    const lead = DEMO_LEADS.find((l) => l.id === id);
+    if (!lead) return Promise.reject(new Error("Lead not found"));
+    if (body.status) lead.status = body.status;
+    if (body.notes !== undefined) lead.notes = body.notes;
+    lead.updatedAt = new Date().toISOString();
+    return Promise.resolve({ ...lead });
+  }
+  return adminApiClient.patch<AdminLeadItem>(
+    `/admin/academy/leads/${encodeURIComponent(id)}`,
+    body,
+  );
+}
