@@ -288,26 +288,31 @@ test("public journey retains 3x3-oct24 attribution through rendered Home -> Acad
   page,
 }) => {
   await page.goto("/?source=3x3-oct24", { waitUntil: "domcontentloaded" });
+  await expect(page.locator(".public-header-logo")).toBeVisible();
 
   // 1. Navigate to Academy via rendered header navigation
   if (await page.locator(".mobile-menu-btn").isVisible()) {
     await openMobileMenu(page);
   }
-  const academyLink = page.locator('a[href*="/academy"]').first();
+  const academyLink = page.locator('a[href*="/academy"]:visible').first();
   await expect(academyLink).toBeVisible();
   await academyLink.click();
   await expect(page).toHaveURL(/\/academy/);
   expect(new URL(page.url()).searchParams.get("source")).toBe("3x3-oct24");
 
   // 2. On Academy, navigate to Programmes via rendered CTA
-  const programmesLink = page.locator('main a[href*="/programmes"]').first();
+  const programmesLink = page
+    .locator('main a[href*="/programmes"]:visible')
+    .first();
   await expect(programmesLink).toBeVisible();
   await programmesLink.click();
   await expect(page).toHaveURL(/\/programmes/);
   expect(new URL(page.url()).searchParams.get("source")).toBe("3x3-oct24");
 
   // 3. On Programmes, click Register Interest via rendered offering CTA
-  const interestLink = page.locator('main a[href*="/interest"]').first();
+  const interestLink = page
+    .locator('main a[href*="/interest"]:visible')
+    .first();
   await expect(interestLink).toBeVisible();
   await interestLink.click();
 
