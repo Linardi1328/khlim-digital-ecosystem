@@ -235,3 +235,52 @@ test("Authoritative venue messaging: Home has no static Taylor's fallback and Ac
   const omittedVenue = emptyOfferings.find((o) => o.venue?.name)?.venue?.name;
   assert.equal(omittedVenue, undefined);
 });
+
+test("Academy pathway copy is grounded strictly in approved factual offering data (ages and Youth Development) without unsupported curriculum claims", async () => {
+  const academyMsgs = await read("packages/i18n/src/messages/academy-web.ts");
+
+  // Guards against unsupported curriculum claims and promises
+  const unsupportedCurriculumPhrases = [
+    "core ball handling",
+    "tactical execution",
+    "athletic conditioning",
+    "competitive match readiness",
+    "technical refinement",
+    "U15 Competition",
+    "Pertandingan U15",
+    "U15 竞技对抗",
+    "U15 競技對抗",
+    "U15 प्रतियोगिता",
+  ];
+
+  for (const phrase of unsupportedCurriculumPhrases) {
+    assert.doesNotMatch(
+      academyMsgs,
+      new RegExp(phrase, "i"),
+      `academy-web.ts should not make unsupported curriculum claim "${phrase}"`,
+    );
+  }
+
+  // Factual age and Youth Development copy in English
+  assert.match(academyMsgs, /"academy\.pathway\.u9\.title": "U9 — Ages 5–9"/);
+  assert.match(
+    academyMsgs,
+    /"academy\.pathway\.u9\.body":\s*"Youth Development programme for athletes aged 5 to 9\."/,
+  );
+  assert.match(
+    academyMsgs,
+    /"academy\.pathway\.u12\.title": "U12 — Ages 10–12"/,
+  );
+  assert.match(
+    academyMsgs,
+    /"academy\.pathway\.u12\.body":\s*"Youth Development programme for athletes aged 10 to 12\."/,
+  );
+  assert.match(
+    academyMsgs,
+    /"academy\.pathway\.u15\.title": "U15 — Ages 13–15"/,
+  );
+  assert.match(
+    academyMsgs,
+    /"academy\.pathway\.u15\.body":\s*"Youth Development programme for athletes aged 13 to 15\."/,
+  );
+});

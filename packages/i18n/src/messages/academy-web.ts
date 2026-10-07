@@ -26,15 +26,15 @@ const en = {
   "academy.pathway.title": "Development pathway",
   "academy.pathway.subtitle":
     "Age-appropriate basketball progression tailored to every stage of growth.",
-  "academy.pathway.u9.title": "U9 Development",
+  "academy.pathway.u9.title": "U9 — Ages 5–9",
   "academy.pathway.u9.body":
-    "Fundamental coordination, core ball handling, teamwork basics, and building genuine confidence on the court.",
-  "academy.pathway.u12.title": "U12 Progression",
+    "Youth Development programme for athletes aged 5 to 9.",
+  "academy.pathway.u12.title": "U12 — Ages 10–12",
   "academy.pathway.u12.body":
-    "Technical skill refinement, spacing, team habits, and progressive decision-making in structured game scenarios.",
-  "academy.pathway.u15.title": "U15 Competition",
+    "Youth Development programme for athletes aged 10 to 12.",
+  "academy.pathway.u15.title": "U15 — Ages 13–15",
   "academy.pathway.u15.body":
-    "Advanced basketball concepts, tactical execution, athletic conditioning, and competitive match readiness.",
+    "Youth Development programme for athletes aged 13 to 15.",
   "academy.nextSteps.title": "What happens next",
   "academy.nextSteps.subtitle":
     "A clear, low-friction pathway from interest to court.",
@@ -83,15 +83,15 @@ const ms: Catalogue = {
   "academy.pathway.title": "Laluan pembangunan",
   "academy.pathway.subtitle":
     "Perkembangan bola keranjang mengikut umur yang disesuaikan untuk setiap tahap pertumbuhan.",
-  "academy.pathway.u9.title": "Pembangunan U9",
+  "academy.pathway.u9.title": "U9 — Umur 5–9",
   "academy.pathway.u9.body":
-    "Koordinasi asas, kawalan bola teras, asas kerja berpasukan, dan membina keyakinan diri di atas gelanggang.",
-  "academy.pathway.u12.title": "Kemajuan U12",
+    "Program Youth Development untuk atlet berumur 5 hingga 9 tahun.",
+  "academy.pathway.u12.title": "U12 — Umur 10–12",
   "academy.pathway.u12.body":
-    "Penghalusan kemahiran teknikal, penjarakan ruang, tabiat berpasukan, dan pembuatan keputusan berstruktur.",
-  "academy.pathway.u15.title": "Pertandingan U15",
+    "Program Youth Development untuk atlet berumur 10 hingga 12 tahun.",
+  "academy.pathway.u15.title": "U15 — Umur 13–15",
   "academy.pathway.u15.body":
-    "Konsep bola keranjang lanjutan, pelaksanaan taktikal, penyesuaian fizikal, dan kesediaan perlawanan kompetitif.",
+    "Program Youth Development untuk atlet berumur 13 hingga 15 tahun.",
   "academy.nextSteps.title": "Langkah seterusnya",
   "academy.nextSteps.subtitle":
     "Laluan jelas dan mudah dari pendaftaran minat sehingga ke gelanggang latihan.",
@@ -135,15 +135,15 @@ const zhHans: Catalogue = {
   "academy.pathway.u15.badge": "U15",
   "academy.pathway.title": "梯队发展路径",
   "academy.pathway.subtitle": "契合各年龄段成长规律的阶梯式篮球培养体系。",
-  "academy.pathway.u9.title": "U9 基础启蒙",
+  "academy.pathway.u9.title": "U9 — 5–9 岁",
   "academy.pathway.u9.body":
-    "身体协调性、核心控球技术、团队协作意识与对篮球运动的自信心培养。",
-  "academy.pathway.u12.title": "U12 进阶提升",
+    "面向 5 至 9 岁青少年运动员的青年发展（Youth Development）课程。",
+  "academy.pathway.u12.title": "U12 — 10–12 岁",
   "academy.pathway.u12.body":
-    "基本功精进、球场空间感、团队配合习惯与结构化比赛决策能力。",
-  "academy.pathway.u15.title": "U15 竞技对抗",
+    "面向 10 至 12 岁青少年运动员的青年发展（Youth Development）课程。",
+  "academy.pathway.u15.title": "U15 — 13–15 岁",
   "academy.pathway.u15.body":
-    "高级战术执行、身体对抗素质、竞技意识与正式比赛准备。",
+    "面向 13 至 15 岁青少年运动员的青年发展（Youth Development）课程。",
   "academy.nextSteps.title": "后续流程",
   "academy.nextSteps.subtitle": "从登记意向到球场训练的清晰低门槛流程。",
   "academy.nextSteps.step1.title": "1. 家长登记意向",
@@ -186,15 +186,15 @@ const zhHant: Catalogue = {
   "academy.pathway.u15.badge": "U15",
   "academy.pathway.title": "梯隊發展路徑",
   "academy.pathway.subtitle": "契合各年齡段成長規律的階梯式籃球培養體系。",
-  "academy.pathway.u9.title": "U9 基礎啟蒙",
+  "academy.pathway.u9.title": "U9 — 5–9 歲",
   "academy.pathway.u9.body":
-    "身體協調性、核心控球技術、團隊協作意識與對籃球運動的自信心培養。",
-  "academy.pathway.u12.title": "U12 進階提升",
+    "面向 5 至 9 歲青少年運動員的青年發展（Youth Development）課程。",
+  "academy.pathway.u12.title": "U12 — 10–12 歲",
   "academy.pathway.u12.body":
-    "基本功精進、球場空間感、團隊配合習慣與結構化比賽決策能力。",
-  "academy.pathway.u15.title": "U15 競技對抗",
+    "面向 10 至 12 歲青少年運動員的青年發展（Youth Development）課程。",
+  "academy.pathway.u15.title": "U15 — 13–15 歲",
   "academy.pathway.u15.body":
-    "高級戰術執行、身體對抗素質、競技意識與正式比賽準備。",
+    "面向 13 至 15 歲青少年運動員的青年發展（Youth Development）課程。",
   "academy.nextSteps.title": "後續流程",
   "academy.nextSteps.subtitle": "從登記意向到球場訓練的清晰低門檻流程。",
   "academy.nextSteps.step1.title": "1. 家長登記意向",
@@ -239,15 +239,15 @@ const hi: Catalogue = {
   "academy.pathway.title": "विकास पाथवे",
   "academy.pathway.subtitle":
     "हर आयु वर्ग के अनुसार तैयार की गई संरचित बास्केटबॉल प्रगति।",
-  "academy.pathway.u9.title": "U9 विकास",
+  "academy.pathway.u9.title": "U9 — आयु 5–9",
   "academy.pathway.u9.body":
-    "बुनियादी शारीरिक समन्वय, बॉल हैंडलिंग, टीमवर्क और कोर्ट पर आत्मविश्वास का निर्माण।",
-  "academy.pathway.u12.title": "U12 प्रगति",
+    "5 से 9 वर्ष की आयु के खिलाड़ियों के लिए Youth Development कार्यक्रम।",
+  "academy.pathway.u12.title": "U12 — आयु 10–12",
   "academy.pathway.u12.body":
-    "तकनीकी कौशल, स्पेसिंग, टीम की आदतें और खेल स्थितियों में निर्णय लेने की क्षमता।",
-  "academy.pathway.u15.title": "U15 प्रतियोगिता",
+    "10 से 12 वर्ष की आयु के खिलाड़ियों के लिए Youth Development कार्यक्रम।",
+  "academy.pathway.u15.title": "U15 — आयु 13–15",
   "academy.pathway.u15.body":
-    "उन्नत बास्केटबॉल रणनीतियाँ, फिटनेस कंडीशनिंग और प्रतिस्पर्धी मैचों की तैयारी।",
+    "13 से 15 वर्ष की आयु के खिलाड़ियों के लिए Youth Development कार्यक्रम।",
   "academy.nextSteps.title": "आगे क्या होता है",
   "academy.nextSteps.subtitle":
     "रुचि दर्ज करने से लेकर कोर्ट तक की एक सरल और स्पष्ट प्रक्रिया।",
