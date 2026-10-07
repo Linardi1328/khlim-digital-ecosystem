@@ -24,7 +24,6 @@ const en = {
   "home.khero.points.progress": "Milestones and achievements",
   "home.khero.points.cta": "Open Member Portal",
   "home.academyHero.pathwayBadge": "U9 · U12 · U15 Pathway",
-  "home.academyHero.venueBadge": "Taylor’s International School Puchong",
 } as const;
 
 type Key = keyof typeof en;
@@ -56,7 +55,6 @@ const ms: Catalogue = {
   "home.khero.points.progress": "Pencapaian dan kemajuan",
   "home.khero.points.cta": "Buka Portal Ahli",
   "home.academyHero.pathwayBadge": "Laluan U9 · U12 · U15",
-  "home.academyHero.venueBadge": "Taylor’s International School Puchong",
 };
 
 const zhHans: Catalogue = {
@@ -85,7 +83,6 @@ const zhHans: Catalogue = {
   "home.khero.points.progress": "里程碑与成就",
   "home.khero.points.cta": "打开会员门户",
   "home.academyHero.pathwayBadge": "U9 · U12 · U15 梯队路径",
-  "home.academyHero.venueBadge": "Taylor’s International School Puchong",
 };
 
 const zhHant: Catalogue = {
@@ -114,7 +111,6 @@ const zhHant: Catalogue = {
   "home.khero.points.progress": "里程碑與成就",
   "home.khero.points.cta": "開啟會員入口",
   "home.academyHero.pathwayBadge": "U9 · U12 · U15 梯隊路徑",
-  "home.academyHero.venueBadge": "Taylor’s International School Puchong",
 };
 
 const hi: Catalogue = {
@@ -143,7 +139,6 @@ const hi: Catalogue = {
   "home.khero.points.progress": "मील के पत्थर और उपलब्धियां",
   "home.khero.points.cta": "सदस्य पोर्टल खोलें",
   "home.academyHero.pathwayBadge": "U9 · U12 · U15 पाथवे",
-  "home.academyHero.venueBadge": "Taylor’s International School Puchong",
 };
 
 export const homeAcademyWebMessages = {

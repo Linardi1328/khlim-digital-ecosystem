@@ -49,7 +49,7 @@ const en = {
     "We recommend the most suitable group, venue schedule, and session based on your child's age and experience.",
   "academy.finalCta.title": "Start your child's basketball journey",
   "academy.finalCta.body":
-    "Register your interest today to explore training sessions at Taylor’s International School Puchong.",
+    "Register your interest today and we’ll help you find the most suitable current training programme.",
 } as const;
 
 type Key = keyof typeof en;
@@ -106,7 +106,7 @@ const ms: Catalogue = {
     "Kami mencadangkan kumpulan, jadual lokasi, dan sesi yang paling sesuai mengikut umur dan pengalaman anak anda.",
   "academy.finalCta.title": "Mulakan perjalanan bola keranjang anak anda",
   "academy.finalCta.body":
-    "Daftar minat anda hari ini untuk meneroka sesi latihan di Taylor’s International School Puchong.",
+    "Daftar minat anda hari ini dan kami akan membantu anda mencari program latihan semasa yang paling sesuai.",
 };
 
 const zhHans: Catalogue = {
@@ -157,7 +157,7 @@ const zhHans: Catalogue = {
     "根据孩子的年龄与篮球基础，共同确认最适合的班次与训练时间。",
   "academy.finalCta.title": "开启孩子的篮球成长之旅",
   "academy.finalCta.body":
-    "立即登记意向，了解 Taylor’s International School Puchong 的训练课程安排。",
+    "立即登记意向，我们将协助您找到最适合的当前训练课程。",
 };
 
 const zhHant: Catalogue = {
@@ -208,7 +208,7 @@ const zhHant: Catalogue = {
     "根據孩子的年齡與籃球基礎，共同確認最適合的班次與訓練時間。",
   "academy.finalCta.title": "開啟孩子的籃球成長之旅",
   "academy.finalCta.body":
-    "立即登記意向，了解 Taylor’s International School Puchong 的訓練課程安排。",
+    "立即登記意向，我們將協助您找到最適合的當前訓練課程。",
 };
 
 const hi: Catalogue = {
@@ -263,7 +263,7 @@ const hi: Catalogue = {
     "हम आपके बच्चे की आयु और अनुभव के आधार पर सबसे उपयुक्त समूह और समय की अनुशंसा करते हैं।",
   "academy.finalCta.title": "अपने बच्चे की बास्केटबॉल यात्रा शुरू करें",
   "academy.finalCta.body":
-    "Taylor’s International School Puchong में प्रशिक्षण सत्रों के लिए आज ही अपनी रुचि दर्ज करें।",
+    "आज ही अपनी रुचि दर्ज करें और हम आपके लिए सबसे उपयुक्त वर्तमान प्रशिक्षण कार्यक्रम खोजने में सहायता करेंगे।",
 };
 
 export const academyWebMessages = {

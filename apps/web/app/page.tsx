@@ -88,10 +88,7 @@ function HomeContent() {
           secondaryCtaLabel={t("hero.cta.explore")}
           source={campaignSource}
           pathwayBadge={t("home.academyHero.pathwayBadge")}
-          venueBadge={
-            offerings.find((o) => o.venue?.name)?.venue?.name ??
-            t("home.academyHero.venueBadge")
-          }
+          venueBadge={offerings.find((o) => o.venue?.name)?.venue?.name}
         />
 
         <AcademyPillarsSection />

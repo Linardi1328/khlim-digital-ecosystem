@@ -24,12 +24,14 @@ test("Home hero and final CTA make Register Interest the primary acquisition pat
   // Secondary CTA is explore programmes
   assert.match(heroCarousel, /buildUrlWithSource\("\/programmes", source\)/);
 
-  // Home communicates KHLIM Academy, pathway (U9/U12/U15) and venue
+  // Home communicates KHLIM Academy and pathway (U9/U12/U15)
   assert.match(
     homePage,
     /pathwayBadge=\{t\("home\.academyHero\.pathwayBadge"\)\}/,
   );
-  assert.match(homePage, /venueBadge=\{/);
+  assert.match(homePage, /venueBadge=\{offerings\.find/);
+  assert.doesNotMatch(homePage, /home\.academyHero\.venueBadge/);
+  assert.doesNotMatch(homePage, /Taylor/);
   assert.match(heroCarousel, /pathwayBadge/);
   assert.match(heroCarousel, /venueBadge/);
 
@@ -189,4 +191,47 @@ test("Programmes list page includes age and level badges on cards for fast mobil
     programmesPage,
     /buildUrlWithSource\("\/interest", campaignSource, \{\s*offeringId: offering\.id,?\s*\}\)/,
   );
+});
+
+test("Authoritative venue messaging: Home has no static Taylor's fallback and Academy translations do not hardcode Taylor's", async () => {
+  const homePage = await read("apps/web/app/page.tsx");
+  const homeAcademyMsgs = await read(
+    "packages/i18n/src/messages/home-academy-web.ts",
+  );
+  const academyMsgs = await read("packages/i18n/src/messages/academy-web.ts");
+
+  // Home has no static fallback and does not hardcode Taylor's
+  assert.doesNotMatch(homePage, /Taylor/);
+  assert.doesNotMatch(homePage, /home\.academyHero\.venueBadge/);
+  assert.match(
+    homePage,
+    /venueBadge=\{offerings\.find\(\(o\) => o\.venue\?\.name\)\?\.venue\?\.name\}/,
+  );
+
+  // Translation files do not hardcode Taylor's in any locale
+  assert.doesNotMatch(homeAcademyMsgs, /Taylor/);
+  assert.doesNotMatch(homeAcademyMsgs, /home\.academyHero\.venueBadge/);
+  assert.doesNotMatch(academyMsgs, /Taylor/);
+
+  // Academy final CTA uses truthful generic copy without venue hardcoding
+  assert.match(
+    academyMsgs,
+    /Register your interest today and we’ll help you find the most suitable current training programme\./,
+  );
+
+  // Dynamic offering venue (e.g. active venue "SK8 Basketball Court, Serdang") is surfaced when available
+  const activeOfferings = [
+    {
+      id: "offering-1",
+      name: "U12 Basketball Fundamentals",
+      venue: { name: "SK8 Basketball Court, Serdang" },
+    },
+  ];
+  const dynamicVenue = activeOfferings.find((o) => o.venue?.name)?.venue?.name;
+  assert.equal(dynamicVenue, "SK8 Basketball Court, Serdang");
+
+  // When offerings are loading, empty, or fail, venueBadge evaluates to undefined (omitted)
+  const emptyOfferings = [];
+  const omittedVenue = emptyOfferings.find((o) => o.venue?.name)?.venue?.name;
+  assert.equal(omittedVenue, undefined);
 });
