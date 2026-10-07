@@ -283,3 +283,36 @@ test("interest registration form supports campaign attribution and responsive la
     expect(overflow, `Horizontal overflow detected at ${width}px`).toBe(false);
   }
 });
+
+test("public journey retains 3x3-oct24 attribution through rendered Home -> Academy -> Programmes -> Interest navigation", async ({
+  page,
+}) => {
+  await page.goto("/?source=3x3-oct24", { waitUntil: "domcontentloaded" });
+
+  // 1. Navigate to Academy via rendered header navigation
+  if (await page.locator(".mobile-menu-btn").isVisible()) {
+    await openMobileMenu(page);
+  }
+  const academyLink = page.locator('a[href*="/academy"]').first();
+  await expect(academyLink).toBeVisible();
+  await academyLink.click();
+  await expect(page).toHaveURL(/\/academy/);
+  expect(new URL(page.url()).searchParams.get("source")).toBe("3x3-oct24");
+
+  // 2. On Academy, navigate to Programmes via rendered CTA
+  const programmesLink = page.locator('main a[href*="/programmes"]').first();
+  await expect(programmesLink).toBeVisible();
+  await programmesLink.click();
+  await expect(page).toHaveURL(/\/programmes/);
+  expect(new URL(page.url()).searchParams.get("source")).toBe("3x3-oct24");
+
+  // 3. On Programmes, click Register Interest via rendered offering CTA
+  const interestLink = page.locator('main a[href*="/interest"]').first();
+  await expect(interestLink).toBeVisible();
+  await interestLink.click();
+
+  // 4. Final Interest URL must contain exactly source=3x3-oct24
+  await expect(page).toHaveURL(/\/interest/);
+  const finalUrl = new URL(page.url());
+  expect(finalUrl.searchParams.get("source")).toBe("3x3-oct24");
+});

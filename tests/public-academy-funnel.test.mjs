@@ -29,7 +29,7 @@ test("Home hero and final CTA make Register Interest the primary acquisition pat
     homePage,
     /pathwayBadge=\{t\("home\.academyHero\.pathwayBadge"\)\}/,
   );
-  assert.match(homePage, /venueBadge=\{offerings\.find/);
+  assert.match(homePage, /venueBadge=\{activeBasketballVenueName\}/);
   assert.doesNotMatch(homePage, /home\.academyHero\.venueBadge/);
   assert.doesNotMatch(homePage, /Taylor/);
   assert.match(heroCarousel, /pathwayBadge/);
@@ -97,10 +97,10 @@ test("Academy page resolves campaign source, propagates to PublicHeader and inte
     /<PublicHeader campaignSource=\{campaignSource\} \/>/,
   );
 
-  // Above the fold Register Interest CTA
+  // Above the fold Register Interest CTA (single navigation control with button styling)
   assert.match(
     academyPage,
-    /href=\{buildUrlWithSource\("\/interest", campaignSource\)\}[\s\S]*?<Button variant="primary" size="lg">[\s\S]*?\{t\("nav\.registerInterest"\)\}/,
+    /href=\{buildUrlWithSource\("\/interest", campaignSource\)\}[\s\S]*?style=\{getButtonStyles\("primary", "lg"\)\}[\s\S]*?\{t\("nav\.registerInterest"\)\}/,
   );
 
   // Pathway context (U9, U12, U15)
@@ -122,11 +122,11 @@ test("Academy page resolves campaign source, propagates to PublicHeader and inte
   assert.match(academyPage, /academy\.nextSteps\.step2\.title/);
   assert.match(academyPage, /academy\.nextSteps\.step3\.title/);
 
-  // Final Register Interest CTA
+  // Final Register Interest CTA (single navigation control with button styling)
   assert.match(academyPage, /academy\.finalCta\.title/);
   assert.match(
     academyPage,
-    /href=\{buildUrlWithSource\("\/interest", campaignSource\)\}[\s\S]*?<Button variant="primary"/,
+    /href=\{buildUrlWithSource\("\/interest", campaignSource\)\}[\s\S]*?style=\{getButtonStyles\("primary", "lg"\)\}/,
   );
 
   // Internal links use buildUrlWithSource
@@ -135,6 +135,10 @@ test("Academy page resolves campaign source, propagates to PublicHeader and inte
     academyPage,
     /buildUrlWithSource\("\/programmes", campaignSource\)/,
   );
+
+  // No nested buttons inside links on Academy page
+  assert.doesNotMatch(academyPage, /<Link[\s\S]*?<Button/);
+  assert.doesNotMatch(academyPage, /<a[\s\S]*?<button/);
 });
 
 test("Campaign attribution 3x3-oct24 propagates across Home -> Academy -> Programmes -> Interest navigation", async () => {
@@ -193,7 +197,7 @@ test("Programmes list page includes age and level badges on cards for fast mobil
   );
 });
 
-test("Authoritative venue messaging: Home has no static Taylor's fallback and Academy translations do not hardcode Taylor's", async () => {
+test("Authoritative venue messaging: Home has no static Taylor's fallback, surfaces basketball-only venue, and Academy translations do not hardcode Taylor's", async () => {
   const homePage = await read("apps/web/app/page.tsx");
   const homeAcademyMsgs = await read(
     "packages/i18n/src/messages/home-academy-web.ts",
@@ -203,9 +207,10 @@ test("Authoritative venue messaging: Home has no static Taylor's fallback and Ac
   // Home has no static fallback and does not hardcode Taylor's
   assert.doesNotMatch(homePage, /Taylor/);
   assert.doesNotMatch(homePage, /home\.academyHero\.venueBadge/);
+  assert.match(homePage, /venueBadge=\{activeBasketballVenueName\}/);
   assert.match(
     homePage,
-    /venueBadge=\{offerings\.find\(\(o\) => o\.venue\?\.name\)\?\.venue\?\.name\}/,
+    /o\.programme\.sport\.code === "BASKETBALL" &&\s*Boolean\(o\.venue\?\.name\?\.trim\(\)\)/,
   );
 
   // Translation files do not hardcode Taylor's in any locale
@@ -219,21 +224,194 @@ test("Authoritative venue messaging: Home has no static Taylor's fallback and Ac
     /Register your interest today and we’ll help you find the most suitable current training programme\./,
   );
 
-  // Dynamic offering venue (e.g. active venue "SK8 Basketball Court, Serdang") is surfaced when available
-  const activeOfferings = [
+  // Only active basketball offering with a non-empty venue name qualifies
+  const nonBasketballOfferings = [
     {
-      id: "offering-1",
-      name: "U12 Basketball Fundamentals",
-      venue: { name: "SK8 Basketball Court, Serdang" },
+      id: "offering-football",
+      programme: { sport: { code: "FOOTBALL" } },
+      venue: { name: "Subang Football Arena" },
     },
   ];
-  const dynamicVenue = activeOfferings.find((o) => o.venue?.name)?.venue?.name;
+  const omittedNonBasketball = nonBasketballOfferings
+    .find(
+      (o) =>
+        o.programme.sport.code === "BASKETBALL" &&
+        Boolean(o.venue?.name?.trim()),
+    )
+    ?.venue?.name?.trim();
+  assert.equal(omittedNonBasketball, undefined);
+
+  const mixedOfferings = [
+    {
+      id: "offering-1",
+      programme: { sport: { code: "FOOTBALL" } },
+      venue: { name: "Subang Football Arena" },
+    },
+    {
+      id: "offering-2",
+      programme: { sport: { code: "BASKETBALL" } },
+      venue: { name: "   " },
+    },
+    {
+      id: "offering-3",
+      programme: { sport: { code: "BASKETBALL" } },
+      venue: { name: "  SK8 Basketball Court, Serdang  " },
+    },
+  ];
+  const dynamicVenue = mixedOfferings
+    .find(
+      (o) =>
+        o.programme.sport.code === "BASKETBALL" &&
+        Boolean(o.venue?.name?.trim()),
+    )
+    ?.venue?.name?.trim();
   assert.equal(dynamicVenue, "SK8 Basketball Court, Serdang");
 
   // When offerings are loading, empty, or fail, venueBadge evaluates to undefined (omitted)
   const emptyOfferings = [];
-  const omittedVenue = emptyOfferings.find((o) => o.venue?.name)?.venue?.name;
+  const omittedVenue = emptyOfferings
+    .find(
+      (o) =>
+        o.programme.sport.code === "BASKETBALL" &&
+        Boolean(o.venue?.name?.trim()),
+    )
+    ?.venue?.name?.trim();
   assert.equal(omittedVenue, undefined);
+});
+
+test("Maximum-only age eligibility is supported in ageLabel and translated across all 5 locales", async () => {
+  const homePage = await read("apps/web/app/page.tsx");
+  const programmesPage = await read("apps/web/app/programmes/page.tsx");
+  const { webMessages } = await import(
+    new URL("packages/i18n/src/messages/web.ts", root).href
+  );
+
+  // Both pages support maximum-only age eligibility branch
+  assert.match(
+    homePage,
+    /if \(maximum !== null\) return t\("programmes\.maximumAge", \{ maximum \}\);/,
+  );
+  assert.match(
+    programmesPage,
+    /if \(maximum !== null\) return t\("programmes\.maximumAge", \{ maximum \}\);/,
+  );
+
+  // Unit verification of ageLabel logic
+  function testAgeLabel(offering, t) {
+    const minimum = offering.programme.minimumAge;
+    const maximum = offering.programme.maximumAge;
+    if (minimum !== null && maximum !== null) {
+      return t("programmes.ageRange", { minimum, maximum });
+    }
+    if (minimum !== null) return t("programmes.minimumAge", { minimum });
+    if (maximum !== null) return t("programmes.maximumAge", { maximum });
+    return t("programmes.ageEligibilityVaries");
+  }
+
+  const mockT = (key, params) => `${key}:${JSON.stringify(params ?? {})}`;
+
+  // min + max
+  assert.equal(
+    testAgeLabel({ programme: { minimumAge: 5, maximumAge: 9 } }, mockT),
+    'programmes.ageRange:{"minimum":5,"maximum":9}',
+  );
+
+  // min only
+  assert.equal(
+    testAgeLabel({ programme: { minimumAge: 10, maximumAge: null } }, mockT),
+    'programmes.minimumAge:{"minimum":10}',
+  );
+
+  // max only
+  assert.equal(
+    testAgeLabel({ programme: { minimumAge: null, maximumAge: 15 } }, mockT),
+    'programmes.maximumAge:{"maximum":15}',
+  );
+
+  // neither
+  assert.equal(
+    testAgeLabel({ programme: { minimumAge: null, maximumAge: null } }, mockT),
+    "programmes.ageEligibilityVaries:{}",
+  );
+
+  // Translation key exists in webMessages across all 5 locales
+  const locales = ["en", "ms", "zh-Hans", "zh-Hant", "hi"];
+  for (const locale of locales) {
+    assert.ok(
+      webMessages[locale]?.["programmes.maximumAge"],
+      `webMessages[${locale}] should define programmes.maximumAge`,
+    );
+  }
+});
+
+test("Hero carousel venue badge wraps safely on narrow screens without overflowing", async () => {
+  const heroCarousel = await read("apps/web/components/home/hero-carousel.tsx");
+  const badgeComponent = await read("apps/web/components/ui/badge.tsx");
+
+  // Hero carousel constrains width and permits wrapping on mobile
+  assert.match(heroCarousel, /venueBadge && \(/);
+  assert.match(heroCarousel, /whiteSpace:\s*"normal"/);
+  assert.match(heroCarousel, /maxWidth:\s*"100%"/);
+  assert.match(heroCarousel, /wordBreak:\s*"break-word"/);
+
+  // Global Badge component retains default nowrap behavior
+  assert.match(badgeComponent, /whiteSpace:\s*"nowrap"/);
+});
+
+test("First-render campaign attribution derives synchronously without storage reads during render", async () => {
+  const { getQueryCampaignSource } = await import(
+    new URL("apps/web/lib/campaign-source.ts", root).href
+  );
+  const academyPage = await read("apps/web/app/academy/page.tsx");
+  const homePage = await read("apps/web/app/page.tsx");
+  const programmesPage = await read("apps/web/app/programmes/page.tsx");
+
+  // Pure function extracts and sanitizes synchronously
+  const searchParams = new URLSearchParams({ source: "3x3-oct24" });
+  assert.equal(getQueryCampaignSource(searchParams), "3x3-oct24");
+  assert.equal(getQueryCampaignSource("3x3-oct24"), "3x3-oct24");
+  assert.equal(
+    getQueryCampaignSource(
+      new URLSearchParams({ source: "invalid token spaces" }),
+    ),
+    null,
+  );
+  assert.equal(getQueryCampaignSource(null), null);
+  assert.equal(getQueryCampaignSource(undefined), null);
+
+  // Academy page derives synchronously on first render using getQueryCampaignSource
+  assert.match(
+    academyPage,
+    /const queryCampaign = useMemo\(\s*\(\) => getQueryCampaignSource\(searchParams\),\s*\[searchParams\],\s*\);/,
+  );
+  assert.match(
+    academyPage,
+    /const campaignSource = queryCampaign \?\? storedCampaign;/,
+  );
+
+  // resolveCampaignSource (which accesses sessionStorage) is only called inside useEffect
+  assert.match(
+    academyPage,
+    /useEffect\(\(\) => \{\s*setStoredCampaign\(resolveCampaignSource\(searchParams\)\);\s*\}, \[searchParams\]\);/,
+  );
+
+  // Home and Programmes pages follow the same first-render resolution
+  assert.match(
+    homePage,
+    /const queryCampaign = useMemo\(\s*\(\) => getQueryCampaignSource\(searchParams\),\s*\[searchParams\],\s*\);/,
+  );
+  assert.match(
+    homePage,
+    /const campaignSource = queryCampaign \?\? storedCampaign;/,
+  );
+  assert.match(
+    programmesPage,
+    /const queryCampaign = useMemo\(\s*\(\) => getQueryCampaignSource\(searchParams\),\s*\[searchParams\],\s*\);/,
+  );
+  assert.match(
+    programmesPage,
+    /const campaignSource = queryCampaign \?\? storedCampaign;/,
+  );
 });
 
 test("Academy pathway copy is grounded strictly in approved factual offering data (ages and Youth Development) without unsupported curriculum claims", async () => {

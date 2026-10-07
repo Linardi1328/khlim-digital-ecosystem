@@ -1,27 +1,34 @@
 "use client";
 
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   buildUrlWithSource,
+  getQueryCampaignSource,
   resolveCampaignSource,
 } from "../../lib/campaign-source";
 import { PublicFooter } from "../../components/layout/public-footer";
 import { PublicHeader } from "../../components/layout/public-header";
 import { Badge } from "../../components/ui/badge";
-import { Button } from "../../components/ui/button";
+import { getButtonStyles } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
 import { useI18n } from "../../lib/i18n-context";
 
 function AcademyContent() {
   const { t } = useI18n();
   const searchParams = useSearchParams();
-  const [campaignSource, setCampaignSource] = useState<string | null>(null);
+  const queryCampaign = useMemo(
+    () => getQueryCampaignSource(searchParams),
+    [searchParams],
+  );
+  const [storedCampaign, setStoredCampaign] = useState<string | null>(null);
 
   useEffect(() => {
-    setCampaignSource(resolveCampaignSource(searchParams));
+    setStoredCampaign(resolveCampaignSource(searchParams));
   }, [searchParams]);
+
+  const campaignSource = queryCampaign ?? storedCampaign;
 
   return (
     <div
@@ -83,19 +90,15 @@ function AcademyContent() {
           >
             <Link
               href={buildUrlWithSource("/interest", campaignSource)}
-              style={{ textDecoration: "none" }}
+              style={getButtonStyles("primary", "lg")}
             >
-              <Button variant="primary" size="lg">
-                {t("nav.registerInterest")}
-              </Button>
+              {t("nav.registerInterest")}
             </Link>
             <Link
               href={buildUrlWithSource("/programmes", campaignSource)}
-              style={{ textDecoration: "none" }}
+              style={getButtonStyles("outline", "lg")}
             >
-              <Button variant="outline" size="lg">
-                {t("academy.programmesCta")}
-              </Button>
+              {t("academy.programmesCta")}
             </Link>
           </div>
         </section>
@@ -283,9 +286,9 @@ function AcademyContent() {
             </p>
             <Link
               href={buildUrlWithSource("/programmes", campaignSource)}
-              style={{ textDecoration: "none" }}
+              style={getButtonStyles("outline", "md")}
             >
-              <Button variant="outline">{t("academy.programmesCta")}</Button>
+              {t("academy.programmesCta")}
             </Link>
           </Card>
         </section>
@@ -451,11 +454,9 @@ function AcademyContent() {
           </p>
           <Link
             href={buildUrlWithSource("/interest", campaignSource)}
-            style={{ textDecoration: "none" }}
+            style={getButtonStyles("primary", "lg")}
           >
-            <Button variant="primary" size="lg">
-              {t("nav.registerInterest")}
-            </Button>
+            {t("nav.registerInterest")}
           </Link>
         </section>
       </main>

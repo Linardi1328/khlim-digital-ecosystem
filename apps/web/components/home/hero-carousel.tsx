@@ -136,7 +136,16 @@ export function HeroCarousel({
               </Badge>
             )}
             {venueBadge && (
-              <Badge variant="neutral" size="md">
+              <Badge
+                variant="neutral"
+                size="md"
+                style={{
+                  whiteSpace: "normal",
+                  maxWidth: "100%",
+                  textAlign: "center",
+                  wordBreak: "break-word",
+                }}
+              >
                 {venueBadge}
               </Badge>
             )}

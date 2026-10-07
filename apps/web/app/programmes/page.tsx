@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { apiService } from "../../lib/api-service";
 import {
   buildUrlWithSource,
+  getQueryCampaignSource,
   resolveCampaignSource,
 } from "../../lib/campaign-source";
 import { useI18n } from "../../lib/i18n-context";
@@ -33,21 +34,28 @@ function ageLabel(
     return t("programmes.ageRange", { minimum, maximum });
   }
   if (minimum !== null) return t("programmes.minimumAge", { minimum });
+  if (maximum !== null) return t("programmes.maximumAge", { maximum });
   return t("programmes.ageEligibilityVaries");
 }
 
 function ProgrammesContent() {
   const { t, formatDate } = useI18n();
   const searchParams = useSearchParams();
-  const [campaignSource, setCampaignSource] = useState<string | null>(null);
+  const queryCampaign = useMemo(
+    () => getQueryCampaignSource(searchParams),
+    [searchParams],
+  );
+  const [storedCampaign, setStoredCampaign] = useState<string | null>(null);
 
   const [offerings, setOfferings] = useState<PublicOfferingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [level, setLevel] = useState("ALL");
 
   useEffect(() => {
-    setCampaignSource(resolveCampaignSource(searchParams));
+    setStoredCampaign(resolveCampaignSource(searchParams));
   }, [searchParams]);
+
+  const campaignSource = queryCampaign ?? storedCampaign;
 
   useEffect(() => {
     apiService
