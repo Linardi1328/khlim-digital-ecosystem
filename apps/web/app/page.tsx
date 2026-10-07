@@ -87,6 +87,11 @@ function HomeContent() {
           primaryCtaLabel={t("hero.cta.join")}
           secondaryCtaLabel={t("hero.cta.explore")}
           source={campaignSource}
+          pathwayBadge={t("home.academyHero.pathwayBadge")}
+          venueBadge={
+            offerings.find((o) => o.venue?.name)?.venue?.name ??
+            t("home.academyHero.venueBadge")
+          }
         />
 
         <AcademyPillarsSection />
@@ -187,14 +192,6 @@ function HomeContent() {
             >
               <Button variant="outline" size="lg">
                 {t("hero.cta.explore")}
-              </Button>
-            </Link>
-            <Link
-              href={buildUrlWithSource("/enrol", campaignSource)}
-              style={{ textDecoration: "none" }}
-            >
-              <Button variant="outline" size="lg">
-                {t("hero.cta.join")}
               </Button>
             </Link>
           </div>

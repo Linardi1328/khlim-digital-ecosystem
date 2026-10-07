@@ -260,14 +260,17 @@ test("Admin UI and Web UI incorporate Academy lead capture features cleanly", as
 
 test("Campaign attribution resolves utm_source, ref, and campaign aliases and propagates to /interest", async () => {
   const homePage = await read("apps/web/app/page.tsx");
+  const academyPage = await read("apps/web/app/academy/page.tsx");
   const programmesPage = await read("apps/web/app/programmes/page.tsx");
   const offeringDetailPage = await read(
     "apps/web/app/programmes/[offeringId]/page.tsx",
   );
 
-  // Home, programmes list, and offering detail pass full searchParams object
+  // Home, academy, programmes list, and offering detail pass full searchParams object
   assert.match(homePage, /resolveCampaignSource\(searchParams\)/);
   assert.doesNotMatch(homePage, /resolveCampaignSource\(querySource\)/);
+  assert.match(academyPage, /resolveCampaignSource\(searchParams\)/);
+  assert.doesNotMatch(academyPage, /resolveCampaignSource\(querySource\)/);
   assert.match(programmesPage, /resolveCampaignSource\(searchParams\)/);
   assert.doesNotMatch(programmesPage, /resolveCampaignSource\(querySource\)/);
   assert.match(offeringDetailPage, /resolveCampaignSource\(searchParams\)/);

@@ -431,12 +431,12 @@ body {
   }
 
   .home-hero-carousel {
-    min-height: 620px;
+    min-height: 540px;
   }
 
   .home-hero-overlay {
-    align-items: flex-end;
-    padding: 70px 20px 104px;
+    align-items: center;
+    padding: 36px 20px 48px;
   }
 
   .home-hero-content,
@@ -445,7 +445,14 @@ body {
   }
 
   .home-hero-content h1 {
-    font-size: clamp(2.5rem, 13vw, 4.2rem);
+    font-size: clamp(2rem, 9.5vw, 3.25rem);
+    margin: 14px 0 12px;
+  }
+
+  .home-hero-content p {
+    margin: 0 0 24px;
+    font-size: 1rem;
+    line-height: 1.55;
   }
 
   .home-carousel-arrow {

@@ -20,9 +20,11 @@ export interface HeroCarouselProps {
   eyebrow: string;
   title: string;
   subtitle: string;
-  primaryCtaLabel: string;
+  primaryCtaLabel?: string;
   secondaryCtaLabel: string;
   source?: string | null;
+  pathwayBadge?: string;
+  venueBadge?: string;
 }
 
 const AUTOPLAY_MS = 6000;
@@ -33,9 +35,10 @@ export function HeroCarousel({
   eyebrow,
   title,
   subtitle,
-  primaryCtaLabel,
   secondaryCtaLabel,
   source,
+  pathwayBadge,
+  venueBadge,
 }: HeroCarouselProps) {
   const { t } = useI18n();
   const safeSlides = useMemo(() => (slides.length > 0 ? slides : []), [slides]);
@@ -115,9 +118,29 @@ export function HeroCarousel({
 
       <div className="home-hero-overlay">
         <div className="home-hero-content">
-          <Badge variant="brand" size="md">
-            {eyebrow}
-          </Badge>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "8px",
+              alignItems: "center",
+              marginBottom: "14px",
+            }}
+          >
+            <Badge variant="brand" size="md">
+              {eyebrow}
+            </Badge>
+            {pathwayBadge && (
+              <Badge variant="neutral" size="md">
+                {pathwayBadge}
+              </Badge>
+            )}
+            {venueBadge && (
+              <Badge variant="neutral" size="md">
+                {venueBadge}
+              </Badge>
+            )}
+          </div>
           <h1>{title}</h1>
           <p>{subtitle}</p>
           <div className="home-hero-actions">
@@ -127,14 +150,6 @@ export function HeroCarousel({
             >
               <Button variant="primary" size="lg">
                 {t("nav.registerInterest")}
-              </Button>
-            </Link>
-            <Link
-              href={buildUrlWithSource("/enrol", source)}
-              style={{ textDecoration: "none" }}
-            >
-              <Button variant="outline" size="lg">
-                {primaryCtaLabel}
               </Button>
             </Link>
             <Link

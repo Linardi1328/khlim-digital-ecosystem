@@ -23,6 +23,19 @@ import {
   CardTitle,
 } from "../../components/ui/card";
 
+function ageLabel(
+  offering: PublicOfferingItem,
+  t: (key: string, params?: Record<string, string | number>) => string,
+): string {
+  const minimum = offering.programme.minimumAge;
+  const maximum = offering.programme.maximumAge;
+  if (minimum !== null && maximum !== null) {
+    return t("programmes.ageRange", { minimum, maximum });
+  }
+  if (minimum !== null) return t("programmes.minimumAge", { minimum });
+  return t("programmes.ageEligibilityVaries");
+}
+
 function ProgrammesContent() {
   const { t, formatDate } = useI18n();
   const searchParams = useSearchParams();
@@ -143,6 +156,24 @@ function ProgrammesContent() {
             {visible.map((offering) => (
               <Card key={offering.id}>
                 <CardHeader>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "6px",
+                      alignItems: "center",
+                      marginBottom: "8px",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <Badge variant="brand" size="sm">
+                      {ageLabel(offering, t)}
+                    </Badge>
+                    {offering.programme.level ? (
+                      <Badge variant="neutral" size="sm">
+                        {offering.programme.level}
+                      </Badge>
+                    ) : null}
+                  </div>
                   <CardTitle>{offering.name}</CardTitle>
                   <CardDescription>
                     {offering.programme.description ?? offering.programme.name}
