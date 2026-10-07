@@ -35,6 +35,13 @@ export function extractCampaignCandidate(
   return null;
 }
 
+export function getQueryCampaignSource(
+  querySource?: string | null | { get(key: string): string | null },
+): string | null {
+  const candidate = extractCampaignCandidate(querySource);
+  return sanitizeCampaignToken(candidate);
+}
+
 export function resolveCampaignSource(
   querySource?: string | null | { get(key: string): string | null },
 ): string | null {

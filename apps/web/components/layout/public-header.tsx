@@ -21,15 +21,27 @@ export function PublicHeader({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
-    { href: "/", label: t("nav.home") },
-    { href: "/academy", label: t("nav.academy") },
-    { href: "/programmes", label: t("nav.programmes") },
+    { href: buildUrlWithSource("/", campaignSource), label: t("nav.home") },
+    {
+      href: buildUrlWithSource("/academy", campaignSource),
+      label: t("nav.academy"),
+    },
+    {
+      href: buildUrlWithSource("/programmes", campaignSource),
+      label: t("nav.programmes"),
+    },
     {
       href: buildUrlWithSource("/interest", campaignSource),
       label: t("nav.registerInterest"),
     },
-    { href: "/about", label: t("nav.about") },
-    { href: "/contact", label: t("nav.contact") },
+    {
+      href: buildUrlWithSource("/about", campaignSource),
+      label: t("nav.about"),
+    },
+    {
+      href: buildUrlWithSource("/contact", campaignSource),
+      label: t("nav.contact"),
+    },
   ];
 
   return (
@@ -56,7 +68,7 @@ export function PublicHeader({
         }}
       >
         <Link
-          href="/"
+          href={buildUrlWithSource("/", campaignSource)}
           className={`public-header-brand ${styles.brand}`}
           style={{
             display: "flex",
@@ -154,9 +166,12 @@ export function PublicHeader({
                     {t("nav.login")}
                   </Button>
                 </Link>
-                <Link href="/enrol" style={{ textDecoration: "none" }}>
+                <Link
+                  href={buildUrlWithSource("/interest", campaignSource)}
+                  style={{ textDecoration: "none" }}
+                >
                   <Button variant="primary" size="sm">
-                    {t("nav.register")}
+                    {t("nav.registerInterest")}
                   </Button>
                 </Link>
               </div>
@@ -217,13 +232,16 @@ export function PublicHeader({
                 {t("nav.login")}
               </Button>
             </Link>
-            <Link href="/enrol" style={{ textDecoration: "none", flex: 1 }}>
+            <Link
+              href={buildUrlWithSource("/interest", campaignSource)}
+              style={{ textDecoration: "none", flex: 1 }}
+            >
               <Button
                 variant="primary"
                 size="sm"
                 style={{ width: "100%", minHeight: "44px" }}
               >
-                {t("nav.register")}
+                {t("nav.registerInterest")}
               </Button>
             </Link>
           </>
@@ -290,7 +308,7 @@ export function PublicHeader({
               onClick={() => setMobileMenuOpen(false)}
             >
               <Button
-                variant="outline"
+                variant="primary"
                 size="md"
                 style={{ width: "100%", minHeight: "44px" }}
               >
@@ -298,8 +316,12 @@ export function PublicHeader({
               </Button>
             </Link>
             <Link href="/enrol" onClick={() => setMobileMenuOpen(false)}>
-              <Button variant="primary" size="md" style={{ width: "100%" }}>
-                {t("hero.cta.join")}
+              <Button
+                variant="outline"
+                size="md"
+                style={{ width: "100%", minHeight: "44px" }}
+              >
+                {t("nav.register")}
               </Button>
             </Link>
           </div>

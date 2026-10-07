@@ -80,7 +80,7 @@ test("homepage keeps academy actions primary without inactive carousel controls"
       name: "Developing players. Building futures.",
     }),
   ).toBeVisible();
-  await expect(hero.locator('a[href="/enrol"]')).toBeVisible();
+  await expect(hero.locator('a[href="/interest"]')).toBeVisible();
   await expect(hero.locator('a[href="/programmes"]')).toBeVisible();
   await expect(hero.locator(".home-carousel-arrow")).toHaveCount(0);
   await expect(hero.locator(".home-carousel-dots")).toHaveCount(0);
@@ -282,4 +282,90 @@ test("interest registration form supports campaign attribution and responsive la
     });
     expect(overflow, `Horizontal overflow detected at ${width}px`).toBe(false);
   }
+});
+
+test("public journey retains 3x3-oct24 attribution through rendered Home -> Academy -> Programmes -> Interest navigation", async ({
+  page,
+}) => {
+  await page.goto("/?source=3x3-oct24", { waitUntil: "domcontentloaded" });
+  await expect(page.locator(".public-header-logo")).toBeVisible();
+
+  // 1. Navigate to Academy via rendered header navigation
+  if (await page.locator(".mobile-menu-btn").isVisible()) {
+    await openMobileMenu(page);
+  }
+  const academyLink = page.locator('a[href*="/academy"]:visible').first();
+  await expect(academyLink).toBeVisible();
+  await academyLink.click();
+  await expect(page).toHaveURL(/\/academy/);
+  expect(new URL(page.url()).searchParams.get("source")).toBe("3x3-oct24");
+
+  // 2. On Academy, navigate to Programmes via rendered CTA
+  const programmesLink = page
+    .locator('main a[href*="/programmes"]:visible')
+    .first();
+  await expect(programmesLink).toBeVisible();
+  await programmesLink.click();
+  await expect(page).toHaveURL(/\/programmes/);
+  expect(new URL(page.url()).searchParams.get("source")).toBe("3x3-oct24");
+
+  // 3. On Programmes, click Register Interest via rendered offering CTA
+  const interestLink = page
+    .locator('main a[href*="/interest"]:visible')
+    .first();
+  await expect(interestLink).toBeVisible();
+  await interestLink.click();
+
+  // 4. Final Interest URL must contain exactly source=3x3-oct24
+  await expect(page).toHaveURL(/\/interest/);
+  const finalUrl = new URL(page.url());
+  expect(finalUrl.searchParams.get("source")).toBe("3x3-oct24");
+});
+
+test("about page preserves 3x3-oct24 campaign attribution across header links and programmes CTA", async ({
+  page,
+}) => {
+  await page.goto("/about?source=3x3-oct24", { waitUntil: "domcontentloaded" });
+  await expect(page.locator(".public-header-logo")).toBeVisible();
+
+  // 1. Verify rendered header links retain campaign attribution
+  const headerInterestLink = page
+    .locator('header a[href*="/interest"]:visible')
+    .first();
+  await expect(headerInterestLink).toBeVisible();
+  expect(await headerInterestLink.getAttribute("href")).toContain(
+    "source=3x3-oct24",
+  );
+
+  // 2. Navigate to Programmes via rendered About CTA
+  const programmesCta = page
+    .locator('main a[href*="/programmes"]:visible')
+    .first();
+  await expect(programmesCta).toBeVisible();
+  await programmesCta.click();
+  await expect(page).toHaveURL(/\/programmes/);
+  expect(new URL(page.url()).searchParams.get("source")).toBe("3x3-oct24");
+});
+
+test("contact page preserves 3x3-oct24 campaign attribution across header Register Interest link", async ({
+  page,
+}) => {
+  await page.goto("/contact?source=3x3-oct24", {
+    waitUntil: "domcontentloaded",
+  });
+  await expect(page.locator(".public-header-logo")).toBeVisible();
+
+  // 1. Verify header Register Interest link retains campaign attribution
+  const headerInterestLink = page
+    .locator('header a[href*="/interest"]:visible')
+    .first();
+  await expect(headerInterestLink).toBeVisible();
+  expect(await headerInterestLink.getAttribute("href")).toContain(
+    "source=3x3-oct24",
+  );
+
+  // 2. Click Register Interest and verify destination preserves campaign source
+  await headerInterestLink.click();
+  await expect(page).toHaveURL(/\/interest/);
+  expect(new URL(page.url()).searchParams.get("source")).toBe("3x3-oct24");
 });
