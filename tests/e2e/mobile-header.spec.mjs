@@ -37,7 +37,7 @@ test("mobile header actions and brand lockup stay visible", async ({
   await expectMinimumHeight(locale);
   await expectMinimumHeight(menu);
   await expectMinimumHeight(quick.locator('a[href="/auth/login"]'));
-  await expectMinimumHeight(quick.locator('a[href="/enrol"]'));
+  await expectMinimumHeight(quick.locator('a[href="/interest"]'));
 });
 
 test("mobile language switch stays inline", async ({ page, viewport }) => {
@@ -96,7 +96,7 @@ test("mobile drawer and academy hero actions stay finger-friendly", async ({
 
   const hero = page.locator(".home-hero-carousel");
   await expect(hero).toBeVisible();
-  await expectMinimumHeight(hero.locator('a[href="/enrol"]'));
+  await expectMinimumHeight(hero.locator('a[href="/interest"]'));
   await expectMinimumHeight(hero.locator('a[href="/programmes"]'));
   await expect(hero.locator(".home-carousel-arrow")).toHaveCount(0);
   await expect(hero.locator(".home-carousel-dots")).toHaveCount(0);

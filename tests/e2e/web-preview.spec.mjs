@@ -80,7 +80,7 @@ test("homepage keeps academy actions primary without inactive carousel controls"
       name: "Developing players. Building futures.",
     }),
   ).toBeVisible();
-  await expect(hero.locator('a[href="/enrol"]')).toBeVisible();
+  await expect(hero.locator('a[href="/interest"]')).toBeVisible();
   await expect(hero.locator('a[href="/programmes"]')).toBeVisible();
   await expect(hero.locator(".home-carousel-arrow")).toHaveCount(0);
   await expect(hero.locator(".home-carousel-dots")).toHaveCount(0);
