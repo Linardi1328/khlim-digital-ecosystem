@@ -1,7 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import {
+  getQueryCampaignSource,
+  resolveCampaignSource,
+} from "../../lib/campaign-source";
 import { useI18n } from "../../lib/i18n-context";
 import { PublicFooter } from "../../components/layout/public-footer";
 import { PublicHeader } from "../../components/layout/public-header";
@@ -11,8 +16,21 @@ import { Card, CardContent } from "../../components/ui/card";
 import { Checkbox } from "../../components/ui/checkbox";
 import { Input } from "../../components/ui/input";
 
-export default function ContactPage() {
+function ContactContent() {
   const { t } = useI18n();
+  const searchParams = useSearchParams();
+  const queryCampaign = useMemo(
+    () => getQueryCampaignSource(searchParams),
+    [searchParams],
+  );
+  const [storedCampaign, setStoredCampaign] = useState<string | null>(null);
+
+  useEffect(() => {
+    setStoredCampaign(resolveCampaignSource(searchParams));
+  }, [searchParams]);
+
+  const campaignSource = queryCampaign ?? storedCampaign;
+
   const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL?.trim();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -35,7 +53,7 @@ export default function ContactPage() {
     <div
       style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
     >
-      <PublicHeader />
+      <PublicHeader campaignSource={campaignSource} />
       <main
         style={{
           flex: 1,
@@ -140,5 +158,15 @@ export default function ContactPage() {
       </main>
       <PublicFooter />
     </div>
+  );
+}
+
+export default function ContactPage() {
+  return (
+    <Suspense
+      fallback={<div aria-busy="true" style={{ minHeight: "100vh" }} />}
+    >
+      <ContactContent />
+    </Suspense>
   );
 }

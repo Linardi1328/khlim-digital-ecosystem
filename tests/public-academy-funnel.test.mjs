@@ -395,7 +395,7 @@ test("First-render campaign attribution derives synchronously without storage re
     /useEffect\(\(\) => \{\s*setStoredCampaign\(resolveCampaignSource\(searchParams\)\);\s*\}, \[searchParams\]\);/,
   );
 
-  // Home and Programmes pages follow the same first-render resolution
+  // Home, Programmes, About, and Contact pages follow the same first-render resolution
   assert.match(
     homePage,
     /const queryCampaign = useMemo\(\s*\(\) => getQueryCampaignSource\(searchParams\),\s*\[searchParams\],\s*\);/,
@@ -411,6 +411,39 @@ test("First-render campaign attribution derives synchronously without storage re
   assert.match(
     programmesPage,
     /const campaignSource = queryCampaign \?\? storedCampaign;/,
+  );
+
+  const aboutPage = await read("apps/web/app/about/page.tsx");
+  const contactPage = await read("apps/web/app/contact/page.tsx");
+
+  assert.match(
+    aboutPage,
+    /const queryCampaign = useMemo\(\s*\(\) => getQueryCampaignSource\(searchParams\),\s*\[searchParams\],\s*\);/,
+  );
+  assert.match(
+    aboutPage,
+    /<PublicHeader campaignSource=\{campaignSource\} \/>/,
+  );
+  assert.match(
+    aboutPage,
+    /buildUrlWithSource\("\/programmes", campaignSource\)/,
+  );
+  assert.match(
+    aboutPage,
+    /<Suspense[\s\S]*?<AboutContent \/>[\s\S]*?<\/Suspense>/,
+  );
+
+  assert.match(
+    contactPage,
+    /const queryCampaign = useMemo\(\s*\(\) => getQueryCampaignSource\(searchParams\),\s*\[searchParams\],\s*\);/,
+  );
+  assert.match(
+    contactPage,
+    /<PublicHeader campaignSource=\{campaignSource\} \/>/,
+  );
+  assert.match(
+    contactPage,
+    /<Suspense[\s\S]*?<ContactContent \/>[\s\S]*?<\/Suspense>/,
   );
 });
 

@@ -1,7 +1,13 @@
 "use client";
 
-import React from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import {
+  buildUrlWithSource,
+  getQueryCampaignSource,
+  resolveCampaignSource,
+} from "../../lib/campaign-source";
 import { useI18n } from "../../lib/i18n-context";
 import { PublicHeader } from "../../components/layout/public-header";
 import { PublicFooter } from "../../components/layout/public-footer";
@@ -9,14 +15,26 @@ import { Button } from "../../components/ui/button";
 import { Card, CardContent } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
 
-export default function AboutPage() {
+function AboutContent() {
   const { t } = useI18n();
+  const searchParams = useSearchParams();
+  const queryCampaign = useMemo(
+    () => getQueryCampaignSource(searchParams),
+    [searchParams],
+  );
+  const [storedCampaign, setStoredCampaign] = useState<string | null>(null);
+
+  useEffect(() => {
+    setStoredCampaign(resolveCampaignSource(searchParams));
+  }, [searchParams]);
+
+  const campaignSource = queryCampaign ?? storedCampaign;
 
   return (
     <div
       style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
     >
-      <PublicHeader />
+      <PublicHeader campaignSource={campaignSource} />
 
       <main
         style={{
@@ -94,7 +112,10 @@ export default function AboutPage() {
           </Card>
 
           <div style={{ textAlign: "center", marginTop: "24px" }}>
-            <Link href="/programmes" style={{ textDecoration: "none" }}>
+            <Link
+              href={buildUrlWithSource("/programmes", campaignSource)}
+              style={{ textDecoration: "none" }}
+            >
               <Button variant="primary" size="lg">
                 {t("about.cta")}
               </Button>
@@ -105,5 +126,15 @@ export default function AboutPage() {
 
       <PublicFooter />
     </div>
+  );
+}
+
+export default function AboutPage() {
+  return (
+    <Suspense
+      fallback={<div aria-busy="true" style={{ minHeight: "100vh" }} />}
+    >
+      <AboutContent />
+    </Suspense>
   );
 }
