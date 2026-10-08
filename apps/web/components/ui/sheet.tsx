@@ -1,6 +1,13 @@
 "use client";
 
-import React, { type ReactNode, useEffect, useRef, useId } from "react";
+import React, {
+  type ReactNode,
+  useEffect,
+  useRef,
+  useId,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import { useI18n } from "../../lib/i18n-context";
 
 export interface SheetProps {
@@ -9,6 +16,8 @@ export interface SheetProps {
   title?: ReactNode;
   children: ReactNode;
   position?: "left" | "right" | "bottom";
+  "aria-label"?: string;
+  "aria-labelledby"?: string;
 }
 
 export function Sheet({
@@ -17,11 +26,18 @@ export function Sheet({
   title,
   children,
   position = "bottom",
+  "aria-label": ariaLabel,
+  "aria-labelledby": ariaLabelledby,
 }: SheetProps) {
   const { t } = useI18n();
   const sheetRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
   const titleId = useId();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -48,7 +64,7 @@ export function Sheet({
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted || typeof document === "undefined") return null;
 
   const positionStyles: Record<string, React.CSSProperties> = {
     bottom: {
@@ -82,8 +98,10 @@ export function Sheet({
     },
   };
 
-  return (
+  return createPortal(
     <div
+      data-testid="sheet-overlay"
+      className="sheet-overlay"
       style={{
         position: "fixed",
         inset: 0,
@@ -99,7 +117,8 @@ export function Sheet({
         ref={sheetRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby={title ? titleId : undefined}
+        aria-label={ariaLabel}
+        aria-labelledby={ariaLabelledby ?? (title ? titleId : undefined)}
         tabIndex={-1}
         style={{
           backgroundColor: "#FFFFFF",
@@ -151,6 +170,7 @@ export function Sheet({
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -7,6 +7,7 @@ import {
   getQueryCampaignSource,
   resolveCampaignSource,
 } from "../../lib/campaign-source";
+import { getPublicBusinessDetails } from "../../lib/business-details";
 import { useI18n } from "../../lib/i18n-context";
 import { PublicFooter } from "../../components/layout/public-footer";
 import { PublicHeader } from "../../components/layout/public-header";
@@ -31,7 +32,7 @@ function ContactContent() {
 
   const campaignSource = queryCampaign ?? storedCampaign;
 
-  const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL?.trim();
+  const business = getPublicBusinessDetails();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
@@ -39,13 +40,13 @@ function ContactContent() {
 
   const openEmail = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!contactEmail || !privacyConsent) return;
+    if (!business.email || !privacyConsent) return;
     const subject = encodeURIComponent(t("contact.emailSubject", { name }));
     const body = encodeURIComponent(
       t("contact.emailBody", { name, email, message }),
     );
     window.location.assign(
-      `mailto:${contactEmail}?subject=${subject}&body=${body}`,
+      `mailto:${business.email}?subject=${subject}&body=${body}`,
     );
   };
 
@@ -64,97 +65,209 @@ function ContactContent() {
           boxSizing: "border-box",
         }}
       >
-        <h1>{t("contact.title")}</h1>
-        <Card>
-          <CardContent>
-            {contactEmail ? (
-              <>
-                <Alert variant="info">{t("contact.info")}</Alert>
-                <form
-                  onSubmit={openEmail}
+        <div style={{ marginBottom: 32 }}>
+          <h1
+            style={{
+              fontSize: "2.25rem",
+              fontWeight: 800,
+              color: "#18181B",
+              margin: "0 0 12px",
+            }}
+          >
+            {t("contact.title")}
+          </h1>
+          <p
+            style={{
+              fontSize: "1.125rem",
+              color: "#71717A",
+              lineHeight: 1.6,
+              margin: 0,
+            }}
+          >
+            {t("contact.intro")}
+          </p>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+          <Card>
+            <CardContent>
+              <h2
+                style={{
+                  fontSize: "1.25rem",
+                  fontWeight: 700,
+                  color: "#18181B",
+                  marginTop: 0,
+                  marginBottom: 16,
+                }}
+              >
+                {t("contact.detailsTitle")}
+              </h2>
+              <address
+                style={{
+                  fontStyle: "normal",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                  fontSize: "0.9375rem",
+                  color: "#3F3F46",
+                  lineHeight: 1.6,
+                }}
+              >
+                <div
                   style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 16,
-                    marginTop: 16,
+                    fontWeight: 700,
+                    color: "#18181B",
+                    fontSize: "1rem",
                   }}
                 >
-                  <Input
-                    label={t("contact.name")}
-                    required
-                    autoComplete="name"
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                  />
-                  <Input
-                    label={t("contact.email")}
-                    type="email"
-                    required
-                    autoComplete="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                  />
+                  {business.legalName}
+                </div>
+                {business.registrationNumber ? (
                   <div>
-                    <label htmlFor="contact-message">
-                      {t("contact.message")}
-                    </label>
-                    <textarea
-                      id="contact-message"
-                      required
-                      rows={5}
-                      maxLength={5000}
-                      value={message}
-                      onChange={(event) => setMessage(event.target.value)}
-                      style={{
-                        display: "block",
-                        width: "100%",
-                        boxSizing: "border-box",
-                        marginTop: 6,
-                        padding: 12,
-                      }}
-                    />
+                    {t("compliance.footer.companyNumberLabel")}:{" "}
+                    <span>{business.registrationNumber}</span>
                   </div>
-                  <Checkbox
-                    id="contact-privacy-consent"
-                    required
-                    checked={privacyConsent}
-                    onChange={(event) =>
-                      setPrivacyConsent(event.target.checked)
-                    }
-                    label={
-                      <span data-i18n-static="bilingual">
-                        I have read the{" "}
-                        <Link href="/privacy" target="_blank">
-                          Privacy Policy
-                        </Link>{" "}
-                        and consent to KHLIM using my name, email and message to
-                        respond to this enquiry. I understand this does not
-                        subscribe me to marketing. / Saya telah membaca{" "}
-                        <Link href="/privacy" target="_blank">
-                          Dasar Privasi
-                        </Link>{" "}
-                        dan bersetuju KHLIM menggunakan nama, e-mel dan mesej
-                        saya untuk menjawab pertanyaan ini. Saya faham ini tidak
-                        mendaftarkan saya untuk pemasaran.
-                      </span>
-                    }
-                  />
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    disabled={!privacyConsent}
+                ) : null}
+                {business.businessAddress ? (
+                  <div>{business.businessAddress}</div>
+                ) : null}
+                {business.email ? (
+                  <div>
+                    {t("compliance.footer.emailLabel")}:{" "}
+                    <a
+                      href={`mailto:${business.email}`}
+                      style={{
+                        color: "#2563EB",
+                        textDecoration: "underline",
+                      }}
+                    >
+                      {business.email}
+                    </a>
+                  </div>
+                ) : null}
+                {business.phone ? (
+                  <div>
+                    {t("compliance.footer.telephoneLabel")}:{" "}
+                    <a
+                      href={`tel:${business.phone}`}
+                      style={{
+                        color: "#2563EB",
+                        textDecoration: "underline",
+                      }}
+                    >
+                      {business.phone}
+                    </a>
+                  </div>
+                ) : null}
+              </address>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent>
+              <h2
+                style={{
+                  fontSize: "1.25rem",
+                  fontWeight: 700,
+                  color: "#18181B",
+                  marginTop: 0,
+                  marginBottom: 16,
+                }}
+              >
+                {t("contact.enquiryTitle")}
+              </h2>
+              {business.email ? (
+                <>
+                  <Alert variant="info">{t("contact.info")}</Alert>
+                  <form
+                    onSubmit={openEmail}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 16,
+                      marginTop: 16,
+                    }}
                   >
-                    {t("contact.openEmail")}
-                  </Button>
-                </form>
-              </>
-            ) : (
-              <Alert variant="warning" title={t("contact.notConfiguredTitle")}>
-                {t("contact.notConfiguredBody")}
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
+                    <Input
+                      label={t("contact.name")}
+                      required
+                      autoComplete="name"
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                    />
+                    <Input
+                      label={t("contact.email")}
+                      type="email"
+                      required
+                      autoComplete="email"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                    />
+                    <div>
+                      <label htmlFor="contact-message">
+                        {t("contact.message")}
+                      </label>
+                      <textarea
+                        id="contact-message"
+                        required
+                        rows={5}
+                        maxLength={5000}
+                        value={message}
+                        onChange={(event) => setMessage(event.target.value)}
+                        style={{
+                          display: "block",
+                          width: "100%",
+                          boxSizing: "border-box",
+                          marginTop: 6,
+                          padding: 12,
+                        }}
+                      />
+                    </div>
+                    <Checkbox
+                      id="contact-privacy-consent"
+                      required
+                      checked={privacyConsent}
+                      onChange={(event) =>
+                        setPrivacyConsent(event.target.checked)
+                      }
+                      label={
+                        <span data-i18n-static="bilingual">
+                          I have read the{" "}
+                          <Link href="/privacy" target="_blank">
+                            Privacy Policy
+                          </Link>{" "}
+                          and consent to KHLIM using my name, email and message
+                          to respond to this enquiry. I understand this does not
+                          subscribe me to marketing. / Saya telah membaca{" "}
+                          <Link href="/privacy" target="_blank">
+                            Dasar Privasi
+                          </Link>{" "}
+                          dan bersetuju KHLIM menggunakan nama, e-mel dan mesej
+                          saya untuk menjawab pertanyaan ini. Saya faham ini
+                          tidak mendaftarkan saya untuk pemasaran.
+                        </span>
+                      }
+                    />
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      disabled={!privacyConsent}
+                    >
+                      {t("contact.openEmail")}
+                    </Button>
+                  </form>
+                </>
+              ) : (
+                <Alert
+                  variant="warning"
+                  title={t("contact.emailUnavailableTitle")}
+                >
+                  {t("contact.emailUnavailableBody")}
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </main>
       <PublicFooter />
     </div>

@@ -291,10 +291,16 @@ test("public journey retains 3x3-oct24 attribution through rendered Home -> Acad
   await expect(page.locator(".public-header-logo")).toBeVisible();
 
   // 1. Navigate to Academy via rendered header navigation
+  let academyLink;
   if (await page.locator(".mobile-menu-btn").isVisible()) {
     await openMobileMenu(page);
+    academyLink = page
+      .getByRole("dialog")
+      .locator('a[href*="/academy"]:visible')
+      .first();
+  } else {
+    academyLink = page.locator('header a[href*="/academy"]:visible').first();
   }
-  const academyLink = page.locator('a[href*="/academy"]:visible').first();
   await expect(academyLink).toBeVisible();
   await academyLink.click();
   await expect(page).toHaveURL(/\/academy/);
@@ -368,4 +374,21 @@ test("contact page preserves 3x3-oct24 campaign attribution across header Regist
   await headerInterestLink.click();
   await expect(page).toHaveURL(/\/interest/);
   expect(new URL(page.url()).searchParams.get("source")).toBe("3x3-oct24");
+});
+
+test("contact page displays authoritative business details card and enquiry channel", async ({
+  page,
+}) => {
+  await page.goto("/contact", { waitUntil: "domcontentloaded" });
+  await expect(
+    page.getByRole("heading", { name: "Contact KHLIM Basketball Academy" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Official Academy Details" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Send an Enquiry" }),
+  ).toBeVisible();
+  await expect(page.locator("main address")).toBeVisible();
+  await expect(page.locator("main address")).toContainText("KHLIM Basketball");
 });

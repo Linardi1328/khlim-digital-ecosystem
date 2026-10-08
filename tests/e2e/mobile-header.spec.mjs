@@ -101,3 +101,57 @@ test("mobile drawer and academy hero actions stay finger-friendly", async ({
   await expect(hero.locator(".home-carousel-arrow")).toHaveCount(0);
   await expect(hero.locator(".home-carousel-dots")).toHaveCount(0);
 });
+
+test("mobile sheet portal covers full viewport and unconstrains overlay on 375px and 390px mobile viewports", async ({
+  page,
+  viewport,
+}) => {
+  test.skip(!viewport || viewport.width > 500, "Mobile only");
+
+  const mobileViewports = [
+    { width: 375, height: 667 },
+    { width: 390, height: 844 },
+  ];
+
+  for (const vp of mobileViewports) {
+    await page.setViewportSize(vp);
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+
+    // Open sheet
+    await page.locator(".mobile-menu-btn").click();
+    const dialog = page.getByRole("dialog");
+    const overlay = page.locator(".sheet-overlay");
+
+    await expect(dialog).toBeVisible();
+    await expect(overlay).toBeVisible();
+
+    // Verify overlay is portaled outside header into body
+    await expect(page.locator("header .sheet-overlay")).toHaveCount(0);
+    await expect(page.locator("body > .sheet-overlay")).toHaveCount(1);
+
+    // Verify overlay spans entire viewport height and width (unconstrained by header)
+    const box = await overlay.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box.y).toBe(0);
+    expect(box.height).toBe(vp.height);
+    expect(box.width).toBe(vp.width);
+
+    // Verify body scroll lock while open
+    await expect
+      .poll(() => page.evaluate(() => document.body.style.overflow))
+      .toBe("hidden");
+
+    // Close with Escape key
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect
+      .poll(() => page.evaluate(() => document.body.style.overflow))
+      .not.toBe("hidden");
+
+    // Reopen and close by clicking overlay backdrop
+    await page.locator(".mobile-menu-btn").click();
+    await expect(dialog).toBeVisible();
+    await page.mouse.click(15, 100);
+    await expect(dialog).toHaveCount(0);
+  }
+});
