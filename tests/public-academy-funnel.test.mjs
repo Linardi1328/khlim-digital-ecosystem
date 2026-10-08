@@ -531,6 +531,20 @@ test("Sheet component renders via createPortal to document.body, mounts safely o
   assert.match(sheet, /if \(e\.target === e\.currentTarget\) onClose\(\)/);
   assert.match(sheet, /minWidth:\s*"44px"/);
   assert.match(sheet, /minHeight:\s*"44px"/);
+
+  // Proper keyboard focus containment
+  assert.match(sheet, /e\.key === "Tab"/);
+  assert.match(sheet, /lastElement\.focus\(\)/);
+  assert.match(sheet, /firstElement\.focus\(\)/);
+  assert.match(
+    sheet,
+    /if\s*\(\s*focusable\.length\s*===\s*0\s*\)\s*\{[\s\S]*?sheetRef\.current\?\.focus\(\)/,
+  );
+  assert.match(sheet, /document\.addEventListener\("focusin", handleFocusIn\)/);
+  assert.match(
+    sheet,
+    /document\.removeEventListener\("focusin", handleFocusIn\)/,
+  );
 });
 
 test("Contact page uses authoritative getPublicBusinessDetails and renders complete business information with localized enquiry channel", async () => {
@@ -577,5 +591,34 @@ test("Contact page uses authoritative getPublicBusinessDetails and renders compl
       5,
       `Key ${key} must be defined across all 5 locales in public-pages.ts (found ${occurrences})`,
     );
+  }
+
+  // Authoritative business details helper properly populates structured fields
+  const originalEnv = { ...process.env };
+  try {
+    process.env.NEXT_PUBLIC_BUSINESS_LEGAL_NAME =
+      "KHLIM Sports Academy Sdn Bhd";
+    process.env.NEXT_PUBLIC_BUSINESS_REGISTRATION_NO =
+      "202601009999 (1234567-X)";
+    process.env.NEXT_PUBLIC_BUSINESS_ADDRESS =
+      "Level 2, Sports Complex, 43300 Seri Kembangan, Selangor";
+    process.env.NEXT_PUBLIC_BUSINESS_EMAIL = "enquiry@khlim-academy.com";
+    process.env.NEXT_PUBLIC_BUSINESS_PHONE = "+60 3-8941 2000";
+
+    const { getPublicBusinessDetails, isCommerceBusinessDetailsComplete } =
+      await import(new URL("apps/web/lib/business-details.ts", root).href);
+
+    const populated = getPublicBusinessDetails();
+    assert.equal(populated.legalName, "KHLIM Sports Academy Sdn Bhd");
+    assert.equal(populated.registrationNumber, "202601009999 (1234567-X)");
+    assert.equal(
+      populated.businessAddress,
+      "Level 2, Sports Complex, 43300 Seri Kembangan, Selangor",
+    );
+    assert.equal(populated.email, "enquiry@khlim-academy.com");
+    assert.equal(populated.phone, "+60 3-8941 2000");
+    assert.equal(isCommerceBusinessDetailsComplete(populated), true);
+  } finally {
+    process.env = originalEnv;
   }
 });

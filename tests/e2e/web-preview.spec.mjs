@@ -389,6 +389,32 @@ test("contact page displays authoritative business details card and enquiry chan
   await expect(
     page.getByRole("heading", { name: "Send an Enquiry" }),
   ).toBeVisible();
-  await expect(page.locator("main address")).toBeVisible();
-  await expect(page.locator("main address")).toContainText("KHLIM Basketball");
+  const address = page.locator("main address");
+  await expect(address).toBeVisible();
+  await expect(address).toContainText("KHLIM Basketball");
+
+  // Verify structured contact fields and channels
+  const mailtoLink = address.locator('a[href^="mailto:"]');
+  const telLink = address.locator('a[href^="tel:"]');
+
+  if ((await mailtoLink.count()) > 0) {
+    await expect(mailtoLink.first()).toBeVisible();
+    const href = await mailtoLink.first().getAttribute("href");
+    expect(href).toMatch(/^mailto:[^\s@]+@[^\s@]+\.[^\s@]+/);
+
+    // When email is configured, enquiry form controls are interactive
+    await expect(page.locator('input[autoComplete="name"]')).toBeVisible();
+    await expect(page.locator('input[type="email"]')).toBeVisible();
+    await expect(page.locator("#contact-message")).toBeVisible();
+    await expect(page.locator('button[type="submit"]')).toBeVisible();
+  } else {
+    // When email is unconfigured, scoped warning is visible without disabling business card
+    await expect(page.locator('main [role="alert"]')).toBeVisible();
+  }
+
+  if ((await telLink.count()) > 0) {
+    await expect(telLink.first()).toBeVisible();
+    const telHref = await telLink.first().getAttribute("href");
+    expect(telHref).toMatch(/^tel:[+0-9\s()-]+/);
+  }
 });
