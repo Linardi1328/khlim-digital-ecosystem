@@ -291,10 +291,16 @@ test("public journey retains 3x3-oct24 attribution through rendered Home -> Acad
   await expect(page.locator(".public-header-logo")).toBeVisible();
 
   // 1. Navigate to Academy via rendered header navigation
+  let academyLink;
   if (await page.locator(".mobile-menu-btn").isVisible()) {
     await openMobileMenu(page);
+    academyLink = page
+      .getByRole("dialog")
+      .locator('a[href*="/academy"]:visible')
+      .first();
+  } else {
+    academyLink = page.locator('header a[href*="/academy"]:visible').first();
   }
-  const academyLink = page.locator('a[href*="/academy"]:visible').first();
   await expect(academyLink).toBeVisible();
   await academyLink.click();
   await expect(page).toHaveURL(/\/academy/);
@@ -368,4 +374,47 @@ test("contact page preserves 3x3-oct24 campaign attribution across header Regist
   await headerInterestLink.click();
   await expect(page).toHaveURL(/\/interest/);
   expect(new URL(page.url()).searchParams.get("source")).toBe("3x3-oct24");
+});
+
+test("contact page displays authoritative business details card and enquiry channel", async ({
+  page,
+}) => {
+  await page.goto("/contact", { waitUntil: "domcontentloaded" });
+  await expect(
+    page.getByRole("heading", { name: "Contact KHLIM Basketball Academy" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Official Academy Details" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Send an Enquiry" }),
+  ).toBeVisible();
+  const address = page.locator("main address");
+  await expect(address).toBeVisible();
+  await expect(address).toContainText("KHLIM Basketball");
+
+  // Verify structured contact fields and channels
+  const mailtoLink = address.locator('a[href^="mailto:"]');
+  const telLink = address.locator('a[href^="tel:"]');
+
+  if ((await mailtoLink.count()) > 0) {
+    await expect(mailtoLink.first()).toBeVisible();
+    const href = await mailtoLink.first().getAttribute("href");
+    expect(href).toMatch(/^mailto:[^\s@]+@[^\s@]+\.[^\s@]+/);
+
+    // When email is configured, enquiry form controls are interactive
+    await expect(page.locator('input[autoComplete="name"]')).toBeVisible();
+    await expect(page.locator('input[type="email"]')).toBeVisible();
+    await expect(page.locator("#contact-message")).toBeVisible();
+    await expect(page.locator('button[type="submit"]')).toBeVisible();
+  } else {
+    // When email is unconfigured, scoped warning is visible without disabling business card
+    await expect(page.locator('main [role="alert"]')).toBeVisible();
+  }
+
+  if ((await telLink.count()) > 0) {
+    await expect(telLink.first()).toBeVisible();
+    const telHref = await telLink.first().getAttribute("href");
+    expect(telHref).toMatch(/^tel:[+0-9\s()-]+/);
+  }
 });

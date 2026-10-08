@@ -495,3 +495,130 @@ test("Academy pathway copy is grounded strictly in approved factual offering dat
     /"academy\.pathway\.u15\.body":\s*"Youth Development programme for athletes aged 13 to 15\."/,
   );
 });
+
+test("Sheet component renders via createPortal to document.body, mounts safely on client, and preserves full accessibility contracts", async () => {
+  const sheet = await read("apps/web/components/ui/sheet.tsx");
+
+  // Mounts to document.body via createPortal
+  assert.match(
+    sheet,
+    /import\s*\{[\s\S]*createPortal[\s\S]*\}\s*from\s*"react-dom"/,
+  );
+  assert.match(sheet, /createPortal\([\s\S]*?,\s*document\.body,?\s*\)/);
+
+  // Client-mount guard prevents SSR hydration issues
+  assert.match(
+    sheet,
+    /const\s*\[mounted,\s*setMounted\]\s*=\s*useState\(false\)/,
+  );
+  assert.match(sheet, /setMounted\(true\)/);
+  assert.match(
+    sheet,
+    /if\s*\(!isOpen\s*\|\|\s*!mounted\s*\|\|\s*typeof\s*document\s*===\s*"undefined"\)\s*return\s*null/,
+  );
+
+  // Accessibility and dialog contracts preserved
+  assert.match(sheet, /role="dialog"/);
+  assert.match(sheet, /aria-modal="true"/);
+  assert.match(sheet, /aria-label=\{ariaLabel\}/);
+  assert.match(
+    sheet,
+    /aria-labelledby=\{ariaLabelledby \?\? \(title \? titleId : undefined\)\}/,
+  );
+  assert.match(sheet, /document\.body\.style\.overflow\s*=\s*"hidden"/);
+  assert.match(sheet, /document\.body\.style\.overflow\s*=\s*"unset"/);
+  assert.match(sheet, /e\.key === "Escape"/);
+  assert.match(sheet, /if \(e\.target === e\.currentTarget\) onClose\(\)/);
+  assert.match(sheet, /minWidth:\s*"44px"/);
+  assert.match(sheet, /minHeight:\s*"44px"/);
+
+  // Proper keyboard focus containment
+  assert.match(sheet, /e\.key === "Tab"/);
+  assert.match(sheet, /lastElement\.focus\(\)/);
+  assert.match(sheet, /firstElement\.focus\(\)/);
+  assert.match(
+    sheet,
+    /if\s*\(\s*focusable\.length\s*===\s*0\s*\)\s*\{[\s\S]*?sheetRef\.current\?\.focus\(\)/,
+  );
+  assert.match(sheet, /document\.addEventListener\("focusin", handleFocusIn\)/);
+  assert.match(
+    sheet,
+    /document\.removeEventListener\("focusin", handleFocusIn\)/,
+  );
+});
+
+test("Contact page uses authoritative getPublicBusinessDetails and renders complete business information with localized enquiry channel", async () => {
+  const contactPage = await read("apps/web/app/contact/page.tsx");
+  const publicPageMsgs = await read(
+    "packages/i18n/src/messages/public-pages.ts",
+  );
+
+  // Authoritative business details source
+  assert.match(
+    contactPage,
+    /import\s*\{\s*getPublicBusinessDetails\s*\}\s*from\s*"\.\.\/\.\.\/lib\/business-details"/,
+  );
+  assert.match(contactPage, /const business = getPublicBusinessDetails\(\)/);
+
+  // Renders business details fields
+  assert.match(contactPage, /business\.legalName/);
+  assert.match(contactPage, /business\.registrationNumber/);
+  assert.match(contactPage, /business\.businessAddress/);
+  assert.match(contactPage, /href=\{`mailto:\$\{business\.email\}`\}/);
+  assert.match(contactPage, /href=\{`tel:\$\{business\.phone\}`\}/);
+
+  // Enquiry submission uses business email
+  assert.match(contactPage, /mailto:\$\{business\.email\}\?subject=/);
+
+  // Scoped email warning instead of claiming entire contact page unconfigured
+  assert.match(contactPage, /t\("contact\.emailUnavailableTitle"\)/);
+  assert.match(contactPage, /t\("contact\.emailUnavailableBody"\)/);
+  assert.doesNotMatch(contactPage, /t\("contact\.notConfiguredTitle"\)/);
+
+  // All 5 locales have the new contact translation keys
+  for (const key of [
+    "contact.intro",
+    "contact.detailsTitle",
+    "contact.enquiryTitle",
+    "contact.emailUnavailableTitle",
+    "contact.emailUnavailableBody",
+  ]) {
+    const occurrences = (
+      publicPageMsgs.match(new RegExp(`"${key}":`, "g")) || []
+    ).length;
+    assert.equal(
+      occurrences,
+      5,
+      `Key ${key} must be defined across all 5 locales in public-pages.ts (found ${occurrences})`,
+    );
+  }
+
+  // Authoritative business details helper properly populates structured fields
+  const originalEnv = { ...process.env };
+  try {
+    process.env.NEXT_PUBLIC_BUSINESS_LEGAL_NAME =
+      "KHLIM Sports Academy Sdn Bhd";
+    process.env.NEXT_PUBLIC_BUSINESS_REGISTRATION_NO =
+      "202601009999 (1234567-X)";
+    process.env.NEXT_PUBLIC_BUSINESS_ADDRESS =
+      "Level 2, Sports Complex, 43300 Seri Kembangan, Selangor";
+    process.env.NEXT_PUBLIC_BUSINESS_EMAIL = "enquiry@khlim-academy.com";
+    process.env.NEXT_PUBLIC_BUSINESS_PHONE = "+60 3-8941 2000";
+
+    const { getPublicBusinessDetails, isCommerceBusinessDetailsComplete } =
+      await import(new URL("apps/web/lib/business-details.ts", root).href);
+
+    const populated = getPublicBusinessDetails();
+    assert.equal(populated.legalName, "KHLIM Sports Academy Sdn Bhd");
+    assert.equal(populated.registrationNumber, "202601009999 (1234567-X)");
+    assert.equal(
+      populated.businessAddress,
+      "Level 2, Sports Complex, 43300 Seri Kembangan, Selangor",
+    );
+    assert.equal(populated.email, "enquiry@khlim-academy.com");
+    assert.equal(populated.phone, "+60 3-8941 2000");
+    assert.equal(isCommerceBusinessDetailsComplete(populated), true);
+  } finally {
+    process.env = originalEnv;
+  }
+});

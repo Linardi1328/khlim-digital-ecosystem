@@ -1,6 +1,13 @@
 "use client";
 
-import React, { type ReactNode, useEffect, useRef, useId } from "react";
+import React, {
+  type ReactNode,
+  useEffect,
+  useRef,
+  useId,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import { useI18n } from "../../lib/i18n-context";
 
 export interface SheetProps {
@@ -9,6 +16,41 @@ export interface SheetProps {
   title?: ReactNode;
   children: ReactNode;
   position?: "left" | "right" | "bottom";
+  "aria-label"?: string;
+  "aria-labelledby"?: string;
+}
+
+const FOCUSABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  '[tabindex]:not([tabindex="-1"])',
+].join(", ");
+
+function getFocusableElements(container: HTMLElement | null): HTMLElement[] {
+  if (!container) return [];
+  const candidates =
+    container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+  return Array.from(candidates).filter((el) => {
+    if (
+      el.hasAttribute("disabled") ||
+      el.getAttribute("aria-hidden") === "true"
+    ) {
+      return false;
+    }
+    if (el.tabIndex < 0) {
+      return false;
+    }
+    if (typeof window !== "undefined") {
+      const style = window.getComputedStyle(el);
+      if (style.display === "none" || style.visibility === "hidden") {
+        return false;
+      }
+    }
+    return true;
+  });
 }
 
 export function Sheet({
@@ -17,38 +59,112 @@ export function Sheet({
   title,
   children,
   position = "bottom",
+  "aria-label": ariaLabel,
+  "aria-labelledby": ariaLabelledby,
 }: SheetProps) {
   const { t } = useI18n();
   const sheetRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
   const titleId = useId();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    previousActiveElement.current =
+      document.activeElement as HTMLElement | null;
+    document.body.style.overflow = "hidden";
+
+    const focusTimer = setTimeout(() => {
+      const focusable = getFocusableElements(sheetRef.current);
+      const first = focusable[0];
+      if (first) {
+        first.focus();
+      } else {
+        sheetRef.current?.focus();
+      }
+    }, 50);
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) onClose();
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+
+      if (e.key === "Tab") {
+        const focusable = getFocusableElements(sheetRef.current);
+
+        // Handle the case where there are no focusable descendants
+        if (focusable.length === 0) {
+          e.preventDefault();
+          sheetRef.current?.focus();
+          return;
+        }
+
+        const firstElement = focusable[0];
+        const lastElement = focusable[focusable.length - 1];
+        if (!firstElement || !lastElement) {
+          e.preventDefault();
+          sheetRef.current?.focus();
+          return;
+        }
+        const active = document.activeElement;
+
+        if (e.shiftKey) {
+          // Shift + Tab: from first focusable control cycles to the last
+          if (
+            active === firstElement ||
+            !sheetRef.current?.contains(active) ||
+            active === sheetRef.current
+          ) {
+            e.preventDefault();
+            lastElement.focus();
+          }
+        } else {
+          // Tab: from final focusable control cycles to the first
+          if (
+            active === lastElement ||
+            !sheetRef.current?.contains(active) ||
+            active === sheetRef.current
+          ) {
+            e.preventDefault();
+            firstElement.focus();
+          }
+        }
+      }
     };
 
-    if (isOpen) {
-      previousActiveElement.current =
-        document.activeElement as HTMLElement | null;
-      document.body.style.overflow = "hidden";
-      window.addEventListener("keydown", handleKeyDown);
-      setTimeout(() => {
-        const focusable = sheetRef.current?.querySelector<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-        );
-        focusable?.focus();
-      }, 50);
-    }
+    const handleFocusIn = (e: FocusEvent) => {
+      if (!sheetRef.current) return;
+      if (!sheetRef.current.contains(e.target as Node)) {
+        const focusable = getFocusableElements(sheetRef.current);
+        const first = focusable[0];
+        if (first) {
+          first.focus();
+        } else {
+          sheetRef.current.focus();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("focusin", handleFocusIn);
 
     return () => {
+      clearTimeout(focusTimer);
       document.body.style.overflow = "unset";
       window.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("focusin", handleFocusIn);
       previousActiveElement.current?.focus();
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted || typeof document === "undefined") return null;
 
   const positionStyles: Record<string, React.CSSProperties> = {
     bottom: {
@@ -82,8 +198,10 @@ export function Sheet({
     },
   };
 
-  return (
+  return createPortal(
     <div
+      data-testid="sheet-overlay"
+      className="sheet-overlay"
       style={{
         position: "fixed",
         inset: 0,
@@ -99,7 +217,8 @@ export function Sheet({
         ref={sheetRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby={title ? titleId : undefined}
+        aria-label={ariaLabel}
+        aria-labelledby={ariaLabelledby ?? (title ? titleId : undefined)}
         tabIndex={-1}
         style={{
           backgroundColor: "#FFFFFF",
@@ -151,6 +270,7 @@ export function Sheet({
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

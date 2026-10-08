@@ -1,5 +1,9 @@
 const en = {
   "contact.title": "Contact KHLIM Basketball Academy",
+  "contact.intro":
+    "Get in touch with KHLIM Basketball Academy for programme inquiries, registration questions, or partnerships.",
+  "contact.detailsTitle": "Official Academy Details",
+  "contact.enquiryTitle": "Send an Enquiry",
   "contact.info":
     "Submitting opens your email application. The website does not claim the message was delivered.",
   "contact.name": "Name",
@@ -9,6 +13,9 @@ const en = {
   "contact.notConfiguredTitle": "Contact channel not configured",
   "contact.notConfiguredBody":
     "A public academy contact address will be published before launch. No placeholder address is presented as a real KHLIM inbox.",
+  "contact.emailUnavailableTitle": "Email enquiries unavailable",
+  "contact.emailUnavailableBody":
+    "Direct email messaging is temporarily unavailable while our inbox is being configured. Please check our registered business details above.",
   "contact.emailSubject": "KHLIM Academy enquiry from {name}",
   "contact.emailBody": "Name: {name}\nEmail: {email}\n\n{message}",
 
@@ -38,6 +45,10 @@ type Catalogue = Record<Key, string>;
 
 const ms: Catalogue = {
   "contact.title": "Hubungi Akademi Bola Keranjang KHLIM",
+  "contact.intro":
+    "Hubungi Akademi Bola Keranjang KHLIM untuk pertanyaan program, pendaftaran, atau kerjasama.",
+  "contact.detailsTitle": "Maklumat Rasmi Akademi",
+  "contact.enquiryTitle": "Hantar Pertanyaan",
   "contact.info":
     "Penghantaran akan membuka aplikasi emel anda. Laman web tidak mendakwa mesej telah dihantar.",
   "contact.name": "Nama",
@@ -47,6 +58,9 @@ const ms: Catalogue = {
   "contact.notConfiguredTitle": "Saluran hubungan belum dikonfigurasi",
   "contact.notConfiguredBody":
     "Alamat hubungan awam akademi akan diterbitkan sebelum pelancaran. Tiada alamat sementara dipaparkan sebagai peti masuk KHLIM yang sebenar.",
+  "contact.emailUnavailableTitle": "Pertanyaan emel tidak tersedia",
+  "contact.emailUnavailableBody":
+    "Pemesejan emel terus tidak tersedia buat sementara waktu semasa peti masuk kami dikonfigurasi. Sila rujuk maklumat perniagaan berdaftar kami di atas.",
   "contact.emailSubject": "Pertanyaan Akademi KHLIM daripada {name}",
   "contact.emailBody": "Nama: {name}\nEmel: {email}\n\n{message}",
   "programmes.catalogue": "Katalog akademi",
@@ -72,6 +86,9 @@ const ms: Catalogue = {
 
 const zhHans: Catalogue = {
   "contact.title": "联系 KHLIM 篮球学院",
+  "contact.intro": "联系 KHLIM 篮球学院，咨询课程安排、报名疑问或商务合作。",
+  "contact.detailsTitle": "官方学院信息",
+  "contact.enquiryTitle": "发送咨询",
   "contact.info":
     "提交后会打开您的电子邮件应用。网站不会声称邮件已经成功送达。",
   "contact.name": "姓名",
@@ -81,6 +98,9 @@ const zhHans: Catalogue = {
   "contact.notConfiguredTitle": "联系渠道尚未配置",
   "contact.notConfiguredBody":
     "学院公开联系地址将在正式上线前发布。网站不会把占位地址展示为真实 KHLIM 邮箱。",
+  "contact.emailUnavailableTitle": "电子邮件咨询暂不可用",
+  "contact.emailUnavailableBody":
+    "在邮箱配置期间，直接电子邮件消息暂时不可用。请查看上方我们登记的企业信息。",
   "contact.emailSubject": "来自 {name} 的 KHLIM 学院咨询",
   "contact.emailBody": "姓名：{name}\n电子邮箱：{email}\n\n{message}",
   "programmes.catalogue": "学院课程目录",
@@ -106,6 +126,9 @@ const zhHans: Catalogue = {
 
 const zhHant: Catalogue = {
   "contact.title": "聯絡 KHLIM 籃球學院",
+  "contact.intro": "聯絡 KHLIM 籃球學院，查詢課程安排、報名疑問或商務合作。",
+  "contact.detailsTitle": "官方學院資訊",
+  "contact.enquiryTitle": "發送查詢",
   "contact.info":
     "提交後會開啟您的電子郵件應用程式。網站不會聲稱郵件已成功送達。",
   "contact.name": "姓名",
@@ -115,6 +138,9 @@ const zhHant: Catalogue = {
   "contact.notConfiguredTitle": "聯絡渠道尚未設定",
   "contact.notConfiguredBody":
     "學院公開聯絡地址將在正式上線前發布。網站不會把佔位地址展示為真實 KHLIM 郵箱。",
+  "contact.emailUnavailableTitle": "電子郵件查詢暫不可用",
+  "contact.emailUnavailableBody":
+    "在郵箱設定期間，直接電子郵件訊息暫時不可用。請查看上方我們登記的企業資訊。",
   "contact.emailSubject": "來自 {name} 的 KHLIM 學院查詢",
   "contact.emailBody": "姓名：{name}\n電子郵箱：{email}\n\n{message}",
   "programmes.catalogue": "學院課程目錄",
@@ -140,6 +166,10 @@ const zhHant: Catalogue = {
 
 const hi: Catalogue = {
   "contact.title": "KHLIM बास्केटबॉल अकादमी से संपर्क करें",
+  "contact.intro":
+    "कार्यक्रम पूछताछ, पंजीकरण संबंधी प्रश्न या साझेदारी के लिए KHLIM बास्केटबॉल अकादमी से संपर्क करें।",
+  "contact.detailsTitle": "आधिकारिक अकादमी विवरण",
+  "contact.enquiryTitle": "पूछताछ भेजें",
   "contact.info":
     "सबमिट करने पर आपका ईमेल ऐप खुलेगा। वेबसाइट यह दावा नहीं करती कि संदेश पहुँच गया है।",
   "contact.name": "नाम",
@@ -149,6 +179,9 @@ const hi: Catalogue = {
   "contact.notConfiguredTitle": "संपर्क चैनल अभी कॉन्फ़िगर नहीं है",
   "contact.notConfiguredBody":
     "सार्वजनिक अकादमी संपर्क पता लॉन्च से पहले प्रकाशित किया जाएगा। किसी प्लेसहोल्डर पते को वास्तविक KHLIM इनबॉक्स के रूप में नहीं दिखाया जाता।",
+  "contact.emailUnavailableTitle": "ईमेल पूछताछ अनुपलब्ध",
+  "contact.emailUnavailableBody":
+    "इनबॉक्स कॉन्फ़िगर होने के दौरान सीधा ईमेल संदेश अस्थायी रूप से अनुपलब्ध है। कृपया ऊपर दिए गए हमारे पंजीकृत व्यावसायिक विवरण देखें।",
   "contact.emailSubject": "{name} से KHLIM अकादमी पूछताछ",
   "contact.emailBody": "नाम: {name}\nईमेल: {email}\n\n{message}",
   "programmes.catalogue": "अकादमी कैटलॉग",

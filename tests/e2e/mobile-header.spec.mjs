@@ -101,3 +101,139 @@ test("mobile drawer and academy hero actions stay finger-friendly", async ({
   await expect(hero.locator(".home-carousel-arrow")).toHaveCount(0);
   await expect(hero.locator(".home-carousel-dots")).toHaveCount(0);
 });
+
+test("mobile sheet portal covers full viewport and unconstrains overlay on 375px and 390px mobile viewports", async ({
+  page,
+  viewport,
+}) => {
+  test.skip(!viewport || viewport.width > 500, "Mobile only");
+
+  const mobileViewports = [
+    { width: 375, height: 667 },
+    { width: 390, height: 844 },
+  ];
+
+  for (const vp of mobileViewports) {
+    await page.setViewportSize(vp);
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+
+    // Open sheet
+    await page.locator(".mobile-menu-btn").click();
+    const dialog = page.getByRole("dialog");
+    const overlay = page.locator(".sheet-overlay");
+
+    await expect(dialog).toBeVisible();
+    await expect(overlay).toBeVisible();
+
+    // Verify overlay is portaled outside header into body
+    await expect(page.locator("header .sheet-overlay")).toHaveCount(0);
+    await expect(page.locator("body > .sheet-overlay")).toHaveCount(1);
+
+    // Verify overlay spans entire viewport height and width (unconstrained by header)
+    const box = await overlay.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box.y).toBe(0);
+    expect(box.height).toBe(vp.height);
+    expect(box.width).toBe(vp.width);
+
+    // Verify body scroll lock while open
+    await expect
+      .poll(() => page.evaluate(() => document.body.style.overflow))
+      .toBe("hidden");
+
+    // Close with Escape key
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect
+      .poll(() => page.evaluate(() => document.body.style.overflow))
+      .not.toBe("hidden");
+
+    // Reopen and close by clicking overlay backdrop
+    await page.locator(".mobile-menu-btn").click();
+    await expect(dialog).toBeVisible();
+    await page.mouse.click(15, 100);
+    await expect(dialog).toHaveCount(0);
+  }
+});
+
+test("mobile sheet traps keyboard focus and cycles Tab and Shift+Tab within dialog", async ({
+  page,
+  viewport,
+}) => {
+  test.skip(!viewport || viewport.width > 500, "Mobile only");
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const menuButton = page.locator(".mobile-menu-btn");
+  await menuButton.click();
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+
+  // Wait for initial focus to enter the dialog
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const d = document.querySelector('div[role="dialog"]');
+        return Boolean(d && d.contains(document.activeElement));
+      }),
+    )
+    .toBe(true);
+
+  // The first focusable element is the close button
+  const closeButton = dialog.getByRole("button", { name: /close/i });
+  await expect(closeButton).toBeVisible();
+  await closeButton.focus();
+  await expect(closeButton).toBeFocused();
+
+  // Shift+Tab from the first focusable control must cycle to the last focusable control
+  await page.keyboard.press("Shift+Tab");
+
+  const isLastElementFocused = await page.evaluate(() => {
+    const d = document.querySelector('div[role="dialog"]');
+    if (!d) return false;
+    const focusable = Array.from(
+      d.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter((el) => {
+      const s = window.getComputedStyle(el);
+      return s.display !== "none" && s.visibility !== "hidden";
+    });
+    const last = focusable[focusable.length - 1];
+    return document.activeElement === last;
+  });
+  expect(isLastElementFocused).toBe(true);
+
+  // Tab from the final focusable control must cycle back to the first focusable control (close button)
+  await page.keyboard.press("Tab");
+  await expect(closeButton).toBeFocused();
+
+  // Ensure keyboard users cannot tab into background page controls while open
+  const focusableCount = await page.evaluate(() => {
+    const d = document.querySelector('div[role="dialog"]');
+    if (!d) return 0;
+    return Array.from(
+      d.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter((el) => {
+      const s = window.getComputedStyle(el);
+      return s.display !== "none" && s.visibility !== "hidden";
+    }).length;
+  });
+  expect(focusableCount).toBeGreaterThan(1);
+
+  for (let i = 0; i < focusableCount; i++) {
+    await page.keyboard.press("Tab");
+    const isWithinDialog = await page.evaluate(() => {
+      const d = document.querySelector('div[role="dialog"]');
+      return Boolean(d && d.contains(document.activeElement));
+    });
+    expect(isWithinDialog).toBe(true);
+  }
+
+  // Escape dismisses modal and restores focus to menuButton
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(menuButton).toBeFocused();
+});
