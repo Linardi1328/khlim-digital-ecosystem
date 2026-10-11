@@ -55,6 +55,7 @@ function cleanDigits(phone: string): string {
 function LeadsInboxContent() {
   const searchParams = useSearchParams();
   const initialStatusParam = searchParams.get("status") || "ALL";
+  const initialSourceParam = searchParams.get("source") || "";
 
   const { user, hasRole, isAuthenticated, isDemoMode, mfaSatisfied } =
     useAdminAuth();
@@ -70,7 +71,7 @@ function LeadsInboxContent() {
   // Filters & Pagination
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>(initialStatusParam);
-  const [sourceFilter, setSourceFilter] = useState<string>("");
+  const [sourceFilter, setSourceFilter] = useState<string>(initialSourceParam);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const requestSeq = useRef(0);

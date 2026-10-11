@@ -9,6 +9,10 @@ import {
   buildUrlWithSource,
   resolveCampaignSource,
 } from "../../lib/campaign-source";
+import {
+  trackInterestFormView,
+  trackInterestSubmitSuccess,
+} from "../../lib/posthog";
 import { useI18n } from "../../lib/i18n-context";
 import type { PublicOfferingItem } from "../../lib/types";
 import { PublicFooter } from "../../components/layout/public-footer";
@@ -90,7 +94,8 @@ function InterestForm() {
   useEffect(() => {
     const resolved = resolveCampaignSource(searchParams);
     setCampaignSource(resolved);
-  }, [searchParams]);
+    void trackInterestFormView(resolved, selectedOfferingId || queryOfferingId);
+  }, [searchParams, queryOfferingId, selectedOfferingId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -206,6 +211,10 @@ function InterestForm() {
       });
 
       setSubmissionSuccess(true);
+      void trackInterestSubmitSuccess(
+        campaignSource,
+        selectedOfferingId || null,
+      );
     } catch (err: unknown) {
       let status = 0;
       let code: string | undefined;

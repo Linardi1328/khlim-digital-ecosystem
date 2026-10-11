@@ -8,6 +8,7 @@ import {
   getQueryCampaignSource,
   resolveCampaignSource,
 } from "../../lib/campaign-source";
+import { trackCampaignLanding } from "../../lib/posthog";
 import { PublicFooter } from "../../components/layout/public-footer";
 import { PublicHeader } from "../../components/layout/public-header";
 import { Badge } from "../../components/ui/badge";
@@ -29,6 +30,12 @@ function AcademyContent() {
   }, [searchParams]);
 
   const campaignSource = queryCampaign ?? storedCampaign;
+
+  useEffect(() => {
+    if (campaignSource) {
+      void trackCampaignLanding(campaignSource, "/academy");
+    }
+  }, [campaignSource]);
 
   return (
     <div

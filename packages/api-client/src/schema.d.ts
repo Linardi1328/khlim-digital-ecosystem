@@ -748,6 +748,40 @@ export interface paths {
         patch: operations["AcademyLeadsAdminController_updateLead"];
         trace?: never;
     };
+    "/v1/admin/academy/campaigns/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get role-gated, authoritative campaign conversion metrics and PostHog traffic aggregates */
+        get: operations["AcademyCampaignsAdminController_getCampaignAnalytics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/academy/campaigns/{campaignKey}/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get role-gated, authoritative campaign conversion metrics for a specific campaign key */
+        get: operations["AcademyCampaignsAdminController_getSpecificCampaignAnalytics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/athletes/{athleteId}/memberships/{membershipId}/billing": {
         parameters: {
             query?: never;
@@ -1374,6 +1408,128 @@ export interface components {
             notes?: string | null;
             /** @description ISO timestamp of updatedAt when the record was viewed, for concurrency conflict detection */
             expectedUpdatedAt?: string;
+        };
+        CampaignPeriodDto: {
+            /**
+             * @description Start date in Asia/Kuala_Lumpur
+             * @example 2026-10-24
+             */
+            startDate?: string | null;
+            /**
+             * @description End date in Asia/Kuala_Lumpur
+             * @example 2026-10-24
+             */
+            endDate?: string | null;
+            /** @example Asia/Kuala_Lumpur */
+            timezone: string;
+            /**
+             * @description UTC lower boundary timestamp
+             * @example 2026-10-23T16:00:00.000Z
+             */
+            fromUtc?: string | null;
+            /**
+             * @description UTC upper boundary timestamp
+             * @example 2026-10-24T15:59:59.999Z
+             */
+            toUtc?: string | null;
+        };
+        CampaignStatusCountsDto: {
+            /**
+             * @description Count of leads in NEW status
+             * @example 8
+             */
+            NEW: number;
+            /**
+             * @description Count of leads in CONTACTED status
+             * @example 4
+             */
+            CONTACTED: number;
+            /**
+             * @description Count of leads in QUALIFIED status
+             * @example 3
+             */
+            QUALIFIED: number;
+            /**
+             * @description Count of leads in ENROLLED status
+             * @example 2
+             */
+            ENROLLED: number;
+            /**
+             * @description Count of leads in CLOSED status
+             * @example 1
+             */
+            CLOSED: number;
+        };
+        CampaignLeadMetricsDto: {
+            /**
+             * @description Total authoritative database leads recorded for this campaign and period
+             * @example 18
+             */
+            totalLeads: number;
+            byStatus: components["schemas"]["CampaignStatusCountsDto"];
+            /**
+             * @description Current enrolled leads (leads with status ENROLLED)
+             * @example 2
+             */
+            enrolledCount: number;
+            /**
+             * @description Current lead-to-enrolled conversion percentage (ENROLLED / totalLeads * 100)
+             * @example 11.11
+             */
+            enrolledRate: number;
+        };
+        CampaignTrafficMetricsDto: {
+            /**
+             * @description PostHog analytics query availability status
+             * @example AVAILABLE
+             * @enum {string}
+             */
+            status: "AVAILABLE" | "CONFIG_REQUIRED" | "ERROR";
+            /**
+             * @description Observable campaign landing sessions (opt-in visitors only)
+             * @example 45
+             */
+            observableLandingSessions?: number | null;
+            /**
+             * @description Interest form engagement / views (opt-in visitors only)
+             * @example 22
+             */
+            interestFormEngagement?: number | null;
+            /**
+             * @description Client-side successful submission receipts (opt-in visitors only)
+             * @example 10
+             */
+            clientSubmitSuccesses?: number | null;
+            /**
+             * @description Coverage scope and privacy boundaries of traffic data
+             * @example Consented sessions only (opt-in analytics; US Cloud Project 652783)
+             */
+            dataCoverage: string;
+            /** @example 2026-10-24T12:00:00.000Z */
+            lastRefreshedAt: string;
+            /**
+             * @description Traffic attribution notice
+             * @example PostHog traffic represents opted-in web sessions only; it is not a direct measure of physical QR code scans.
+             */
+            note: string;
+            /**
+             * @description Diagnostic reason when status is CONFIG_REQUIRED or ERROR
+             * @example Server-side PostHog query API key not configured
+             */
+            reason?: string;
+        };
+        CampaignAnalyticsResponseDto: {
+            /** @example 3x3-oct24 */
+            campaign: string;
+            /** @example 00000000-0000-4000-8000-000000000001 */
+            organizationId: string;
+            /** @example 2026-10-24T12:00:00.000Z */
+            asOf: string;
+            period: components["schemas"]["CampaignPeriodDto"];
+            leads: components["schemas"]["CampaignLeadMetricsDto"];
+            traffic: components["schemas"]["CampaignTrafficMetricsDto"];
+            /** @example Database records are authoritative for all confirmed registrations. PostHog traffic counts include only visitors who explicitly opted into analytics; non-consenting visitors also generate valid database leads. */
+            methodologyNote: string;
         };
         PrepareMembershipCheckoutDto: {
             /** @example true */
@@ -2367,6 +2523,60 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AcademyLeadItemDto"];
+                };
+            };
+        };
+    };
+    AcademyCampaignsAdminController_getCampaignAnalytics: {
+        parameters: {
+            query?: {
+                /** @description Campaign source token (default: 3x3-oct24) */
+                campaign?: string;
+                /** @description Inclusive acquisition start date (YYYY-MM-DD in Asia/Kuala_Lumpur) */
+                startDate?: string;
+                /** @description Inclusive acquisition end date (YYYY-MM-DD in Asia/Kuala_Lumpur) */
+                endDate?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignAnalyticsResponseDto"];
+                };
+            };
+        };
+    };
+    AcademyCampaignsAdminController_getSpecificCampaignAnalytics: {
+        parameters: {
+            query?: {
+                /** @description Campaign source token (default: 3x3-oct24) */
+                campaign?: string;
+                /** @description Inclusive acquisition start date (YYYY-MM-DD in Asia/Kuala_Lumpur) */
+                startDate?: string;
+                /** @description Inclusive acquisition end date (YYYY-MM-DD in Asia/Kuala_Lumpur) */
+                endDate?: string;
+            };
+            header?: never;
+            path: {
+                campaignKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignAnalyticsResponseDto"];
                 };
             };
         };

@@ -9,6 +9,7 @@ import {
   getQueryCampaignSource,
   resolveCampaignSource,
 } from "../lib/campaign-source";
+import { trackCampaignLanding } from "../lib/posthog";
 import { useI18n } from "../lib/i18n-context";
 import type { PublicOfferingItem } from "../lib/types";
 import { AcademyPillarsSection } from "../components/home/academy-pillars-section";
@@ -62,6 +63,12 @@ function HomeContent() {
   }, [searchParams]);
 
   const campaignSource = queryCampaign ?? storedCampaign;
+
+  useEffect(() => {
+    if (campaignSource) {
+      void trackCampaignLanding(campaignSource, "/");
+    }
+  }, [campaignSource]);
 
   useEffect(() => {
     apiService

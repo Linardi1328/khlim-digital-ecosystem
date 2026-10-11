@@ -54,6 +54,13 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     roles: REPORTING,
   },
   {
+    href: "/insights/campaigns",
+    label: "3x3 Campaign",
+    icon: "🎯",
+    badge: "24 Oct",
+    roles: ACADEMY_MANAGEMENT,
+  },
+  {
     href: "/programmes",
     label: "Programmes",
     icon: "🏀",
@@ -153,6 +160,7 @@ export function AdminSidebar({
 
   const isRouteActive = (href: string) => {
     if (href === "/") return pathname === "/" || pathname === "/dashboard";
+    if (href === "/insights") return pathname === "/insights";
     return pathname.startsWith(href);
   };
 

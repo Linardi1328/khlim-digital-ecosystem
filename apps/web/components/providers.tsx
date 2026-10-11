@@ -4,6 +4,7 @@ import React, { type ReactNode } from "react";
 import { I18nProvider } from "../lib/i18n-context";
 import { AuthProvider } from "../lib/auth-context";
 import { FamilyProvider } from "../lib/family-context";
+import { CookieConsentBanner } from "./layout/cookie-consent-banner";
 import { ToastProvider } from "./ui/toast";
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -11,7 +12,10 @@ export function Providers({ children }: { children: ReactNode }) {
     <I18nProvider>
       <AuthProvider>
         <FamilyProvider>
-          <ToastProvider>{children}</ToastProvider>
+          <ToastProvider>
+            {children}
+            <CookieConsentBanner />
+          </ToastProvider>
         </FamilyProvider>
       </AuthProvider>
     </I18nProvider>

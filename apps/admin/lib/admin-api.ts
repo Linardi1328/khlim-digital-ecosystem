@@ -517,6 +517,43 @@ const DEMO_LEADS: AdminLeadItem[] = [
     createdAt: new Date(Date.now() - 3600000).toISOString(),
     updatedAt: new Date(Date.now() - 1800000).toISOString(),
   },
+  {
+    id: "demo-lead-3",
+    organizationId: "00000000-0000-4000-8000-000000000001",
+    guardianName: "Sarah Tan",
+    phone: "+60172345678",
+    email: "sarah.tan@example.test",
+    childAge: 12,
+    programmeOfferingId: null,
+    offeringName: null,
+    programmeName: null,
+    source: "3x3-oct24",
+    status: "QUALIFIED",
+    notes:
+      "Attended 24 Oct 3x3 event booth. Trial scheduled for next Saturday.",
+    consentAt: new Date(Date.now() - 7200000).toISOString(),
+    consentVersion: "2026-10-v1",
+    createdAt: new Date(Date.now() - 7200000).toISOString(),
+    updatedAt: new Date(Date.now() - 3600000).toISOString(),
+  },
+  {
+    id: "demo-lead-4",
+    organizationId: "00000000-0000-4000-8000-000000000001",
+    guardianName: "David Lee",
+    phone: "+60183456789",
+    email: "david.lee@example.test",
+    childAge: 14,
+    programmeOfferingId: null,
+    offeringName: null,
+    programmeName: null,
+    source: "3x3-oct24",
+    status: "ENROLLED",
+    notes: "Met at 3x3 tournament. Enrolled into U15 Development squad.",
+    consentAt: new Date(Date.now() - 86400000).toISOString(),
+    consentVersion: "2026-10-v1",
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    updatedAt: new Date(Date.now() - 43200000).toISOString(),
+  },
 ];
 
 export function listAdminLeads(
@@ -616,5 +653,117 @@ export function updateAdminLead(
   return adminApiClient.patch<AdminLeadItem>(
     `/admin/academy/leads/${encodeURIComponent(id)}`,
     body,
+  );
+}
+
+export interface AdminCampaignAnalyticsQuery {
+  campaign?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface AdminCampaignStatusCounts {
+  NEW: number;
+  CONTACTED: number;
+  QUALIFIED: number;
+  ENROLLED: number;
+  CLOSED: number;
+}
+
+export interface AdminCampaignLeadMetrics {
+  totalLeads: number;
+  byStatus: AdminCampaignStatusCounts;
+  enrolledCount: number;
+  enrolledRate: number;
+}
+
+export interface AdminCampaignTrafficMetrics {
+  status: "AVAILABLE" | "CONFIG_REQUIRED" | "ERROR";
+  observableLandingSessions: number | null;
+  interestFormEngagement: number | null;
+  clientSubmitSuccesses: number | null;
+  dataCoverage: string;
+  lastRefreshedAt: string;
+  note: string;
+  reason?: string;
+}
+
+export interface AdminCampaignPeriod {
+  startDate: string | null;
+  endDate: string | null;
+  timezone: string;
+  fromUtc: string | null;
+  toUtc: string | null;
+}
+
+export interface AdminCampaignAnalyticsResponse {
+  campaign: string;
+  organizationId: string;
+  asOf: string;
+  period: AdminCampaignPeriod;
+  leads: AdminCampaignLeadMetrics;
+  traffic: AdminCampaignTrafficMetrics;
+  methodologyNote: string;
+}
+
+export function getAdminCampaignAnalytics(
+  query: AdminCampaignAnalyticsQuery = {},
+): Promise<AdminCampaignAnalyticsResponse> {
+  if (ADMIN_DEMO_MODE) {
+    const campaign = query.campaign || "3x3-oct24";
+    const matchingLeads = DEMO_LEADS.filter((l) => l.source === campaign);
+    const byStatus: AdminCampaignStatusCounts = {
+      NEW: matchingLeads.filter((l) => l.status === "NEW").length,
+      CONTACTED: matchingLeads.filter((l) => l.status === "CONTACTED").length,
+      QUALIFIED: matchingLeads.filter((l) => l.status === "QUALIFIED").length,
+      ENROLLED: matchingLeads.filter((l) => l.status === "ENROLLED").length,
+      CLOSED: matchingLeads.filter((l) => l.status === "CLOSED").length,
+    };
+    const totalLeads = matchingLeads.length;
+    const enrolledCount = byStatus.ENROLLED;
+    const enrolledRate =
+      totalLeads > 0
+        ? Number(((enrolledCount / totalLeads) * 100).toFixed(2))
+        : 0;
+
+    return Promise.resolve({
+      campaign,
+      organizationId: "00000000-0000-4000-8000-000000000001",
+      asOf: new Date().toISOString(),
+      period: {
+        startDate: query.startDate ?? null,
+        endDate: query.endDate ?? null,
+        timezone: "Asia/Kuala_Lumpur",
+        fromUtc: query.startDate ? `${query.startDate}T00:00:00.000Z` : null,
+        toUtc: query.endDate ? `${query.endDate}T23:59:59.999Z` : null,
+      },
+      leads: {
+        totalLeads,
+        byStatus,
+        enrolledCount,
+        enrolledRate,
+      },
+      traffic: {
+        status: "AVAILABLE",
+        observableLandingSessions: Math.max(totalLeads * 8, 48),
+        interestFormEngagement: Math.max(totalLeads * 3, 20),
+        clientSubmitSuccesses: totalLeads,
+        dataCoverage:
+          "Consented sessions only (opt-in analytics; US Cloud Project 652783)",
+        lastRefreshedAt: new Date().toISOString(),
+        note: "PostHog traffic represents opted-in web sessions only; it is not a direct measure of physical QR code scans.",
+      },
+      methodologyNote:
+        "Database records are authoritative for all confirmed registrations. PostHog traffic counts include only visitors who explicitly opted into analytics; non-consenting visitors also generate valid database leads.",
+    });
+  }
+
+  const params = new URLSearchParams();
+  if (query.campaign) params.set("campaign", query.campaign);
+  if (query.startDate) params.set("startDate", query.startDate);
+  if (query.endDate) params.set("endDate", query.endDate);
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return adminApiClient.get<AdminCampaignAnalyticsResponse>(
+    `/admin/academy/campaigns/analytics${suffix}`,
   );
 }

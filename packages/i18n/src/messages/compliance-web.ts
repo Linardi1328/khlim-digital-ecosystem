@@ -18,6 +18,18 @@ const en = {
   "compliance.footer.privacy": "Privacy Policy",
   "compliance.footer.cookies": "Cookie Policy",
   "compliance.footer.refunds": "Refund Policy",
+  "compliance.consent.bannerTitle": "Cookie & Analytics Preferences",
+  "compliance.consent.bannerBody":
+    "With your permission, KHLIM uses privacy-respecting, opt-in analytics (PostHog US Cloud) to measure the 24 Oct 3x3 campaign without tracking individuals or recording form inputs. You can accept or decline, and change your mind at any time in the Cookie Policy.",
+  "compliance.consent.acceptButton": "Accept Analytics",
+  "compliance.consent.declineButton": "Decline",
+  "compliance.consent.cookiePolicyLink": "Cookie Policy",
+  "compliance.consent.statusTitle": "Analytics Preferences",
+  "compliance.consent.withdrawnStatus": "Analytics disabled (opted out)",
+  "compliance.consent.grantedStatus": "Analytics enabled (consented)",
+  "compliance.consent.pendingStatus": "No preference set (disabled by default)",
+  "compliance.consent.withdrawButton": "Withdraw Consent",
+  "compliance.consent.grantButton": "Enable Analytics",
 } as const;
 
 type Key = keyof typeof en;
@@ -44,6 +56,19 @@ const ms: Catalogue = {
   "compliance.footer.privacy": "Dasar Privasi",
   "compliance.footer.cookies": "Dasar Kuki",
   "compliance.footer.refunds": "Dasar Bayaran Balik",
+  "compliance.consent.bannerTitle": "Pilihan Kuki & Analitik",
+  "compliance.consent.bannerBody":
+    "Dengan kebenaran anda, KHLIM menggunakan analitik persetujuan pilihan (PostHog US Cloud) untuk mengukur kempen 3x3 24 Okt tanpa menjejak individu atau merakam borang. Anda boleh menerima atau menolak, dan mengubah pilihan anda pada bila-bila masa dalam Dasar Kuki.",
+  "compliance.consent.acceptButton": "Terima Analitik",
+  "compliance.consent.declineButton": "Tolak",
+  "compliance.consent.cookiePolicyLink": "Dasar Kuki",
+  "compliance.consent.statusTitle": "Pilihan Analitik",
+  "compliance.consent.withdrawnStatus": "Analitik dinyahaktifkan (ditolak)",
+  "compliance.consent.grantedStatus": "Analitik diaktifkan (dibenarkan)",
+  "compliance.consent.pendingStatus":
+    "Tiada pilihan ditetapkan (dimatikan secara lalai)",
+  "compliance.consent.withdrawButton": "Tarik Balik Persetujuan",
+  "compliance.consent.grantButton": "Dayakan Analitik",
 };
 
 const zhHans: Catalogue = {
@@ -65,6 +90,18 @@ const zhHans: Catalogue = {
   "compliance.footer.privacy": "隐私政策",
   "compliance.footer.cookies": "Cookie 政策",
   "compliance.footer.refunds": "退款政策",
+  "compliance.consent.bannerTitle": "Cookie 与分析偏好设置",
+  "compliance.consent.bannerBody":
+    "经您许可，KHLIM 使用注重隐私的选择性分析（PostHog 美国云）来评估 10 月 24 日 3x3 活动，不追踪个人且不记录表单输入内容。您可以接受或拒绝，并可随时在 Cookie 政策中更改您的选择。",
+  "compliance.consent.acceptButton": "接受分析",
+  "compliance.consent.declineButton": "拒绝",
+  "compliance.consent.cookiePolicyLink": "Cookie 政策",
+  "compliance.consent.statusTitle": "分析偏好设置",
+  "compliance.consent.withdrawnStatus": "分析已停用（已拒绝）",
+  "compliance.consent.grantedStatus": "分析已启用（已同意）",
+  "compliance.consent.pendingStatus": "尚未设置偏好（默认停用）",
+  "compliance.consent.withdrawButton": "撤回同意",
+  "compliance.consent.grantButton": "启用分析",
 };
 
 const zhHant: Catalogue = {
@@ -86,6 +123,18 @@ const zhHant: Catalogue = {
   "compliance.footer.privacy": "私隱政策",
   "compliance.footer.cookies": "Cookie 政策",
   "compliance.footer.refunds": "退款政策",
+  "compliance.consent.bannerTitle": "Cookie 與分析偏好設定",
+  "compliance.consent.bannerBody":
+    "經您許可，KHLIM 使用注重私隱的選擇性分析（PostHog 美國雲）來評估 10 月 24 日 3x3 活動，不追蹤個人且不記錄表單輸入內容。您可以接受或拒絕，並可隨時在 Cookie 政策中更改您的選擇。",
+  "compliance.consent.acceptButton": "接受分析",
+  "compliance.consent.declineButton": "拒絕",
+  "compliance.consent.cookiePolicyLink": "Cookie 政策",
+  "compliance.consent.statusTitle": "分析偏好設定",
+  "compliance.consent.withdrawnStatus": "分析已停用（已拒絕）",
+  "compliance.consent.grantedStatus": "分析已啟用（已同意）",
+  "compliance.consent.pendingStatus": "尚未設定偏好（預設停用）",
+  "compliance.consent.withdrawButton": "撤回同意",
+  "compliance.consent.grantButton": "啟用分析",
 };
 
 const hi: Catalogue = {
@@ -109,6 +158,19 @@ const hi: Catalogue = {
   "compliance.footer.privacy": "गोपनीयता नीति",
   "compliance.footer.cookies": "कुकी नीति",
   "compliance.footer.refunds": "रिफंड नीति",
+  "compliance.consent.bannerTitle": "कुकी और विश्लेषिकी प्राथमिकताएं",
+  "compliance.consent.bannerBody":
+    "आपकी अनुमति से, KHLIM 24 अक्टूबर के 3x3 अभियान को मापने के लिए व्यक्तियों को ट्रैक किए बिना या फ़ॉर्म इनपुट रिकॉर्ड किए बिना गोपनीयता-अनुकूल ऑप्ट-इन एनालिटिक्स (PostHog US Cloud) का उपयोग करता है। आप स्वीकार या अस्वीकार कर सकते हैं, और कुकी नीति में कभी भी अपना निर्णय बदल सकते हैं।",
+  "compliance.consent.acceptButton": "एनालिटिक्स स्वीकार करें",
+  "compliance.consent.declineButton": "अस्वीकार करें",
+  "compliance.consent.cookiePolicyLink": "कुकी नीति",
+  "compliance.consent.statusTitle": "एनालिटिक्स प्राथमिकताएं",
+  "compliance.consent.withdrawnStatus": "एनालिटिक्स अक्षम (ऑप्ट आउट)",
+  "compliance.consent.grantedStatus": "एनालिटिक्स सक्षम (सहमति प्राप्त)",
+  "compliance.consent.pendingStatus":
+    "कोई प्राथमिकता निर्धारित नहीं (डिफ़ॉल्ट रूप से अक्षम)",
+  "compliance.consent.withdrawButton": "सहमति वापस लें",
+  "compliance.consent.grantButton": "एनालिटिक्स सक्षम करें",
 };
 
 export const complianceWebMessages = {
