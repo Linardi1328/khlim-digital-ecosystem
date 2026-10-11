@@ -39,7 +39,7 @@ export default function CookiePolicyPage() {
     {
       title: "5. Campaign analytics and opt-in consent controls",
       paragraphs: [
-        "Analytics tracking for the 24 Oct 3x3 campaign is strictly opt-in and off by default. PostHog client configuration disables autocapture, session recordings, heatmaps, and automatic identification. Analytics events never collect or transmit guardian or child names, phone numbers, email addresses, or free-text form contents.",
+        "Analytics tracking for the 24 Oct 3x3 campaign is strictly opt-in and off by default. PostHog client configuration disables autocapture, session recordings, heatmaps, and automatic identification, and explicitly suppresses person profiles and geolocation lookups. Events record only minimal, non-identifying campaign tokens and clean route paths without transmitting full URLs or raw query strings. Analytics events never collect or transmit guardian or child names, phone numbers, email addresses, or free-text form contents.",
         "Data is processed in PostHog US Cloud subject to privacy assessment and PDPA cross-border safeguards. You may change or withdraw your choice at any time using the preferences control below or the consent banner.",
       ],
     },
@@ -93,7 +93,7 @@ export default function CookiePolicyPage() {
     {
       title: "5. Analitik kempen dan kawalan persetujuan pilihan",
       paragraphs: [
-        "Penjejakan analitik bagi kempen 3x3 24 Okt adalah berasaskan persetujuan pilihan dan dimatikan secara lalai. Konfigurasi klien PostHog mematikan tangkapan automatik (autocapture), rakaman sesi, peta haba dan pengenalan automatik. Acara analitik tidak sekali-kali mengumpul atau menghantar nama penjaga atau anak, nombor telefon, alamat e-mel atau kandungan teks borang.",
+        "Penjejakan analitik bagi kempen 3x3 24 Okt adalah berasaskan persetujuan pilihan dan dimatikan secara lalai. Konfigurasi klien PostHog mematikan tangkapan automatik (autocapture), rakaman sesi, peta haba dan pengenalan automatik, serta menyekat penciptaan profil peribadi dan carian geolokasi. Acara analitik hanya merekodkan token kempen minimum yang tidak mengenal pasti dan laluan laman bersih tanpa menghantar URL penuh atau parameter pertanyaan mentah. Ia tidak sekali-kali mengumpul atau menghantar nama penjaga atau anak, nombor telefon, alamat e-mel atau kandungan teks borang.",
         "Data diproses di PostHog US Cloud tertakluk kepada penilaian privasi dan perlindungan rentas sempadan PDPA. Anda boleh mengubah atau menarik balik pilihan anda pada bila-bila masa menggunakan kawalan pilihan di bawah atau banner persetujuan.",
       ],
     },

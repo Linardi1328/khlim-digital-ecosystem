@@ -7,6 +7,32 @@ export type AnalyticsConsentStatus = "granted" | "denied" | null;
 export const ANALYTICS_CONSENT_STORAGE_KEY = "khlim_analytics_consent";
 export const ANALYTICS_CONSENT_EVENT = "khlim-analytics-consent-changed";
 export const ANALYTICS_ANON_ID_KEY = "khlim_analytics_anon_id";
+export const ANALYTICS_SESSION_ID_KEY = "khlim_analytics_session_id";
+
+export function clearAnalyticsClientPersistence(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(ANALYTICS_ANON_ID_KEY);
+    sessionStorage.removeItem(ANALYTICS_SESSION_ID_KEY);
+
+    // Purge all campaign tracking deduplication markers from session storage
+    const toRemove: string[] = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (
+        key &&
+        (key.startsWith("khlim_tracked_") || key.startsWith("khlim_analytics_"))
+      ) {
+        toRemove.push(key);
+      }
+    }
+    for (const key of toRemove) {
+      sessionStorage.removeItem(key);
+    }
+  } catch {
+    // Ignore storage issues in restricted web contexts
+  }
+}
 
 export function getAnalyticsConsent(): AnalyticsConsentStatus {
   if (typeof window === "undefined") return null;
@@ -30,8 +56,7 @@ export function setAnalyticsConsent(status: "granted" | "denied"): void {
   try {
     localStorage.setItem(ANALYTICS_CONSENT_STORAGE_KEY, status);
     if (status === "denied") {
-      // Purge anonymous identifier and session deduplication markers upon denial or withdrawal
-      localStorage.removeItem(ANALYTICS_ANON_ID_KEY);
+      clearAnalyticsClientPersistence();
     }
     window.dispatchEvent(
       new CustomEvent(ANALYTICS_CONSENT_EVENT, { detail: { status } }),

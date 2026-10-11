@@ -10,6 +10,7 @@ import {
   resolveCampaignSource,
 } from "../lib/campaign-source";
 import { trackCampaignLanding } from "../lib/posthog";
+import { useAnalyticsConsent } from "../lib/analytics-consent";
 import { useI18n } from "../lib/i18n-context";
 import type { PublicOfferingItem } from "../lib/types";
 import { AcademyPillarsSection } from "../components/home/academy-pillars-section";
@@ -62,13 +63,14 @@ function HomeContent() {
     setStoredCampaign(resolveCampaignSource(searchParams));
   }, [searchParams]);
 
+  const { hasConsent } = useAnalyticsConsent();
   const campaignSource = queryCampaign ?? storedCampaign;
 
   useEffect(() => {
-    if (campaignSource) {
+    if (hasConsent && campaignSource) {
       void trackCampaignLanding(campaignSource, "/");
     }
-  }, [campaignSource]);
+  }, [hasConsent, campaignSource]);
 
   useEffect(() => {
     apiService

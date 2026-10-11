@@ -13,6 +13,7 @@ import {
   trackInterestFormView,
   trackInterestSubmitSuccess,
 } from "../../lib/posthog";
+import { useAnalyticsConsent } from "../../lib/analytics-consent";
 import { useI18n } from "../../lib/i18n-context";
 import type { PublicOfferingItem } from "../../lib/types";
 import { PublicFooter } from "../../components/layout/public-footer";
@@ -91,11 +92,18 @@ function InterestForm() {
   const ageRef = useRef<HTMLInputElement>(null);
   const offeringSelectId = useId();
 
+  const { hasConsent } = useAnalyticsConsent();
+
   useEffect(() => {
     const resolved = resolveCampaignSource(searchParams);
     setCampaignSource(resolved);
-    void trackInterestFormView(resolved, selectedOfferingId || queryOfferingId);
-  }, [searchParams, queryOfferingId, selectedOfferingId]);
+    if (hasConsent && resolved) {
+      void trackInterestFormView(
+        resolved,
+        selectedOfferingId || queryOfferingId,
+      );
+    }
+  }, [searchParams, queryOfferingId, selectedOfferingId, hasConsent]);
 
   useEffect(() => {
     let cancelled = false;
@@ -211,10 +219,12 @@ function InterestForm() {
       });
 
       setSubmissionSuccess(true);
-      void trackInterestSubmitSuccess(
-        campaignSource,
-        selectedOfferingId || null,
-      );
+      if (hasConsent && campaignSource) {
+        void trackInterestSubmitSuccess(
+          campaignSource,
+          selectedOfferingId || null,
+        );
+      }
     } catch (err: unknown) {
       let status = 0;
       let code: string | undefined;

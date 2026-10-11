@@ -9,6 +9,7 @@ import {
   resolveCampaignSource,
 } from "../../lib/campaign-source";
 import { trackCampaignLanding } from "../../lib/posthog";
+import { useAnalyticsConsent } from "../../lib/analytics-consent";
 import { PublicFooter } from "../../components/layout/public-footer";
 import { PublicHeader } from "../../components/layout/public-header";
 import { Badge } from "../../components/ui/badge";
@@ -29,13 +30,14 @@ function AcademyContent() {
     setStoredCampaign(resolveCampaignSource(searchParams));
   }, [searchParams]);
 
+  const { hasConsent } = useAnalyticsConsent();
   const campaignSource = queryCampaign ?? storedCampaign;
 
   useEffect(() => {
-    if (campaignSource) {
+    if (hasConsent && campaignSource) {
       void trackCampaignLanding(campaignSource, "/academy");
     }
-  }, [campaignSource]);
+  }, [hasConsent, campaignSource]);
 
   return (
     <div

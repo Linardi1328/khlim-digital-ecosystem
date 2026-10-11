@@ -22,7 +22,9 @@ import {
   type AdminCampaignStatusCounts,
 } from "../../../lib/admin-api";
 
-type DatePreset = "event-day" | "october" | "all-time" | "custom";
+type DatePreset = "event-day" | "october" | "campaign-window" | "custom";
+
+export const MAX_CUSTOM_WINDOW_DAYS = 100;
 
 const PRESETS: Array<{
   id: DatePreset;
@@ -43,10 +45,10 @@ const PRESETS: Array<{
     end: "2026-10-31",
   },
   {
-    id: "all-time",
-    label: "All Time",
-    start: "",
-    end: "",
+    id: "campaign-window",
+    label: "Campaign Window (Aug–Oct)",
+    start: "2026-08-01",
+    end: "2026-10-31",
   },
 ];
 
@@ -150,8 +152,22 @@ export default function CampaignAnalyticsPage() {
 
   const handleApplyCustomDates = (e: React.FormEvent) => {
     e.preventDefault();
-    if (startDateInput && endDateInput && startDateInput > endDateInput) {
+    if (!startDateInput || !endDateInput) {
+      setValidationError("Please select both a start and end date.");
+      return;
+    }
+    if (startDateInput > endDateInput) {
       setValidationError("Start date cannot be after end date.");
+      return;
+    }
+    const startObj = new Date(`${startDateInput}T00:00:00.000+08:00`);
+    const endObj = new Date(`${endDateInput}T00:00:00.000+08:00`);
+    const diffDays =
+      Math.round((endObj.getTime() - startObj.getTime()) / 86400000) + 1;
+    if (diffDays > MAX_CUSTOM_WINDOW_DAYS) {
+      setValidationError(
+        `Selected window of ${diffDays} days exceeds maximum allowed limit of ${MAX_CUSTOM_WINDOW_DAYS} days.`,
+      );
       return;
     }
     setValidationError(null);
@@ -519,7 +535,7 @@ export default function CampaignAnalyticsPage() {
                 variant={(leads?.enrolledRate ?? 0) > 0 ? "success" : "default"}
               />
               <MetricCard
-                title="Observable Landings"
+                title="Observable Campaign Sessions"
                 value={
                   traffic?.observableLandingSessions !== null &&
                   traffic?.observableLandingSessions !== undefined
@@ -528,7 +544,7 @@ export default function CampaignAnalyticsPage() {
                 }
                 subtitle={
                   traffic?.status === "AVAILABLE"
-                    ? "PostHog US Cloud (Consented)"
+                    ? "PostHog US Cloud (Consented sessions)"
                     : traffic?.status === "CONFIG_REQUIRED"
                       ? "Server key config required"
                       : "PostHog query unavailable"
@@ -679,6 +695,27 @@ export default function CampaignAnalyticsPage() {
               >
                 {analytics.methodologyNote}
               </p>
+
+              <div
+                style={{
+                  backgroundColor: "#F8FAFC",
+                  border: "1px solid #E2E8F0",
+                  borderRadius: "8px",
+                  padding: "10px 14px",
+                  marginTop: "12px",
+                  fontSize: "0.8125rem",
+                  color: "#475569",
+                  lineHeight: 1.5,
+                }}
+              >
+                <strong>Attribution & Measurement Notice:</strong> Physical QR
+                code scans at the 24 Oct event differ from observable web
+                sessions. Visitors who decline analytics consent or browse
+                privately are not tracked in PostHog, but their submitted
+                registrations are authoritatively recorded in the database.
+                Visitor-to-lead rates are not synthesized across incompatible
+                consented and database cohorts.
+              </div>
             </section>
 
             {/* Funnel Stage Breakdown */}
@@ -781,7 +818,7 @@ export default function CampaignAnalyticsPage() {
                         marginBottom: "8px",
                       }}
                     >
-                      Observable Landings
+                      Observable Campaign Sessions
                     </h4>
                   </div>
                   <div>
@@ -795,7 +832,7 @@ export default function CampaignAnalyticsPage() {
                       {traffic?.observableLandingSessions ?? "—"}
                     </div>
                     <span style={{ fontSize: "0.75rem", color: "#64748B" }}>
-                      Consented sessions
+                      Consented sessions across Home/Academy
                     </span>
                   </div>
                 </div>
@@ -1008,7 +1045,7 @@ export default function CampaignAnalyticsPage() {
                         marginBottom: "8px",
                       }}
                     >
-                      Enrolled Athletes
+                      Enrolled Athletes (Current Status)
                     </h4>
                   </div>
                   <div>
@@ -1022,7 +1059,7 @@ export default function CampaignAnalyticsPage() {
                       {leads?.enrolledCount ?? 0}
                     </div>
                     <span style={{ fontSize: "0.75rem", color: "#047857" }}>
-                      {leads?.enrolledRate ?? 0}% overall conversion
+                      {leads?.enrolledRate ?? 0}% current lead-to-enrolled rate
                     </span>
                   </div>
                 </div>

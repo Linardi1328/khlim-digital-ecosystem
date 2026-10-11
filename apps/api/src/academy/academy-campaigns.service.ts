@@ -9,8 +9,11 @@ import {
 } from "./academy-campaigns.dto";
 import { sanitizeCampaignSource } from "./academy-leads.validation";
 import { parseMytDateRange } from "./academy-campaigns.validation";
+import { DEFAULT_ORGANIZATION_ID } from "../organization/organization.constants";
 
 export { parseMytDateRange };
+
+export const POSTHOG_DEFAULT_QUERY_HOST = "https://us.posthog.com";
 
 @Injectable()
 export class AcademyCampaignsService {
@@ -36,16 +39,15 @@ export class AcademyCampaignsService {
       query.endDate,
     );
 
+    // Matching start-inclusive / end-exclusive boundaries: [fromUtc, toUtc)
     const where: Prisma.AcademyLeadWhereInput = {
       organizationId,
       source: campaign,
+      createdAt: {
+        gte: fromUtc,
+        lt: toUtc,
+      },
     };
-
-    if (fromUtc || toUtc) {
-      where.createdAt = {};
-      if (fromUtc) where.createdAt.gte = fromUtc;
-      if (toUtc) where.createdAt.lte = toUtc;
-    }
 
     // 1. Authoritative database leads aggregation
     const records = await this.prisma.client.academyLead.findMany({
@@ -82,8 +84,26 @@ export class AcademyCampaignsService {
       enrolledRate,
     };
 
-    // 2. PostHog traffic aggregation (server-side, never exposing query credentials)
-    const traffic = await this.fetchPostHogTraffic(campaign, fromUtc, toUtc);
+    // 2. Tenant isolation: verify organization is authorized to access campaign traffic
+    const isAuthorizedTenant =
+      organizationId === DEFAULT_ORGANIZATION_ID || totalLeads > 0;
+
+    let traffic: CampaignTrafficMetricsDto;
+    if (!isAuthorizedTenant) {
+      traffic = {
+        status: "CONFIG_REQUIRED",
+        observableLandingSessions: null,
+        interestFormEngagement: null,
+        clientSubmitSuccesses: null,
+        dataCoverage: "None (Tenant isolation enforced)",
+        lastRefreshedAt: new Date().toISOString(),
+        note: "Traffic aggregation is restricted to the organization operating the campaign.",
+        reason: "Campaign is not associated with the active organization",
+      };
+    } else {
+      // 3. PostHog traffic aggregation (server-side, never exposing query credentials)
+      traffic = await this.fetchPostHogTraffic(campaign, fromUtc, toUtc);
+    }
 
     return {
       campaign,
@@ -93,20 +113,20 @@ export class AcademyCampaignsService {
         startDate,
         endDate,
         timezone: "Asia/Kuala_Lumpur",
-        fromUtc: fromUtc?.toISOString() ?? null,
-        toUtc: toUtc?.toISOString() ?? null,
+        fromUtc: fromUtc.toISOString(),
+        toUtc: toUtc.toISOString(),
       },
       leads,
       traffic,
       methodologyNote:
-        "Database records are authoritative for all confirmed registrations. PostHog traffic counts include only visitors who explicitly opted into analytics; non-consenting visitors also generate valid database leads.",
+        "Database records are authoritative for all confirmed registrations. Conversion rates reflect current status distribution (enrolledCount / totalLeads) in the database, not historical progression. PostHog traffic counts include only visitors who explicitly opted into analytics; non-consenting visitors also generate valid database leads.",
     };
   }
 
   private async fetchPostHogTraffic(
     campaign: string,
-    fromUtc: Date | null,
-    toUtc: Date | null,
+    fromUtc: Date,
+    toUtc: Date,
   ): Promise<CampaignTrafficMetricsDto> {
     const apiKey = (
       process.env.POSTHOG_API_KEY ||
@@ -115,8 +135,11 @@ export class AcademyCampaignsService {
     )?.trim();
 
     const projectId = process.env.POSTHOG_PROJECT_ID?.trim() || "652783";
-    const host = (
-      process.env.POSTHOG_HOST?.trim() || "https://us.i.posthog.com"
+    // Separate query host from event ingestion host
+    const queryHost = (
+      process.env.POSTHOG_QUERY_HOST?.trim() ||
+      process.env.POSTHOG_HOST?.trim() ||
+      POSTHOG_DEFAULT_QUERY_HOST
     ).replace(/\/+$/, "");
 
     const baseNotice = {
@@ -138,65 +161,103 @@ export class AcademyCampaignsService {
     }
 
     try {
-      // Build safe HogQL query with sanitized parameters
-      const dateFilters: string[] = [];
-      if (fromUtc) {
-        dateFilters.push(`timestamp >= '${fromUtc.toISOString()}'`);
-      }
-      if (toUtc) {
-        dateFilters.push(`timestamp <= '${toUtc.toISOString()}'`);
-      }
-      const dateClause =
-        dateFilters.length > 0 ? `AND ${dateFilters.join(" AND ")}` : "";
+      // Matching start-inclusive / end-exclusive boundary in HogQL
+      const dateClause = `AND timestamp >= '${fromUtc.toISOString()}' AND timestamp < '${toUtc.toISOString()}'`;
 
       const queryPayload = {
         query: {
           kind: "HogQLQuery",
-          query: `SELECT event, count() FROM events WHERE properties.campaign = '${campaign}' ${dateClause} GROUP BY event`,
+          query: `SELECT event, count(DISTINCT coalesce(properties.$session_id, distinct_id)) FROM events WHERE properties.campaign = '${campaign}' ${dateClause} GROUP BY event`,
         },
       };
 
-      const response = await fetch(`${host}/api/projects/${projectId}/query/`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `${queryHost}/api/projects/${projectId}/query/`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(queryPayload),
+          signal: AbortSignal.timeout(5000),
         },
-        body: JSON.stringify(queryPayload),
-        signal: AbortSignal.timeout(5000),
-      });
+      );
 
       if (!response.ok) {
         this.logger.warn(
           `PostHog query API responded with status ${response.status}`,
         );
+        let errorDetail = "";
+        try {
+          const errBody = (await response.json()) as {
+            error?: string;
+            detail?: string;
+          };
+          errorDetail = errBody.error || errBody.detail || "";
+        } catch {
+          // ignore error body parse failure
+        }
         return {
           status: "ERROR",
           observableLandingSessions: null,
           interestFormEngagement: null,
           clientSubmitSuccesses: null,
           ...baseNotice,
-          reason: `PostHog query responded with HTTP ${response.status}`,
+          reason: errorDetail
+            ? `PostHog query API returned HTTP ${response.status}: ${errorDetail}`
+            : `PostHog query API responded with HTTP ${response.status}`,
         };
       }
 
-      const data = (await response.json()) as {
+      let data: {
         results?: Array<[string, number]>;
+        error?: string;
+        detail?: string;
       };
+      try {
+        data = (await response.json()) as {
+          results?: Array<[string, number]>;
+          error?: string;
+          detail?: string;
+        };
+      } catch {
+        return {
+          status: "ERROR",
+          observableLandingSessions: null,
+          interestFormEngagement: null,
+          clientSubmitSuccesses: null,
+          ...baseNotice,
+          reason: "Failed to parse JSON response from PostHog query API",
+        };
+      }
+
+      // Validate results array presence
+      if (!data || typeof data !== "object" || !Array.isArray(data.results)) {
+        return {
+          status: "ERROR",
+          observableLandingSessions: null,
+          interestFormEngagement: null,
+          clientSubmitSuccesses: null,
+          ...baseNotice,
+          reason:
+            data?.error ||
+            data?.detail ||
+            "Malformed response from PostHog query API (missing results array)",
+        };
+      }
 
       let observableLandingSessions = 0;
       let interestFormEngagement = 0;
       let clientSubmitSuccesses = 0;
 
-      if (Array.isArray(data.results)) {
-        for (const [eventName, count] of data.results) {
-          if (eventName === "campaign_landing") {
-            observableLandingSessions = count;
-          } else if (eventName === "interest_form_view") {
-            interestFormEngagement = count;
-          } else if (eventName === "interest_submit_success_client") {
-            clientSubmitSuccesses = count;
-          }
+      for (const [eventName, count] of data.results) {
+        if (eventName === "campaign_landing") {
+          observableLandingSessions = count;
+        } else if (eventName === "interest_form_view") {
+          interestFormEngagement = count;
+        } else if (eventName === "interest_submit_success_client") {
+          clientSubmitSuccesses = count;
         }
       }
 

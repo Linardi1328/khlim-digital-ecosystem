@@ -74,7 +74,7 @@ export default function PrivacyPage() {
     {
       title: "6. Who may receive the data",
       paragraphs: [
-        "Access is limited to KHLIM personnel and service providers who need the information for the purposes above. Depending on the feature used, processors may include Supabase for authentication/database services, Billplz for payment processing, hosting/infrastructure providers, Sentry for technical error monitoring, and PostHog (US Cloud) for opt-in 24 Oct 3x3 campaign analytics where explicit consent is granted. Analytics events never transmit guardian or child names, phone numbers, emails, or form contents. We may also disclose information where required by law or to protect legal rights and safety.",
+        "Access is limited to KHLIM personnel and service providers who need the information for the purposes above. Depending on the feature used, processors may include Supabase for authentication/database services, Billplz for payment processing, hosting/infrastructure providers, Sentry for technical error monitoring, and PostHog (US Cloud) for opt-in 24 Oct 3x3 campaign analytics where explicit consent is granted. Analytics events never transmit guardian or child names, phone numbers, emails, full URLs, or form contents, and explicitly suppress person profiles and geolocation lookups. We may also disclose information where required by law or to protect legal rights and safety.",
         "We do not sell personal data and this build does not include advertising pixels or cross-site behavioural advertising trackers.",
       ],
     },
@@ -182,7 +182,7 @@ export default function PrivacyPage() {
     {
       title: "6. Pihak yang mungkin menerima data",
       paragraphs: [
-        "Akses dihadkan kepada kakitangan KHLIM dan penyedia perkhidmatan yang memerlukan maklumat untuk tujuan di atas. Bergantung pada ciri yang digunakan, pemproses mungkin termasuk Supabase bagi pengesahan/pangkalan data, Billplz bagi pembayaran, penyedia pengehosan/infrastruktur, Sentry bagi pemantauan ralat teknikal, dan PostHog (US Cloud) bagi analitik kempen 3x3 24 Okt dengan persetujuan pilihan. Acara analitik tidak sekali-kali menghantar nama penjaga atau anak, nombor telefon, e-mel atau kandungan borang. Kami juga boleh mendedahkan maklumat jika dikehendaki undang-undang atau untuk melindungi hak undang-undang dan keselamatan.",
+        "Akses dihadkan kepada kakitangan KHLIM dan penyedia perkhidmatan yang memerlukan maklumat untuk tujuan di atas. Bergantung pada ciri yang digunakan, pemproses mungkin termasuk Supabase bagi pengesahan/pangkalan data, Billplz bagi pembayaran, penyedia pengehosan/infrastruktur, Sentry bagi pemantauan ralat teknikal, dan PostHog (US Cloud) bagi analitik kempen 3x3 24 Okt dengan persetujuan pilihan. Acara analitik tidak sekali-kali menghantar nama penjaga atau anak, nombor telefon, e-mel, URL penuh atau kandungan borang, serta menyekat profil peribadi dan carian geolokasi. Kami juga boleh mendedahkan maklumat jika dikehendaki undang-undang atau untuk melindungi hak undang-undang dan keselamatan.",
         "Kami tidak menjual data peribadi dan binaan semasa tidak mengandungi piksel pengiklanan atau penjejak pengiklanan tingkah laku rentas laman.",
       ],
     },

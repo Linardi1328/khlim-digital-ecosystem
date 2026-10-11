@@ -48,7 +48,7 @@ test("Admin leads page reads initial source query param for 3x3-oct24 deep linki
   );
 });
 
-test("Admin API client exports getAdminCampaignAnalytics with demo fallback and live request", () => {
+test("Admin API client exports getAdminCampaignAnalytics with bounded demo fallback and live request", () => {
   const adminApiPath = path.join(root, "apps/admin/lib/admin-api.ts");
   const content = fs.readFileSync(adminApiPath, "utf-8");
 
@@ -68,9 +68,18 @@ test("Admin API client exports getAdminCampaignAnalytics with demo fallback and 
     content.includes("enrolledRate"),
     "getAdminCampaignAnalytics response should calculate enrolledRate",
   );
+  // Demo mode uses bounded default window
+  assert.ok(
+    content.includes('"2026-08-01"'),
+    "getAdminCampaignAnalytics demo mode bounds start to 2026-08-01",
+  );
+  assert.ok(
+    content.includes('"2026-10-31"'),
+    "getAdminCampaignAnalytics demo mode bounds end to 2026-10-31",
+  );
 });
 
-test("Admin Campaign Analytics page implements RBAC, MFA gate, date presets, and authoritative funnel", () => {
+test("Admin Campaign Analytics page implements RBAC, MFA gate, bounded presets, 100-day limit, and distinct session metrics", () => {
   const pagePath = path.join(
     root,
     "apps/admin/app/insights/campaigns/page.tsx",
@@ -91,7 +100,7 @@ test("Admin Campaign Analytics page implements RBAC, MFA gate, date presets, and
     "Page should show restricted access warning when not eligible",
   );
 
-  // Date Filtering
+  // Bounded Date Presets
   assert.ok(
     content.includes("24 Oct 2026 (Event Day)"),
     "Page should offer 24 Oct 2026 event day preset",
@@ -100,7 +109,16 @@ test("Admin Campaign Analytics page implements RBAC, MFA gate, date presets, and
     content.includes("October 2026"),
     "Page should offer October 2026 preset",
   );
-  assert.ok(content.includes("All Time"), "Page should offer All Time preset");
+  assert.ok(
+    content.includes("Campaign Window (Aug–Oct)"),
+    "Page should offer bounded Campaign Window (Aug–Oct) preset",
+  );
+
+  // Maximum 100-day window validation
+  assert.ok(
+    content.includes("MAX_CUSTOM_WINDOW_DAYS = 100"),
+    "Page should enforce 100-day limit on custom date ranges",
+  );
 
   // Deep linking to Leads Inbox
   assert.ok(
@@ -108,17 +126,26 @@ test("Admin Campaign Analytics page implements RBAC, MFA gate, date presets, and
     "Page should link to /leads?source=3x3-oct24",
   );
 
-  // Funnel & Methodology
+  // Observable Campaign Sessions & Measurement Notice
   assert.ok(
-    content.includes("Campaign Conversion Funnel"),
-    "Page should include Campaign Conversion Funnel visualization",
+    content.includes("Observable Campaign Sessions"),
+    "Page should label web visits as Observable Campaign Sessions",
   );
   assert.ok(
-    content.includes("Authoritative Database Pipeline"),
-    "Page should include Authoritative Database Pipeline breakdown",
+    content.includes("Attribution & Measurement Notice"),
+    "Page should render Attribution & Measurement Notice",
+  );
+  assert.match(
+    content,
+    /Physical QR\s+code scans/i,
+    "Page should distinguish physical QR scans from web visits",
+  );
+  assert.ok(
+    content.includes("Enrolled Athletes (Current Status)"),
+    "Page should clarify Step 5 is current status rather than historical progression",
   );
   assert.ok(
     content.includes("methodologyNote"),
-    "Page should render methodology note on data boundaries",
+    "Page should render backend methodology note",
   );
 });

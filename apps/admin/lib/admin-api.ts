@@ -726,16 +726,25 @@ export function getAdminCampaignAnalytics(
         ? Number(((enrolledCount / totalLeads) * 100).toFixed(2))
         : 0;
 
+    const resolvedStart = query.startDate || "2026-08-01";
+    const resolvedEnd = query.endDate || "2026-10-31";
+    const fromUtc = new Date(
+      `${resolvedStart}T00:00:00.000+08:00`,
+    ).toISOString();
+    const toUtc = new Date(
+      new Date(`${resolvedEnd}T00:00:00.000+08:00`).getTime() + 86400000,
+    ).toISOString();
+
     return Promise.resolve({
       campaign,
       organizationId: "00000000-0000-4000-8000-000000000001",
       asOf: new Date().toISOString(),
       period: {
-        startDate: query.startDate ?? null,
-        endDate: query.endDate ?? null,
+        startDate: resolvedStart,
+        endDate: resolvedEnd,
         timezone: "Asia/Kuala_Lumpur",
-        fromUtc: query.startDate ? `${query.startDate}T00:00:00.000Z` : null,
-        toUtc: query.endDate ? `${query.endDate}T23:59:59.999Z` : null,
+        fromUtc,
+        toUtc,
       },
       leads: {
         totalLeads,
@@ -754,7 +763,7 @@ export function getAdminCampaignAnalytics(
         note: "PostHog traffic represents opted-in web sessions only; it is not a direct measure of physical QR code scans.",
       },
       methodologyNote:
-        "Database records are authoritative for all confirmed registrations. PostHog traffic counts include only visitors who explicitly opted into analytics; non-consenting visitors also generate valid database leads.",
+        "Database records are authoritative for all confirmed registrations. Conversion rates reflect current status distribution (enrolledCount / totalLeads) in the database, not historical progression. PostHog traffic counts include only visitors who explicitly opted into analytics; non-consenting visitors also generate valid database leads.",
     });
   }
 

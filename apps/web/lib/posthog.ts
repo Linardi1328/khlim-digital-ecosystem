@@ -2,6 +2,7 @@
 
 import {
   ANALYTICS_ANON_ID_KEY,
+  ANALYTICS_SESSION_ID_KEY,
   hasAnalyticsConsent,
 } from "./analytics-consent";
 import { sanitizeCampaignToken } from "./campaign-source";
@@ -13,13 +14,7 @@ export const CAMPAIGN_TOKEN_3X3 = "3x3-oct24";
 export type PermittedAnalyticsEvent =
   "campaign_landing" | "interest_form_view" | "interest_submit_success_client";
 
-const ALLOWED_PROPERTIES = new Set([
-  "campaign",
-  "offering_id",
-  "path",
-  "source",
-  "referrer",
-]);
+const ALLOWED_PROPERTIES = new Set(["campaign", "path", "offering_id"]);
 
 const FORBIDDEN_KEY_PATTERNS = [
   /name/i,
@@ -38,9 +33,16 @@ const FORBIDDEN_KEY_PATTERNS = [
   /auth/i,
   /user/i,
   /idempotenc/i,
+  /url/i,
+  /query/i,
+  /param/i,
 ];
 
-function getAnonymousDistinctId(): string {
+// In-flight request guards against concurrent React effect firings
+const inFlightLandings = new Set<string>();
+const inFlightFormViews = new Set<string>();
+
+export function getAnonymousDistinctId(): string {
   if (typeof window === "undefined") return "server";
   try {
     let id = localStorage.getItem(ANALYTICS_ANON_ID_KEY);
@@ -61,29 +63,56 @@ function getAnonymousDistinctId(): string {
   }
 }
 
+export function getAnonymousSessionId(): string {
+  if (typeof window === "undefined") return "server";
+  try {
+    let sessionId = sessionStorage.getItem(ANALYTICS_SESSION_ID_KEY);
+    if (!sessionId) {
+      if (
+        typeof crypto !== "undefined" &&
+        typeof crypto.randomUUID === "function"
+      ) {
+        sessionId = `sess-${crypto.randomUUID()}`;
+      } else {
+        sessionId = `sess-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      }
+      sessionStorage.setItem(ANALYTICS_SESSION_ID_KEY, sessionId);
+    }
+    return sessionId;
+  } catch {
+    return "ephemeral-session";
+  }
+}
+
 function sanitizeProperties(
   properties: Record<string, unknown>,
 ): Record<string, unknown> {
   const sanitized: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(properties)) {
-    // Only accept allowed properties and reject forbidden keys
     if (!ALLOWED_PROPERTIES.has(key)) continue;
     if (FORBIDDEN_KEY_PATTERNS.some((pattern) => pattern.test(key))) continue;
 
-    if (key === "campaign" || key === "source") {
+    if (key === "campaign") {
       const token = sanitizeCampaignToken(
         typeof value === "string" ? value : null,
       );
-      if (token) sanitized[key] = token;
-    } else if (
-      typeof value === "string" ||
-      typeof value === "number" ||
-      typeof value === "boolean"
-    ) {
-      sanitized[key] = value;
-    } else if (value === null) {
-      sanitized[key] = null;
+      if (token && token === CAMPAIGN_TOKEN_3X3) {
+        sanitized.campaign = token;
+      }
+    } else if (key === "path") {
+      if (typeof value === "string") {
+        // Only permit clean relative paths without query strings or hashes
+        const pathWithoutQuery = value.split("?")[0] ?? "";
+        const cleanPath = (pathWithoutQuery.split("#")[0] ?? "").trim();
+        sanitized.path = cleanPath || "/";
+      }
+    } else if (key === "offering_id") {
+      if (typeof value === "string" && value.trim()) {
+        sanitized.offering_id = value.trim();
+      } else {
+        sanitized.offering_id = null;
+      }
     }
   }
 
@@ -123,14 +152,20 @@ export async function capturePostHogEvent(
 
   const safeProps = sanitizeProperties(properties);
   const distinctId = getAnonymousDistinctId();
+  const sessionId = getAnonymousSessionId();
 
+  // Strict privacy:
+  // 1. Never transmit full $current_url or sensitive query strings
+  // 2. Suppress PostHog person profile creation ($process_person_profile: false)
+  // 3. Suppress unnecessary geolocation lookups ($geoip_disable: true)
   const payload = {
     api_key: apiKey,
     event,
     properties: {
       distinct_id: distinctId,
-      $current_url: window.location.href,
-      $pathname: window.location.pathname,
+      $session_id: sessionId,
+      $process_person_profile: false,
+      $geoip_disable: true,
       ...safeProps,
     },
     timestamp: new Date().toISOString(),
@@ -152,41 +187,72 @@ export async function capturePostHogEvent(
 }
 
 /**
- * Deduplicated capture of campaign landing event
+ * Deduplicated capture of campaign landing session.
+ * Exactly one landing event is recorded per session across Home and Academy navigation.
+ * Never sets a dedup marker before confirming analytics consent and successful delivery.
  */
 export async function trackCampaignLanding(
   campaign: string | null | undefined,
   path: string,
 ): Promise<boolean> {
   const token = sanitizeCampaignToken(campaign);
-  if (!token) return false;
+  // Do not track missing, invalid or unrelated campaign tokens
+  if (!token || token !== CAMPAIGN_TOKEN_3X3) {
+    return false;
+  }
 
-  const dedupKey = `khlim_tracked_landing_${token}_${path}`;
+  // Consistent observable session metric:
+  // Count the same consenting session only once across Home and Academy navigation
+  const dedupKey = `khlim_tracked_landing_session_${token}`;
   if (typeof window !== "undefined") {
     try {
       if (sessionStorage.getItem(dedupKey)) {
         return false;
       }
-      sessionStorage.setItem(dedupKey, "1");
     } catch {
       // Ignore sessionStorage issues
     }
   }
 
-  return capturePostHogEvent("campaign_landing", {
-    campaign: token,
-    path,
-  });
+  if (inFlightLandings.has(token)) {
+    return false;
+  }
+
+  inFlightLandings.add(token);
+  try {
+    const success = await capturePostHogEvent("campaign_landing", {
+      campaign: token,
+      path,
+    });
+
+    // Only set deduplication marker after confirmed successful dispatch
+    if (success && typeof window !== "undefined") {
+      try {
+        sessionStorage.setItem(dedupKey, "1");
+      } catch {
+        // Ignore storage issues
+      }
+    }
+    return success;
+  } finally {
+    inFlightLandings.delete(token);
+  }
 }
 
 /**
- * Deduplicated capture of interest form view
+ * Deduplicated capture of interest form view.
+ * Exactly one form view event is recorded per session.
+ * Does not fall back to assigning 3x3-oct24 to organic visitors.
  */
 export async function trackInterestFormView(
   campaign: string | null | undefined,
   offeringId?: string | null,
 ): Promise<boolean> {
-  const token = sanitizeCampaignToken(campaign) || CAMPAIGN_TOKEN_3X3;
+  const token = sanitizeCampaignToken(campaign);
+  // Organic visitors without campaign token are not tracked
+  if (!token || token !== CAMPAIGN_TOKEN_3X3) {
+    return false;
+  }
 
   const dedupKey = `khlim_tracked_form_view_${token}`;
   if (typeof window !== "undefined") {
@@ -194,29 +260,52 @@ export async function trackInterestFormView(
       if (sessionStorage.getItem(dedupKey)) {
         return false;
       }
-      sessionStorage.setItem(dedupKey, "1");
     } catch {
       // Ignore sessionStorage issues
     }
   }
 
-  return capturePostHogEvent("interest_form_view", {
-    campaign: token,
-    offering_id: offeringId || null,
-  });
+  if (inFlightFormViews.has(token)) {
+    return false;
+  }
+
+  inFlightFormViews.add(token);
+  try {
+    const success = await capturePostHogEvent("interest_form_view", {
+      campaign: token,
+      offering_id: offeringId || null,
+      path: "/interest",
+    });
+
+    if (success && typeof window !== "undefined") {
+      try {
+        sessionStorage.setItem(dedupKey, "1");
+      } catch {
+        // Ignore storage issues
+      }
+    }
+    return success;
+  } finally {
+    inFlightFormViews.delete(token);
+  }
 }
 
 /**
- * Capture of client-side lead registration success
+ * Capture of client-side lead registration success receipt.
+ * Does not fall back to assigning 3x3-oct24 to organic visitors.
  */
 export async function trackInterestSubmitSuccess(
   campaign: string | null | undefined,
   offeringId?: string | null,
 ): Promise<boolean> {
-  const token = sanitizeCampaignToken(campaign) || CAMPAIGN_TOKEN_3X3;
+  const token = sanitizeCampaignToken(campaign);
+  if (!token || token !== CAMPAIGN_TOKEN_3X3) {
+    return false;
+  }
 
   return capturePostHogEvent("interest_submit_success_client", {
     campaign: token,
     offering_id: offeringId || null,
+    path: "/interest",
   });
 }
