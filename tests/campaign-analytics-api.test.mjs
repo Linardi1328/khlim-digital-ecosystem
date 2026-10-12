@@ -10,6 +10,11 @@ import {
   POSTHOG_DEFAULT_QUERY_HOST,
 } from "../apps/api/dist/academy/academy-campaigns.service.js";
 import { AcademyCampaignsAdminController } from "../apps/api/dist/academy/academy-campaigns-admin.controller.js";
+import { AuthorizationGuard } from "../apps/api/dist/auth/authorization.guard.js";
+import {
+  REQUIRED_ROLES_KEY,
+  MFA_REQUIRED_KEY,
+} from "../apps/api/dist/auth/auth.constants.js";
 
 const DEFAULT_ORG_ID = "00000000-0000-4000-8000-000000000001";
 const FOREIGN_ORG_ID = "00000000-0000-4000-8000-000000000002";
@@ -91,6 +96,10 @@ test("parseMytDateRange handles start-inclusive, end-exclusive UTC boundaries an
   assert.equal(defaultDays, 92);
   assert.ok(defaultDays <= MAX_REPORTING_WINDOW_DAYS);
 
+  // One-sided MYT date arithmetic must preserve calendar days.
+  assert.equal(parseMytDateRange("2026-10-01").endDate, "2026-12-30");
+  assert.equal(parseMytDateRange(undefined, "2026-10-31").startDate, "2026-08-02");
+
   // Rejection of invalid calendar dates
   assert.throws(() => parseMytDateRange("2026-02-29", "2026-03-01"), {
     name: "BadRequestException",
@@ -115,24 +124,23 @@ test("parseMytDateRange handles start-inclusive, end-exclusive UTC boundaries an
 });
 
 test("AcademyCampaignsService computes authoritative lead status distributions and current-status rates", async () => {
-  const mockRecords = [
-    { status: "NEW" },
-    { status: "CONTACTED" },
-    { status: "QUALIFIED" },
-    { status: "ENROLLED" },
-    { status: "ENROLLED" },
-    { status: "CLOSED" },
-  ];
-
   const mockPrisma = {
     client: {
       academyLead: {
-        findMany: async ({ where }) => {
+        groupBy: async ({ where, by, _count }) => {
+          assert.deepEqual(by, ["status"]);
+          assert.deepEqual(_count, { _all: true });
           assert.equal(where.source, "3x3-oct24");
           assert.equal(where.organizationId, DEFAULT_ORG_ID);
           assert.ok(where.createdAt.gte instanceof Date);
           assert.ok(where.createdAt.lt instanceof Date);
-          return mockRecords;
+          return [
+            { status: "NEW", _count: { _all: 1 } },
+            { status: "CONTACTED", _count: { _all: 1 } },
+            { status: "QUALIFIED", _count: { _all: 1 } },
+            { status: "ENROLLED", _count: { _all: 2 } },
+            { status: "CLOSED", _count: { _all: 1 } },
+          ];
         },
       },
     },
@@ -163,7 +171,10 @@ test("AcademyCampaignsService computes authoritative lead status distributions a
 test("AcademyCampaignsService enforces strict tenant isolation: foreign organization with matching leads cannot query shared campaign traffic", async () => {
   // Even if foreign organization has 1 or more matching leads in the database,
   // it must NEVER be granted access to KHLIM's private PostHog aggregates.
-  const mockForeignRecords = [{ status: "NEW" }, { status: "ENROLLED" }];
+  const mockForeignRecords = [
+    { status: "NEW", _count: { _all: 1 } },
+    { status: "ENROLLED", _count: { _all: 1 } },
+  ];
 
   let fetchAttempted = false;
   const origFetch = globalThis.fetch;
@@ -176,7 +187,7 @@ test("AcademyCampaignsService enforces strict tenant isolation: foreign organiza
     const mockPrisma = {
       client: {
         academyLead: {
-          findMany: async ({ where }) => {
+          groupBy: async ({ where }) => {
             assert.equal(where.organizationId, FOREIGN_ORG_ID);
             return mockForeignRecords;
           },
@@ -213,19 +224,29 @@ test("AcademyCampaignsService enforces strict tenant isolation: foreign organiza
 });
 
 test("AcademyCampaignsService handles PostHog query credentials, separate query host, and resilient errors", async () => {
-  const origKey = process.env.POSTHOG_API_KEY;
-  const origHost = process.env.POSTHOG_QUERY_HOST;
+  const envNames = [
+    "POSTHOG_API_KEY",
+    "POSTHOG_PERSONAL_API_KEY",
+    "POSTHOG_PROJECT_API_KEY",
+    "POSTHOG_QUERY_HOST",
+    "POSTHOG_HOST",
+  ];
+  const previousEnv = Object.fromEntries(
+    envNames.map((name) => [name, process.env[name]]),
+  );
   const origFetch = globalThis.fetch;
 
   try {
     delete process.env.POSTHOG_API_KEY;
     delete process.env.POSTHOG_PERSONAL_API_KEY;
     delete process.env.POSTHOG_PROJECT_API_KEY;
+    delete process.env.POSTHOG_QUERY_HOST;
+    process.env.POSTHOG_HOST = "https://us.i.posthog.com";
 
     const mockPrisma = {
       client: {
         academyLead: {
-          findMany: async () => [],
+          groupBy: async () => [],
         },
       },
     };
@@ -310,7 +331,7 @@ test("AcademyCampaignsService handles PostHog query credentials, separate query 
     assert.equal(errorResult.traffic.observableLandingSessions, null);
     assert.match(
       errorResult.traffic.reason,
-      /HTTP 403: Invalid personal API key/,
+      /temporarily unavailable/,
     );
 
     // 4. Malformed response (missing results array) returns status: "ERROR"
@@ -325,26 +346,68 @@ test("AcademyCampaignsService handles PostHog query credentials, separate query 
     });
     assert.equal(malformedResult.traffic.status, "ERROR");
     assert.equal(malformedResult.traffic.observableLandingSessions, null);
-    assert.match(malformedResult.traffic.reason, /Query syntax failure/);
+    assert.match(malformedResult.traffic.reason, /temporarily unavailable/);
   } finally {
-    process.env.POSTHOG_API_KEY = origKey;
-    process.env.POSTHOG_QUERY_HOST = origHost;
+    for (const name of envNames) {
+      const value = previousEnv[name];
+      if (value === undefined) {
+        delete process.env[name];
+      } else {
+        process.env[name] = value;
+      }
+    }
     globalThis.fetch = origFetch;
   }
 });
 
-test("AcademyCampaignsAdminController enforces RBAC, MFA, and organization scoping", () => {
-  const metadataKeys = Reflect.getMetadataKeys(AcademyCampaignsAdminController);
-  assert.ok(metadataKeys.length > 0, "Controller has NestJS metadata");
-
-  const path = Reflect.getMetadata("path", AcademyCampaignsAdminController);
-  assert.equal(path, "admin/academy/campaigns");
-
-  const methodNames = Object.getOwnPropertyNames(
-    AcademyCampaignsAdminController.prototype,
+test("AcademyCampaignsAdminController authorization guard enforces roles and MFA", async () => {
+  assert.equal(
+    Reflect.getMetadata("path", AcademyCampaignsAdminController),
+    "admin/academy/campaigns",
   );
-  assert.ok(
-    methodNames.includes("getCampaignAnalytics"),
-    "Controller exposes getCampaignAnalytics",
+  assert.deepEqual(
+    Reflect.getMetadata(REQUIRED_ROLES_KEY, AcademyCampaignsAdminController),
+    ["SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN"],
+  );
+  assert.equal(
+    Reflect.getMetadata(MFA_REQUIRED_KEY, AcademyCampaignsAdminController),
+    true,
+  );
+
+  // Run actual authorization policy against the decorated controller.
+  const reflector = {
+    getAllAndOverride(key, targets) {
+      for (const target of targets) {
+        const value = Reflect.getMetadata(key, target);
+        if (value !== undefined) return value;
+      }
+      return undefined;
+    },
+  };
+  const guard = new AuthorizationGuard(reflector, {
+    canAccessAthlete: async () => false,
+  });
+  const contextFor = (roles, authenticatorAssuranceLevel) => ({
+    getHandler: () =>
+      AcademyCampaignsAdminController.prototype.getCampaignAnalytics,
+    getClass: () => AcademyCampaignsAdminController,
+    switchToHttp: () => ({
+      getRequest: () => ({
+        authenticatedUser: { roles, authenticatorAssuranceLevel },
+      }),
+    }),
+  });
+
+  await assert.rejects(
+    () => guard.canActivate(contextFor(["ACADEMY_ADMIN"], "aal1")),
+    { name: "ForbiddenException", message: /MFA/ },
+  );
+  await assert.rejects(
+    () => guard.canActivate(contextFor(["EVENT_STAFF"], "aal2")),
+    { name: "ForbiddenException", message: /permissions/ },
+  );
+  assert.equal(
+    await guard.canActivate(contextFor(["ACADEMY_ADMIN"], "aal2")),
+    true,
   );
 });
