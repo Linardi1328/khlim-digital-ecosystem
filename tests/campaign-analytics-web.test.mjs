@@ -412,16 +412,15 @@ test("Arbitrary, malicious, or PII offering IDs are completely excluded from Pos
   );
 });
 
-
 test("Withdrawing consent while capture is in flight does not recreate deduplication markers", async () => {
   const { sessionStorage } = setupMockBrowser();
   process.env.NEXT_PUBLIC_POSTHOG_KEY = "test-phc-key";
 
   const { trackCampaignLanding, trackInterestFormView } = await import(
-    "../apps/web/lib/posthog.ts"
+    "../apps/web/lib/posthog.ts",
   );
   const { setAnalyticsConsent, withdrawAnalyticsConsent } = await import(
-    "../apps/web/lib/analytics-consent.ts"
+    "../apps/web/lib/analytics-consent.ts",
   );
 
   setAnalyticsConsent("granted");

@@ -332,10 +332,7 @@ test("AcademyCampaignsService handles PostHog query credentials, separate query 
     });
     assert.equal(errorResult.traffic.status, "ERROR");
     assert.equal(errorResult.traffic.observableLandingSessions, null);
-    assert.match(
-      errorResult.traffic.reason,
-      /temporarily unavailable/,
-    );
+    assert.match(errorResult.traffic.reason, /temporarily unavailable/);
 
     // 4. Malformed response (missing results array) returns status: "ERROR"
     globalThis.fetch = async () => ({
