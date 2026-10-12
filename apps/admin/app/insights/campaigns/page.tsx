@@ -109,6 +109,7 @@ export default function CampaignAnalyticsPage() {
     }
 
     const seq = ++requestSeq.current;
+    setAnalytics(null);
     setLoading(true);
     setError(null);
 
@@ -142,6 +143,8 @@ export default function CampaignAnalyticsPage() {
   }, [fetchAnalytics]);
 
   const handleSelectPreset = (preset: (typeof PRESETS)[number]) => {
+    setAnalytics(null);
+    setLoading(true);
     setActivePreset(preset.id);
     setStartDateInput(preset.start);
     setEndDateInput(preset.end);
@@ -171,6 +174,8 @@ export default function CampaignAnalyticsPage() {
       return;
     }
     setValidationError(null);
+    setAnalytics(null);
+    setLoading(true);
     setActivePreset("custom");
     setAppliedStart(startDateInput);
     setAppliedEnd(endDateInput);

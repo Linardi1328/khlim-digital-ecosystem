@@ -6,7 +6,7 @@ import {
 } from "../../components/legal/legal-document";
 import { getPublicBusinessDetails } from "../../lib/business-details";
 
-const EFFECTIVE_DATE = "11 September 2026";
+const EFFECTIVE_DATE = "11 October 2026";
 
 export default function PrivacyPage() {
   const business = getPublicBusinessDetails();

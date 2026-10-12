@@ -50,9 +50,10 @@ export class AcademyCampaignsService {
     };
 
     // 1. Authoritative database leads aggregation
-    const records = await this.prisma.client.academyLead.findMany({
+    const grouped = await this.prisma.client.academyLead.groupBy({
+      by: ["status"],
       where,
-      select: { status: true },
+      _count: { _all: true },
     });
 
     const byStatus = {
@@ -63,14 +64,15 @@ export class AcademyCampaignsService {
       CLOSED: 0,
     };
 
-    for (const record of records) {
-      const status = record.status as keyof typeof byStatus;
+    let totalLeads = 0;
+    for (const group of grouped) {
+      const status = group.status as keyof typeof byStatus;
+      const count = group._count._all;
+      totalLeads += count;
       if (status in byStatus) {
-        byStatus[status]++;
+        byStatus[status] += count;
       }
     }
-
-    const totalLeads = records.length;
     const enrolledCount = byStatus.ENROLLED;
     const enrolledRate =
       totalLeads > 0
@@ -138,7 +140,6 @@ export class AcademyCampaignsService {
     // Separate query host from event ingestion host
     const queryHost = (
       process.env.POSTHOG_QUERY_HOST?.trim() ||
-      process.env.POSTHOG_HOST?.trim() ||
       POSTHOG_DEFAULT_QUERY_HOST
     ).replace(/\/+$/, "");
 
@@ -188,25 +189,13 @@ export class AcademyCampaignsService {
         this.logger.warn(
           `PostHog query API responded with status ${response.status}`,
         );
-        let errorDetail = "";
-        try {
-          const errBody = (await response.json()) as {
-            error?: string;
-            detail?: string;
-          };
-          errorDetail = errBody.error || errBody.detail || "";
-        } catch {
-          // ignore error body parse failure
-        }
         return {
           status: "ERROR",
           observableLandingSessions: null,
           interestFormEngagement: null,
           clientSubmitSuccesses: null,
           ...baseNotice,
-          reason: errorDetail
-            ? `PostHog query API returned HTTP ${response.status}: ${errorDetail}`
-            : `PostHog query API responded with HTTP ${response.status}`,
+          reason: "PostHog traffic data is temporarily unavailable",
         };
       }
 
@@ -228,7 +217,7 @@ export class AcademyCampaignsService {
           interestFormEngagement: null,
           clientSubmitSuccesses: null,
           ...baseNotice,
-          reason: "Failed to parse JSON response from PostHog query API",
+          reason: "PostHog traffic data is temporarily unavailable",
         };
       }
 
@@ -240,10 +229,7 @@ export class AcademyCampaignsService {
           interestFormEngagement: null,
           clientSubmitSuccesses: null,
           ...baseNotice,
-          reason:
-            data?.error ||
-            data?.detail ||
-            "Malformed response from PostHog query API (missing results array)",
+          reason: "PostHog traffic data is temporarily unavailable",
         };
       }
 
@@ -278,10 +264,7 @@ export class AcademyCampaignsService {
         interestFormEngagement: null,
         clientSubmitSuccesses: null,
         ...baseNotice,
-        reason:
-          error instanceof Error
-            ? error.message
-            : "PostHog query service unavailable or timed out",
+        reason: "PostHog traffic data is temporarily unavailable",
       };
     }
   }

@@ -89,12 +89,26 @@ export function useAnalyticsConsent() {
       }
     };
 
+    const handleStorage = (event: StorageEvent) => {
+      if (
+        event.storageArea !== localStorage ||
+        (event.key !== ANALYTICS_CONSENT_STORAGE_KEY && event.key !== null)
+      ) {
+        return;
+      }
+      const nextConsent = getAnalyticsConsent();
+      if (nextConsent !== "granted") {
+        clearAnalyticsClientPersistence();
+      }
+      setConsentState(nextConsent);
+    };
+
     window.addEventListener(ANALYTICS_CONSENT_EVENT, handleConsentChange);
-    window.addEventListener("storage", handleConsentChange);
+    window.addEventListener("storage", handleStorage);
 
     return () => {
       window.removeEventListener(ANALYTICS_CONSENT_EVENT, handleConsentChange);
-      window.removeEventListener("storage", handleConsentChange);
+      window.removeEventListener("storage", handleStorage);
     };
   }, []);
 

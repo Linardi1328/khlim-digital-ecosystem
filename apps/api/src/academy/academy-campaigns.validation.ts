@@ -62,7 +62,7 @@ export function parseMytDateRange(
         `Invalid startDate calendar date: ${resolvedStart}`,
       );
     }
-    const startObj = new Date(`${resolvedStart}T00:00:00.000+08:00`);
+    const startObj = new Date(`${resolvedStart}T00:00:00.000Z`);
     const endObj = new Date(startObj.getTime() + 90 * 86400000);
     resolvedEnd = endObj.toISOString().slice(0, 10);
   } else if (!resolvedStart && resolvedEnd) {
@@ -71,7 +71,7 @@ export function parseMytDateRange(
         `Invalid endDate calendar date: ${resolvedEnd}`,
       );
     }
-    const endObj = new Date(`${resolvedEnd}T00:00:00.000+08:00`);
+    const endObj = new Date(`${resolvedEnd}T00:00:00.000Z`);
     const startObj = new Date(endObj.getTime() - 90 * 86400000);
     resolvedStart = startObj.toISOString().slice(0, 10);
   }

@@ -220,7 +220,7 @@ export async function trackCampaignLanding(
     });
 
     // Only set deduplication marker after confirmed successful dispatch
-    if (success && typeof window !== "undefined") {
+    if (success && typeof window !== "undefined" && hasAnalyticsConsent()) {
       try {
         sessionStorage.setItem(dedupKey, "1");
       } catch {
@@ -270,7 +270,7 @@ export async function trackInterestFormView(
       path: "/interest",
     });
 
-    if (success && typeof window !== "undefined") {
+    if (success && typeof window !== "undefined" && hasAnalyticsConsent()) {
       try {
         sessionStorage.setItem(dedupKey, "1");
       } catch {
