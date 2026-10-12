@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import vm from "node:vm";
+import ts from "typescript";
 import { parseDemoMytDateRange } from "../apps/admin/lib/campaign-date-range.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -49,29 +51,99 @@ test("Admin leads page reads initial source query param for 3x3-oct24 deep linki
   );
 });
 
-test("Admin API client exports getAdminCampaignAnalytics with bounded demo fallback and live request", () => {
-  const adminApiPath = path.join(root, "apps/admin/lib/admin-api.ts");
-  const content = fs.readFileSync(adminApiPath, "utf-8");
+// Execute the real exported module with a controlled client, without importing
+// Next.js browser-only dependencies into the Node regression test process.
+function loadCampaignApi({ demoMode = false, response = {} } = {}) {
+  const filename = path.join(root, "apps/admin/lib/admin-api.ts");
+  const source = fs.readFileSync(filename, "utf-8");
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    },
+    fileName: filename,
+  }).outputText;
+  const calls = [];
+  const module = { exports: {} };
+  const dependencies = {
+    "@khlim/api-client": {
+      createApiClient: () => ({
+        get: async (requestPath) => {
+          calls.push(requestPath);
+          return response;
+        },
+      }),
+    },
+    "./admin-api-legacy": { adminApi: {} },
+    "./campaign-date-range": { parseDemoMytDateRange },
+    "./demo-mode": { ADMIN_DEMO_MODE: demoMode },
+    "./supabase-auth": {
+      getStoredAdminAccessToken: () => null,
+      getValidAdminAccessToken: async () => null,
+    },
+  };
 
-  assert.ok(
-    content.includes("export async function getAdminCampaignAnalytics"),
-    "admin-api.ts should export getAdminCampaignAnalytics",
+  vm.runInNewContext(
+    compiled,
+    {
+      module,
+      exports: module.exports,
+      process: { env: {} },
+      URLSearchParams,
+      require: (specifier) => {
+        if (!Object.hasOwn(dependencies, specifier)) {
+          throw new Error(`Unexpected API module dependency: ${specifier}`);
+        }
+        return dependencies[specifier];
+      },
+    },
+    { filename },
   );
-  assert.ok(
-    content.includes("/admin/academy/campaigns/analytics"),
-    "Live API call should request /admin/academy/campaigns/analytics",
+  return { getAdminCampaignAnalytics: module.exports.getAdminCampaignAnalytics, calls };
+}
+
+test("campaign API export executes a live request and returns the API response", async () => {
+  const response = { campaign: "3x3-oct24", testMarker: "controlled-response" };
+  const { getAdminCampaignAnalytics, calls } = loadCampaignApi({ response });
+  assert.equal(typeof getAdminCampaignAnalytics, "function");
+
+  const result = await getAdminCampaignAnalytics({
+    campaign: "3x3-oct24",
+    startDate: "2026-10-24",
+    endDate: "2026-10-24",
+  });
+  assert.equal(result, response);
+  assert.deepEqual(calls, [
+    "/admin/academy/campaigns/analytics?campaign=3x3-oct24&startDate=2026-10-24&endDate=2026-10-24",
+  ]);
+});
+
+test("campaign demo API returns dated metrics and rejects malformed input asynchronously", async () => {
+  const { getAdminCampaignAnalytics, calls } = loadCampaignApi({
+    demoMode: true,
+  });
+  const result = await getAdminCampaignAnalytics({
+    campaign: "3x3-oct24",
+    startDate: "2026-10-24",
+    endDate: "2026-10-24",
+  });
+  assert.equal(result.leads.totalLeads, 2);
+  assert.equal(result.leads.byStatus.QUALIFIED, 1);
+  assert.equal(result.leads.byStatus.ENROLLED, 1);
+  assert.equal(result.period.fromUtc, "2026-10-23T16:00:00.000Z");
+  assert.equal(result.period.toUtc, "2026-10-24T16:00:00.000Z");
+  assert.deepEqual(calls, []);
+
+  await assert.rejects(
+    getAdminCampaignAnalytics({ startDate: "2026-02-29" }),
+    /Invalid startDate calendar date/,
   );
-  assert.ok(
-    content.includes("ADMIN_DEMO_MODE"),
-    "getAdminCampaignAnalytics should support ADMIN_DEMO_MODE",
-  );
-  assert.ok(
-    content.includes("enrolledRate"),
-    "getAdminCampaignAnalytics response should calculate enrolledRate",
-  );
-  assert.ok(
-    content.includes("parseDemoMytDateRange(query.startDate, query.endDate)"),
-    "Demo analytics must use the validated Malaysia-time date-range helper",
+  await assert.rejects(
+    getAdminCampaignAnalytics({
+      startDate: "2026-01-01",
+      endDate: "2026-05-01",
+    }),
+    /exceeds maximum limit of 100 days/,
   );
 });
 
