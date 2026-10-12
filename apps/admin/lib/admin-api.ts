@@ -711,7 +711,20 @@ export function getAdminCampaignAnalytics(
 ): Promise<AdminCampaignAnalyticsResponse> {
   if (ADMIN_DEMO_MODE) {
     const campaign = query.campaign || "3x3-oct24";
-    const matchingLeads = DEMO_LEADS.filter((l) => l.source === campaign);
+    const resolvedStart = query.startDate || "2026-08-01";
+    const resolvedEnd = query.endDate || "2026-10-31";
+    const fromUtc = new Date(
+      `${resolvedStart}T00:00:00.000+08:00`,
+    ).toISOString();
+    const toUtc = new Date(
+      new Date(`${resolvedEnd}T00:00:00.000+08:00`).getTime() + 86400000,
+    ).toISOString();
+    const matchingLeads = DEMO_LEADS.filter(
+      (lead) =>
+        lead.source === campaign &&
+        lead.createdAt >= fromUtc &&
+        lead.createdAt < toUtc,
+    );
     const byStatus: AdminCampaignStatusCounts = {
       NEW: matchingLeads.filter((l) => l.status === "NEW").length,
       CONTACTED: matchingLeads.filter((l) => l.status === "CONTACTED").length,
@@ -725,15 +738,6 @@ export function getAdminCampaignAnalytics(
       totalLeads > 0
         ? Number(((enrolledCount / totalLeads) * 100).toFixed(2))
         : 0;
-
-    const resolvedStart = query.startDate || "2026-08-01";
-    const resolvedEnd = query.endDate || "2026-10-31";
-    const fromUtc = new Date(
-      `${resolvedStart}T00:00:00.000+08:00`,
-    ).toISOString();
-    const toUtc = new Date(
-      new Date(`${resolvedEnd}T00:00:00.000+08:00`).getTime() + 86400000,
-    ).toISOString();
 
     return Promise.resolve({
       campaign,

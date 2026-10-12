@@ -262,3 +262,33 @@ test("3x3 campaign analytics rejects an ineligible demo work view", async ({
   await expect(page.getByText("Restricted Access")).toBeVisible();
   expect(campaignRequests).toBe(0);
 });
+
+test("3x3 demo campaign lead metrics respect the selected MYT acquisition window", async ({
+  page,
+}) => {
+  // Demo leads are created relative to the clock, so avoid hard-coded dates.
+  const mytDay = (offsetDays) =>
+    new Date(Date.now() + 8 * 3600000 + offsetDays * 86400000)
+      .toISOString()
+      .slice(0, 10);
+
+  await page.goto("/insights/campaigns", { waitUntil: "domcontentloaded" });
+  const confirmedLeads = page
+    .getByRole("region", { name: "Campaign Overview Metrics" })
+    .locator(":scope > div")
+    .first();
+
+  async function applyDates(from, to) {
+    await page.locator("#campaign-start-date").fill(from);
+    await page.locator("#campaign-end-date").fill(to);
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
+  }
+
+  // The recent MYT cohort includes all three campaign-tagged demo leads.
+  await applyDates(mytDay(-3), mytDay(0));
+  await expect(confirmedLeads.getByText("3", { exact: true })).toBeVisible();
+
+  // An unrelated historical cohort has zero confirmed leads.
+  await applyDates(mytDay(-15), mytDay(-14));
+  await expect(confirmedLeads.getByText("0", { exact: true })).toBeVisible();
+});

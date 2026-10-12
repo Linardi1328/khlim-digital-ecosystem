@@ -413,13 +413,16 @@ test("Arbitrary, malicious, or PII offering IDs are completely excluded from Pos
 });
 
 test("Withdrawing consent while capture is in flight does not recreate deduplication markers", async () => {
-  const { sessionStorage } = setupMockBrowser();
+  const { localStorage, sessionStorage } = setupMockBrowser();
   process.env.NEXT_PUBLIC_POSTHOG_KEY = "test-phc-key";
 
   const { trackCampaignLanding, trackInterestFormView } =
     await import("../apps/web/lib/posthog.ts");
-  const { setAnalyticsConsent, withdrawAnalyticsConsent } =
-    await import("../apps/web/lib/analytics-consent.ts");
+  const {
+    setAnalyticsConsent,
+    withdrawAnalyticsConsent,
+    ANALYTICS_ANON_ID_KEY,
+  } = await import("../apps/web/lib/analytics-consent.ts");
 
   setAnalyticsConsent("granted");
   let releaseFetch;
@@ -438,6 +441,7 @@ test("Withdrawing consent while capture is in flight does not recreate deduplica
     sessionStorage.getItem("khlim_tracked_landing_session_3x3-oct24"),
     null,
   );
+  assert.equal(localStorage.getItem(ANALYTICS_ANON_ID_KEY), null);
 
   setAnalyticsConsent("granted");
   const formView = trackInterestFormView("3x3-oct24");
@@ -449,5 +453,6 @@ test("Withdrawing consent while capture is in flight does not recreate deduplica
     sessionStorage.getItem("khlim_tracked_form_view_3x3-oct24"),
     null,
   );
+  assert.equal(localStorage.getItem(ANALYTICS_ANON_ID_KEY), null);
   assert.equal(sessionStorage.getItem("khlim_analytics_session_id"), null);
 });
