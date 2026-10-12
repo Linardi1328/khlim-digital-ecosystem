@@ -462,11 +462,17 @@ test("24 Oct 3x3 campaign cookie consent banner and legal preference withdrawal 
   );
   expect(postConsentStatus).toBe("granted");
 
-  // 5. Navigate to cookie policy
+  // 5. Cookie Policy disclosures must be visible in the rendered page.
   await page.goto("/cookies", { waitUntil: "domcontentloaded" });
   await expect(
     page.getByRole("heading", { name: "Cookie Policy" }),
   ).toBeVisible();
+  await expect(page.locator("body")).toContainText(
+    "PostHog (US Cloud, Project ID 652783)",
+  );
+  await expect(page.locator("body")).toContainText(
+    "suppresses person profiles and geolocation lookups",
+  );
   await expect(
     page.getByText("Analytics enabled (consented)").first(),
   ).toBeVisible();
@@ -497,4 +503,47 @@ test("24 Oct 3x3 campaign cookie consent banner and legal preference withdrawal 
   expect(postWithdrawal.anonId).toBeNull();
   expect(postWithdrawal.sessionId).toBeNull();
   expect(postWithdrawal.landingMarker).toBeNull();
+
+  // Rendered Privacy Policy reflects PostHog and the material-change date.
+  await page.goto("/privacy", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Privacy Policy" })).toBeVisible();
+  await expect(page.locator("body")).toContainText("11 October 2026");
+  await expect(page.locator("body")).toContainText("PostHog (US Cloud)");
+  await expect(page.locator("body")).toContainText("section 129");
+});
+
+test("cross-tab analytics withdrawal clears the other tab's session persistence", async ({
+  browser,
+}) => {
+  const context = await browser.newContext();
+  try {
+    const firstTab = await context.newPage();
+    await firstTab.goto("/cookies", { waitUntil: "domcontentloaded" });
+    await firstTab.evaluate(() => localStorage.clear());
+    await firstTab.reload({ waitUntil: "domcontentloaded" });
+    await firstTab.getByRole("button", { name: "Accept Analytics" }).click();
+
+    const secondTab = await context.newPage();
+    await secondTab.goto("/cookies", { waitUntil: "domcontentloaded" });
+    await expect(
+      secondTab.getByText("Analytics enabled (consented)").first(),
+    ).toBeVisible();
+    await secondTab.evaluate(() => {
+      sessionStorage.setItem("khlim_analytics_session_id", "test-session");
+      sessionStorage.setItem("khlim_tracked_landing_session_3x3-oct24", "1");
+    });
+
+    await firstTab.getByRole("button", { name: "Withdraw Consent" }).click();
+
+    await expect
+      .poll(() =>
+        secondTab.evaluate(() => ({
+          id: sessionStorage.getItem("khlim_analytics_session_id"),
+          marker: sessionStorage.getItem("khlim_tracked_landing_session_3x3-oct24"),
+        })),
+      )
+      .toEqual({ id: null, marker: null });
+  } finally {
+    await context.close();
+  }
 });

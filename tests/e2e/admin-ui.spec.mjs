@@ -241,3 +241,22 @@ test("3x3 Campaign dashboard links directly to Leads Inbox with 3x3-oct24 pre-fi
   await openLeadsLink.click();
   await expect(page).toHaveURL(/\/leads\?source=3x3-oct24/);
 });
+
+test("3x3 campaign analytics rejects an ineligible demo work view", async ({
+  page,
+}) => {
+  await page.goto("/insights/campaigns", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "3x3 Campaign" })).toBeVisible();
+
+  let campaignRequests = 0;
+  page.on("request", (request) => {
+    if (request.url().includes("/admin/academy/campaigns/analytics")) {
+      campaignRequests += 1;
+    }
+  });
+
+  await page.getByRole("button", { name: "Switch active work view" }).click();
+  await page.getByRole("menuitemradio", { name: "EVENT STAFF" }).click();
+  await expect(page.getByText("Restricted Access")).toBeVisible();
+  expect(campaignRequests).toBe(0);
+});

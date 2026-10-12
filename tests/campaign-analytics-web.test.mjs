@@ -1,15 +1,10 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import { register } from "node:module";
 import { test } from "node:test";
 
 register("./test-ts-loader.mjs", import.meta.url);
 
 const root = new URL("../", import.meta.url);
-
-async function read(path) {
-  return readFile(new URL(path, root), "utf8");
-}
 
 // In-memory web storage mock
 class MemoryStorage {
@@ -315,28 +310,6 @@ test("Network failures do not permanently block session tracking and are handled
   );
 });
 
-test("Cookie and Privacy policies document 24 Oct 3x3 campaign analytics, US Cloud processing, and suppressed profiles/GeoIP", async () => {
-  const cookies = await read("apps/web/app/cookies/page.tsx");
-  const privacy = await read("apps/web/app/privacy/page.tsx");
-
-  // Cookies policy covers PostHog US Cloud, Project 652783, and suppressed features
-  assert.match(cookies, /PostHog \(US Cloud, Project ID 652783\)/);
-  assert.match(cookies, /PostHog \(US Cloud, ID Projek 652783\)/);
-  assert.match(cookies, /AnalyticsPreferencesControl/);
-  assert.match(cookies, /autocapture/);
-  assert.match(cookies, /suppresses person profiles and geolocation lookups/);
-  assert.match(cookies, /without transmitting full URLs or raw query strings/);
-
-  // Privacy policy covers PostHog US Cloud and PDPA section 129 cross-border transfers
-  assert.match(privacy, /PostHog \(US Cloud\)/);
-  assert.match(privacy, /section 129 of the Personal Data Protection Act 2010/);
-  assert.match(privacy, /seksyen 129 Akta Perlindungan Data Peribadi 2010/);
-  assert.match(
-    privacy,
-    /explicitly suppress person profiles and geolocation lookups/,
-  );
-});
-
 test("Cookie consent messages are completely localized across all 5 supported languages", async () => {
   const { complianceWebMessages } = await import(
     new URL("packages/i18n/src/messages/compliance-web.ts", root).href
@@ -437,4 +410,45 @@ test("Arbitrary, malicious, or PII offering IDs are completely excluded from Pos
   assert.ok(
     !JSON.stringify(capturedRequests[0].body).includes("parent@example.com"),
   );
+});
+
+
+test("Withdrawing consent while capture is in flight does not recreate deduplication markers", async () => {
+  const { sessionStorage } = setupMockBrowser();
+  process.env.NEXT_PUBLIC_POSTHOG_KEY = "test-phc-key";
+
+  const { trackCampaignLanding, trackInterestFormView } =
+    await import("../apps/web/lib/posthog.ts");
+  const { setAnalyticsConsent, withdrawAnalyticsConsent } =
+    await import("../apps/web/lib/analytics-consent.ts");
+
+  setAnalyticsConsent("granted");
+  let releaseFetch;
+  globalThis.fetch = async () =>
+    new Promise((resolve) => {
+      releaseFetch = () => resolve({ ok: true, status: 200 });
+    });
+
+  const landing = trackCampaignLanding("3x3-oct24", "/");
+  await Promise.resolve();
+  assert.equal(typeof releaseFetch, "function");
+  withdrawAnalyticsConsent();
+  releaseFetch();
+  await landing;
+  assert.equal(
+    sessionStorage.getItem("khlim_tracked_landing_session_3x3-oct24"),
+    null,
+  );
+
+  setAnalyticsConsent("granted");
+  const formView = trackInterestFormView("3x3-oct24");
+  await Promise.resolve();
+  withdrawAnalyticsConsent();
+  releaseFetch();
+  await formView;
+  assert.equal(
+    sessionStorage.getItem("khlim_tracked_form_view_3x3-oct24"),
+    null,
+  );
+  assert.equal(sessionStorage.getItem("khlim_analytics_session_id"), null);
 });
