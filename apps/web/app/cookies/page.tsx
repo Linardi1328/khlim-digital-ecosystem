@@ -4,16 +4,18 @@ import {
   LegalDocument,
   type LegalSection,
 } from "../../components/legal/legal-document";
+import { AnalyticsPreferencesControl } from "../../components/legal/analytics-preferences-control";
 
-const EFFECTIVE_DATE = "11 September 2026";
+const EFFECTIVE_DATE = "11 October 2026";
 
 export default function CookiePolicyPage() {
   const englishSections: LegalSection[] = [
     {
       title: "1. Current cookie position",
       paragraphs: [
-        "The current KHLIM web build is designed without advertising pixels, behavioural advertising cookies, Google Analytics, Meta Pixel, Hotjar, Mixpanel or similar non-essential marketing analytics. KHLIM therefore does not currently display a cookie-consent banner merely for the sake of showing one.",
-        "Authentication/session mechanisms, security controls and local interface preferences may still use cookies or browser storage where they are necessary to provide the feature you request.",
+        "KHLIM uses strictly necessary browser storage and cookies to maintain authenticated sessions, secure forms, and remember interface preferences like language choice.",
+        "For the 24 October 2026 3x3 Basketball event campaign, KHLIM also provides an optional, privacy-focused analytics integration powered by PostHog (US Cloud, Project ID 652783) to measure campaign visitor journeys. This tracking is off by default and only operates with your explicit consent.",
+        "No advertising pixels, cross-site marketing trackers, or third-party behavioral ad cookies are deployed.",
       ],
     },
     {
@@ -35,16 +37,18 @@ export default function CookiePolicyPage() {
       ],
     },
     {
-      title: "5. When consent controls will be added",
+      title: "5. Campaign analytics and opt-in consent controls",
       paragraphs: [
-        "KHLIM must introduce an appropriate consent/preferences mechanism before intentionally enabling non-essential analytics, advertising pixels, cross-site marketing trackers or third-party embeds that require prior consent in a relevant jurisdiction. Non-essential tracking should default to off until the required choice is obtained, and users should be able to change that choice later.",
-        "If the service begins targeting or materially monitoring users in jurisdictions with stricter cookie/ePrivacy rules, the consent implementation must be reassessed for those users before the relevant tracking is enabled.",
+        "Analytics tracking for the 24 Oct 3x3 campaign is strictly opt-in and off by default. PostHog client configuration disables autocapture, session recordings, heatmaps, and automatic identification, and explicitly suppresses person profiles and geolocation lookups. Events record only minimal, non-identifying campaign tokens and clean route paths without transmitting full URLs or raw query strings. Analytics events never collect or transmit guardian or child names, phone numbers, email addresses, or free-text form contents.",
+        "Data is processed in PostHog US Cloud subject to privacy assessment and PDPA cross-border safeguards. You may change or withdraw your choice at any time using the preferences control below or the consent banner.",
       ],
     },
     {
-      title: "6. Your choices",
+      title: "6. Your choices and consent preferences",
       paragraphs: [
-        "You can use browser controls to block or delete cookies and site storage. Doing so may sign you out or stop essential features from working. Because the current build does not intentionally use non-essential marketing cookies, there is no separate marketing-cookie toggle at this time.",
+        "You can accept or decline campaign analytics, or withdraw previously granted consent at any time. When consent is withdrawn, all client-side tracking immediately ceases and stored anonymous identifiers are deleted.",
+        <AnalyticsPreferencesControl key="pref-en" />,
+        "You can also use browser controls to block or delete cookies and site storage at any time.",
       ],
     },
     {
@@ -63,8 +67,9 @@ export default function CookiePolicyPage() {
     {
       title: "1. Kedudukan kuki semasa",
       paragraphs: [
-        "Binaan web KHLIM semasa direka tanpa piksel iklan, kuki pengiklanan tingkah laku, Google Analytics, Meta Pixel, Hotjar, Mixpanel atau analitik pemasaran tidak perlu yang serupa. Oleh itu KHLIM pada masa ini tidak memaparkan banner persetujuan kuki semata-mata untuk mempunyai banner.",
-        "Mekanisme pengesahan/sesi, kawalan keselamatan dan pilihan antara muka tempatan masih boleh menggunakan kuki atau storan pelayar jika diperlukan untuk menyediakan ciri yang anda minta.",
+        "KHLIM menggunakan storan pelayar dan kuki yang benar-benar diperlukan untuk mengekalkan sesi berautentikasi, melindungi borang dan mengingati pilihan antara muka seperti bahasa.",
+        "Bagi kempen acara Bola Keranjang 3x3 24 Oktober 2026, KHLIM juga menyediakan integrasi analitik pilihan yang mementingkan privasi menggunakan PostHog (US Cloud, ID Projek 652783) untuk mengukur perjalanan pengunjung kempen. Penjejakan ini dimatikan secara lalai dan hanya beroperasi dengan persetujuan jelas anda.",
+        "Tiada piksel iklan, penjejak pemasaran rentas laman atau kuki iklan tingkah laku pihak ketiga yang dipasang.",
       ],
     },
     {
@@ -86,16 +91,18 @@ export default function CookiePolicyPage() {
       ],
     },
     {
-      title: "5. Bila kawalan persetujuan akan ditambah",
+      title: "5. Analitik kempen dan kawalan persetujuan pilihan",
       paragraphs: [
-        "KHLIM hendaklah memperkenalkan mekanisme persetujuan/pilihan yang sesuai sebelum sengaja mengaktifkan analitik tidak perlu, piksel iklan, penjejak pemasaran rentas laman atau benaman pihak ketiga yang memerlukan persetujuan awal dalam bidang kuasa berkaitan. Penjejakan tidak perlu hendaklah dimatikan secara lalai sehingga pilihan yang diperlukan diperoleh, dan pengguna hendaklah boleh mengubah pilihan kemudian.",
-        "Jika perkhidmatan mula menyasarkan atau memantau pengguna secara material dalam bidang kuasa dengan peraturan kuki/ePrivasi yang lebih ketat, pelaksanaan persetujuan hendaklah dinilai semula bagi pengguna tersebut sebelum penjejakan berkaitan diaktifkan.",
+        "Penjejakan analitik bagi kempen 3x3 24 Okt adalah berasaskan persetujuan pilihan dan dimatikan secara lalai. Konfigurasi klien PostHog mematikan tangkapan automatik (autocapture), rakaman sesi, peta haba dan pengenalan automatik, serta menyekat penciptaan profil peribadi dan carian geolokasi. Acara analitik hanya merekodkan token kempen minimum yang tidak mengenal pasti dan laluan laman bersih tanpa menghantar URL penuh atau parameter pertanyaan mentah. Ia tidak sekali-kali mengumpul atau menghantar nama penjaga atau anak, nombor telefon, alamat e-mel atau kandungan teks borang.",
+        "Data diproses di PostHog US Cloud tertakluk kepada penilaian privasi dan perlindungan rentas sempadan PDPA. Anda boleh mengubah atau menarik balik pilihan anda pada bila-bila masa menggunakan kawalan pilihan di bawah atau banner persetujuan.",
       ],
     },
     {
-      title: "6. Pilihan anda",
+      title: "6. Pilihan anda dan keutamaan persetujuan",
       paragraphs: [
-        "Anda boleh menggunakan kawalan pelayar untuk menyekat atau memadam kuki dan storan laman. Tindakan ini boleh melog keluar anda atau menghentikan ciri penting. Oleh sebab binaan semasa tidak sengaja menggunakan kuki pemasaran tidak perlu, tiada suis kuki pemasaran berasingan pada masa ini.",
+        "Anda boleh menerima atau menolak analitik kempen, atau menarik balik persetujuan yang diberikan sebelum ini pada bila-bila masa. Apabila persetujuan ditarik balik, semua penjejakan klien berhenti serta-merta dan pengenal tanpa nama dipadamkan.",
+        <AnalyticsPreferencesControl key="pref-ms" />,
+        "Anda juga boleh menggunakan kawalan pelayar untuk menyekat atau memadam kuki dan storan laman pada bila-bila masa.",
       ],
     },
     {

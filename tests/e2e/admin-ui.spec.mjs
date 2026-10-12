@@ -18,6 +18,7 @@ const adminRoutes = [
   "/staff",
   "/audit",
   "/settings",
+  "/insights/campaigns",
 ];
 
 async function expectHealthyAdminDocument(page, path) {
@@ -186,4 +187,106 @@ test("payments UI never renders KHLIM-owned raw card credential fields", async (
   await expect(page.locator('input[name*="card" i]')).toHaveCount(0);
   await expect(page.locator('input[name*="cvv" i]')).toHaveCount(0);
   await expect(page.locator('input[name*="cvc" i]')).toHaveCount(0);
+});
+
+for (const width of [375, 390]) {
+  test(`3x3 Campaign conversion dashboard renders cleanly at ${width}px without horizontal overflow`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto("/insights/campaigns", { waitUntil: "domcontentloaded" });
+
+    await expect(
+      page.getByRole("heading", { name: "3x3 Campaign" }),
+    ).toBeVisible();
+    await expect(page.getByText("3x3-oct24").first()).toBeVisible();
+    await expect(page.getByText("MYT (UTC+8)").first()).toBeVisible();
+
+    const overflow = await page.evaluate(() => {
+      const root = document.documentElement;
+      return root.scrollWidth > root.clientWidth + 2;
+    });
+    expect(
+      overflow,
+      `Horizontal overflow detected on /insights/campaigns at ${width}px`,
+    ).toBe(false);
+
+    // Date presets
+    await expect(
+      page.getByRole("button", { name: "24 Oct 2026 (Event Day)" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Campaign Window (Aug–Oct)" }),
+    ).toBeVisible();
+
+    // Funnel & Notice
+    await expect(
+      page.getByText("Attribution & Measurement Notice:"),
+    ).toBeVisible();
+    await expect(
+      page.locator('a[href="/leads?source=3x3-oct24"]').first(),
+    ).toBeVisible();
+  });
+}
+
+test("3x3 Campaign dashboard links directly to Leads Inbox with 3x3-oct24 pre-filter", async ({
+  page,
+}) => {
+  await page.goto("/insights/campaigns", { waitUntil: "domcontentloaded" });
+  const openLeadsLink = page
+    .locator('a[href="/leads?source=3x3-oct24"]')
+    .first();
+  await expect(openLeadsLink).toBeVisible();
+
+  await openLeadsLink.click();
+  await expect(page).toHaveURL(/\/leads\?source=3x3-oct24/);
+});
+
+test("3x3 campaign analytics rejects an ineligible demo work view", async ({
+  page,
+}) => {
+  await page.goto("/insights/campaigns", { waitUntil: "domcontentloaded" });
+  await expect(
+    page.getByRole("heading", { name: "3x3 Campaign" }),
+  ).toBeVisible();
+
+  let campaignRequests = 0;
+  page.on("request", (request) => {
+    if (request.url().includes("/admin/academy/campaigns/analytics")) {
+      campaignRequests += 1;
+    }
+  });
+
+  await page.getByRole("button", { name: "Switch active work view" }).click();
+  await page.getByRole("menuitemradio", { name: "EVENT STAFF" }).click();
+  await expect(page.getByText("Restricted Access")).toBeVisible();
+  expect(campaignRequests).toBe(0);
+});
+
+test("3x3 demo campaign lead metrics respect the selected MYT acquisition window", async ({
+  page,
+}) => {
+  await page.goto("/insights/campaigns", { waitUntil: "domcontentloaded" });
+  const confirmedLeads = page
+    .getByRole("region", { name: "Campaign Overview Metrics" })
+    .locator(":scope > div")
+    .first();
+
+  async function applyDates(from, to) {
+    await page.locator("#campaign-start-date").fill(from);
+    await page.locator("#campaign-end-date").fill(to);
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
+  }
+
+  // Fixed campaign fixtures remain within the window even after October 2026.
+  await applyDates("2026-10-01", "2026-10-31");
+  await expect(confirmedLeads.getByText("3", { exact: true })).toBeVisible();
+
+  // The event day includes the two event-acquired demo leads.
+  await applyDates("2026-10-24", "2026-10-24");
+  await expect(confirmedLeads.getByText("2", { exact: true })).toBeVisible();
+
+  // A MYT window between acquisitions includes no campaign demo leads.
+  await applyDates("2026-10-20", "2026-10-23");
+  await expect(confirmedLeads.getByText("0", { exact: true })).toBeVisible();
 });

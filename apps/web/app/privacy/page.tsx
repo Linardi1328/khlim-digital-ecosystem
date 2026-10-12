@@ -6,7 +6,7 @@ import {
 } from "../../components/legal/legal-document";
 import { getPublicBusinessDetails } from "../../lib/business-details";
 
-const EFFECTIVE_DATE = "11 September 2026";
+const EFFECTIVE_DATE = "11 October 2026";
 
 export default function PrivacyPage() {
   const business = getPublicBusinessDetails();
@@ -74,14 +74,14 @@ export default function PrivacyPage() {
     {
       title: "6. Who may receive the data",
       paragraphs: [
-        "Access is limited to KHLIM personnel and service providers who need the information for the purposes above. Depending on the feature used, processors may include Supabase for authentication/database services, Billplz for payment processing, hosting/infrastructure providers and Sentry for error monitoring where enabled. We may also disclose information where required by law or to protect legal rights and safety.",
-        "We do not sell personal data and this build does not include advertising pixels or behavioural advertising analytics.",
+        "Access is limited to KHLIM personnel and service providers who need the information for the purposes above. Depending on the feature used, processors may include Supabase for authentication/database services, Billplz for payment processing, hosting/infrastructure providers, Sentry for technical error monitoring, and PostHog (US Cloud) for opt-in 24 Oct 3x3 campaign analytics where explicit consent is granted. Analytics events never transmit guardian or child names, phone numbers, emails, full URLs, or form contents, and explicitly suppress person profiles and geolocation lookups. We may also disclose information where required by law or to protect legal rights and safety.",
+        "We do not sell personal data and this build does not include advertising pixels or cross-site behavioural advertising trackers.",
       ],
     },
     {
       title: "7. Transfers outside Malaysia",
       paragraphs: [
-        "Some technology providers may process or store data outside Malaysia. Where a cross-border transfer occurs, KHLIM must document and rely on an applicable condition under section 129 of the Personal Data Protection Act 2010 and apply reasonable contractual, technical and organisational safeguards appropriate to the transfer.",
+        "Some technology providers may process or store data outside Malaysia, including cloud services operated by Supabase and PostHog (US Cloud). Where a cross-border transfer occurs, KHLIM documents and relies on applicable conditions under section 129 of the Personal Data Protection Act 2010 (such as consent or contract necessity) and applies reasonable contractual, technical and organisational safeguards appropriate to the transfer.",
       ],
     },
     {
@@ -106,11 +106,11 @@ export default function PrivacyPage() {
       title: "11. Cookies and similar technologies",
       paragraphs: [
         <>
-          See the <Link href="/cookies">Cookie Policy</Link>. The current build
-          does not intentionally deploy advertising pixels or non-essential
-          marketing analytics. If that changes, the relevant tracking must not
-          be enabled until the required notice and consent controls are in
-          place.
+          See the <Link href="/cookies">Cookie Policy</Link>. Non-essential
+          analytics for the 24 Oct 3x3 campaign (PostHog US Cloud) are strictly
+          opt-in and require your prior consent. You can change your preferences
+          or withdraw consent at any time via the Cookie Policy page or consent
+          banner.
         </>,
       ],
     },
@@ -182,14 +182,14 @@ export default function PrivacyPage() {
     {
       title: "6. Pihak yang mungkin menerima data",
       paragraphs: [
-        "Akses dihadkan kepada kakitangan KHLIM dan penyedia perkhidmatan yang memerlukan maklumat untuk tujuan di atas. Bergantung pada ciri yang digunakan, pemproses mungkin termasuk Supabase bagi pengesahan/pangkalan data, Billplz bagi pembayaran, penyedia pengehosan/infrastruktur dan Sentry bagi pemantauan ralat jika diaktifkan. Kami juga boleh mendedahkan maklumat jika dikehendaki undang-undang atau untuk melindungi hak undang-undang dan keselamatan.",
-        "Kami tidak menjual data peribadi dan binaan semasa tidak mengandungi piksel pengiklanan atau analitik pengiklanan berasaskan tingkah laku.",
+        "Akses dihadkan kepada kakitangan KHLIM dan penyedia perkhidmatan yang memerlukan maklumat untuk tujuan di atas. Bergantung pada ciri yang digunakan, pemproses mungkin termasuk Supabase bagi pengesahan/pangkalan data, Billplz bagi pembayaran, penyedia pengehosan/infrastruktur, Sentry bagi pemantauan ralat teknikal, dan PostHog (US Cloud) bagi analitik kempen 3x3 24 Okt dengan persetujuan pilihan. Acara analitik tidak sekali-kali menghantar nama penjaga atau anak, nombor telefon, e-mel, URL penuh atau kandungan borang, serta menyekat profil peribadi dan carian geolokasi. Kami juga boleh mendedahkan maklumat jika dikehendaki undang-undang atau untuk melindungi hak undang-undang dan keselamatan.",
+        "Kami tidak menjual data peribadi dan binaan semasa tidak mengandungi piksel pengiklanan atau penjejak pengiklanan tingkah laku rentas laman.",
       ],
     },
     {
       title: "7. Pemindahan data ke luar Malaysia",
       paragraphs: [
-        "Sesetengah penyedia teknologi mungkin memproses atau menyimpan data di luar Malaysia. Jika pemindahan rentas sempadan berlaku, KHLIM hendaklah mendokumenkan dan bergantung pada syarat yang terpakai di bawah seksyen 129 Akta Perlindungan Data Peribadi 2010 serta menggunakan perlindungan kontrak, teknikal dan organisasi yang munasabah.",
+        "Sesetengah penyedia teknologi mungkin memproses atau menyimpan data di luar Malaysia, termasuk perkhidmatan awan yang dikendalikan oleh Supabase dan PostHog (US Cloud). Jika pemindahan rentas sempadan berlaku, KHLIM mendokumenkan dan bergantung pada syarat yang terpakai di bawah seksyen 129 Akta Perlindungan Data Peribadi 2010 (seperti persetujuan atau keperluan kontrak) serta menggunakan perlindungan kontrak, teknikal dan organisasi yang munasabah.",
       ],
     },
     {
@@ -214,11 +214,11 @@ export default function PrivacyPage() {
       title: "11. Kuki dan teknologi serupa",
       paragraphs: [
         <>
-          Lihat <Link href="/cookies">Dasar Kuki</Link>. Binaan semasa tidak
-          sengaja menggunakan piksel iklan atau analitik pemasaran yang tidak
-          perlu. Jika keadaan ini berubah, penjejakan berkaitan tidak boleh
-          diaktifkan sehingga notis dan kawalan persetujuan yang diperlukan
-          tersedia.
+          Lihat <Link href="/cookies">Dasar Kuki</Link>. Analitik bukan penting
+          bagi kempen 3x3 24 Okt (PostHog US Cloud) adalah berdasarkan
+          persetujuan pilihan dan memerlukan kebenaran awal anda. Anda boleh
+          mengubah pilihan atau menarik balik persetujuan pada bila-bila masa
+          melalui halaman Dasar Kuki atau banner persetujuan.
         </>,
       ],
     },

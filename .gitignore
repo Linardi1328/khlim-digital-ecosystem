@@ -59,6 +59,7 @@ Thumbs.db
 
 # Test artifacts
 playwright-report/
+playwright-admin-report/
 test-results/
 
 # Local database/emulator artifacts

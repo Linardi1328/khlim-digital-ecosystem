@@ -1474,6 +1474,132 @@
         ]
       }
     },
+    "/v1/admin/academy/campaigns/analytics": {
+      "get": {
+        "operationId": "AcademyCampaignsAdminController_getCampaignAnalytics",
+        "parameters": [
+          {
+            "name": "campaign",
+            "required": false,
+            "in": "query",
+            "description": "Campaign source token (default: 3x3-oct24)",
+            "schema": {
+              "maxLength": 64,
+              "example": "3x3-oct24",
+              "type": "string"
+            }
+          },
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive acquisition start date (YYYY-MM-DD in Asia/Kuala_Lumpur)",
+            "schema": {
+              "example": "2026-10-24",
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive acquisition end date (YYYY-MM-DD in Asia/Kuala_Lumpur)",
+            "schema": {
+              "example": "2026-10-24",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignAnalyticsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Get role-gated, authoritative campaign conversion metrics and PostHog traffic aggregates",
+        "tags": [
+          "admin-academy"
+        ]
+      }
+    },
+    "/v1/admin/academy/campaigns/{campaignKey}/analytics": {
+      "get": {
+        "operationId": "AcademyCampaignsAdminController_getSpecificCampaignAnalytics",
+        "parameters": [
+          {
+            "name": "campaignKey",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "campaign",
+            "required": false,
+            "in": "query",
+            "description": "Campaign source token (default: 3x3-oct24)",
+            "schema": {
+              "maxLength": 64,
+              "example": "3x3-oct24",
+              "type": "string"
+            }
+          },
+          {
+            "name": "startDate",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive acquisition start date (YYYY-MM-DD in Asia/Kuala_Lumpur)",
+            "schema": {
+              "example": "2026-10-24",
+              "type": "string"
+            }
+          },
+          {
+            "name": "endDate",
+            "required": false,
+            "in": "query",
+            "description": "Inclusive acquisition end date (YYYY-MM-DD in Asia/Kuala_Lumpur)",
+            "schema": {
+              "example": "2026-10-24",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CampaignAnalyticsResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Get role-gated, authoritative campaign conversion metrics for a specific campaign key",
+        "tags": [
+          "admin-academy"
+        ]
+      }
+    },
     "/v1/athletes/{athleteId}/memberships/{membershipId}/billing": {
       "get": {
         "operationId": "BillingController_getMembershipBilling",
@@ -2777,6 +2903,205 @@
             "description": "ISO timestamp of updatedAt when the record was viewed, for concurrency conflict detection"
           }
         }
+      },
+      "CampaignPeriodDto": {
+        "type": "object",
+        "properties": {
+          "startDate": {
+            "type": "string",
+            "example": "2026-10-24",
+            "nullable": true,
+            "description": "Start date in Asia/Kuala_Lumpur"
+          },
+          "endDate": {
+            "type": "string",
+            "example": "2026-10-24",
+            "nullable": true,
+            "description": "End date in Asia/Kuala_Lumpur"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "Asia/Kuala_Lumpur"
+          },
+          "fromUtc": {
+            "type": "string",
+            "example": "2026-10-23T16:00:00.000Z",
+            "nullable": true,
+            "description": "UTC lower boundary timestamp"
+          },
+          "toUtc": {
+            "type": "string",
+            "example": "2026-10-24T15:59:59.999Z",
+            "nullable": true,
+            "description": "UTC upper boundary timestamp"
+          }
+        },
+        "required": [
+          "timezone"
+        ]
+      },
+      "CampaignStatusCountsDto": {
+        "type": "object",
+        "properties": {
+          "NEW": {
+            "type": "number",
+            "example": 8,
+            "description": "Count of leads in NEW status"
+          },
+          "CONTACTED": {
+            "type": "number",
+            "example": 4,
+            "description": "Count of leads in CONTACTED status"
+          },
+          "QUALIFIED": {
+            "type": "number",
+            "example": 3,
+            "description": "Count of leads in QUALIFIED status"
+          },
+          "ENROLLED": {
+            "type": "number",
+            "example": 2,
+            "description": "Count of leads in ENROLLED status"
+          },
+          "CLOSED": {
+            "type": "number",
+            "example": 1,
+            "description": "Count of leads in CLOSED status"
+          }
+        },
+        "required": [
+          "NEW",
+          "CONTACTED",
+          "QUALIFIED",
+          "ENROLLED",
+          "CLOSED"
+        ]
+      },
+      "CampaignLeadMetricsDto": {
+        "type": "object",
+        "properties": {
+          "totalLeads": {
+            "type": "number",
+            "example": 18,
+            "description": "Total authoritative database leads recorded for this campaign and period"
+          },
+          "byStatus": {
+            "$ref": "#/components/schemas/CampaignStatusCountsDto"
+          },
+          "enrolledCount": {
+            "type": "number",
+            "example": 2,
+            "description": "Current enrolled leads (leads with status ENROLLED)"
+          },
+          "enrolledRate": {
+            "type": "number",
+            "example": 11.11,
+            "description": "Current lead-to-enrolled conversion percentage (ENROLLED / totalLeads * 100)"
+          }
+        },
+        "required": [
+          "totalLeads",
+          "byStatus",
+          "enrolledCount",
+          "enrolledRate"
+        ]
+      },
+      "CampaignTrafficMetricsDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "AVAILABLE",
+              "CONFIG_REQUIRED",
+              "ERROR"
+            ],
+            "example": "AVAILABLE",
+            "description": "PostHog analytics query availability status"
+          },
+          "observableLandingSessions": {
+            "type": "number",
+            "nullable": true,
+            "example": 45,
+            "description": "Observable campaign landing sessions (opt-in visitors only)"
+          },
+          "interestFormEngagement": {
+            "type": "number",
+            "nullable": true,
+            "example": 22,
+            "description": "Interest form engagement / views (opt-in visitors only)"
+          },
+          "clientSubmitSuccesses": {
+            "type": "number",
+            "nullable": true,
+            "example": 10,
+            "description": "Client-side successful submission receipts (opt-in visitors only)"
+          },
+          "dataCoverage": {
+            "type": "string",
+            "example": "Consented sessions only (opt-in analytics; US Cloud Project 652783)",
+            "description": "Coverage scope and privacy boundaries of traffic data"
+          },
+          "lastRefreshedAt": {
+            "type": "string",
+            "example": "2026-10-24T12:00:00.000Z"
+          },
+          "note": {
+            "type": "string",
+            "example": "PostHog traffic represents opted-in web sessions only; it is not a direct measure of physical QR code scans.",
+            "description": "Traffic attribution notice"
+          },
+          "reason": {
+            "type": "string",
+            "example": "Server-side PostHog query API key not configured",
+            "description": "Diagnostic reason when status is CONFIG_REQUIRED or ERROR"
+          }
+        },
+        "required": [
+          "status",
+          "dataCoverage",
+          "lastRefreshedAt",
+          "note"
+        ]
+      },
+      "CampaignAnalyticsResponseDto": {
+        "type": "object",
+        "properties": {
+          "campaign": {
+            "type": "string",
+            "example": "3x3-oct24"
+          },
+          "organizationId": {
+            "type": "string",
+            "example": "00000000-0000-4000-8000-000000000001"
+          },
+          "asOf": {
+            "type": "string",
+            "example": "2026-10-24T12:00:00.000Z"
+          },
+          "period": {
+            "$ref": "#/components/schemas/CampaignPeriodDto"
+          },
+          "leads": {
+            "$ref": "#/components/schemas/CampaignLeadMetricsDto"
+          },
+          "traffic": {
+            "$ref": "#/components/schemas/CampaignTrafficMetricsDto"
+          },
+          "methodologyNote": {
+            "type": "string",
+            "example": "Database records are authoritative for all confirmed registrations. PostHog traffic counts include only visitors who explicitly opted into analytics; non-consenting visitors also generate valid database leads."
+          }
+        },
+        "required": [
+          "campaign",
+          "organizationId",
+          "asOf",
+          "period",
+          "leads",
+          "traffic",
+          "methodologyNote"
+        ]
       },
       "PrepareMembershipCheckoutDto": {
         "type": "object",
