@@ -38,6 +38,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.KHLIM_STAGING_SUPABASE_ANON_KEY }}
           KHLIM_STAGING_ADMIN_AAL2_TOKEN: ${{ secrets.KHLIM_STAGING_ADMIN_AAL2_TOKEN }}
           KHLIM_STAGING_USER_AAL1_TOKEN: ${{ secrets.KHLIM_STAGING_USER_AAL1_TOKEN }}
+          KHLIM_STAGING_DATABASE_URL: ${{ secrets.KHLIM_STAGING_DATABASE_URL }}
           KHLIM_STAGING_TARGET_BRANCH: ${{ inputs.target_branch }}
           KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: ${{ inputs.active_window_authorized && '1' || '0' }}
         run: node scripts/verify-hosted-staging-acceptance.mjs

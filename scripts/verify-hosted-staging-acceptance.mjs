@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 
 export const STAGING_SUPABASE_PROJECT_ID = "qxsjxcbfhxbvxigghhlq";
 export const DEDICATED_STAGING_BRANCH = "staging/ric-65-academy-soft-launch";
+export const APPROVED_STAGING_TEST_PHONE = "+60120000000";
 
 export const REQUIRED_STAGING_ENV_VARS = [
   "KHLIM_STAGING_API_URL",
@@ -10,13 +11,21 @@ export const REQUIRED_STAGING_ENV_VARS = [
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
 ];
 
+const DISALLOWED_PRODUCTION_HOSTS = new Set([
+  "khlim.com",
+  "www.khlim.com",
+  "api.khlim.com",
+  "admin.khlim.com",
+  "app.khlim.com",
+]);
+
 export const NON_DESTRUCTIVE_VALIDATION_CASES = [
   {
     label: "Missing guardian consent",
     payload: {
       guardianName: "Synthetic Parent Valid",
       email: "valid@synthetic.khlim.test",
-      phone: "+60123456789",
+      phone: APPROVED_STAGING_TEST_PHONE,
       childAge: 10,
       consent: false,
       source: "3x3-oct24",
@@ -28,7 +37,7 @@ export const NON_DESTRUCTIVE_VALIDATION_CASES = [
     payload: {
       guardianName: "Synthetic Parent Valid",
       email: "parent' OR '1'='1@synthetic.khlim.test",
-      phone: "+60123456789",
+      phone: APPROVED_STAGING_TEST_PHONE,
       childAge: 10,
       consent: true,
       source: "3x3-oct24",
@@ -52,7 +61,7 @@ export const NON_DESTRUCTIVE_VALIDATION_CASES = [
     payload: {
       guardianName: "Synthetic Parent Valid",
       email: "valid@synthetic.khlim.test",
-      phone: "+60123456789",
+      phone: APPROVED_STAGING_TEST_PHONE,
       childAge: 99,
       consent: true,
       source: "3x3-oct24",
@@ -64,7 +73,7 @@ export const NON_DESTRUCTIVE_VALIDATION_CASES = [
     payload: {
       guardianName: "Synthetic Parent Valid",
       email: "valid@synthetic.khlim.test",
-      phone: "+60123456789",
+      phone: APPROVED_STAGING_TEST_PHONE,
       childAge: 10,
       consent: true,
       source: "3x3-oct24",
@@ -73,6 +82,22 @@ export const NON_DESTRUCTIVE_VALIDATION_CASES = [
     expectedStatus: 400,
   },
 ];
+
+export function sanitizeErrorMessage(error) {
+  const raw = error instanceof Error ? error.message : String(error);
+  return raw
+    .replace(/Bearer\s+[A-Za-z0-9_.-]+/gi, "Bearer [redacted]")
+    .replace(
+      /ey[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]*/g,
+      "[jwt-redacted]",
+    )
+    .replace(
+      /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,
+      "[email-redacted]",
+    )
+    .replace(/\+?60\d{8,10}/g, "[phone-redacted]")
+    .replace(/(?:password|secret|token|apikey|key)=[^&\s]+/gi, "$1=[redacted]");
+}
 
 export function maskEmail(email) {
   if (!email || typeof email !== "string") return "***";
@@ -105,60 +130,102 @@ export function validateSupabaseTarget(supabaseUrlString) {
   const url = new URL(supabaseUrlString.trim());
   if (url.protocol !== "https:") {
     throw new Error(
-      `NEXT_PUBLIC_SUPABASE_URL must use HTTPS for hosted staging acceptance: received ${url.protocol}`,
+      `STAGING_TARGET_VIOLATION: NEXT_PUBLIC_SUPABASE_URL must use HTTPS: received ${url.protocol}`,
     );
   }
-  if (!url.hostname.includes(STAGING_SUPABASE_PROJECT_ID)) {
+  if (url.port && url.port !== "443") {
     throw new Error(
-      `STAGING_TARGET_VIOLATION: Refusing to run. Target Supabase project must be staging project '${STAGING_SUPABASE_PROJECT_ID}', received: ${url.hostname}`,
+      `STAGING_TARGET_VIOLATION: NEXT_PUBLIC_SUPABASE_URL must use standard HTTPS port 443: received ${url.port}`,
     );
   }
-  if (/production|replace-with|example|placeholder/i.test(url.hostname)) {
+  const expectedHost = `${STAGING_SUPABASE_PROJECT_ID}.supabase.co`;
+  if (url.hostname.toLowerCase() !== expectedHost) {
     throw new Error(
-      `STAGING_TARGET_VIOLATION: Refusing to run against production or placeholder Supabase project: ${url.hostname}`,
+      `STAGING_TARGET_VIOLATION: Target Supabase project must be exactly '${expectedHost}', received: ${url.hostname}`,
     );
   }
   return url;
 }
 
-export function validateApiTarget(apiUrlString) {
+export function validateApiTarget(apiUrlString, allowlist = []) {
   if (!apiUrlString || typeof apiUrlString !== "string") {
     throw new Error("KHLIM_STAGING_API_URL must be provided as a string");
   }
   const url = new URL(apiUrlString.trim());
   if (url.protocol !== "https:") {
     throw new Error(
-      `KHLIM_STAGING_API_URL must use HTTPS for hosted staging acceptance: received ${url.protocol}`,
+      `STAGING_TARGET_VIOLATION: KHLIM_STAGING_API_URL must use HTTPS: received ${url.protocol}`,
     );
   }
-  if (["localhost", "127.0.0.1"].includes(url.hostname)) {
+  if (url.port && url.port !== "443") {
     throw new Error(
-      `KHLIM_STAGING_API_URL must point to a deployed hosted staging service, not localhost: ${url.hostname}`,
+      `STAGING_TARGET_VIOLATION: KHLIM_STAGING_API_URL must use standard port 443: received ${url.port}`,
     );
   }
-  const disallowedProductionHosts = [
-    "khlim.com",
-    "www.khlim.com",
-    "api.khlim.com",
-    "admin.khlim.com",
-    "app.khlim.com",
-  ];
-  if (disallowedProductionHosts.includes(url.hostname.toLowerCase())) {
+  if (url.pathname !== "" && url.pathname !== "/") {
     throw new Error(
-      `STAGING_TARGET_VIOLATION: Refusing to run against production API: ${url.hostname}`,
+      `STAGING_TARGET_VIOLATION: KHLIM_STAGING_API_URL must be origin-only without subpath: received ${url.pathname}`,
     );
   }
+
+  const hostname = url.hostname.toLowerCase();
+  if (["localhost", "127.0.0.1"].includes(hostname)) {
+    throw new Error(
+      `STAGING_TARGET_VIOLATION: KHLIM_STAGING_API_URL must point to a deployed hosted staging service, not localhost: ${hostname}`,
+    );
+  }
+
+  if (DISALLOWED_PRODUCTION_HOSTS.has(hostname)) {
+    throw new Error(
+      `STAGING_TARGET_VIOLATION: Refusing to run against production API: ${hostname}`,
+    );
+  }
+
+  // Explicit allowed host rules
+  const customAllowlist = Array.isArray(allowlist)
+    ? allowlist.map((h) => h.toLowerCase())
+    : [];
+
+  const isExactRenderStaging = hostname === "khlim-api-staging.onrender.com";
+  const isVercelStagingPreview =
+    hostname.endsWith(".vercel.app") &&
+    (hostname.includes("staging") || hostname.includes("khlim"));
+  const isInCustomAllowlist = customAllowlist.includes(hostname);
+
+  if (
+    !isExactRenderStaging &&
+    !isVercelStagingPreview &&
+    !isInCustomAllowlist
+  ) {
+    throw new Error(
+      `STAGING_TARGET_VIOLATION: Host ${hostname} is not an authorized KHLIM staging deployment origin`,
+    );
+  }
+
   return url;
+}
+
+export function validateTargetBranch(branch) {
+  if (!branch || typeof branch !== "string") {
+    throw new Error("Target branch must be specified");
+  }
+  const normalized = branch.trim().replace(/^refs\/heads\//, "");
+  if (normalized !== DEDICATED_STAGING_BRANCH) {
+    throw new Error(
+      `STAGING_TARGET_VIOLATION: Target branch must strictly be '${DEDICATED_STAGING_BRANCH}', received: ${branch}`,
+    );
+  }
+  return normalized;
 }
 
 export function generateSyntheticLead(
   uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+  testPhone = APPROVED_STAGING_TEST_PHONE,
 ) {
-  const randomDigits = Math.floor(1000000 + Math.random() * 9000000);
   return {
     guardianName: `Synthetic Parent ${uniqueSuffix}`,
     email: `staging-synth-${uniqueSuffix}@synthetic.khlim.test`,
-    phone: `+6012${randomDigits}`,
+    phone: testPhone,
     childAge: 10,
     consent: true,
     source: "3x3-oct24",
@@ -171,9 +238,15 @@ export async function fetchWithTimeout(url, init = {}, timeoutMs = 15000) {
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(url, {
+      redirect: "error", // Strictly reject any redirect to prevent bearer token leakage
       ...init,
       signal: controller.signal,
     });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error(`Fetch timed out after ${timeoutMs}ms for ${url}`);
+    }
+    throw err;
   } finally {
     clearTimeout(timer);
   }
@@ -182,8 +255,12 @@ export async function fetchWithTimeout(url, init = {}, timeoutMs = 15000) {
 export async function runHostedStagingAcceptance(env = process.env) {
   const results = {
     startedAt: new Date().toISOString(),
-    targetBranch: env.KHLIM_STAGING_TARGET_BRANCH || DEDICATED_STAGING_BRANCH,
+    acceptanceLayer: "HOSTED_API_AND_DATABASE_ACCEPTANCE",
+    browserUxRehearsalRequired: true,
+    targetBranch: null,
     supabaseProject: STAGING_SUPABASE_PROJECT_ID,
+    apiOrigin: null,
+    databaseIdentity: null,
     readiness: {},
     activeWindow: Boolean(env.KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED === "1"),
     validationCases: [],
@@ -191,6 +268,7 @@ export async function runHostedStagingAcceptance(env = process.env) {
     idempotencyReceipt: null,
     conflictReplay: null,
     adminRetrieval: null,
+    independentDbVerification: null,
     completedAt: null,
   };
 
@@ -202,8 +280,21 @@ export async function runHostedStagingAcceptance(env = process.env) {
     }
   }
 
+  // Target branch check
+  results.targetBranch = validateTargetBranch(
+    env.KHLIM_STAGING_TARGET_BRANCH || DEDICATED_STAGING_BRANCH,
+  );
+
+  // Exact Supabase project check
   const supabaseUrl = validateSupabaseTarget(env.NEXT_PUBLIC_SUPABASE_URL);
-  const apiUrl = validateApiTarget(env.KHLIM_STAGING_API_URL);
+
+  // Allowlist & API target check
+  const extraAllowlist = (env.KHLIM_STAGING_API_ALLOWLIST || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const apiUrl = validateApiTarget(env.KHLIM_STAGING_API_URL, extraAllowlist);
+  results.apiOrigin = apiUrl.origin;
 
   let webUrl = null;
   if (env.KHLIM_STAGING_WEB_URL?.trim()) {
@@ -213,7 +304,7 @@ export async function runHostedStagingAcceptance(env = process.env) {
     }
   }
 
-  // 2. Health & Readiness Verification (Non-mutating)
+  // 2. Health & Database Identity Verification Before Any POST
   const apiHealthUrl = new URL("/v1/health", apiUrl);
   const apiHealthRes = await fetchWithTimeout(apiHealthUrl);
   if (!apiHealthRes.ok) {
@@ -226,6 +317,40 @@ export async function runHostedStagingAcceptance(env = process.env) {
     throw new Error(
       "KHLIM staging API health check did not return { status: 'ok' }",
     );
+  }
+
+  // Database identity assertion from API health response
+  if (apiHealthJson?.database) {
+    if (apiHealthJson.database.status === "disconnected") {
+      throw new Error(
+        "STAGING_HEALTH_FAILURE: Deployed API reports database status as 'disconnected'",
+      );
+    }
+    if (
+      apiHealthJson.database.projectRef &&
+      apiHealthJson.database.projectRef !== STAGING_SUPABASE_PROJECT_ID
+    ) {
+      throw new Error(
+        `STAGING_TARGET_VIOLATION: Deployed API database is bound to project '${apiHealthJson.database.projectRef}', expected '${STAGING_SUPABASE_PROJECT_ID}'`,
+      );
+    }
+    results.databaseIdentity = {
+      status: apiHealthJson.database.status,
+      projectRefVerified:
+        apiHealthJson.database.projectRef === STAGING_SUPABASE_PROJECT_ID,
+    };
+  }
+
+  // Active mutation window strictly requires database identity confirmed to staging Supabase project
+  if (results.activeWindow) {
+    if (
+      !apiHealthJson?.database?.projectRef ||
+      apiHealthJson.database.projectRef !== STAGING_SUPABASE_PROJECT_ID
+    ) {
+      throw new Error(
+        `DATABASE_IDENTITY_MISMATCH: Active mutation window requires verified database binding to '${STAGING_SUPABASE_PROJECT_ID}', but API reported '${apiHealthJson?.database?.projectRef || "none"}'`,
+      );
+    }
   }
   results.readiness.apiHealth = "ok";
 
@@ -253,7 +378,7 @@ export async function runHostedStagingAcceptance(env = process.env) {
       event: "staging.hosted_acceptance.readiness_verified",
       targetBranch: results.targetBranch,
       supabaseProject: STAGING_SUPABASE_PROJECT_ID,
-      apiHost: apiUrl.host,
+      apiOrigin: results.apiOrigin,
       readiness: results.readiness,
     }),
   );
@@ -271,16 +396,31 @@ export async function runHostedStagingAcceptance(env = process.env) {
     return results;
   }
 
+  // 4. Mandatory Authentication Credentials for Active Staging Window
+  const adminAal2Token = env.KHLIM_STAGING_ADMIN_AAL2_TOKEN?.trim();
+  if (!adminAal2Token || /replace-with|placeholder/i.test(adminAal2Token)) {
+    throw new Error(
+      "MANDATORY_AUTH_MISSING: KHLIM_STAGING_ADMIN_AAL2_TOKEN is required to execute active staging acceptance. Test cannot pass without MFA AAL2 verification.",
+    );
+  }
+
+  const userAal1Token = env.KHLIM_STAGING_USER_AAL1_TOKEN?.trim();
+  if (!userAal1Token || /replace-with|placeholder/i.test(userAal1Token)) {
+    throw new Error(
+      "MANDATORY_AUTH_MISSING: KHLIM_STAGING_USER_AAL1_TOKEN is required to verify negative authorization (AAL1 rejection).",
+    );
+  }
+
   console.log(
     JSON.stringify({
       event: "staging.hosted_acceptance.active_window_started",
-      note: "Authorized active window confirmed. Executing hosted validation cases, synthetic lead creation, duplicate idempotency receipt, and MFA AAL2 retrieval.",
+      note: "Authorized active window confirmed. Mandatory auth tokens provided. Executing hosted validation cases, synthetic lead creation, duplicate idempotency receipt, and MFA AAL2 retrieval.",
     }),
   );
 
   const leadsEndpoint = new URL("/v1/academy/leads", apiUrl);
 
-  // 4. Non-destructive Input Validation / Injection-like Cases
+  // 5. Non-destructive Input Validation / Injection-like Cases
   for (const testCase of NON_DESTRUCTIVE_VALIDATION_CASES) {
     const res = await fetchWithTimeout(leadsEndpoint, {
       method: "POST",
@@ -302,8 +442,12 @@ export async function runHostedStagingAcceptance(env = process.env) {
     });
   }
 
-  // 5. Authorized Synthetic Lead Creation & Duplicate Idempotency Replay
-  const syntheticLead = generateSyntheticLead();
+  // 6. Authorized Synthetic Lead Creation & Duplicate Idempotency Replay
+  const syntheticLead = generateSyntheticLead(
+    undefined,
+    env.KHLIM_STAGING_TEST_PHONE?.trim() || APPROVED_STAGING_TEST_PHONE,
+  );
+
   console.log(
     JSON.stringify({
       event: "staging.hosted_acceptance.synthetic_lead_prepared",
@@ -316,7 +460,7 @@ export async function runHostedStagingAcceptance(env = process.env) {
     }),
   );
 
-  // 5a. Initial Submission (Expected HTTP 201)
+  // 6a. Initial Submission (Expected HTTP 201)
   const initialRes = await fetchWithTimeout(leadsEndpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -324,16 +468,17 @@ export async function runHostedStagingAcceptance(env = process.env) {
   });
 
   if (initialRes.status !== 201) {
-    const errText = await initialRes.text().catch(() => "");
+    const errJson = await initialRes.json().catch(() => ({}));
+    const errCode = errJson?.code || errJson?.statusCode || "UNEXPECTED_STATUS";
     throw new Error(
-      `Initial synthetic lead registration failed: expected HTTP 201, received HTTP ${initialRes.status} (${errText})`,
+      `Initial synthetic lead registration failed: expected HTTP 201, received HTTP ${initialRes.status} [code: ${errCode}]`,
     );
   }
 
-  const initialBody = await initialRes.json();
+  const initialBody = await initialRes.json().catch(() => ({}));
   if (!initialBody?.id || initialBody.status !== "RECEIVED") {
     throw new Error(
-      `Initial synthetic lead registration returned unexpected body structure: ${JSON.stringify(initialBody)}`,
+      `Initial synthetic lead registration returned unexpected body structure with missing id or status`,
     );
   }
   const leadId = initialBody.id;
@@ -344,7 +489,7 @@ export async function runHostedStagingAcceptance(env = process.env) {
     httpStatus: initialRes.status,
   };
 
-  // 5b. Duplicate Identical Submission (Idempotency Replay Receipt, Expected HTTP 201 with identical ID)
+  // 6b. Duplicate Identical Submission (Idempotency Replay Receipt, Expected HTTP 201 with identical ID)
   const duplicateRes = await fetchWithTimeout(leadsEndpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -357,10 +502,10 @@ export async function runHostedStagingAcceptance(env = process.env) {
     );
   }
 
-  const duplicateBody = await duplicateRes.json();
+  const duplicateBody = await duplicateRes.json().catch(() => ({}));
   if (duplicateBody?.id !== leadId || duplicateBody.status !== "RECEIVED") {
     throw new Error(
-      `Duplicate idempotency replay did not match original receipt ID ${leadId}: received ${duplicateBody?.id}`,
+      `Duplicate idempotency replay did not match original receipt ID`,
     );
   }
   results.idempotencyReceipt = {
@@ -370,7 +515,7 @@ export async function runHostedStagingAcceptance(env = process.env) {
     httpStatus: duplicateRes.status,
   };
 
-  // 5c. Conflicting Submission with Same Idempotency Key but Altered Payload (Expected HTTP 409)
+  // 6c. Conflicting Submission with Same Idempotency Key but Altered Payload (Expected HTTP 409)
   const conflictingPayload = {
     ...syntheticLead,
     childAge: 12, // altered payload
@@ -391,96 +536,143 @@ export async function runHostedStagingAcceptance(env = process.env) {
     rejectedAsExpected: true,
   };
 
-  // 6. Admin Lead Retrieval & MFA AAL2 Access Control
+  // 7. Mandatory Admin Lead Retrieval & MFA AAL2 Access Control
   const adminLeadsEndpoint = new URL("/v1/admin/academy/leads", apiUrl);
 
-  // 6a. Unauthenticated Access must be denied (Expected HTTP 401)
+  // 7a. Unauthenticated Access must be denied (Expected HTTP 401)
   const unauthRes = await fetchWithTimeout(adminLeadsEndpoint);
   if (unauthRes.status !== 401) {
     throw new Error(
-      `Unauthenticated Admin leads request was not rejected with 401: received HTTP ${unauthRes.status}`,
+      `AUTH_GATE_FAILURE: Unauthenticated Admin leads request was not rejected with 401: received HTTP ${unauthRes.status}`,
     );
   }
 
-  // 6b. AAL1 / Unassigned Role Access must be denied (Expected HTTP 403)
-  if (env.KHLIM_STAGING_USER_AAL1_TOKEN?.trim()) {
-    const aal1Res = await fetchWithTimeout(adminLeadsEndpoint, {
-      headers: {
-        Authorization: `Bearer ${env.KHLIM_STAGING_USER_AAL1_TOKEN.trim()}`,
-      },
-    });
-    if (aal1Res.status !== 403) {
-      throw new Error(
-        `AAL1 user token was not rejected with 403 Forbidden: received HTTP ${aal1Res.status}`,
-      );
-    }
+  // 7b. AAL1 / Unassigned Role Access must be denied (Expected HTTP 403)
+  const aal1Res = await fetchWithTimeout(adminLeadsEndpoint, {
+    headers: {
+      Authorization: `Bearer ${userAal1Token}`,
+    },
+  });
+  if (aal1Res.status !== 403) {
+    throw new Error(
+      `AUTH_GATE_FAILURE: AAL1 user token was not rejected with 403 Forbidden: received HTTP ${aal1Res.status}`,
+    );
   }
 
-  // 6c. Authorized MFA AAL2 Admin Lead Retrieval (Expected HTTP 200)
-  if (env.KHLIM_STAGING_ADMIN_AAL2_TOKEN?.trim()) {
-    const queryUrl = new URL(adminLeadsEndpoint);
-    queryUrl.searchParams.set("source", "3x3-oct24");
+  // 7c. Authorized MFA AAL2 Admin Lead Retrieval (Expected HTTP 200)
+  const queryUrl = new URL(adminLeadsEndpoint);
+  queryUrl.searchParams.set("source", "3x3-oct24");
 
-    const adminRes = await fetchWithTimeout(queryUrl, {
-      headers: {
-        Authorization: `Bearer ${env.KHLIM_STAGING_ADMIN_AAL2_TOKEN.trim()}`,
-      },
-    });
+  const adminRes = await fetchWithTimeout(queryUrl, {
+    headers: {
+      Authorization: `Bearer ${adminAal2Token}`,
+    },
+  });
 
-    if (adminRes.status !== 200) {
+  if (adminRes.status !== 200) {
+    throw new Error(
+      `Authorized MFA AAL2 Admin leads retrieval failed: expected HTTP 200, received HTTP ${adminRes.status}`,
+    );
+  }
+
+  const adminJson = await adminRes.json();
+  // Standard Admin Leads API contract: { items, total, page, limit, totalPages }
+  const itemsList = Array.isArray(adminJson?.items) ? adminJson.items : [];
+
+  const matches = itemsList.filter((l) => l.id === leadId);
+  if (matches.length !== 1) {
+    throw new Error(
+      `PERSISTENCE_INVARIANT_VIOLATION: Expected exactly 1 persisted lead for ID in Admin list, found ${matches.length}`,
+    );
+  }
+
+  const leadRecord = matches[0];
+  if (leadRecord.source !== "3x3-oct24") {
+    throw new Error(
+      `ATTRIBUTION_INVARIANT_VIOLATION: Expected source='3x3-oct24', found '${leadRecord.source}'`,
+    );
+  }
+  if (leadRecord.status !== "NEW") {
+    throw new Error(
+      `STATUS_INVARIANT_VIOLATION: Expected status='NEW', found '${leadRecord.status}'`,
+    );
+  }
+
+  // 7d. Detail endpoint check
+  const detailUrl = new URL(`/v1/admin/academy/leads/${leadId}`, apiUrl);
+  const detailRes = await fetchWithTimeout(detailUrl, {
+    headers: {
+      Authorization: `Bearer ${adminAal2Token}`,
+    },
+  });
+
+  if (detailRes.status !== 200) {
+    throw new Error(
+      `Admin lead detail lookup for lead ID failed: expected HTTP 200, received HTTP ${detailRes.status}`,
+    );
+  }
+
+  const detailJson = await detailRes.json();
+  if (
+    detailJson?.id !== leadId ||
+    detailJson?.source !== "3x3-oct24" ||
+    detailJson?.status !== "NEW"
+  ) {
+    throw new Error(
+      `Admin lead detail verification failed: attributes do not match expected lead properties`,
+    );
+  }
+
+  results.adminRetrieval = {
+    mfaAal2Authorized: true,
+    persistedCount: 1,
+    sourceVerified: "3x3-oct24",
+    statusVerified: leadRecord.status,
+  };
+
+  // 8. Independent Read-Only Database Row Count (if direct DB URL is provided and client is available)
+  const dbUrl =
+    env.KHLIM_STAGING_DATABASE_URL?.trim() || env.DATABASE_URL?.trim();
+  if (dbUrl && !/placeholder|example|replace-with/i.test(dbUrl)) {
+    try {
+      let PrismaClientClass = null;
+      try {
+        const prismaModule =
+          await import("../apps/api/dist/generated/prisma/client.js");
+        PrismaClientClass = prismaModule.PrismaClient;
+      } catch {
+        // Dist not compiled or client module unavailable
+      }
+
+      if (PrismaClientClass) {
+        const prisma = new PrismaClientClass({
+          datasources: { db: { url: dbUrl } },
+        });
+        const dbCount = await prisma.academyLead.count({
+          where: { id: leadId },
+        });
+        const idempotencyCount = await prisma.academyLead.count({
+          where: { idempotencyKey: syntheticLead.idempotencyKey },
+        });
+        await prisma.$disconnect();
+
+        if (dbCount !== 1 || idempotencyCount !== 1) {
+          throw new Error(
+            `DATABASE_PERSISTENCE_VIOLATION: Independent DB query found ${dbCount} leads with id and ${idempotencyCount} with idempotency key (expected exactly 1)`,
+          );
+        }
+        results.independentDbVerification = {
+          verifiedDirectly: true,
+          recordCount: dbCount,
+          idempotencyCount,
+        };
+      }
+    } catch (dbErr) {
+      // If DB was explicitly configured and verification threw, fail closed
       throw new Error(
-        `Authorized MFA AAL2 Admin leads retrieval failed: expected HTTP 200, received HTTP ${adminRes.status}`,
+        `Independent DB verification failed: ${sanitizeErrorMessage(dbErr)}`,
       );
     }
-
-    const adminJson = await adminRes.json();
-    const leadsList = Array.isArray(adminJson?.leads)
-      ? adminJson.leads
-      : Array.isArray(adminJson)
-        ? adminJson
-        : [];
-
-    const matches = leadsList.filter((l) => l.id === leadId);
-    if (matches.length !== 1) {
-      throw new Error(
-        `Database persistence invariant violated: expected exactly 1 persisted lead for ID ${leadId}, found ${matches.length}`,
-      );
-    }
-
-    const leadRecord = matches[0];
-    if (leadRecord.source !== "3x3-oct24") {
-      throw new Error(
-        `Lead attribution invariant violated: expected source='3x3-oct24', found '${leadRecord.source}'`,
-      );
-    }
-
-    // Detail endpoint check
-    const detailUrl = new URL(`/v1/admin/academy/leads/${leadId}`, apiUrl);
-    const detailRes = await fetchWithTimeout(detailUrl, {
-      headers: {
-        Authorization: `Bearer ${env.KHLIM_STAGING_ADMIN_AAL2_TOKEN.trim()}`,
-      },
-    });
-
-    if (detailRes.status !== 200) {
-      throw new Error(
-        `Admin lead detail lookup for ${leadId} failed: expected HTTP 200, received HTTP ${detailRes.status}`,
-      );
-    }
-
-    const detailJson = await detailRes.json();
-    if (detailJson?.id !== leadId || detailJson?.source !== "3x3-oct24") {
-      throw new Error(
-        `Admin lead detail verification failed for ${leadId}: source='${detailJson?.source}'`,
-      );
-    }
-
-    results.adminRetrieval = {
-      mfaAal2Authorized: true,
-      persistedCount: 1,
-      sourceVerified: "3x3-oct24",
-      statusVerified: leadRecord.status,
-    };
   }
 
   results.completedAt = new Date().toISOString();
@@ -489,14 +681,13 @@ export async function runHostedStagingAcceptance(env = process.env) {
     JSON.stringify({
       event: "staging.academy_acceptance.completed",
       status: "SUCCESS",
+      acceptanceLayer: results.acceptanceLayer,
       leadId,
       source: "3x3-oct24",
-      idempotencyVerified: results.idempotencyReceipt?.matchesOriginal ?? true,
-      conflictRejected: results.conflictReplay?.rejectedAsExpected ?? true,
-      singleRecordPersisted: results.adminRetrieval
-        ? results.adminRetrieval.persistedCount === 1
-        : true,
-      adminMfaVerified: Boolean(results.adminRetrieval?.mfaAal2Authorized),
+      idempotencyVerified: true,
+      conflictRejected: true,
+      singleRecordPersisted: true,
+      adminMfaVerified: true,
       maskedDetails: {
         guardian: maskName(syntheticLead.guardianName),
         email: maskEmail(syntheticLead.email),
@@ -518,7 +709,7 @@ if (isDirectCliExecution) {
     console.error(
       JSON.stringify({
         event: "staging.hosted_acceptance.failed",
-        error: error instanceof Error ? error.message : String(error),
+        error: sanitizeErrorMessage(error),
       }),
     );
     process.exit(1);

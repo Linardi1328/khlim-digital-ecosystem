@@ -2,6 +2,25 @@ name: Staging Acceptance
 
 on:
   workflow_dispatch:
+    inputs:
+      acceptance_mode:
+        description: "Acceptance mode: 'both' (default), 'ric-65-hosted', or 'readiness-only'"
+        type: choice
+        options:
+          - "both"
+          - "ric-65-hosted"
+          - "readiness-only"
+        default: "both"
+      active_window_authorized:
+        description: "Authorize active mutation window for RIC-65 (default false runs non-mutating readiness gate only)"
+        type: boolean
+        required: true
+        default: false
+      target_branch:
+        description: "Dedicated KHLIM staging branch"
+        type: string
+        required: true
+        default: "staging/ric-65-academy-soft-launch"
 
 permissions:
   contents: read
@@ -18,6 +37,11 @@ env:
   BILLPLZ_X_SIGNATURE_KEY: ${{ secrets.KHLIM_STAGING_BILLPLZ_X_SIGNATURE_KEY }}
   BILLPLZ_CALLBACK_URL: ${{ secrets.KHLIM_STAGING_BILLPLZ_CALLBACK_URL }}
   BILLPLZ_REDIRECT_URL: ${{ secrets.KHLIM_STAGING_BILLPLZ_REDIRECT_URL }}
+  KHLIM_STAGING_ADMIN_AAL2_TOKEN: ${{ secrets.KHLIM_STAGING_ADMIN_AAL2_TOKEN }}
+  KHLIM_STAGING_USER_AAL1_TOKEN: ${{ secrets.KHLIM_STAGING_USER_AAL1_TOKEN }}
+  KHLIM_STAGING_DATABASE_URL: ${{ secrets.KHLIM_STAGING_DATABASE_URL }}
+  KHLIM_STAGING_TARGET_BRANCH: ${{ inputs.target_branch || 'staging/ric-65-academy-soft-launch' }}
+  KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: ${{ inputs.active_window_authorized && '1' || '0' }}
 
 jobs:
   acceptance:
@@ -28,4 +52,8 @@ jobs:
         with:
           node-version: "24"
       - name: Verify deployed staging services and fail-closed configuration
+        if: ${{ inputs.acceptance_mode != 'ric-65-hosted' }}
         run: node scripts/verify-staging-acceptance.mjs
+      - name: Execute RIC-65 hosted staging acceptance gate
+        if: ${{ inputs.acceptance_mode != 'readiness-only' }}
+        run: node scripts/verify-hosted-staging-acceptance.mjs
