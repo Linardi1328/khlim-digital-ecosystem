@@ -423,9 +423,10 @@ test("Withdrawing consent while capture is in flight does not recreate deduplica
 
   setAnalyticsConsent("granted");
   let releaseFetch;
-  globalThis.fetch = async () => new Promise((resolve) => {
-    releaseFetch = () => resolve({ ok: true, status: 200 });
-  });
+  globalThis.fetch = async () =>
+    new Promise((resolve) => {
+      releaseFetch = () => resolve({ ok: true, status: 200 });
+    });
 
   const landing = trackCampaignLanding("3x3-oct24", "/");
   await Promise.resolve();
