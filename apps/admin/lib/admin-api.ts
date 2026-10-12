@@ -2,6 +2,7 @@
 
 import { createApiClient, type ApiClient } from "@khlim/api-client";
 import { adminApi as generatedDemoApi } from "./admin-api-legacy";
+import { parseDemoMytDateRange } from "./campaign-date-range";
 import { ADMIN_DEMO_MODE } from "./demo-mode";
 import {
   getStoredAdminAccessToken,
@@ -706,19 +707,19 @@ export interface AdminCampaignAnalyticsResponse {
   methodologyNote: string;
 }
 
-export function getAdminCampaignAnalytics(
+export async function getAdminCampaignAnalytics(
   query: AdminCampaignAnalyticsQuery = {},
 ): Promise<AdminCampaignAnalyticsResponse> {
   if (ADMIN_DEMO_MODE) {
     const campaign = query.campaign || "3x3-oct24";
-    const resolvedStart = query.startDate || "2026-08-01";
-    const resolvedEnd = query.endDate || "2026-10-31";
-    const fromUtc = new Date(
-      `${resolvedStart}T00:00:00.000+08:00`,
-    ).toISOString();
-    const toUtc = new Date(
-      new Date(`${resolvedEnd}T00:00:00.000+08:00`).getTime() + 86400000,
-    ).toISOString();
+    const {
+      startDate: resolvedStart,
+      endDate: resolvedEnd,
+      fromUtc: fromDate,
+      toUtc: toDate,
+    } = parseDemoMytDateRange(query.startDate, query.endDate);
+    const fromUtc = fromDate.toISOString();
+    const toUtc = toDate.toISOString();
     const matchingLeads = DEMO_LEADS.filter(
       (lead) =>
         lead.source === campaign &&
