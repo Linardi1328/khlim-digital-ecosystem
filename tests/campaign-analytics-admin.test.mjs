@@ -54,7 +54,7 @@ test("Admin API client exports getAdminCampaignAnalytics with bounded demo fallb
   const content = fs.readFileSync(adminApiPath, "utf-8");
 
   assert.ok(
-    content.includes("export function getAdminCampaignAnalytics"),
+    /export\s+(?:async\s+)?function\s+getAdminCampaignAnalytics\s*\(/.test(content),
     "admin-api.ts should export getAdminCampaignAnalytics",
   );
   assert.ok(
