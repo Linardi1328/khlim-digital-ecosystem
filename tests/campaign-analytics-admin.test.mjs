@@ -99,7 +99,10 @@ function loadCampaignApi({ demoMode = false, response = {} } = {}) {
     },
     { filename },
   );
-  return { getAdminCampaignAnalytics: module.exports.getAdminCampaignAnalytics, calls };
+  return {
+    getAdminCampaignAnalytics: module.exports.getAdminCampaignAnalytics,
+    calls,
+  };
 }
 
 test("campaign API export executes a live request and returns the API response", async () => {
