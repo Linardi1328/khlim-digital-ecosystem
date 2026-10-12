@@ -13,7 +13,10 @@ const React = adminRequire("react");
 const { renderToStaticMarkup } = adminRequire("react-dom/server");
 
 function renderCampaignWithSession(session) {
-  const filename = path.join(root, "apps/admin/app/insights/campaigns/page.tsx");
+  const filename = path.join(
+    root,
+    "apps/admin/app/insights/campaigns/page.tsx",
+  );
   const compiled = ts.transpileModule(fs.readFileSync(filename, "utf-8"), {
     compilerOptions: {
       module: ts.ModuleKind.CommonJS,
