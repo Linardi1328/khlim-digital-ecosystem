@@ -61,7 +61,8 @@ function renderCampaignWithSession(session) {
     { filename },
   );
 
-  const markup = renderToStaticMarkup(React.createElement(module.exports.default));
+  const page = React.createElement(module.exports.default);
+  const markup = renderToStaticMarkup(page);
   return { markup, analyticsRequests };
 }
 
