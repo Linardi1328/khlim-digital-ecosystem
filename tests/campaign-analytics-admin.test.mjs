@@ -164,10 +164,7 @@ test("demo campaign ranges follow the live API date contract", () => {
     () => parseDemoMytDateRange("2026-10-01", "2026-04-31"),
     /Invalid endDate/,
   );
-  assert.throws(
-    () => parseDemoMytDateRange("bad-date"),
-    /Invalid startDate/,
-  );
+  assert.throws(() => parseDemoMytDateRange("bad-date"), /Invalid startDate/);
   assert.throws(
     () => parseDemoMytDateRange(undefined, "bad-date"),
     /Invalid endDate/,
