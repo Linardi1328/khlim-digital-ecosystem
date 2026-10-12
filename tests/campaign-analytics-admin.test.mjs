@@ -146,17 +146,38 @@ test("demo campaign ranges follow the live API date contract", () => {
   assert.equal(eventDay.toUtc.toISOString(), "2026-10-24T16:00:00.000Z");
 
   assert.equal(parseDemoMytDateRange("2026-10-01").endDate, "2026-12-30");
-  assert.equal(parseDemoMytDateRange(undefined, "2026-10-31").startDate, "2026-08-02");
+  assert.equal(
+    parseDemoMytDateRange(undefined, "2026-10-31").startDate,
+    "2026-08-02",
+  );
   assert.equal(
     parseDemoMytDateRange("2026-01-01", "2026-04-10").endDate,
     "2026-04-10",
     "An inclusive 100-day window is allowed",
   );
 
-  assert.throws(() => parseDemoMytDateRange("2026-02-29", "2026-03-01"), /Invalid startDate/);
-  assert.throws(() => parseDemoMytDateRange("2026-10-01", "2026-04-31"), /Invalid endDate/);
-  assert.throws(() => parseDemoMytDateRange("bad-date"), /Invalid startDate/);
-  assert.throws(() => parseDemoMytDateRange(undefined, "bad-date"), /Invalid endDate/);
-  assert.throws(() => parseDemoMytDateRange("2026-10-25", "2026-10-24"), /startDate cannot be after endDate/);
-  assert.throws(() => parseDemoMytDateRange("2026-01-01", "2026-05-01"), /exceeds maximum limit of 100 days/);
+  assert.throws(
+    () => parseDemoMytDateRange("2026-02-29", "2026-03-01"),
+    /Invalid startDate/,
+  );
+  assert.throws(
+    () => parseDemoMytDateRange("2026-10-01", "2026-04-31"),
+    /Invalid endDate/,
+  );
+  assert.throws(
+    () => parseDemoMytDateRange("bad-date"),
+    /Invalid startDate/,
+  );
+  assert.throws(
+    () => parseDemoMytDateRange(undefined, "bad-date"),
+    /Invalid endDate/,
+  );
+  assert.throws(
+    () => parseDemoMytDateRange("2026-10-25", "2026-10-24"),
+    /startDate cannot be after endDate/,
+  );
+  assert.throws(
+    () => parseDemoMytDateRange("2026-01-01", "2026-05-01"),
+    /exceeds maximum limit of 100 days/,
+  );
 });
