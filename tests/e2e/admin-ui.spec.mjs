@@ -246,7 +246,9 @@ test("3x3 campaign analytics rejects an ineligible demo work view", async ({
   page,
 }) => {
   await page.goto("/insights/campaigns", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: "3x3 Campaign" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "3x3 Campaign" }),
+  ).toBeVisible();
 
   let campaignRequests = 0;
   page.on("request", (request) => {

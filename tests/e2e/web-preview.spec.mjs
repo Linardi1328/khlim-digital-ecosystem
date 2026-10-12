@@ -506,7 +506,9 @@ test("24 Oct 3x3 campaign cookie consent banner and legal preference withdrawal 
 
   // Rendered Privacy Policy reflects PostHog and the material-change date.
   await page.goto("/privacy", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: "Privacy Policy" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Privacy Policy" }),
+  ).toBeVisible();
   await expect(page.locator("body")).toContainText("11 October 2026");
   await expect(page.locator("body")).toContainText("PostHog (US Cloud)");
   await expect(page.locator("body")).toContainText("section 129");
@@ -533,13 +535,18 @@ test("cross-tab analytics withdrawal clears the other tab's session persistence"
       sessionStorage.setItem("khlim_tracked_landing_session_3x3-oct24", "1");
     });
 
-    await firstTab.getByRole("button", { name: "Withdraw Consent" }).click();
+    await firstTab
+      .getByRole("button", { name: "Withdraw Consent" })
+      .first()
+      .click();
 
     await expect
       .poll(() =>
         secondTab.evaluate(() => ({
           id: sessionStorage.getItem("khlim_analytics_session_id"),
-          marker: sessionStorage.getItem("khlim_tracked_landing_session_3x3-oct24"),
+          marker: sessionStorage.getItem(
+            "khlim_tracked_landing_session_3x3-oct24",
+          ),
         })),
       )
       .toEqual({ id: null, marker: null });

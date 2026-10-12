@@ -98,7 +98,10 @@ test("parseMytDateRange handles start-inclusive, end-exclusive UTC boundaries an
 
   // One-sided MYT date arithmetic must preserve calendar days.
   assert.equal(parseMytDateRange("2026-10-01").endDate, "2026-12-30");
-  assert.equal(parseMytDateRange(undefined, "2026-10-31").startDate, "2026-08-02");
+  assert.equal(
+    parseMytDateRange(undefined, "2026-10-31").startDate,
+    "2026-08-02",
+  );
 
   // Rejection of invalid calendar dates
   assert.throws(() => parseMytDateRange("2026-02-29", "2026-03-01"), {

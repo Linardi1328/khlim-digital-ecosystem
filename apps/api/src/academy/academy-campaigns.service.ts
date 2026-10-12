@@ -139,8 +139,7 @@ export class AcademyCampaignsService {
     const projectId = process.env.POSTHOG_PROJECT_ID?.trim() || "652783";
     // Separate query host from event ingestion host
     const queryHost = (
-      process.env.POSTHOG_QUERY_HOST?.trim() ||
-      POSTHOG_DEFAULT_QUERY_HOST
+      process.env.POSTHOG_QUERY_HOST?.trim() || POSTHOG_DEFAULT_QUERY_HOST
     ).replace(/\/+$/, "");
 
     const baseNotice = {

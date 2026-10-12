@@ -417,10 +417,12 @@ test("Withdrawing consent while capture is in flight does not recreate deduplica
   const { sessionStorage } = setupMockBrowser();
   process.env.NEXT_PUBLIC_POSTHOG_KEY = "test-phc-key";
 
-  const { trackCampaignLanding, trackInterestFormView } =
-    await import("../apps/web/lib/posthog.ts");
-  const { setAnalyticsConsent, withdrawAnalyticsConsent } =
-    await import("../apps/web/lib/analytics-consent.ts");
+  const { trackCampaignLanding, trackInterestFormView } = await import(
+    "../apps/web/lib/posthog.ts"
+  );
+  const { setAnalyticsConsent, withdrawAnalyticsConsent } = await import(
+    "../apps/web/lib/analytics-consent.ts"
+  );
 
   setAnalyticsConsent("granted");
   let releaseFetch;
