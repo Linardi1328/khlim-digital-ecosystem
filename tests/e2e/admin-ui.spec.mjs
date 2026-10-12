@@ -266,12 +266,6 @@ test("3x3 campaign analytics rejects an ineligible demo work view", async ({
 test("3x3 demo campaign lead metrics respect the selected MYT acquisition window", async ({
   page,
 }) => {
-  // Demo leads are created relative to the clock, so avoid hard-coded dates.
-  const mytDay = (offsetDays) =>
-    new Date(Date.now() + 8 * 3600000 + offsetDays * 86400000)
-      .toISOString()
-      .slice(0, 10);
-
   await page.goto("/insights/campaigns", { waitUntil: "domcontentloaded" });
   const confirmedLeads = page
     .getByRole("region", { name: "Campaign Overview Metrics" })
@@ -284,11 +278,15 @@ test("3x3 demo campaign lead metrics respect the selected MYT acquisition window
     await page.getByRole("button", { name: "Apply", exact: true }).click();
   }
 
-  // The recent MYT cohort includes all three campaign-tagged demo leads.
-  await applyDates(mytDay(-3), mytDay(0));
+  // Fixed campaign fixtures remain within the window even after October 2026.
+  await applyDates("2026-10-01", "2026-10-31");
   await expect(confirmedLeads.getByText("3", { exact: true })).toBeVisible();
 
-  // An unrelated historical cohort has zero confirmed leads.
-  await applyDates(mytDay(-15), mytDay(-14));
+  // The event day includes the two event-acquired demo leads.
+  await applyDates("2026-10-24", "2026-10-24");
+  await expect(confirmedLeads.getByText("2", { exact: true })).toBeVisible();
+
+  // A MYT window between acquisitions includes no campaign demo leads.
+  await applyDates("2026-10-20", "2026-10-23");
   await expect(confirmedLeads.getByText("0", { exact: true })).toBeVisible();
 });
