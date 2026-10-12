@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseDemoMytDateRange } from "../apps/admin/lib/campaign-date-range.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -68,14 +69,9 @@ test("Admin API client exports getAdminCampaignAnalytics with bounded demo fallb
     content.includes("enrolledRate"),
     "getAdminCampaignAnalytics response should calculate enrolledRate",
   );
-  // Demo mode uses bounded default window
   assert.ok(
-    content.includes('"2026-08-01"'),
-    "getAdminCampaignAnalytics demo mode bounds start to 2026-08-01",
-  );
-  assert.ok(
-    content.includes('"2026-10-31"'),
-    "getAdminCampaignAnalytics demo mode bounds end to 2026-10-31",
+    content.includes("parseDemoMytDateRange(query.startDate, query.endDate)"),
+    "Demo analytics must use the validated Malaysia-time date-range helper",
   );
 });
 
@@ -136,4 +132,31 @@ test("Admin Campaign Analytics page implements RBAC, MFA gate, bounded presets, 
     content.includes("methodologyNote"),
     "Page should render backend methodology note",
   );
+});
+
+test("demo campaign ranges follow the live API date contract", () => {
+  const defaults = parseDemoMytDateRange();
+  assert.equal(defaults.startDate, "2026-08-01");
+  assert.equal(defaults.endDate, "2026-10-31");
+  assert.equal(defaults.fromUtc.toISOString(), "2026-07-31T16:00:00.000Z");
+  assert.equal(defaults.toUtc.toISOString(), "2026-10-31T16:00:00.000Z");
+
+  const eventDay = parseDemoMytDateRange(" 2026-10-24 ", "2026-10-24");
+  assert.equal(eventDay.fromUtc.toISOString(), "2026-10-23T16:00:00.000Z");
+  assert.equal(eventDay.toUtc.toISOString(), "2026-10-24T16:00:00.000Z");
+
+  assert.equal(parseDemoMytDateRange("2026-10-01").endDate, "2026-12-30");
+  assert.equal(parseDemoMytDateRange(undefined, "2026-10-31").startDate, "2026-08-02");
+  assert.equal(
+    parseDemoMytDateRange("2026-01-01", "2026-04-10").endDate,
+    "2026-04-10",
+    "An inclusive 100-day window is allowed",
+  );
+
+  assert.throws(() => parseDemoMytDateRange("2026-02-29", "2026-03-01"), /Invalid startDate/);
+  assert.throws(() => parseDemoMytDateRange("2026-10-01", "2026-04-31"), /Invalid endDate/);
+  assert.throws(() => parseDemoMytDateRange("bad-date"), /Invalid startDate/);
+  assert.throws(() => parseDemoMytDateRange(undefined, "bad-date"), /Invalid endDate/);
+  assert.throws(() => parseDemoMytDateRange("2026-10-25", "2026-10-24"), /startDate cannot be after endDate/);
+  assert.throws(() => parseDemoMytDateRange("2026-01-01", "2026-05-01"), /exceeds maximum limit of 100 days/);
 });
