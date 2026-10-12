@@ -98,10 +98,7 @@ function InterestForm() {
     const resolved = resolveCampaignSource(searchParams);
     setCampaignSource(resolved);
     if (hasConsent && resolved) {
-      void trackInterestFormView(
-        resolved,
-        selectedOfferingId || queryOfferingId,
-      );
+      void trackInterestFormView(resolved);
     }
   }, [searchParams, queryOfferingId, selectedOfferingId, hasConsent]);
 
@@ -220,10 +217,7 @@ function InterestForm() {
 
       setSubmissionSuccess(true);
       if (hasConsent && campaignSource) {
-        void trackInterestSubmitSuccess(
-          campaignSource,
-          selectedOfferingId || null,
-        );
+        void trackInterestSubmitSuccess(campaignSource);
       }
     } catch (err: unknown) {
       let status = 0;

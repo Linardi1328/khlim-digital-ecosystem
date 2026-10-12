@@ -99,6 +99,7 @@ export function useAnalyticsConsent() {
   }, []);
 
   return {
+    mounted,
     consent: mounted ? consent : null,
     hasConsent: mounted && consent === "granted",
     isDecided: mounted && consent !== null,

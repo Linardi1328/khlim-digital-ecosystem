@@ -422,6 +422,7 @@ test("contact page displays authoritative business details card and enquiry chan
 test("24 Oct 3x3 campaign cookie consent banner and legal preference withdrawal flow", async ({
   page,
 }) => {
+  // Clear any existing storage
   await page.goto("/?source=3x3-oct24", { waitUntil: "domcontentloaded" });
   await page.evaluate(() => {
     localStorage.clear();
@@ -429,46 +430,71 @@ test("24 Oct 3x3 campaign cookie consent banner and legal preference withdrawal 
   });
   await page.reload({ waitUntil: "domcontentloaded" });
 
-  // 1. Consent banner is rendered when consent is not yet decided
+  // 1. Prior to consent: no consent stored, no anonymous identifiers, no dedup markers
+  const preConsent = await page.evaluate(() => ({
+    consent: localStorage.getItem("khlim_analytics_consent"),
+    anonId: localStorage.getItem("khlim_analytics_anon_id"),
+    sessionId: sessionStorage.getItem("khlim_analytics_session_id"),
+    landingMarker: sessionStorage.getItem(
+      "khlim_tracked_landing_session_3x3-oct24",
+    ),
+  }));
+  expect(preConsent.consent).toBeNull();
+  expect(preConsent.anonId).toBeNull();
+  expect(preConsent.sessionId).toBeNull();
+  expect(preConsent.landingMarker).toBeNull();
+
+  // 2. Consent banner is rendered
   const banner = page.getByRole("region", {
     name: "Cookie & Analytics Preferences",
   });
   await expect(banner).toBeVisible();
 
-  // 2. Accept analytics
+  // 3. Accept analytics
   const acceptBtn = banner.getByRole("button", { name: "Accept Analytics" });
   await expect(acceptBtn).toBeVisible();
   await acceptBtn.click();
 
-  // 3. Banner dismisses and storage records granted
+  // 4. Banner dismisses and storage records granted
   await expect(banner).not.toBeVisible();
-  const consentStatus = await page.evaluate(() =>
+  const postConsentStatus = await page.evaluate(() =>
     localStorage.getItem("khlim_analytics_consent"),
   );
-  expect(consentStatus).toBe("granted");
+  expect(postConsentStatus).toBe("granted");
 
-  // 4. Navigate to cookie policy
+  // 5. Navigate to cookie policy
   await page.goto("/cookies", { waitUntil: "domcontentloaded" });
   await expect(
     page.getByRole("heading", { name: "Cookie Policy" }),
   ).toBeVisible();
   await expect(
-    page.getByText("Active Choice: Analytics Enabled"),
+    page.getByText("Analytics enabled (consented)").first(),
   ).toBeVisible();
 
-  // 5. Withdraw consent
-  const withdrawBtn = page.getByRole("button", {
-    name: "Withdraw Analytics Consent",
-  });
+  // 6. Withdraw consent
+  const withdrawBtn = page
+    .getByRole("button", {
+      name: "Withdraw Consent",
+    })
+    .first();
   await expect(withdrawBtn).toBeVisible();
   await withdrawBtn.click();
 
-  // 6. Verify status updates to withdrawn and storage is denied
+  // 7. Verify status updates to withdrawn and all tracking persistence is purged
   await expect(
-    page.getByText("Active Choice: Analytics Disabled"),
+    page.getByText("Analytics disabled (opted out)").first(),
   ).toBeVisible();
-  const afterWithdraw = await page.evaluate(() =>
-    localStorage.getItem("khlim_analytics_consent"),
-  );
-  expect(afterWithdraw).toBe("denied");
+
+  const postWithdrawal = await page.evaluate(() => ({
+    consent: localStorage.getItem("khlim_analytics_consent"),
+    anonId: localStorage.getItem("khlim_analytics_anon_id"),
+    sessionId: sessionStorage.getItem("khlim_analytics_session_id"),
+    landingMarker: sessionStorage.getItem(
+      "khlim_tracked_landing_session_3x3-oct24",
+    ),
+  }));
+  expect(postWithdrawal.consent).toBe("denied");
+  expect(postWithdrawal.anonId).toBeNull();
+  expect(postWithdrawal.sessionId).toBeNull();
+  expect(postWithdrawal.landingMarker).toBeNull();
 });

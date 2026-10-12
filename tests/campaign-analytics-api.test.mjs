@@ -160,26 +160,56 @@ test("AcademyCampaignsService computes authoritative lead status distributions a
   assert.match(result.methodologyNote, /current status distribution/);
 });
 
-test("AcademyCampaignsService enforces tenant isolation: foreign organization cannot query shared campaign traffic", async () => {
-  const mockPrisma = {
-    client: {
-      academyLead: {
-        findMany: async () => [],
-      },
-    },
+test("AcademyCampaignsService enforces strict tenant isolation: foreign organization with matching leads cannot query shared campaign traffic", async () => {
+  // Even if foreign organization has 1 or more matching leads in the database,
+  // it must NEVER be granted access to KHLIM's private PostHog aggregates.
+  const mockForeignRecords = [{ status: "NEW" }, { status: "ENROLLED" }];
+
+  let fetchAttempted = false;
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    fetchAttempted = true;
+    return { ok: true, status: 200, json: async () => ({ results: [] }) };
   };
 
-  const service = new AcademyCampaignsService(mockPrisma);
-  const result = await service.getCampaignAnalytics(FOREIGN_ORG_ID, {
-    campaign: "3x3-oct24",
-  });
+  try {
+    const mockPrisma = {
+      client: {
+        academyLead: {
+          findMany: async ({ where }) => {
+            assert.equal(where.organizationId, FOREIGN_ORG_ID);
+            return mockForeignRecords;
+          },
+        },
+      },
+    };
 
-  assert.equal(result.traffic.status, "CONFIG_REQUIRED");
-  assert.equal(result.traffic.observableLandingSessions, null);
-  assert.match(
-    result.traffic.reason,
-    /not associated with the active organization/,
-  );
+    const service = new AcademyCampaignsService(mockPrisma);
+    const result = await service.getCampaignAnalytics(FOREIGN_ORG_ID, {
+      campaign: "3x3-oct24",
+    });
+
+    // Foreign org sees its own database leads
+    assert.equal(result.leads.totalLeads, 2);
+    assert.equal(result.leads.enrolledCount, 1);
+
+    // But private traffic is strictly blocked under tenant isolation
+    assert.equal(result.traffic.status, "CONFIG_REQUIRED");
+    assert.equal(result.traffic.observableLandingSessions, null);
+    assert.equal(result.traffic.interestFormEngagement, null);
+    assert.equal(result.traffic.clientSubmitSuccesses, null);
+    assert.match(
+      result.traffic.reason,
+      /not associated with the active organization/,
+    );
+    assert.equal(
+      fetchAttempted,
+      false,
+      "PostHog fetch must not be attempted for foreign tenant",
+    );
+  } finally {
+    globalThis.fetch = origFetch;
+  }
 });
 
 test("AcademyCampaignsService handles PostHog query credentials, separate query host, and resilient errors", async () => {

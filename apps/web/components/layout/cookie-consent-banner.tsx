@@ -8,11 +8,11 @@ import { Button } from "../ui/button";
 
 export function CookieConsentBanner() {
   const { t } = useI18n();
-  const { consent, isDecided, grantConsent, setConsent } =
+  const { mounted, consent, isDecided, grantConsent, setConsent } =
     useAnalyticsConsent();
 
-  // If already decided (granted or denied) or not yet mounted, do not render banner
-  if (isDecided || consent !== null) {
+  // If not yet mounted on client or already decided (granted or denied), do not render banner
+  if (!mounted || isDecided || consent !== null) {
     return null;
   }
 

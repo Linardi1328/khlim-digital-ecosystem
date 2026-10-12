@@ -84,9 +84,9 @@ export class AcademyCampaignsService {
       enrolledRate,
     };
 
-    // 2. Tenant isolation: verify organization is authorized to access campaign traffic
+    // 2. Tenant isolation: restrict private traffic reporting to the explicitly authorized owning organization and campaign
     const isAuthorizedTenant =
-      organizationId === DEFAULT_ORGANIZATION_ID || totalLeads > 0;
+      organizationId === DEFAULT_ORGANIZATION_ID && campaign === "3x3-oct24";
 
     let traffic: CampaignTrafficMetricsDto;
     if (!isAuthorizedTenant) {

@@ -14,7 +14,7 @@ export const CAMPAIGN_TOKEN_3X3 = "3x3-oct24";
 export type PermittedAnalyticsEvent =
   "campaign_landing" | "interest_form_view" | "interest_submit_success_client";
 
-const ALLOWED_PROPERTIES = new Set(["campaign", "path", "offering_id"]);
+const ALLOWED_PROPERTIES = new Set(["campaign", "path"]);
 
 const FORBIDDEN_KEY_PATTERNS = [
   /name/i,
@@ -106,12 +106,6 @@ function sanitizeProperties(
         const pathWithoutQuery = value.split("?")[0] ?? "";
         const cleanPath = (pathWithoutQuery.split("#")[0] ?? "").trim();
         sanitized.path = cleanPath || "/";
-      }
-    } else if (key === "offering_id") {
-      if (typeof value === "string" && value.trim()) {
-        sanitized.offering_id = value.trim();
-      } else {
-        sanitized.offering_id = null;
       }
     }
   }
@@ -246,7 +240,7 @@ export async function trackCampaignLanding(
  */
 export async function trackInterestFormView(
   campaign: string | null | undefined,
-  offeringId?: string | null,
+  _offeringId?: string | null,
 ): Promise<boolean> {
   const token = sanitizeCampaignToken(campaign);
   // Organic visitors without campaign token are not tracked
@@ -273,7 +267,6 @@ export async function trackInterestFormView(
   try {
     const success = await capturePostHogEvent("interest_form_view", {
       campaign: token,
-      offering_id: offeringId || null,
       path: "/interest",
     });
 
@@ -293,10 +286,11 @@ export async function trackInterestFormView(
 /**
  * Capture of client-side lead registration success receipt.
  * Does not fall back to assigning 3x3-oct24 to organic visitors.
+ * Omits arbitrary offering IDs for maximum visitor privacy.
  */
 export async function trackInterestSubmitSuccess(
   campaign: string | null | undefined,
-  offeringId?: string | null,
+  _offeringId?: string | null,
 ): Promise<boolean> {
   const token = sanitizeCampaignToken(campaign);
   if (!token || token !== CAMPAIGN_TOKEN_3X3) {
@@ -305,7 +299,6 @@ export async function trackInterestSubmitSuccess(
 
   return capturePostHogEvent("interest_submit_success_client", {
     campaign: token,
-    offering_id: offeringId || null,
     path: "/interest",
   });
 }

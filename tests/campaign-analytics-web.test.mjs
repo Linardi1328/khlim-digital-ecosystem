@@ -234,7 +234,8 @@ test("PostHog client strictly gates on consent, suppresses PII/GeoIP/profiles, a
   assert.equal(campaignFormView, true);
   assert.equal(capturedRequests.length, 1);
   assert.equal(capturedRequests[0].body.event, "interest_form_view");
-  assert.equal(capturedRequests[0].body.properties.offering_id, "offering-1");
+  assert.equal(capturedRequests[0].body.properties.offering_id, undefined);
+  assert.equal(capturedRequests[0].body.properties.campaign, "3x3-oct24");
   assert.equal(capturedRequests[0].body.properties.path, "/interest");
 
   // Form engagement deduplication in same session
@@ -258,6 +259,7 @@ test("PostHog client strictly gates on consent, suppresses PII/GeoIP/profiles, a
     capturedRequests[0].body.event,
     "interest_submit_success_client",
   );
+  assert.equal(capturedRequests[0].body.properties.offering_id, undefined);
 
   // 8. Consent withdrawal stops all tracking and clears session markers
   withdrawAnalyticsConsent();
@@ -364,4 +366,75 @@ test("Cookie consent messages are completely localized across all 5 supported la
       );
     }
   }
+});
+
+test("Arbitrary, malicious, or PII offering IDs are completely excluded from PostHog events", async () => {
+  setupMockBrowser();
+  process.env.NEXT_PUBLIC_POSTHOG_KEY = "test-phc-key";
+
+  const {
+    trackInterestFormView,
+    trackInterestSubmitSuccess,
+    capturePostHogEvent,
+    CAMPAIGN_TOKEN_3X3,
+  } = await import("../apps/web/lib/posthog.ts");
+  const { setAnalyticsConsent } =
+    await import("../apps/web/lib/analytics-consent.ts");
+
+  setAnalyticsConsent("granted");
+
+  const capturedRequests = [];
+  globalThis.fetch = async (url, options) => {
+    capturedRequests.push({
+      url: String(url),
+      body: JSON.parse(options.body),
+    });
+    return { ok: true, status: 200, json: async () => ({ status: 1 }) };
+  };
+
+  const maliciousPiiPayload =
+    "user+phone=60123456789&email=parent@example.com<script>alert(1)</script>";
+
+  // 1. Calling trackInterestFormView with malicious/PII offering ID
+  await trackInterestFormView(CAMPAIGN_TOKEN_3X3, maliciousPiiPayload);
+  assert.equal(capturedRequests.length, 1);
+
+  const formViewProps = capturedRequests[0].body.properties;
+  assert.equal(formViewProps.offering_id, undefined);
+  assert.equal(formViewProps.campaign, "3x3-oct24");
+  assert.equal(formViewProps.path, "/interest");
+
+  // Verify the malicious/PII string is nowhere in the serialized event body
+  assert.ok(
+    !JSON.stringify(capturedRequests[0].body).includes("parent@example.com"),
+    "PII email must not appear anywhere in captured payload",
+  );
+  assert.ok(
+    !JSON.stringify(capturedRequests[0].body).includes("60123456789"),
+    "PII phone must not appear anywhere in captured payload",
+  );
+
+  // 2. Calling trackInterestSubmitSuccess with malicious/PII offering ID
+  capturedRequests.length = 0;
+  await trackInterestSubmitSuccess(CAMPAIGN_TOKEN_3X3, maliciousPiiPayload);
+  assert.equal(capturedRequests.length, 1);
+
+  const submitProps = capturedRequests[0].body.properties;
+  assert.equal(submitProps.offering_id, undefined);
+  assert.ok(
+    !JSON.stringify(capturedRequests[0].body).includes("parent@example.com"),
+  );
+
+  // 3. Direct capture attempt with arbitrary offering_id property
+  capturedRequests.length = 0;
+  await capturePostHogEvent("interest_form_view", {
+    campaign: CAMPAIGN_TOKEN_3X3,
+    offering_id: maliciousPiiPayload,
+    path: "/interest",
+  });
+  assert.equal(capturedRequests.length, 1);
+  assert.equal(capturedRequests[0].body.properties.offering_id, undefined);
+  assert.ok(
+    !JSON.stringify(capturedRequests[0].body).includes("parent@example.com"),
+  );
 });
