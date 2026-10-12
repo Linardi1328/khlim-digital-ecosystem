@@ -1,0 +1,43 @@
+name: RIC-65 Hosted Staging Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      active_window_authorized:
+        description: "Authorize active mutation window (submits synthetic leads, verifies duplicate idempotency receipts, and validates single-record persistence). If false, runs non-mutating readiness gate only."
+        type: boolean
+        required: true
+        default: false
+      target_branch:
+        description: "Dedicated KHLIM staging branch target"
+        type: string
+        required: true
+        default: "staging/ric-65-academy-soft-launch"
+
+permissions:
+  contents: read
+
+jobs:
+  hosted-staging-acceptance:
+    name: Hosted Staging Acceptance Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Execute hosted staging acceptance runner
+        env:
+          KHLIM_STAGING_API_URL: ${{ secrets.KHLIM_STAGING_API_URL }}
+          KHLIM_STAGING_WEB_URL: ${{ secrets.KHLIM_STAGING_WEB_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.KHLIM_STAGING_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.KHLIM_STAGING_SUPABASE_ANON_KEY }}
+          KHLIM_STAGING_ADMIN_AAL2_TOKEN: ${{ secrets.KHLIM_STAGING_ADMIN_AAL2_TOKEN }}
+          KHLIM_STAGING_USER_AAL1_TOKEN: ${{ secrets.KHLIM_STAGING_USER_AAL1_TOKEN }}
+          KHLIM_STAGING_TARGET_BRANCH: ${{ inputs.target_branch }}
+          KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: ${{ inputs.active_window_authorized && '1' || '0' }}
+        run: node scripts/verify-hosted-staging-acceptance.mjs
