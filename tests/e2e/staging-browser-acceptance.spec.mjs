@@ -21,14 +21,28 @@ test.describe("RIC-65 Browser Registration Acceptance & Staging UX Rehearsal", (
   }) => {
     let interceptedPayload = null;
 
+    const corsHeaders = {
+      "access-control-allow-origin": "*",
+      "access-control-allow-methods": "GET, POST, OPTIONS",
+      "access-control-allow-headers": "*",
+    };
+
     // Intercept backend API call to verify browser client contract safely without uncontrolled mutations
     await page.route("**/v1/academy/leads", async (route) => {
       const request = route.request();
+      if (request.method() === "OPTIONS") {
+        await route.fulfill({
+          status: 204,
+          headers: corsHeaders,
+        });
+        return;
+      }
       if (request.method() === "POST") {
         interceptedPayload = JSON.parse(request.postData() || "{}");
         await route.fulfill({
           status: 201,
           contentType: "application/json",
+          headers: corsHeaders,
           body: JSON.stringify({
             id: "rehearsal-lead-c2a95d10",
             status: "RECEIVED",
@@ -43,16 +57,37 @@ test.describe("RIC-65 Browser Registration Acceptance & Staging UX Rehearsal", (
 
     // Also mock offerings if queried
     await page.route("**/v1/academy/offerings**", async (route) => {
+      const request = route.request();
+      if (request.method() === "OPTIONS") {
+        await route.fulfill({
+          status: 204,
+          headers: corsHeaders,
+        });
+        return;
+      }
       await route.fulfill({
         status: 200,
         contentType: "application/json",
+        headers: corsHeaders,
         body: JSON.stringify([
           {
             id: "offering-3x3-prep",
-            title: "3x3 Basketball Intensive",
-            slug: "3x3-intensive",
-            minAge: 8,
-            maxAge: 16,
+            name: "3x3 Basketball Intensive",
+            capacity: 20,
+            startsOn: null,
+            endsOn: null,
+            programme: {
+              id: "prog-3x3",
+              code: "3X3-PREP",
+              name: "3x3 Basketball Intensive",
+              description: "Intensive 3x3 training",
+              minimumAge: 8,
+              maximumAge: 16,
+              level: "ALL",
+              sport: { code: "BASKETBALL", defaultName: "Basketball" },
+            },
+            venue: null,
+            planEligibilities: [],
           },
         ]),
       });
@@ -67,64 +102,59 @@ test.describe("RIC-65 Browser Registration Acceptance & Staging UX Rehearsal", (
     const formHeading = page.locator("h1, h2").first();
     await expect(formHeading).toBeVisible();
 
+    const form = page.locator("main form");
+    await expect(form).toBeVisible();
+
     // 2. Test fail-closed validation: Submitting without consent must be blocked
-    const submitBtn = page
-      .locator(
-        'button[type="submit"], button:has-text("Register"), button:has-text("Submit")',
-      )
-      .first();
+    const submitBtn = form.locator('button[type="submit"]');
     await expect(submitBtn).toBeVisible();
 
     // Fill in required fields without checking consent
-    const guardianInput = page
+    const guardianInput = form
       .locator(
-        'input[name="guardianName"], input#guardianName, input[placeholder*="Guardian"], input[placeholder*="Parent"]',
+        'input#guardianName, input[name="guardianName"], input[autoComplete="name"]',
       )
       .first();
-    if (await guardianInput.isVisible()) {
-      await guardianInput.fill("Synthetic Parent Rehearsal");
-    }
+    await expect(guardianInput).toBeVisible();
+    await guardianInput.fill("Synthetic Parent Rehearsal");
 
-    const phoneInput = page
-      .locator('input[name="phone"], input#phone, input[type="tel"]')
+    const phoneInput = form
+      .locator('input#phone, input[name="phone"], input[type="tel"]')
       .first();
-    if (await phoneInput.isVisible()) {
-      await phoneInput.fill(APPROVED_STAGING_TEST_PHONE);
-    }
+    await expect(phoneInput).toBeVisible();
+    await phoneInput.fill(APPROVED_STAGING_TEST_PHONE);
 
-    const emailInput = page
-      .locator('input[name="email"], input#email, input[type="email"]')
+    const emailInput = form
+      .locator('input#email, input[name="email"], input[type="email"]')
       .first();
     if (await emailInput.isVisible()) {
       await emailInput.fill("staging-rehearsal@synthetic.khlim.test");
     }
 
-    const ageInput = page
-      .locator('input[name="childAge"], input#childAge, input[type="number"]')
+    const ageInput = form
+      .locator('input#childAge, input[name="childAge"], input[type="number"]')
       .first();
-    if (await ageInput.isVisible()) {
-      await ageInput.fill("10");
-    }
+    await expect(ageInput).toBeVisible();
+    await ageInput.fill("10");
 
     // Try submit without consent
     await submitBtn.click();
 
     // Explicitly assert that the client-side consent validation error is visible before checking payload
-    const consentError = page.locator(
+    const consentError = form.locator(
       '#interest-privacy-consent-error, [role="alert"]:has-text("consent")',
     );
     await expect(consentError.first()).toBeVisible();
     expect(interceptedPayload).toBeNull(); // No request sent without consent
 
     // 3. Check explicit consent
-    const consentCheckbox = page
+    const consentCheckbox = form
       .locator(
         'input[type="checkbox"]#interest-privacy-consent, input[type="checkbox"]#consent, input[type="checkbox"]',
       )
       .first();
-    if (await consentCheckbox.isVisible()) {
-      await consentCheckbox.check();
-    }
+    await expect(consentCheckbox).toBeVisible();
+    await consentCheckbox.check();
 
     // 4. Submit form with valid synthetic payload
     await submitBtn.click();

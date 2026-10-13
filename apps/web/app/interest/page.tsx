@@ -432,6 +432,8 @@ function InterestForm() {
               <div>
                 <Input
                   ref={guardianNameRef}
+                  id="guardianName"
+                  name="guardianName"
                   label={t("interest.guardianName")}
                   required
                   autoComplete="name"
@@ -450,6 +452,8 @@ function InterestForm() {
               <div>
                 <Input
                   ref={phoneRef}
+                  id="phone"
+                  name="phone"
                   label={t("interest.phone")}
                   required
                   type="tel"
@@ -473,6 +477,8 @@ function InterestForm() {
 
               <div>
                 <Input
+                  id="email"
+                  name="email"
                   label={t("interest.email")}
                   type="email"
                   autoComplete="email"
@@ -485,6 +491,8 @@ function InterestForm() {
               <div>
                 <Input
                   ref={ageRef}
+                  id="childAge"
+                  name="childAge"
                   label={t("interest.childAge")}
                   required
                   type="number"
@@ -540,7 +548,7 @@ function InterestForm() {
                   <option value="">{t("interest.offeringGeneral")}</option>
                   {offerings.map((item) => (
                     <option key={item.id} value={item.id}>
-                      {item.name} ({item.programme.name}
+                      {item.name} ({item.programme?.name ?? item.name}
                       {item.venue?.name ? ` — ${item.venue.name}` : ""})
                     </option>
                   ))}
