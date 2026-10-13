@@ -1498,6 +1498,22 @@ test("safety regression: deployment identity fails closed when deployed branch i
       }),
     /DEPLOYMENT_BRANCH_MISMATCH: Deployed branch 'main' does not match approved staging branch 'staging\/ric-65-academy-soft-launch'/,
   );
+
+  // Attempting to override branch via env variable is strictly rejected
+  await assert.rejects(
+    () =>
+      verifyVercelDeploymentIdentity({
+        apiUrl: new URL(`https://${PINNED_VERCEL_STAGING_API_HOST}`),
+        env: {
+          VERCEL_TOKEN: "valid-mock-token",
+          KHLIM_STAGING_EXPECTED_COMMIT_SHA:
+            "80aac16f46ff4cb0e75c3b15b899db515d74764c",
+          KHLIM_STAGING_EXPECTED_BRANCH: "main",
+        },
+        fetchImpl: fetchWrongBranch,
+      }),
+    /DEPLOYMENT_BRANCH_MISMATCH: Deployed branch 'main' does not match approved staging branch 'staging\/ric-65-academy-soft-launch'/,
+  );
 });
 
 test("safety regression: deployment identity fails closed when expected commit SHA is missing or mismatched (stale deployment)", async () => {
@@ -1540,6 +1556,61 @@ test("safety regression: deployment identity fails closed when expected commit S
         fetchImpl: fetchStaleSha,
       }),
     /DEPLOYMENT_COMMIT_MISMATCH: Deployed commit '11a1e350df628bd3195c776a03a1c5c33a5a6899' does not match expected approved commit '80aac16f46ff4cb0e75c3b15b899db515d74764c'/,
+  );
+
+  // Short expected SHA prefix is rejected (exact full SHA required)
+  const fullDeployedSha = "80aac16f46ff4cb0e75c3b15b899db515d74764c";
+  const fetchFullSha = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      id: "dpl_mock_full",
+      readyState: "READY",
+      gitSource: {
+        ref: DEDICATED_STAGING_BRANCH,
+        sha: fullDeployedSha,
+      },
+    }),
+  });
+
+  await assert.rejects(
+    () =>
+      verifyVercelDeploymentIdentity({
+        apiUrl: new URL(`https://${PINNED_VERCEL_STAGING_API_HOST}`),
+        env: {
+          VERCEL_TOKEN: "valid-mock-token",
+          KHLIM_STAGING_EXPECTED_COMMIT_SHA: "80aac16", // 7-char prefix
+        },
+        fetchImpl: fetchFullSha,
+      }),
+    /DEPLOYMENT_COMMIT_MISMATCH/,
+  );
+
+  // Short deployed SHA in Vercel metadata is rejected (exact full SHA required)
+  const fetchShortDeployed = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      id: "dpl_mock_short",
+      readyState: "READY",
+      gitSource: {
+        ref: DEDICATED_STAGING_BRANCH,
+        sha: "80aac16",
+      },
+    }),
+  });
+
+  await assert.rejects(
+    () =>
+      verifyVercelDeploymentIdentity({
+        apiUrl: new URL(`https://${PINNED_VERCEL_STAGING_API_HOST}`),
+        env: {
+          VERCEL_TOKEN: "valid-mock-token",
+          KHLIM_STAGING_EXPECTED_COMMIT_SHA: fullDeployedSha,
+        },
+        fetchImpl: fetchShortDeployed,
+      }),
+    /DEPLOYMENT_COMMIT_MISMATCH/,
   );
 });
 

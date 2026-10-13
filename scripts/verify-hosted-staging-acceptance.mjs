@@ -441,16 +441,14 @@ export async function verifyVercelDeploymentIdentity({
     );
   }
 
-  // 1. Verify deployed branch
-  const expectedBranch =
-    env.KHLIM_STAGING_EXPECTED_BRANCH?.trim() || DEDICATED_STAGING_BRANCH;
-  if (deployedBranch !== expectedBranch) {
+  // 1. Verify deployed branch (strictly locked to DEDICATED_STAGING_BRANCH without override)
+  if (deployedBranch !== DEDICATED_STAGING_BRANCH) {
     throw new Error(
-      `DEPLOYMENT_BRANCH_MISMATCH: Deployed branch '${deployedBranch}' does not match approved staging branch '${expectedBranch}'.`,
+      `DEPLOYMENT_BRANCH_MISMATCH: Deployed branch '${deployedBranch}' does not match approved staging branch '${DEDICATED_STAGING_BRANCH}'.`,
     );
   }
 
-  // 2. Verify approved commit SHA
+  // 2. Verify approved commit SHA with strict exact equality
   const expectedSha =
     env.KHLIM_STAGING_EXPECTED_COMMIT_SHA?.trim() ||
     env.KHLIM_STAGING_APPROVED_COMMIT_SHA?.trim() ||
@@ -464,12 +462,8 @@ export async function verifyVercelDeploymentIdentity({
 
   const normDeployed = deployedSha.toLowerCase();
   const normExpected = expectedSha.toLowerCase();
-  const shaMatches =
-    normDeployed === normExpected ||
-    (normExpected.length >= 7 && normDeployed.startsWith(normExpected)) ||
-    (normDeployed.length >= 7 && normExpected.startsWith(normDeployed));
 
-  if (!shaMatches) {
+  if (normDeployed !== normExpected) {
     throw new Error(
       `DEPLOYMENT_COMMIT_MISMATCH: Deployed commit '${deployedSha}' does not match expected approved commit '${expectedSha}'.`,
     );
