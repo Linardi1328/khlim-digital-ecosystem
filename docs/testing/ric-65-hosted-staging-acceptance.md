@@ -64,6 +64,17 @@ When authorized for a bounded active staging window, the runner executes the fol
   - `database.projectRef === "qxsjxcbfhxbvxigghhlq"`
 - Queries `GET /auth/v1/health` on Supabase Auth.
 
+### Phase A2: Authenticated Vercel Deployment Identity & Provenance Verification
+Before executing any mutation or credential-bearing call in active mode:
+- Queries `GET https://api.vercel.com/v13/deployments/${hostname}?withGitRepoInfo=true` using authenticated `VERCEL_TOKEN` / `KHLIM_STAGING_VERCEL_TOKEN`.
+- Verifies:
+  - `readyState === "READY"`
+  - `deployedBranch === "staging/ric-65-academy-soft-launch"` (strictly matches expected staging branch)
+  - `deployedSha` matches approved commit SHA (`KHLIM_STAGING_EXPECTED_COMMIT_SHA` / `GITHUB_SHA`)
+  - If immutable `KHLIM_STAGING_DEPLOYMENT_ID` is configured, verifies alias resolves to that exact deployment ID.
+  - Fails closed for missing tokens, stale deployments, wrong branch, missing metadata, alias mismatches, or HTTP redirects.
+  - Vercel tokens are strictly isolated to `https://api.vercel.com` and never sent to target APIs or logged.
+
 ### Phase B: Non-Destructive Input Validation & Injection Rejection
 Sends test payloads to `POST /v1/academy/leads` to confirm server-side validation rejects invalid inputs without persisting data:
 - Missing consent (`consent: false`) -> HTTP 400

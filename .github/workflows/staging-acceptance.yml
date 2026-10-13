@@ -78,4 +78,8 @@ jobs:
           KHLIM_STAGING_APPROVED_TEST_PHONE: ${{ secrets.KHLIM_STAGING_APPROVED_TEST_PHONE }}
           KHLIM_STAGING_TARGET_BRANCH: ${{ github.ref_name }}
           KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: ${{ inputs.active_window_authorized && '1' || '0' }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          KHLIM_STAGING_VERCEL_TOKEN: ${{ secrets.KHLIM_STAGING_VERCEL_TOKEN }}
+          KHLIM_STAGING_EXPECTED_COMMIT_SHA: ${{ github.sha }}
+          KHLIM_STAGING_DEPLOYMENT_ID: ${{ secrets.KHLIM_STAGING_DEPLOYMENT_ID }}
         run: node scripts/verify-hosted-staging-acceptance.mjs

@@ -18,6 +18,7 @@ import {
   validateTargetBranch,
   generateSyntheticLead,
   fetchWithTimeout,
+  verifyVercelDeploymentIdentity,
   runHostedStagingAcceptance,
 } from "../scripts/verify-hosted-staging-acceptance.mjs";
 
@@ -37,6 +38,16 @@ function createMockFetch({
   adminDetailItem = null,
   duplicateReturnsDifferentId = false,
   conflictReturns201 = false,
+  vercelDeploymentResponse = {
+    id: "dpl_mock_staging_ready",
+    readyState: "READY",
+    url: PINNED_VERCEL_STAGING_API_HOST,
+    gitSource: {
+      ref: DEDICATED_STAGING_BRANCH,
+      sha: "mock-commit-sha-123",
+    },
+  },
+  vercelDeploymentStatus = 200,
 } = {}) {
   let leadCreatedInDb = null;
   const recordedRequests = [];
@@ -66,6 +77,21 @@ function createMockFetch({
 
     if (urlStr.endsWith("/auth/v1/health")) {
       return { ok: true, status: 200, json: async () => ({}) };
+    }
+
+    if (urlStr.includes("api.vercel.com/v13/deployments/")) {
+      if (vercelDeploymentStatus !== 200) {
+        return {
+          ok: false,
+          status: vercelDeploymentStatus,
+          json: async () => ({ error: { message: "Vercel API error" } }),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => vercelDeploymentResponse,
+      };
     }
 
     if (urlStr.endsWith("/v1/academy/leads")) {
@@ -805,8 +831,8 @@ test("safety regression: runner fails closed if AAL1 token is not rejected with 
       () =>
         runHostedStagingAcceptance({
           KHLIM_STAGING_TARGET_BRANCH: DEDICATED_STAGING_BRANCH,
-          KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
-          NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
+          KHLIM_STAGING_API_URL: `https://${PINNED_VERCEL_STAGING_API_HOST}`,
+          NEXT_PUBLIC_SUPABASE_URL: `https://${STAGING_SUPABASE_PROJECT_ID}.supabase.co`,
           NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
           KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1",
           KHLIM_STAGING_ADMIN_AAL2_TOKEN: "admin-token",
@@ -814,6 +840,8 @@ test("safety regression: runner fails closed if AAL1 token is not rejected with 
           KHLIM_STAGING_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
           KHLIM_STAGING_APPROVED_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
           KHLIM_STAGING_DATABASE_URL: `postgresql://postgres@db.${STAGING_SUPABASE_PROJECT_ID}.supabase.co:5432/postgres`,
+          VERCEL_TOKEN: "mock-vercel-token",
+          KHLIM_STAGING_EXPECTED_COMMIT_SHA: "mock-commit-sha-123",
           _prismaClient: { academyLead: { count: async () => 1 } },
         }),
       /AUTH_GATE_FAILURE: AAL1 user token was not rejected with 403 Forbidden: received HTTP 200/,
@@ -834,8 +862,8 @@ test("safety regression: runner fails closed if unauthenticated access to Admin 
       () =>
         runHostedStagingAcceptance({
           KHLIM_STAGING_TARGET_BRANCH: DEDICATED_STAGING_BRANCH,
-          KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
-          NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
+          KHLIM_STAGING_API_URL: `https://${PINNED_VERCEL_STAGING_API_HOST}`,
+          NEXT_PUBLIC_SUPABASE_URL: `https://${STAGING_SUPABASE_PROJECT_ID}.supabase.co`,
           NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
           KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1",
           KHLIM_STAGING_ADMIN_AAL2_TOKEN: "admin-token",
@@ -843,6 +871,8 @@ test("safety regression: runner fails closed if unauthenticated access to Admin 
           KHLIM_STAGING_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
           KHLIM_STAGING_APPROVED_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
           KHLIM_STAGING_DATABASE_URL: `postgresql://postgres@db.${STAGING_SUPABASE_PROJECT_ID}.supabase.co:5432/postgres`,
+          VERCEL_TOKEN: "mock-vercel-token",
+          KHLIM_STAGING_EXPECTED_COMMIT_SHA: "mock-commit-sha-123",
           _prismaClient: { academyLead: { count: async () => 1 } },
         }),
       /AUTH_GATE_FAILURE: Unauthenticated Admin leads request was not rejected with 401: received HTTP 200/,
@@ -858,8 +888,8 @@ test("safety regression: runner fails closed if duplicate replay returns differe
 
   const baseActiveEnv = {
     KHLIM_STAGING_TARGET_BRANCH: DEDICATED_STAGING_BRANCH,
-    KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
-    NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
+    KHLIM_STAGING_API_URL: `https://${PINNED_VERCEL_STAGING_API_HOST}`,
+    NEXT_PUBLIC_SUPABASE_URL: `https://${STAGING_SUPABASE_PROJECT_ID}.supabase.co`,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
     KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1",
     KHLIM_STAGING_ADMIN_AAL2_TOKEN: "admin-token",
@@ -867,6 +897,8 @@ test("safety regression: runner fails closed if duplicate replay returns differe
     KHLIM_STAGING_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
     KHLIM_STAGING_APPROVED_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
     KHLIM_STAGING_DATABASE_URL: `postgresql://postgres@db.${STAGING_SUPABASE_PROJECT_ID}.supabase.co:5432/postgres`,
+    VERCEL_TOKEN: "mock-vercel-token",
+    KHLIM_STAGING_EXPECTED_COMMIT_SHA: "mock-commit-sha-123",
     _prismaClient: {
       academyLead: {
         count: async () => 1,
@@ -909,8 +941,8 @@ test("safety regression: runner fails closed if Admin list parser finds incorrec
 
   const baseActiveEnv = {
     KHLIM_STAGING_TARGET_BRANCH: DEDICATED_STAGING_BRANCH,
-    KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
-    NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
+    KHLIM_STAGING_API_URL: `https://${PINNED_VERCEL_STAGING_API_HOST}`,
+    NEXT_PUBLIC_SUPABASE_URL: `https://${STAGING_SUPABASE_PROJECT_ID}.supabase.co`,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
     KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1",
     KHLIM_STAGING_ADMIN_AAL2_TOKEN: "admin-token",
@@ -918,6 +950,8 @@ test("safety regression: runner fails closed if Admin list parser finds incorrec
     KHLIM_STAGING_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
     KHLIM_STAGING_APPROVED_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
     KHLIM_STAGING_DATABASE_URL: `postgresql://postgres@db.${STAGING_SUPABASE_PROJECT_ID}.supabase.co:5432/postgres`,
+    VERCEL_TOKEN: "mock-vercel-token",
+    KHLIM_STAGING_EXPECTED_COMMIT_SHA: "mock-commit-sha-123",
     _prismaClient: {
       academyLead: {
         count: async () => 1,
@@ -1131,8 +1165,8 @@ test("authorized active window verifies non-destructive cases, lead creation, du
   try {
     const env = {
       KHLIM_STAGING_TARGET_BRANCH: DEDICATED_STAGING_BRANCH,
-      KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
-      NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
+      KHLIM_STAGING_API_URL: `https://${PINNED_VERCEL_STAGING_API_HOST}`,
+      NEXT_PUBLIC_SUPABASE_URL: `https://${STAGING_SUPABASE_PROJECT_ID}.supabase.co`,
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
       KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1", // Authorized active window
       KHLIM_STAGING_USER_AAL1_TOKEN: "aal1-token-sample",
@@ -1140,6 +1174,8 @@ test("authorized active window verifies non-destructive cases, lead creation, du
       KHLIM_STAGING_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
       KHLIM_STAGING_APPROVED_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
       KHLIM_STAGING_DATABASE_URL: `postgresql://postgres@db.${STAGING_SUPABASE_PROJECT_ID}.supabase.co:5432/postgres`,
+      VERCEL_TOKEN: "mock-vercel-token",
+      KHLIM_STAGING_EXPECTED_COMMIT_SHA: "mock-commit-sha-123",
       _prismaClient: {
         academyLead: {
           count: async ({ where }) => {
@@ -1322,12 +1358,278 @@ test("RIC-65 workflow and documentation strictly encode staging targets, manual 
   assert.match(stagingDispatchWorkflow, /KHLIM_STAGING_ADMIN_AAL2_TOKEN/);
   assert.match(stagingDispatchWorkflow, /KHLIM_STAGING_USER_AAL1_TOKEN/);
 
+  // Vercel deployment identity and provenance env vars in workflows
+  assert.match(workflow, /VERCEL_TOKEN/);
+  assert.match(workflow, /KHLIM_STAGING_EXPECTED_COMMIT_SHA/);
+  assert.match(stagingDispatchWorkflow, /VERCEL_TOKEN/);
+  assert.match(stagingDispatchWorkflow, /KHLIM_STAGING_EXPECTED_COMMIT_SHA/);
+
   // Documentation checks
   assert.match(doc, /qxsjxcbfhxbvxigghhlq/);
   assert.match(doc, /staging\/ric-65-academy-soft-launch/);
+  assert.match(
+    doc,
+    /Phase A2: Authenticated Vercel Deployment Identity & Provenance Verification/,
+  );
   assert.match(doc, /source=3x3-oct24/);
   assert.match(doc, /MFA assurance level 2/);
   assert.match(doc, /MFA AAL2/);
   assert.match(doc, /Do not pause KYNEXA/);
   assert.match(doc, /LEAD_IDEMPOTENCY_CONFLICT/);
+});
+
+test("safety regression: deployment identity fails closed when Vercel token is missing or placeholder in active window", async () => {
+  await assert.rejects(
+    () =>
+      verifyVercelDeploymentIdentity({
+        apiUrl: new URL(`https://${PINNED_VERCEL_STAGING_API_HOST}`),
+        env: { VERCEL_TOKEN: "" },
+      }),
+    /DEPLOYMENT_VERIFICATION_FAILED: Missing Vercel authentication token/,
+  );
+
+  await assert.rejects(
+    () =>
+      verifyVercelDeploymentIdentity({
+        apiUrl: new URL(`https://${PINNED_VERCEL_STAGING_API_HOST}`),
+        env: { VERCEL_TOKEN: "placeholder-token" },
+      }),
+    /DEPLOYMENT_VERIFICATION_FAILED: Missing Vercel authentication token/,
+  );
+});
+
+test("safety regression: deployment identity fails closed when Vercel API returns non-200 or introspection fails", async () => {
+  const fetch404 = async () => ({ ok: false, status: 404 });
+  await assert.rejects(
+    () =>
+      verifyVercelDeploymentIdentity({
+        apiUrl: new URL(`https://${PINNED_VERCEL_STAGING_API_HOST}`),
+        env: { VERCEL_TOKEN: "valid-mock-token" },
+        fetchImpl: fetch404,
+      }),
+    /DEPLOYMENT_VERIFICATION_FAILED: Failed to fetch deployment metadata from Vercel API: HTTP 404/,
+  );
+
+  const fetchNetworkError = async () => {
+    throw new Error("connect ECONNREFUSED api.vercel.com:443");
+  };
+  await assert.rejects(
+    () =>
+      verifyVercelDeploymentIdentity({
+        apiUrl: new URL(`https://${PINNED_VERCEL_STAGING_API_HOST}`),
+        env: { VERCEL_TOKEN: "valid-mock-token" },
+        fetchImpl: fetchNetworkError,
+      }),
+    /DEPLOYMENT_INTROSPECTION_FAILED.*ECONNREFUSED/,
+  );
+});
+
+test("safety regression: deployment identity fails closed when metadata lacks Git provenance or deployment is not READY", async () => {
+  const fetchBuilding = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      id: "dpl_mock_building",
+      readyState: "BUILDING",
+      gitSource: {
+        ref: DEDICATED_STAGING_BRANCH,
+        sha: "abc1234def5678",
+      },
+    }),
+  });
+  await assert.rejects(
+    () =>
+      verifyVercelDeploymentIdentity({
+        apiUrl: new URL(`https://${PINNED_VERCEL_STAGING_API_HOST}`),
+        env: {
+          VERCEL_TOKEN: "valid-mock-token",
+          KHLIM_STAGING_EXPECTED_COMMIT_SHA: "abc1234def5678",
+        },
+        fetchImpl: fetchBuilding,
+      }),
+    /DEPLOYMENT_NOT_READY: Vercel deployment 'dpl_mock_building' state is 'BUILDING', expected 'READY'/,
+  );
+
+  const fetchNoGit = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      id: "dpl_mock_nogit",
+      readyState: "READY",
+    }),
+  });
+  await assert.rejects(
+    () =>
+      verifyVercelDeploymentIdentity({
+        apiUrl: new URL(`https://${PINNED_VERCEL_STAGING_API_HOST}`),
+        env: {
+          VERCEL_TOKEN: "valid-mock-token",
+          KHLIM_STAGING_EXPECTED_COMMIT_SHA: "abc1234def5678",
+        },
+        fetchImpl: fetchNoGit,
+      }),
+    /DEPLOYMENT_METADATA_INCOMPLETE: Deployment metadata lacks required Git provenance/,
+  );
+});
+
+test("safety regression: deployment identity fails closed when deployed branch is not dedicated staging branch", async () => {
+  const fetchWrongBranch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      id: "dpl_mock_wrong_branch",
+      readyState: "READY",
+      gitSource: {
+        ref: "main",
+        sha: "80aac16f46ff4cb0e75c3b15b899db515d74764c",
+      },
+    }),
+  });
+  await assert.rejects(
+    () =>
+      verifyVercelDeploymentIdentity({
+        apiUrl: new URL(`https://${PINNED_VERCEL_STAGING_API_HOST}`),
+        env: {
+          VERCEL_TOKEN: "valid-mock-token",
+          KHLIM_STAGING_EXPECTED_COMMIT_SHA:
+            "80aac16f46ff4cb0e75c3b15b899db515d74764c",
+        },
+        fetchImpl: fetchWrongBranch,
+      }),
+    /DEPLOYMENT_BRANCH_MISMATCH: Deployed branch 'main' does not match approved staging branch 'staging\/ric-65-academy-soft-launch'/,
+  );
+});
+
+test("safety regression: deployment identity fails closed when expected commit SHA is missing or mismatched (stale deployment)", async () => {
+  const fetchStaleSha = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      id: "dpl_mock_stale",
+      readyState: "READY",
+      gitSource: {
+        ref: DEDICATED_STAGING_BRANCH,
+        sha: "11a1e350df628bd3195c776a03a1c5c33a5a6899",
+      },
+    }),
+  });
+
+  // Missing expected commit SHA
+  await assert.rejects(
+    () =>
+      verifyVercelDeploymentIdentity({
+        apiUrl: new URL(`https://${PINNED_VERCEL_STAGING_API_HOST}`),
+        env: {
+          VERCEL_TOKEN: "valid-mock-token",
+        },
+        fetchImpl: fetchStaleSha,
+      }),
+    /MISSING_EXPECTED_COMMIT_SHA: Active staging acceptance requires an explicit approved commit SHA/,
+  );
+
+  // Mismatched commit SHA (older SHA 11a1e350 vs approved SHA 80aac16f)
+  await assert.rejects(
+    () =>
+      verifyVercelDeploymentIdentity({
+        apiUrl: new URL(`https://${PINNED_VERCEL_STAGING_API_HOST}`),
+        env: {
+          VERCEL_TOKEN: "valid-mock-token",
+          KHLIM_STAGING_EXPECTED_COMMIT_SHA:
+            "80aac16f46ff4cb0e75c3b15b899db515d74764c",
+        },
+        fetchImpl: fetchStaleSha,
+      }),
+    /DEPLOYMENT_COMMIT_MISMATCH: Deployed commit '11a1e350df628bd3195c776a03a1c5c33a5a6899' does not match expected approved commit '80aac16f46ff4cb0e75c3b15b899db515d74764c'/,
+  );
+});
+
+test("safety regression: deployment identity fails closed when mutable alias points to different deployment ID", async () => {
+  const fetchAliasMismatch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      id: "dpl_stale_alias_target",
+      readyState: "READY",
+      gitSource: {
+        ref: DEDICATED_STAGING_BRANCH,
+        sha: "80aac16f46ff4cb0e75c3b15b899db515d74764c",
+      },
+    }),
+  });
+
+  await assert.rejects(
+    () =>
+      verifyVercelDeploymentIdentity({
+        apiUrl: new URL(`https://${PINNED_VERCEL_STAGING_API_HOST}`),
+        env: {
+          VERCEL_TOKEN: "valid-mock-token",
+          KHLIM_STAGING_EXPECTED_COMMIT_SHA:
+            "80aac16f46ff4cb0e75c3b15b899db515d74764c",
+          KHLIM_STAGING_DEPLOYMENT_ID: "dpl_expected_fresh_deployment",
+        },
+        fetchImpl: fetchAliasMismatch,
+      }),
+    /ALIAS_DEPLOYMENT_MISMATCH: API alias 'khlim-digital-ecosystem-api-git-staging-dc7b4a-rbl-productions.vercel.app' points to deployment 'dpl_stale_alias_target', expected 'dpl_expected_fresh_deployment'/,
+  );
+});
+
+test("safety regression: deployment identity fails closed for non-Vercel target in active mode", async () => {
+  await assert.rejects(
+    () =>
+      verifyVercelDeploymentIdentity({
+        apiUrl: new URL("https://khlim-api-staging.onrender.com"),
+        env: {
+          VERCEL_TOKEN: "valid-mock-token",
+          KHLIM_STAGING_EXPECTED_COMMIT_SHA:
+            "80aac16f46ff4cb0e75c3b15b899db515d74764c",
+        },
+      }),
+    /UNSUPPORTED_DEPLOYMENT_PROVIDER: Hosted staging active window requires verified Vercel deployment metadata provenance/,
+  );
+});
+
+test("safety regression: vercel token is never leaked to API host or sent across HTTP redirects", async () => {
+  const vercelApiRequests = [];
+  const apiRequests = [];
+
+  const mockIsolationFetch = async (url, options = {}) => {
+    const urlStr = String(url);
+    if (urlStr.includes("api.vercel.com")) {
+      vercelApiRequests.push({ url: urlStr, headers: options.headers || {} });
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          id: "dpl_isolated_123",
+          readyState: "READY",
+          gitSource: {
+            ref: DEDICATED_STAGING_BRANCH,
+            sha: "80aac16f46ff4cb0e75c3b15b899db515d74764c",
+          },
+        }),
+      };
+    }
+    apiRequests.push({ url: urlStr, headers: options.headers || {} });
+    return { ok: true, status: 200, json: async () => ({ status: "ok" }) };
+  };
+
+  const identity = await verifyVercelDeploymentIdentity({
+    apiUrl: new URL(`https://${PINNED_VERCEL_STAGING_API_HOST}`),
+    env: {
+      VERCEL_TOKEN: "secret-token-isolation-check",
+      KHLIM_STAGING_EXPECTED_COMMIT_SHA:
+        "80aac16f46ff4cb0e75c3b15b899db515d74764c",
+    },
+    fetchImpl: mockIsolationFetch,
+  });
+
+  assert.equal(identity.verified, true);
+  assert.equal(identity.deploymentId, "dpl_isolated_123");
+  assert.equal(vercelApiRequests.length, 1);
+  assert.equal(
+    vercelApiRequests[0].headers.Authorization,
+    "Bearer secret-token-isolation-check",
+  );
+  // Verify token never reached any non-Vercel API request
+  assert.equal(apiRequests.length, 0);
 });

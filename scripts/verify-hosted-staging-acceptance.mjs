@@ -120,7 +120,10 @@ export function sanitizeErrorMessage(error) {
       "[email-redacted]",
     )
     .replace(/\+?60\d{8,10}/g, "[phone-redacted]")
-    .replace(/(password|secret|token|apikey|key)=[^&\s]+/gi, "$1=[redacted]");
+    .replace(
+      /(password|secret|token|apikey|key|bypass)[:=]\s*[^&\s,]+/gi,
+      "$1=[redacted]",
+    );
 }
 
 export function extractDatabaseProjectRef(databaseUrl) {
@@ -340,6 +343,155 @@ export async function fetchWithTimeout(url, init = {}, timeoutMs = 15000) {
   }
 }
 
+export async function verifyVercelDeploymentIdentity({
+  apiUrl,
+  env = process.env,
+  fetchImpl = fetchWithTimeout,
+}) {
+  const targetHost = apiUrl.hostname.toLowerCase();
+  const isVercelTarget =
+    targetHost === PINNED_VERCEL_STAGING_API_HOST ||
+    targetHost.endsWith(".vercel.app");
+
+  if (!isVercelTarget) {
+    throw new Error(
+      `UNSUPPORTED_DEPLOYMENT_PROVIDER: Hosted staging active window requires verified Vercel deployment metadata provenance. Target host '${apiUrl.hostname}' cannot be attested via Vercel.`,
+    );
+  }
+
+  const vercelToken =
+    env.VERCEL_TOKEN?.trim() ||
+    env.VERCEL_API_TOKEN?.trim() ||
+    env.KHLIM_STAGING_VERCEL_TOKEN?.trim();
+
+  if (!vercelToken || /replace-with|placeholder/i.test(vercelToken)) {
+    throw new Error(
+      "DEPLOYMENT_VERIFICATION_FAILED: Missing Vercel authentication token (VERCEL_TOKEN or KHLIM_STAGING_VERCEL_TOKEN). Deployment identity cannot be attested before hosted POST.",
+    );
+  }
+
+  const targetDeploymentOrAlias = apiUrl.hostname;
+
+  const vercelApiUrl = new URL(
+    `/v13/deployments/${encodeURIComponent(targetDeploymentOrAlias)}`,
+    "https://api.vercel.com",
+  );
+  vercelApiUrl.searchParams.set("withGitRepoInfo", "true");
+
+  const teamId =
+    env.VERCEL_TEAM_ID?.trim() || env.KHLIM_STAGING_VERCEL_TEAM_ID?.trim();
+  if (teamId) {
+    vercelApiUrl.searchParams.set("teamId", teamId);
+  }
+
+  const vercelSlug = env.VERCEL_SLUG?.trim();
+  if (vercelSlug) {
+    vercelApiUrl.searchParams.set("slug", vercelSlug);
+  }
+
+  let res;
+  try {
+    res = await fetchImpl(vercelApiUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${vercelToken}`,
+        Accept: "application/json",
+      },
+    });
+  } catch (err) {
+    throw new Error(
+      `DEPLOYMENT_INTROSPECTION_FAILED: Vercel deployment API introspection failed: ${sanitizeErrorMessage(err)}`,
+    );
+  }
+
+  if (!res.ok) {
+    throw new Error(
+      `DEPLOYMENT_VERIFICATION_FAILED: Failed to fetch deployment metadata from Vercel API: HTTP ${res.status}`,
+    );
+  }
+
+  const deployment = await res.json().catch(() => null);
+  if (!deployment || typeof deployment !== "object") {
+    throw new Error(
+      "DEPLOYMENT_METADATA_INCOMPLETE: Vercel deployment API returned empty or unparseable metadata payload.",
+    );
+  }
+
+  const deploymentId = deployment.id;
+  const readyState = deployment.readyState || deployment.status;
+  const deployedBranch =
+    deployment.gitSource?.ref ||
+    deployment.gitSource?.branch ||
+    deployment.meta?.githubCommitRef ||
+    deployment.meta?.branch;
+  const deployedSha =
+    deployment.gitSource?.sha ||
+    deployment.meta?.githubCommitSha ||
+    deployment.meta?.sha;
+
+  if (!deploymentId || !deployedBranch || !deployedSha) {
+    throw new Error(
+      `DEPLOYMENT_METADATA_INCOMPLETE: Deployment metadata lacks required Git provenance (deploymentId='${deploymentId || "missing"}', branch='${deployedBranch || "missing"}', sha='${deployedSha || "missing"}').`,
+    );
+  }
+
+  if (readyState !== "READY") {
+    throw new Error(
+      `DEPLOYMENT_NOT_READY: Vercel deployment '${deploymentId}' state is '${readyState}', expected 'READY'.`,
+    );
+  }
+
+  // 1. Verify deployed branch
+  const expectedBranch =
+    env.KHLIM_STAGING_EXPECTED_BRANCH?.trim() || DEDICATED_STAGING_BRANCH;
+  if (deployedBranch !== expectedBranch) {
+    throw new Error(
+      `DEPLOYMENT_BRANCH_MISMATCH: Deployed branch '${deployedBranch}' does not match approved staging branch '${expectedBranch}'.`,
+    );
+  }
+
+  // 2. Verify approved commit SHA
+  const expectedSha =
+    env.KHLIM_STAGING_EXPECTED_COMMIT_SHA?.trim() ||
+    env.KHLIM_STAGING_APPROVED_COMMIT_SHA?.trim() ||
+    env.GITHUB_SHA?.trim();
+
+  if (!expectedSha || /replace-with|placeholder/i.test(expectedSha)) {
+    throw new Error(
+      "MISSING_EXPECTED_COMMIT_SHA: Active staging acceptance requires an explicit approved commit SHA (KHLIM_STAGING_EXPECTED_COMMIT_SHA, KHLIM_STAGING_APPROVED_COMMIT_SHA, or GITHUB_SHA) to prevent executing against stale deployments.",
+    );
+  }
+
+  const normDeployed = deployedSha.toLowerCase();
+  const normExpected = expectedSha.toLowerCase();
+  const shaMatches =
+    normDeployed === normExpected ||
+    (normExpected.length >= 7 && normDeployed.startsWith(normExpected)) ||
+    (normDeployed.length >= 7 && normExpected.startsWith(normDeployed));
+
+  if (!shaMatches) {
+    throw new Error(
+      `DEPLOYMENT_COMMIT_MISMATCH: Deployed commit '${deployedSha}' does not match expected approved commit '${expectedSha}'.`,
+    );
+  }
+
+  // 3. Verify mutable alias does not point to a different deployment ID if expectedDeploymentId is configured
+  const expectedDeploymentId = env.KHLIM_STAGING_DEPLOYMENT_ID?.trim();
+  if (expectedDeploymentId && deploymentId !== expectedDeploymentId) {
+    throw new Error(
+      `ALIAS_DEPLOYMENT_MISMATCH: API alias '${apiUrl.hostname}' points to deployment '${deploymentId}', expected '${expectedDeploymentId}'.`,
+    );
+  }
+
+  return {
+    deploymentId,
+    readyState,
+    deployedBranch,
+    deployedSha,
+    verified: true,
+  };
+}
+
 export async function runHostedStagingAcceptance(env = process.env) {
   const results = {
     startedAt: new Date().toISOString(),
@@ -348,6 +500,7 @@ export async function runHostedStagingAcceptance(env = process.env) {
     targetBranch: null,
     supabaseProject: STAGING_SUPABASE_PROJECT_ID,
     apiOrigin: null,
+    deploymentIdentity: null,
     databaseIdentity: null,
     readiness: {},
     activeWindow: Boolean(env.KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED === "1"),
@@ -567,10 +720,20 @@ export async function runHostedStagingAcceptance(env = process.env) {
     );
   }
 
+  // 4d. Mandatory Authenticated Vercel Deployment Identity & Provenance Verification BEFORE ANY POST
+  const deploymentIdentity = await verifyVercelDeploymentIdentity({
+    apiUrl,
+    env,
+  });
+  results.deploymentIdentity = deploymentIdentity;
+
   console.log(
     JSON.stringify({
       event: "staging.hosted_acceptance.active_window_started",
-      note: "Authorized active window confirmed. Mandatory auth tokens, test contact, and direct DB client verified. Executing hosted validation cases, synthetic lead creation, duplicate idempotency receipt, and MFA AAL2 retrieval.",
+      note: "Authorized active window confirmed. Mandatory auth tokens, test contact, direct DB client, and deployment provenance verified. Executing hosted validation cases, synthetic lead creation, duplicate idempotency receipt, and MFA AAL2 retrieval.",
+      deploymentId: deploymentIdentity.deploymentId,
+      deployedSha: deploymentIdentity.deployedSha,
+      deployedBranch: deploymentIdentity.deployedBranch,
     }),
   );
 
@@ -856,6 +1019,8 @@ export async function runHostedStagingAcceptance(env = process.env) {
       event: "staging.academy_acceptance.completed",
       status: "SUCCESS",
       acceptanceLayer: results.acceptanceLayer,
+      deploymentId: results.deploymentIdentity?.deploymentId,
+      deployedSha: results.deploymentIdentity?.deployedSha,
       leadId,
       source: "3x3-oct24",
       idempotencyVerified: true,
