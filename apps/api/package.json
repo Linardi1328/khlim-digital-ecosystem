@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "nest build",
+    "build": "pnpm -w prisma:generate && nest build",
     "dev": "nest start --watch",
     "start": "node dist/main.js",
     "openapi:export": "nest build && node dist/export-openapi.js",

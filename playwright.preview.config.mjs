@@ -10,6 +10,7 @@ export default defineConfig({
     "mobile-header.spec.mjs",
     "walkthrough-visual.spec.mjs",
     "auth-accessibility.spec.mjs",
+    "staging-browser-acceptance.spec.mjs",
   ],
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
