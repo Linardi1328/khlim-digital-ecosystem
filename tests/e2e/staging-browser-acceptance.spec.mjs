@@ -111,7 +111,7 @@ test.describe("RIC-65 Browser Registration Acceptance & Staging UX Rehearsal", (
 
     // Explicitly assert that the client-side consent validation error is visible before checking payload
     const consentError = page.locator(
-      '#interest-privacy-consent-error, [role="alert"]:has-text("consent"), [role="alert"]',
+      '#interest-privacy-consent-error, [role="alert"]:has-text("consent")',
     );
     await expect(consentError.first()).toBeVisible();
     expect(interceptedPayload).toBeNull(); // No request sent without consent
@@ -158,6 +158,12 @@ test.describe("RIC-65 Browser Registration Acceptance & Staging UX Rehearsal", (
     });
 
     // Browser must be redirected to login via client-side auth guard
-    await expect(page).toHaveURL(/\/auth\/login/, { timeout: 10_000 });
+    await expect(page).toHaveURL(/\/auth\/login(\?|$)/, { timeout: 10_000 });
+    expect(page.url()).toContain("redirect=%2Fportal%2Fdashboard");
+    await expect(
+      page.locator(
+        'h1:has-text("Dashboard"), [data-testid="portal-dashboard"]',
+      ),
+    ).not.toBeVisible();
   });
 });

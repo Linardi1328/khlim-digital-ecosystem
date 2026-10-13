@@ -459,7 +459,7 @@ test("fetchWithTimeout strictly rejects HTTP redirects with redirect: error to p
   }
 });
 
-test("hosted staging runner fails closed when required staging variables are missing", async () => {
+test("hosted staging runner fails closed when required staging variables or target branch are missing", async () => {
   await assert.rejects(
     () => runHostedStagingAcceptance({}),
     /KHLIM_STAGING_API_URL is missing or still a placeholder/,
@@ -474,6 +474,16 @@ test("hosted staging runner fails closed when required staging variables are mis
       }),
     /NEXT_PUBLIC_SUPABASE_URL is missing or still a placeholder/,
   );
+
+  await assert.rejects(
+    () =>
+      runHostedStagingAcceptance({
+        KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
+        NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: "test-key",
+      }),
+    /MANDATORY_TARGET_BRANCH_MISSING: KHLIM_STAGING_TARGET_BRANCH environment variable must be explicitly provided/,
+  );
 });
 
 test("safety gate halts before hosted mutations when active window is not authorized", async () => {
@@ -483,6 +493,7 @@ test("safety gate halts before hosted mutations when active window is not author
 
   try {
     const env = {
+      KHLIM_STAGING_TARGET_BRANCH: DEDICATED_STAGING_BRANCH,
       KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
       NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
@@ -524,12 +535,11 @@ test("safety regression: runner rejects database identity mismatch and disconnec
     await assert.rejects(
       () =>
         runHostedStagingAcceptance({
+          KHLIM_STAGING_TARGET_BRANCH: DEDICATED_STAGING_BRANCH,
           KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
           NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
           NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
-          KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1",
-          KHLIM_STAGING_ADMIN_AAL2_TOKEN: "admin-token",
-          KHLIM_STAGING_USER_AAL1_TOKEN: "aal1-token",
+          KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "0",
         }),
       /STAGING_HEALTH_FAILURE: Deployed API reports database status as 'disconnected'/,
     );
@@ -546,12 +556,11 @@ test("safety regression: runner rejects database identity mismatch and disconnec
     await assert.rejects(
       () =>
         runHostedStagingAcceptance({
+          KHLIM_STAGING_TARGET_BRANCH: DEDICATED_STAGING_BRANCH,
           KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
           NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
           NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
-          KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1",
-          KHLIM_STAGING_ADMIN_AAL2_TOKEN: "admin-token",
-          KHLIM_STAGING_USER_AAL1_TOKEN: "aal1-token",
+          KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "0",
         }),
       /DATABASE_IDENTITY_MISMATCH: Deployed API database projectRef is 'foreign-production-ref', expected 'qxsjxcbfhxbvxigghhlq'/,
     );
@@ -565,6 +574,7 @@ test("readiness gate strictly rejects missing, unconfigured, or disconnected dat
 
   try {
     const baseEnv = {
+      KHLIM_STAGING_TARGET_BRANCH: DEDICATED_STAGING_BRANCH,
       KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
       NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
@@ -634,6 +644,25 @@ test("validateApiTarget rejects attacker Vercel domains and arbitrary foreign ho
     () => validateApiTarget("https://api-preview.linardi.vercel.app"),
     /is not an authorized KHLIM staging deployment origin/,
   );
+  // Pinned dedicated staging Vercel host is accepted
+  assert.equal(
+    validateApiTarget(
+      "https://khlim-digital-ecosystem-api-git-staging-dc7b4a-rbl-productions.vercel.app",
+    ).origin,
+    "https://khlim-digital-ecosystem-api-git-staging-dc7b4a-rbl-productions.vercel.app",
+  );
+  // Pinned Render staging host is accepted
+  assert.equal(
+    validateApiTarget("https://khlim-api-staging.onrender.com").origin,
+    "https://khlim-api-staging.onrender.com",
+  );
+  // Custom allowlist host is accepted when provided
+  assert.equal(
+    validateApiTarget("https://custom-staging-api.example.com", [
+      "custom-staging-api.example.com",
+    ]).origin,
+    "https://custom-staging-api.example.com",
+  );
 });
 
 test("extractDatabaseProjectRef correctly parses db, postgres, and pooler formats", () => {
@@ -673,18 +702,28 @@ test("validateTestContact strictly validates Malaysian E.164 and authorized stag
   );
 
   assert.throws(
+    () => validateTestContact(APPROVED_STAGING_TEST_PHONE, null),
+    /TEST_CONTACT_UNAUTHORIZED: Explicitly approved staging test contact \(KHLIM_STAGING_APPROVED_TEST_PHONE\) is required in active mode/,
+  );
+
+  assert.throws(
+    () => validateTestContact(APPROVED_STAGING_TEST_PHONE, "   "),
+    /TEST_CONTACT_UNAUTHORIZED: Explicitly approved staging test contact \(KHLIM_STAGING_APPROVED_TEST_PHONE\) is required in active mode/,
+  );
+
+  assert.throws(
     () => validateTestContact(null, APPROVED_STAGING_TEST_PHONE),
-    /TEST_CONTACT_UNAUTHORIZED: Staging test contact phone is missing/,
+    /TEST_CONTACT_UNAUTHORIZED: Staging test contact phone \(KHLIM_STAGING_TEST_PHONE\) is required in active mode/,
   );
 
   assert.throws(
     () => validateTestContact("+1234567890", APPROVED_STAGING_TEST_PHONE),
-    /TEST_CONTACT_UNAUTHORIZED: Phone '\+1234567890' does not match Malaysian E\.164 format/,
+    /TEST_CONTACT_UNAUTHORIZED: Configured test contact does not match Malaysian E\.164 format/,
   );
 
   assert.throws(
     () => validateTestContact("+60129999999", APPROVED_STAGING_TEST_PHONE),
-    /TEST_CONTACT_UNAUTHORIZED: Phone '\+60129999999' is not an explicitly approved test contact/,
+    /TEST_CONTACT_UNAUTHORIZED: Configured test contact .* does not match approved contact/,
   );
 });
 
@@ -710,14 +749,23 @@ test("safety regression: runner fails closed when mandatory MFA AAL2 or AAL1 tok
   globalThis.fetch = mockFetch;
 
   try {
+    const baseEnv = {
+      KHLIM_STAGING_TARGET_BRANCH: DEDICATED_STAGING_BRANCH,
+      KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
+      NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
+      KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1",
+      KHLIM_STAGING_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
+      KHLIM_STAGING_APPROVED_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
+      KHLIM_STAGING_DATABASE_URL: `postgresql://postgres@db.${STAGING_SUPABASE_PROJECT_ID}.supabase.co:5432/postgres`,
+      _prismaClient: { academyLead: { count: async () => 1 } },
+    };
+
     // Missing Admin AAL2 Token
     await assert.rejects(
       () =>
         runHostedStagingAcceptance({
-          KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
-          NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
-          KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1",
+          ...baseEnv,
           KHLIM_STAGING_ADMIN_AAL2_TOKEN: "", // missing
           KHLIM_STAGING_USER_AAL1_TOKEN: "aal1-token",
         }),
@@ -728,10 +776,7 @@ test("safety regression: runner fails closed when mandatory MFA AAL2 or AAL1 tok
     await assert.rejects(
       () =>
         runHostedStagingAcceptance({
-          KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
-          NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
-          KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1",
+          ...baseEnv,
           KHLIM_STAGING_ADMIN_AAL2_TOKEN: "admin-token",
           KHLIM_STAGING_USER_AAL1_TOKEN: "", // missing
         }),
@@ -752,12 +797,17 @@ test("safety regression: runner fails closed if AAL1 token is not rejected with 
     await assert.rejects(
       () =>
         runHostedStagingAcceptance({
+          KHLIM_STAGING_TARGET_BRANCH: DEDICATED_STAGING_BRANCH,
           KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
           NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
           NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
           KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1",
           KHLIM_STAGING_ADMIN_AAL2_TOKEN: "admin-token",
           KHLIM_STAGING_USER_AAL1_TOKEN: "aal1-token",
+          KHLIM_STAGING_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
+          KHLIM_STAGING_APPROVED_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
+          KHLIM_STAGING_DATABASE_URL: `postgresql://postgres@db.${STAGING_SUPABASE_PROJECT_ID}.supabase.co:5432/postgres`,
+          _prismaClient: { academyLead: { count: async () => 1 } },
         }),
       /AUTH_GATE_FAILURE: AAL1 user token was not rejected with 403 Forbidden: received HTTP 200/,
     );
@@ -776,12 +826,17 @@ test("safety regression: runner fails closed if unauthenticated access to Admin 
     await assert.rejects(
       () =>
         runHostedStagingAcceptance({
+          KHLIM_STAGING_TARGET_BRANCH: DEDICATED_STAGING_BRANCH,
           KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
           NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
           NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
           KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1",
           KHLIM_STAGING_ADMIN_AAL2_TOKEN: "admin-token",
           KHLIM_STAGING_USER_AAL1_TOKEN: "aal1-token",
+          KHLIM_STAGING_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
+          KHLIM_STAGING_APPROVED_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
+          KHLIM_STAGING_DATABASE_URL: `postgresql://postgres@db.${STAGING_SUPABASE_PROJECT_ID}.supabase.co:5432/postgres`,
+          _prismaClient: { academyLead: { count: async () => 1 } },
         }),
       /AUTH_GATE_FAILURE: Unauthenticated Admin leads request was not rejected with 401: received HTTP 200/,
     );
@@ -795,12 +850,21 @@ test("safety regression: runner fails closed if duplicate replay returns differe
   const leadId = "c2a95d10-8b9a-4e89-a2e6-7a13c9a0b123";
 
   const baseActiveEnv = {
+    KHLIM_STAGING_TARGET_BRANCH: DEDICATED_STAGING_BRANCH,
     KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
     NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
     NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
     KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1",
     KHLIM_STAGING_ADMIN_AAL2_TOKEN: "admin-token",
     KHLIM_STAGING_USER_AAL1_TOKEN: "aal1-token",
+    KHLIM_STAGING_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
+    KHLIM_STAGING_APPROVED_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
+    KHLIM_STAGING_DATABASE_URL: `postgresql://postgres@db.${STAGING_SUPABASE_PROJECT_ID}.supabase.co:5432/postgres`,
+    _prismaClient: {
+      academyLead: {
+        count: async () => 1,
+      },
+    },
   };
 
   try {
@@ -836,6 +900,24 @@ test("safety regression: runner fails closed if Admin list parser finds incorrec
   const origFetch = globalThis.fetch;
   const leadId = "c2a95d10-8b9a-4e89-a2e6-7a13c9a0b123";
 
+  const baseActiveEnv = {
+    KHLIM_STAGING_TARGET_BRANCH: DEDICATED_STAGING_BRANCH,
+    KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
+    NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
+    KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1",
+    KHLIM_STAGING_ADMIN_AAL2_TOKEN: "admin-token",
+    KHLIM_STAGING_USER_AAL1_TOKEN: "aal1-token",
+    KHLIM_STAGING_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
+    KHLIM_STAGING_APPROVED_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
+    KHLIM_STAGING_DATABASE_URL: `postgresql://postgres@db.${STAGING_SUPABASE_PROJECT_ID}.supabase.co:5432/postgres`,
+    _prismaClient: {
+      academyLead: {
+        count: async () => 1,
+      },
+    },
+  };
+
   try {
     // 1. Admin returns status !== 'NEW'
     const { mockFetch: mockWrongStatus } = createMockFetch({
@@ -847,15 +929,7 @@ test("safety regression: runner fails closed if Admin list parser finds incorrec
     globalThis.fetch = mockWrongStatus;
 
     await assert.rejects(
-      () =>
-        runHostedStagingAcceptance({
-          KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
-          NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
-          KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1",
-          KHLIM_STAGING_ADMIN_AAL2_TOKEN: "admin-token",
-          KHLIM_STAGING_USER_AAL1_TOKEN: "aal1-token",
-        }),
+      () => runHostedStagingAcceptance(baseActiveEnv),
       /STATUS_INVARIANT_VIOLATION: Expected status='NEW', found 'CONTACTED'/,
     );
 
@@ -867,15 +941,7 @@ test("safety regression: runner fails closed if Admin list parser finds incorrec
     globalThis.fetch = mockZeroItems;
 
     await assert.rejects(
-      () =>
-        runHostedStagingAcceptance({
-          KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
-          NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
-          KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1",
-          KHLIM_STAGING_ADMIN_AAL2_TOKEN: "admin-token",
-          KHLIM_STAGING_USER_AAL1_TOKEN: "aal1-token",
-        }),
+      () => runHostedStagingAcceptance(baseActiveEnv),
       /PERSISTENCE_INVARIANT_VIOLATION: Expected exactly 1 persisted lead for ID in Admin list, found 0/,
     );
   } finally {
@@ -891,12 +957,15 @@ test("safety regression: active mode requires direct database URL and verifies p
 
   try {
     const baseEnv = {
+      KHLIM_STAGING_TARGET_BRANCH: DEDICATED_STAGING_BRANCH,
       KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
       NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
       KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1",
       KHLIM_STAGING_ADMIN_AAL2_TOKEN: "admin-token",
       KHLIM_STAGING_USER_AAL1_TOKEN: "aal1-token",
+      KHLIM_STAGING_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
+      KHLIM_STAGING_APPROVED_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
     };
 
     // 1. Missing direct DB URL
@@ -935,26 +1004,137 @@ test("safety regression: active mode requires direct database URL and verifies p
   }
 });
 
+test("safety regression: active mode requires approved test phone and fails closed if missing or mismatched", async () => {
+  const origFetch = globalThis.fetch;
+  const { mockFetch } = createMockFetch();
+  globalThis.fetch = mockFetch;
+
+  try {
+    const baseEnv = {
+      KHLIM_STAGING_TARGET_BRANCH: DEDICATED_STAGING_BRANCH,
+      KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
+      NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
+      KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1",
+      KHLIM_STAGING_ADMIN_AAL2_TOKEN: "admin-token",
+      KHLIM_STAGING_USER_AAL1_TOKEN: "aal1-token",
+    };
+
+    // Missing approved phone
+    await assert.rejects(
+      () =>
+        runHostedStagingAcceptance({
+          ...baseEnv,
+          KHLIM_STAGING_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
+        }),
+      /TEST_CONTACT_UNAUTHORIZED: Explicitly approved staging test contact \(KHLIM_STAGING_APPROVED_TEST_PHONE\) is required in active mode/,
+    );
+
+    // Missing test phone
+    await assert.rejects(
+      () =>
+        runHostedStagingAcceptance({
+          ...baseEnv,
+          KHLIM_STAGING_APPROVED_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
+        }),
+      /TEST_CONTACT_UNAUTHORIZED: Staging test contact phone \(KHLIM_STAGING_TEST_PHONE\) is required in active mode/,
+    );
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
+test("safety regression: missing built API dist causes DATABASE_CLIENT_UNAVAILABLE error", async () => {
+  const origFetch = globalThis.fetch;
+  const { mockFetch } = createMockFetch();
+  globalThis.fetch = mockFetch;
+  const origCwd = process.cwd();
+
+  try {
+    process.chdir("/tmp");
+    await assert.rejects(
+      () =>
+        runHostedStagingAcceptance({
+          KHLIM_STAGING_TARGET_BRANCH: DEDICATED_STAGING_BRANCH,
+          KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
+          NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
+          KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1",
+          KHLIM_STAGING_ADMIN_AAL2_TOKEN: "admin-token",
+          KHLIM_STAGING_USER_AAL1_TOKEN: "aal1-token",
+          KHLIM_STAGING_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
+          KHLIM_STAGING_APPROVED_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
+          KHLIM_STAGING_DATABASE_URL: `postgresql://postgres@db.${STAGING_SUPABASE_PROJECT_ID}.supabase.co:5432/postgres`,
+          // Note: no _prismaClient provided
+        }),
+      /DATABASE_CLIENT_UNAVAILABLE: Failed to initialize Prisma client with PrismaPg adapter/,
+    );
+  } finally {
+    process.chdir(origCwd);
+    globalThis.fetch = origFetch;
+  }
+});
+
+test("PrismaService can be required directly from apps/api/dist/main.js", async () => {
+  const path = await import("node:path");
+  const { createRequire } = await import("node:module");
+  const apiRequire = createRequire(
+    path.resolve(process.cwd(), "apps/api/dist/main.js"),
+  );
+  const { PrismaService } = apiRequire("./database/prisma.service.js");
+  assert.equal(typeof PrismaService, "function");
+});
+
 test("authorized active window verifies non-destructive cases, lead creation, duplicate idempotency, MFA AAL2 retrieval, and independent direct DB query", async () => {
   const origFetch = globalThis.fetch;
   const leadId = "c2a95d10-8b9a-4e89-a2e6-7a13c9a0b123";
   const { mockFetch } = createMockFetch({ leadId });
-  globalThis.fetch = mockFetch;
+
+  let capturedSyntheticLead = null;
+  globalThis.fetch = async (url, options = {}) => {
+    const res = await mockFetch(url, options);
+    if (
+      String(url).endsWith("/v1/academy/leads") &&
+      options.method === "POST"
+    ) {
+      const body = options.body ? JSON.parse(options.body) : null;
+      if (body && body.consent && !body.email?.includes("'")) {
+        capturedSyntheticLead = body;
+      }
+    }
+    return res;
+  };
 
   try {
     const env = {
+      KHLIM_STAGING_TARGET_BRANCH: DEDICATED_STAGING_BRANCH,
       KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
       NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
       KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1", // Authorized active window
       KHLIM_STAGING_USER_AAL1_TOKEN: "aal1-token-sample",
       KHLIM_STAGING_ADMIN_AAL2_TOKEN: "admin-aal2-token-sample",
+      KHLIM_STAGING_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
+      KHLIM_STAGING_APPROVED_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
       KHLIM_STAGING_DATABASE_URL: `postgresql://postgres@db.${STAGING_SUPABASE_PROJECT_ID}.supabase.co:5432/postgres`,
       _prismaClient: {
         academyLead: {
           count: async ({ where }) => {
+            if (where.source === "staging-probe-preflight") return 0;
             if (where.id === leadId) return 1;
-            if (where.idempotencyKey) return 1;
+            if (where.idempotencyKey) {
+              assert.ok(
+                where.idempotencyKey,
+                "Expected non-empty idempotencyKey in DB where query",
+              );
+              if (capturedSyntheticLead) {
+                assert.equal(
+                  where.idempotencyKey,
+                  capturedSyntheticLead.idempotencyKey,
+                );
+              }
+              return 1;
+            }
             return 0;
           },
         },

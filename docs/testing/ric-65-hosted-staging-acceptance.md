@@ -8,13 +8,13 @@ Hosted staging acceptance operates exclusively against isolated, non-production 
 
 | Component | Target Specification | Enforcement Mechanism |
 | :--- | :--- | :--- |
-| **Dedicated Staging Branch** | `staging/ric-65-academy-soft-launch` | Exact branch string assertion in runner and workflow parameters |
+| **Dedicated Staging Branch** | `staging/ric-65-academy-soft-launch` | Exact branch string assertion (`KHLIM_STAGING_TARGET_BRANCH`), workflow `if: github.ref_name == 'staging/ric-65-academy-soft-launch'` job guard, and fail-closed validation |
 | **Supabase Staging Project** | `qxsjxcbfhxbvxigghhlq` (`https://qxsjxcbfhxbvxigghhlq.supabase.co`) | Exact hostname match (`url.hostname === "qxsjxcbfhxbvxigghhlq.supabase.co"`), HTTPS and port 443 only. Rejects prefix/suffix collision |
-| **Staging API Deployment** | `khlim-api-staging.onrender.com` (or explicit custom allowlist) | Strict allowlist check, HTTPS standard port 443 only. Wildcard and substring Vercel matching removed. Rejects HTTP, localhost, subpaths, and production domains |
+| **Staging API Deployment** | `khlim-api-staging.onrender.com` or `khlim-digital-ecosystem-api-git-staging-dc7b4a-rbl-productions.vercel.app` (or explicit custom allowlist) | Strict allowlist check, HTTPS standard port 443 only. Wildcard and substring Vercel matching removed. Rejects HTTP, localhost, subpaths, and production domains |
 | **Redirect Rejection** | `redirect: "error"` on all HTTP fetch calls | Prevents bearer token leakage across unexpected redirects or intermediary gateways |
-| **Database Identity & Persistence** | `qxsjxcbfhxbvxigghhlq` reported by API `/v1/health` & direct DB URL | Both readiness and active modes require verified database connection and project reference match. Active mode mandates independent direct read-only Prisma query verifying exactly 1 persisted lead row |
+| **Database Identity & Preflight Attestation** | `qxsjxcbfhxbvxigghhlq` reported by API `/v1/health` & direct DB URL | Both readiness and active modes require verified database connection and project reference match. Active mode initializes direct Prisma client and executes a preflight probe before ANY POST. Independent read-only Prisma query verifies single persisted row |
 | **Campaign Attribution** | `source=3x3-oct24` | Strict token attribution retention on persisted lead records and browser navigation |
-| **Controlled Test Phone** | `APPROVED_STAGING_TEST_PHONE = "+60120000000"` | Controlled Malaysian mobile E.164 test format, verified against authorized test contact. Eliminates risk of dialing real numbers |
+| **Authorized Test Phone** | `APPROVED_STAGING_TEST_PHONE = "+60120000000"` (`KHLIM_STAGING_TEST_PHONE` & `KHLIM_STAGING_APPROVED_TEST_PHONE`) | Controlled Malaysian mobile E.164 test format, verified against explicitly authorized test contact before ANY POST. Eliminates risk of dialing real numbers |
 
 > [!IMPORTANT]
 > The hosted staging acceptance runner strictly fails closed if any configuration points to production domains (`khlim.com`, `api.khlim.com`, etc.) or any Supabase project other than `qxsjxcbfhxbvxigghhlq`.
@@ -25,7 +25,7 @@ RIC-65 distinguishes between two acceptance verification layers:
 
 1. **Hosted API & Database Acceptance (`HOSTED_API_AND_DATABASE_ACCEPTANCE`)**:
    - Automated via `scripts/verify-hosted-staging-acceptance.mjs`.
-   - Executes readiness health checks, database identity assertion, non-destructive validation rejection tests, synthetic lead submission, duplicate idempotency replay, conflict 409 rejection, paginated MFA AAL2 Admin retrieval, and independent direct database query.
+   - Executes readiness health checks, database identity assertion, preflight database probe, non-destructive validation rejection tests, synthetic lead submission, duplicate idempotency replay, conflict 409 rejection, paginated MFA AAL2 Admin retrieval, and independent direct database query.
    - Verifies the deployed backend and database contracts independently of client-side state.
 
 2. **Browser Registration Acceptance & UX Rehearsal (`tests/e2e/staging-browser-acceptance.spec.mjs`)**:
@@ -38,10 +38,16 @@ To safeguard active systems and avoid unapproved mutations:
 
 1. **Manual Trigger Only (`workflow_dispatch`)**:
    The workflow is never triggered automatically on push or pull request.
-2. **Safety Gate (`KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED`)**:
+2. **Branch & Environment Protection**:
+   Both workflows enforce `if: github.ref_name == 'staging/ric-65-academy-soft-launch'` and bind to protected environment `staging`. `KHLIM_STAGING_TARGET_BRANCH` is validated before any action; if missing or mismatched, the runner immediately halts with `MANDATORY_TARGET_BRANCH_MISSING`.
+3. **Clean CI Build Pipeline**:
+   Because `apps/api/dist` is not committed to git, CI jobs bootstrap pnpm 10.15.0, execute `pnpm install --frozen-lockfile`, and build `@khlim/api` (`pnpm --filter @khlim/api build`, generating the Prisma client and compiling the NestJS API) before launching the acceptance runner.
+4. **Preflight Mutation Protection**:
+   In active mutation mode, the runner loads the database client and runs a preflight probe query (`prisma.academyLead.count`) before sending ANY HTTP POST mutation. If database connectivity or credentials fail, the run aborts cleanly without partial state.
+5. **Safety Gate (`KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED`)**:
    - **When `0` or unset (Default / Readiness Mode)**: The runner executes target validation, health checks, and database identity checks, then halts cleanly in state `SAFE_HALT`. It **never** issues hosted `POST` requests without explicit window authorization.
-   - **When `1` (Active Mutation Window)**: Requires mandatory MFA AAL2 Admin and User AAL1 tokens, as well as `KHLIM_STAGING_DATABASE_URL`. Fails closed with `MANDATORY_AUTH_MISSING` or `MANDATORY_DB_URL_MISSING` if missing. Proceeds to non-destructive validation testing, synthetic lead creation, duplicate idempotency verification, paginated MFA AAL2 retrieval, and independent direct database row assertion.
-3. **Operational Constraints**:
+   - **When `1` (Active Mutation Window)**: Requires mandatory MFA AAL2 Admin and User AAL1 tokens, explicitly approved test phone, and `KHLIM_STAGING_DATABASE_URL`. Fails closed if missing. Proceeds to non-destructive validation testing, synthetic lead creation, duplicate idempotency verification, paginated MFA AAL2 retrieval, and independent direct database row assertion.
+6. **Operational Constraints**:
    - Do not pause KYNEXA.
    - Do not activate staging without separate approval.
    - Do not submit hosted POST requests outside authorized windows.

@@ -19,72 +19,88 @@ const DISALLOWED_PRODUCTION_HOSTS = new Set([
   "app.khlim.com",
 ]);
 
-export const NON_DESTRUCTIVE_VALIDATION_CASES = [
-  {
-    label: "Missing guardian consent",
-    payload: {
-      guardianName: "Synthetic Parent Valid",
-      email: "valid@synthetic.khlim.test",
-      phone: APPROVED_STAGING_TEST_PHONE,
-      childAge: 10,
-      consent: false,
-      source: "3x3-oct24",
+export const VETTED_STAGING_API_HOSTS = new Set([
+  "khlim-api-staging.onrender.com",
+  "khlim-digital-ecosystem-api-git-staging-dc7b4a-rbl-productions.vercel.app",
+]);
+
+export function createValidationCases(testPhone) {
+  return [
+    {
+      label: "Missing guardian consent",
+      payload: {
+        guardianName: "Synthetic Parent Valid",
+        email: "valid@synthetic.khlim.test",
+        phone: testPhone,
+        childAge: 10,
+        consent: false,
+        source: "3x3-oct24",
+      },
+      expectedStatus: 400,
     },
-    expectedStatus: 400,
-  },
-  {
-    label: "SQL injection attempt in email address",
-    payload: {
-      guardianName: "Synthetic Parent Valid",
-      email: "parent' OR '1'='1@synthetic.khlim.test",
-      phone: APPROVED_STAGING_TEST_PHONE,
-      childAge: 10,
-      consent: true,
-      source: "3x3-oct24",
+    {
+      label: "SQL injection attempt in email address",
+      payload: {
+        guardianName: "Synthetic Parent Valid",
+        email: "parent' OR '1'='1@synthetic.khlim.test",
+        phone: testPhone,
+        childAge: 10,
+        consent: true,
+        source: "3x3-oct24",
+      },
+      expectedStatus: 400,
     },
-    expectedStatus: 400,
-  },
-  {
-    label: "Non-standard invalid phone format",
-    payload: {
-      guardianName: "Synthetic Parent Valid",
-      email: "valid@synthetic.khlim.test",
-      phone: "+1-555-NOT-MY-PHONE",
-      childAge: 10,
-      consent: true,
-      source: "3x3-oct24",
+    {
+      label: "Non-standard invalid phone format",
+      payload: {
+        guardianName: "Synthetic Parent Valid",
+        email: "valid@synthetic.khlim.test",
+        phone: "+1-555-NOT-MY-PHONE",
+        childAge: 10,
+        consent: true,
+        source: "3x3-oct24",
+      },
+      expectedStatus: 400,
     },
-    expectedStatus: 400,
-  },
-  {
-    label: "Child age outside acceptable youth development bounds (99)",
-    payload: {
-      guardianName: "Synthetic Parent Valid",
-      email: "valid@synthetic.khlim.test",
-      phone: APPROVED_STAGING_TEST_PHONE,
-      childAge: 99,
-      consent: true,
-      source: "3x3-oct24",
+    {
+      label: "Child age outside acceptable youth development bounds (99)",
+      payload: {
+        guardianName: "Synthetic Parent Valid",
+        email: "valid@synthetic.khlim.test",
+        phone: testPhone,
+        childAge: 99,
+        consent: true,
+        source: "3x3-oct24",
+      },
+      expectedStatus: 400,
     },
-    expectedStatus: 400,
-  },
-  {
-    label: "Malformed UUID in programme offering parameter",
-    payload: {
-      guardianName: "Synthetic Parent Valid",
-      email: "valid@synthetic.khlim.test",
-      phone: APPROVED_STAGING_TEST_PHONE,
-      childAge: 10,
-      consent: true,
-      source: "3x3-oct24",
-      programmeOfferingId: "not-a-valid-uuid'--injection",
+    {
+      label: "Malformed UUID in programme offering parameter",
+      payload: {
+        guardianName: "Synthetic Parent Valid",
+        email: "valid@synthetic.khlim.test",
+        phone: testPhone,
+        childAge: 10,
+        consent: true,
+        source: "3x3-oct24",
+        programmeOfferingId: "not-a-valid-uuid'--injection",
+      },
+      expectedStatus: 400,
     },
-    expectedStatus: 400,
-  },
-];
+  ];
+}
+
+export const NON_DESTRUCTIVE_VALIDATION_CASES = createValidationCases(
+  APPROVED_STAGING_TEST_PHONE,
+);
 
 export function sanitizeErrorMessage(error) {
-  const raw = error instanceof Error ? error.message : String(error);
+  const raw =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : JSON.stringify(error) || String(error);
   return raw
     .replace(/Bearer\s+[A-Za-z0-9_.-]+/gi, "Bearer [redacted]")
     .replace(
@@ -118,23 +134,49 @@ export function extractDatabaseProjectRef(databaseUrl) {
 }
 
 export function validateTestContact(phone, approvedPhone) {
-  if (!phone || typeof phone !== "string") {
+  if (
+    !approvedPhone ||
+    typeof approvedPhone !== "string" ||
+    !approvedPhone.trim() ||
+    /placeholder|example|replace-with/i.test(approvedPhone)
+  ) {
     throw new Error(
-      "TEST_CONTACT_UNAUTHORIZED: Staging test contact phone is missing",
+      "TEST_CONTACT_UNAUTHORIZED: Explicitly approved staging test contact (KHLIM_STAGING_APPROVED_TEST_PHONE) is required in active mode",
     );
   }
+
+  if (
+    !phone ||
+    typeof phone !== "string" ||
+    !phone.trim() ||
+    /placeholder|example|replace-with/i.test(phone)
+  ) {
+    throw new Error(
+      "TEST_CONTACT_UNAUTHORIZED: Staging test contact phone (KHLIM_STAGING_TEST_PHONE) is required in active mode",
+    );
+  }
+
   const trimmed = phone.trim();
+  const allowedContact = approvedPhone.trim();
+
   if (!/^\+601\d{8,9}$/.test(trimmed)) {
     throw new Error(
-      `TEST_CONTACT_UNAUTHORIZED: Phone '${trimmed}' does not match Malaysian E.164 format`,
+      `TEST_CONTACT_UNAUTHORIZED: Configured test contact does not match Malaysian E.164 format: ${maskPhone(trimmed)}`,
     );
   }
-  const allowedContact = approvedPhone?.trim() || APPROVED_STAGING_TEST_PHONE;
+
+  if (!/^\+601\d{8,9}$/.test(allowedContact)) {
+    throw new Error(
+      `TEST_CONTACT_UNAUTHORIZED: Approved test contact does not match Malaysian E.164 format: ${maskPhone(allowedContact)}`,
+    );
+  }
+
   if (trimmed !== allowedContact) {
     throw new Error(
-      `TEST_CONTACT_UNAUTHORIZED: Phone '${trimmed}' is not an explicitly approved test contact (expected '${allowedContact}')`,
+      `TEST_CONTACT_UNAUTHORIZED: Configured test contact ${maskPhone(trimmed)} does not match approved contact ${maskPhone(allowedContact)}`,
     );
   }
+
   return trimmed;
 }
 
@@ -220,15 +262,15 @@ export function validateApiTarget(apiUrlString, allowlist = []) {
     );
   }
 
-  // Explicit allowed host rules - strict exact match only
+  // Strict allowlist: only pinned Render host, pinned Vercel staging branch alias, or explicit custom allowlist
   const customAllowlist = Array.isArray(allowlist)
     ? allowlist.map((h) => h.toLowerCase())
     : [];
 
-  const isExactRenderStaging = hostname === "khlim-api-staging.onrender.com";
+  const isVettedStagingApi = VETTED_STAGING_API_HOSTS.has(hostname);
   const isInCustomAllowlist = customAllowlist.includes(hostname);
 
-  if (!isExactRenderStaging && !isInCustomAllowlist) {
+  if (!isVettedStagingApi && !isInCustomAllowlist) {
     throw new Error(
       `STAGING_TARGET_VIOLATION: Host ${hostname} is not an authorized KHLIM staging deployment origin`,
     );
@@ -238,8 +280,10 @@ export function validateApiTarget(apiUrlString, allowlist = []) {
 }
 
 export function validateTargetBranch(branch) {
-  if (!branch || typeof branch !== "string") {
-    throw new Error("Target branch must be specified");
+  if (!branch || typeof branch !== "string" || !branch.trim()) {
+    throw new Error(
+      "STAGING_TARGET_VIOLATION: Target branch must be specified and non-empty",
+    );
   }
   const normalized = branch.trim().replace(/^refs\/heads\//, "");
   if (normalized !== DEDICATED_STAGING_BRANCH) {
@@ -270,8 +314,8 @@ export async function fetchWithTimeout(url, init = {}, timeoutMs = 15000) {
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(url, {
-      redirect: "error", // Strictly reject any redirect to prevent bearer token leakage
       ...init,
+      redirect: "error", // Strictly enforce redirect: 'error' AFTER ...init so callers cannot override
       signal: controller.signal,
     });
   } catch (err) {
@@ -312,10 +356,17 @@ export async function runHostedStagingAcceptance(env = process.env) {
     }
   }
 
-  // Target branch check
-  results.targetBranch = validateTargetBranch(
-    env.KHLIM_STAGING_TARGET_BRANCH || DEDICATED_STAGING_BRANCH,
-  );
+  // Target branch check - strictly require explicit target branch variable
+  if (
+    !env.KHLIM_STAGING_TARGET_BRANCH ||
+    typeof env.KHLIM_STAGING_TARGET_BRANCH !== "string" ||
+    !env.KHLIM_STAGING_TARGET_BRANCH.trim()
+  ) {
+    throw new Error(
+      "MANDATORY_TARGET_BRANCH_MISSING: KHLIM_STAGING_TARGET_BRANCH environment variable must be explicitly provided",
+    );
+  }
+  results.targetBranch = validateTargetBranch(env.KHLIM_STAGING_TARGET_BRANCH);
 
   // Exact Supabase project check
   const supabaseUrl = validateSupabaseTarget(env.NEXT_PUBLIC_SUPABASE_URL);
@@ -431,247 +482,13 @@ export async function runHostedStagingAcceptance(env = process.env) {
     );
   }
 
-  console.log(
-    JSON.stringify({
-      event: "staging.hosted_acceptance.active_window_started",
-      note: "Authorized active window confirmed. Mandatory auth tokens provided. Executing hosted validation cases, synthetic lead creation, duplicate idempotency receipt, and MFA AAL2 retrieval.",
-    }),
-  );
-
-  const leadsEndpoint = new URL("/v1/academy/leads", apiUrl);
-
-  // 5. Non-destructive Input Validation / Injection-like Cases
-  for (const testCase of NON_DESTRUCTIVE_VALIDATION_CASES) {
-    const res = await fetchWithTimeout(leadsEndpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(testCase.payload),
-    });
-
-    if (res.status !== testCase.expectedStatus) {
-      throw new Error(
-        `Validation test '${testCase.label}' failed: expected HTTP ${testCase.expectedStatus}, received HTTP ${res.status}`,
-      );
-    }
-
-    results.validationCases.push({
-      label: testCase.label,
-      expectedStatus: testCase.expectedStatus,
-      receivedStatus: res.status,
-      passed: true,
-    });
-  }
-
-  // 6. Authorized Synthetic Lead Creation & Duplicate Idempotency Replay
-  const configuredPhone =
-    env.KHLIM_STAGING_TEST_PHONE?.trim() || APPROVED_STAGING_TEST_PHONE;
+  // 4b. Mandatory Staging Test Contact Validation BEFORE ANY POST
   const validatedPhone = validateTestContact(
-    configuredPhone,
+    env.KHLIM_STAGING_TEST_PHONE,
     env.KHLIM_STAGING_APPROVED_TEST_PHONE,
   );
-  const syntheticLead = generateSyntheticLead(undefined, validatedPhone);
 
-  console.log(
-    JSON.stringify({
-      event: "staging.hosted_acceptance.synthetic_lead_prepared",
-      guardian: maskName(syntheticLead.guardianName),
-      email: maskEmail(syntheticLead.email),
-      phone: maskPhone(syntheticLead.phone),
-      source: syntheticLead.source,
-      consent: syntheticLead.consent,
-      idempotencyKey: syntheticLead.idempotencyKey,
-    }),
-  );
-
-  // 6a. Initial Submission (Expected HTTP 201)
-  const initialRes = await fetchWithTimeout(leadsEndpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(syntheticLead),
-  });
-
-  if (initialRes.status !== 201) {
-    const errJson = await initialRes.json().catch(() => ({}));
-    const errCode = errJson?.code || errJson?.statusCode || "UNEXPECTED_STATUS";
-    throw new Error(
-      `Initial synthetic lead registration failed: expected HTTP 201, received HTTP ${initialRes.status} [code: ${errCode}]`,
-    );
-  }
-
-  const initialBody = await initialRes.json().catch(() => ({}));
-  if (!initialBody?.id || initialBody.status !== "RECEIVED") {
-    throw new Error(
-      `Initial synthetic lead registration returned unexpected body structure with missing id or status`,
-    );
-  }
-  const leadId = initialBody.id;
-  results.leadCreation = {
-    id: leadId,
-    status: initialBody.status,
-    createdAt: initialBody.createdAt,
-    httpStatus: initialRes.status,
-  };
-
-  // 6b. Duplicate Identical Submission (Idempotency Replay Receipt, Expected HTTP 201 with identical ID)
-  const duplicateRes = await fetchWithTimeout(leadsEndpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(syntheticLead),
-  });
-
-  if (duplicateRes.status !== 201) {
-    throw new Error(
-      `Duplicate idempotency replay failed: expected HTTP 201, received HTTP ${duplicateRes.status}`,
-    );
-  }
-
-  const duplicateBody = await duplicateRes.json().catch(() => ({}));
-  if (duplicateBody?.id !== leadId || duplicateBody.status !== "RECEIVED") {
-    throw new Error(
-      `Duplicate idempotency replay did not match original receipt ID`,
-    );
-  }
-  results.idempotencyReceipt = {
-    id: duplicateBody.id,
-    matchesOriginal: duplicateBody.id === leadId,
-    status: duplicateBody.status,
-    httpStatus: duplicateRes.status,
-  };
-
-  // 6c. Conflicting Submission with Same Idempotency Key but Altered Payload (Expected HTTP 409)
-  const conflictingPayload = {
-    ...syntheticLead,
-    childAge: 12, // altered payload
-  };
-  const conflictRes = await fetchWithTimeout(leadsEndpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(conflictingPayload),
-  });
-
-  if (conflictRes.status !== 409) {
-    throw new Error(
-      `Conflicting idempotency key submission failed: expected HTTP 409 Conflict, received HTTP ${conflictRes.status}`,
-    );
-  }
-  results.conflictReplay = {
-    httpStatus: conflictRes.status,
-    rejectedAsExpected: true,
-  };
-
-  // 7. Mandatory Admin Lead Retrieval & MFA AAL2 Access Control
-  const adminLeadsEndpoint = new URL("/v1/admin/academy/leads", apiUrl);
-
-  // 7a. Unauthenticated Access must be denied (Expected HTTP 401)
-  const unauthRes = await fetchWithTimeout(adminLeadsEndpoint);
-  if (unauthRes.status !== 401) {
-    throw new Error(
-      `AUTH_GATE_FAILURE: Unauthenticated Admin leads request was not rejected with 401: received HTTP ${unauthRes.status}`,
-    );
-  }
-
-  // 7b. AAL1 / Unassigned Role Access must be denied (Expected HTTP 403)
-  const aal1Res = await fetchWithTimeout(adminLeadsEndpoint, {
-    headers: {
-      Authorization: `Bearer ${userAal1Token}`,
-    },
-  });
-  if (aal1Res.status !== 403) {
-    throw new Error(
-      `AUTH_GATE_FAILURE: AAL1 user token was not rejected with 403 Forbidden: received HTTP ${aal1Res.status}`,
-    );
-  }
-
-  // 7c. Authorized MFA AAL2 Admin Lead Retrieval (Expected HTTP 200, paginated query)
-  const allMatchingLeads = [];
-  let currentPage = 1;
-  const maxPages = 5;
-
-  do {
-    const pageQuery = new URL(adminLeadsEndpoint);
-    pageQuery.searchParams.set("source", "3x3-oct24");
-    pageQuery.searchParams.set("page", String(currentPage));
-    pageQuery.searchParams.set("limit", "20");
-    if (syntheticLead.email) {
-      pageQuery.searchParams.set("q", syntheticLead.email);
-    }
-
-    const adminRes = await fetchWithTimeout(pageQuery, {
-      headers: {
-        Authorization: `Bearer ${adminAal2Token}`,
-      },
-    });
-
-    if (adminRes.status !== 200) {
-      throw new Error(
-        `Authorized MFA AAL2 Admin leads retrieval failed: expected HTTP 200, received HTTP ${adminRes.status}`,
-      );
-    }
-
-    const adminJson = await adminRes.json();
-    const itemsList = Array.isArray(adminJson?.items) ? adminJson.items : [];
-    const pageMatches = itemsList.filter((l) => l.id === leadId);
-    allMatchingLeads.push(...pageMatches);
-
-    const totalPages =
-      typeof adminJson?.totalPages === "number" ? adminJson.totalPages : 1;
-    if (currentPage >= totalPages || allMatchingLeads.length > 0) {
-      break;
-    }
-    currentPage++;
-  } while (currentPage <= maxPages);
-
-  if (allMatchingLeads.length !== 1) {
-    throw new Error(
-      `PERSISTENCE_INVARIANT_VIOLATION: Expected exactly 1 persisted lead for ID in Admin list, found ${allMatchingLeads.length}`,
-    );
-  }
-
-  const leadRecord = allMatchingLeads[0];
-  if (leadRecord.source !== "3x3-oct24") {
-    throw new Error(
-      `ATTRIBUTION_INVARIANT_VIOLATION: Expected source='3x3-oct24', found '${leadRecord.source}'`,
-    );
-  }
-  if (leadRecord.status !== "NEW") {
-    throw new Error(
-      `STATUS_INVARIANT_VIOLATION: Expected status='NEW', found '${leadRecord.status}'`,
-    );
-  }
-
-  // 7d. Detail endpoint check
-  const detailUrl = new URL(`/v1/admin/academy/leads/${leadId}`, apiUrl);
-  const detailRes = await fetchWithTimeout(detailUrl, {
-    headers: {
-      Authorization: `Bearer ${adminAal2Token}`,
-    },
-  });
-
-  if (detailRes.status !== 200) {
-    throw new Error(
-      `Admin lead detail lookup for lead ID failed: expected HTTP 200, received HTTP ${detailRes.status}`,
-    );
-  }
-
-  const detailJson = await detailRes.json();
-  if (
-    detailJson?.id !== leadId ||
-    detailJson?.source !== "3x3-oct24" ||
-    detailJson?.status !== "NEW"
-  ) {
-    throw new Error(
-      `Admin lead detail verification failed: attributes do not match expected lead properties`,
-    );
-  }
-
-  results.adminRetrieval = {
-    mfaAal2Authorized: true,
-    persistedCount: 1,
-    sourceVerified: "3x3-oct24",
-    statusVerified: leadRecord.status,
-  };
-
-  // 8. Mandatory Independent Read-Only Database Persistence Verification
+  // 4c. Mandatory Direct Database Client Preflight Verification BEFORE ANY POST
   const dbUrl =
     env.KHLIM_STAGING_DATABASE_URL?.trim() || env.DATABASE_URL?.trim();
   if (!dbUrl || /placeholder|example|replace-with/i.test(dbUrl)) {
@@ -699,9 +516,16 @@ export async function runHostedStagingAcceptance(env = process.env) {
       const { PrismaService } = apiRequire("./database/prisma.service.js");
       const prevDbUrl = process.env.DATABASE_URL;
       process.env.DATABASE_URL = dbUrl;
-      prismaServiceInstance = new PrismaService();
-      prisma = prismaServiceInstance.client;
-      process.env.DATABASE_URL = prevDbUrl;
+      try {
+        prismaServiceInstance = new PrismaService();
+        prisma = prismaServiceInstance.client;
+      } finally {
+        if (prevDbUrl === undefined) {
+          delete process.env.DATABASE_URL;
+        } else {
+          process.env.DATABASE_URL = prevDbUrl;
+        }
+      }
     } catch (clientErr) {
       throw new Error(
         `DATABASE_CLIENT_UNAVAILABLE: Failed to initialize Prisma client with PrismaPg adapter: ${sanitizeErrorMessage(clientErr)}`,
@@ -709,7 +533,258 @@ export async function runHostedStagingAcceptance(env = process.env) {
     }
   }
 
+  // Preflight database probe before any POST
   try {
+    await prisma.academyLead.count({
+      where: { source: "staging-probe-preflight" },
+    });
+  } catch (preflightErr) {
+    throw new Error(
+      `DATABASE_PREFLIGHT_FAILURE: Failed to query staging database before mutation: ${sanitizeErrorMessage(preflightErr)}`,
+    );
+  }
+
+  console.log(
+    JSON.stringify({
+      event: "staging.hosted_acceptance.active_window_started",
+      note: "Authorized active window confirmed. Mandatory auth tokens, test contact, and direct DB client verified. Executing hosted validation cases, synthetic lead creation, duplicate idempotency receipt, and MFA AAL2 retrieval.",
+    }),
+  );
+
+  const leadsEndpoint = new URL("/v1/academy/leads", apiUrl);
+
+  let syntheticLead = null;
+  let leadId = null;
+
+  try {
+    // 5. Non-destructive Input Validation / Injection-like Cases
+    const validationCases = createValidationCases(validatedPhone);
+    for (const testCase of validationCases) {
+      const res = await fetchWithTimeout(leadsEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(testCase.payload),
+      });
+
+      if (res.status !== testCase.expectedStatus) {
+        throw new Error(
+          `Validation test '${testCase.label}' failed: expected HTTP ${testCase.expectedStatus}, received HTTP ${res.status}`,
+        );
+      }
+
+      results.validationCases.push({
+        label: testCase.label,
+        expectedStatus: testCase.expectedStatus,
+        receivedStatus: res.status,
+        passed: true,
+      });
+    }
+
+    // 6. Authorized Synthetic Lead Creation & Duplicate Idempotency Replay
+    syntheticLead = generateSyntheticLead(undefined, validatedPhone);
+
+    console.log(
+      JSON.stringify({
+        event: "staging.hosted_acceptance.synthetic_lead_prepared",
+        guardian: maskName(syntheticLead.guardianName),
+        email: maskEmail(syntheticLead.email),
+        phone: maskPhone(syntheticLead.phone),
+        source: syntheticLead.source,
+        consent: syntheticLead.consent,
+        idempotencyKey: syntheticLead.idempotencyKey,
+      }),
+    );
+
+    // 6a. Initial Submission (Expected HTTP 201)
+    const initialRes = await fetchWithTimeout(leadsEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(syntheticLead),
+    });
+
+    if (initialRes.status !== 201) {
+      const errJson = await initialRes.json().catch(() => ({}));
+      const errCode =
+        errJson?.code || errJson?.statusCode || "UNEXPECTED_STATUS";
+      throw new Error(
+        `Initial synthetic lead registration failed: expected HTTP 201, received HTTP ${initialRes.status} [code: ${errCode}]`,
+      );
+    }
+
+    const initialBody = await initialRes.json().catch(() => ({}));
+    if (!initialBody?.id || initialBody.status !== "RECEIVED") {
+      throw new Error(
+        "Initial synthetic lead registration returned unexpected body structure with missing id or status",
+      );
+    }
+    leadId = initialBody.id;
+    results.leadCreation = {
+      id: leadId,
+      status: initialBody.status,
+      createdAt: initialBody.createdAt,
+      httpStatus: initialRes.status,
+    };
+
+    // 6b. Duplicate Identical Submission (Idempotency Replay Receipt, Expected HTTP 201 with identical ID)
+    const duplicateRes = await fetchWithTimeout(leadsEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(syntheticLead),
+    });
+
+    if (duplicateRes.status !== 201) {
+      throw new Error(
+        `Duplicate idempotency replay failed: expected HTTP 201, received HTTP ${duplicateRes.status}`,
+      );
+    }
+
+    const duplicateBody = await duplicateRes.json().catch(() => ({}));
+    if (duplicateBody?.id !== leadId || duplicateBody.status !== "RECEIVED") {
+      throw new Error(
+        "Duplicate idempotency replay did not match original receipt ID",
+      );
+    }
+    results.idempotencyReceipt = {
+      id: duplicateBody.id,
+      matchesOriginal: duplicateBody.id === leadId,
+      status: duplicateBody.status,
+      httpStatus: duplicateRes.status,
+    };
+
+    // 6c. Conflicting Submission with Same Idempotency Key but Altered Payload (Expected HTTP 409)
+    const conflictingPayload = {
+      ...syntheticLead,
+      childAge: 12, // altered payload
+    };
+    const conflictRes = await fetchWithTimeout(leadsEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(conflictingPayload),
+    });
+
+    if (conflictRes.status !== 409) {
+      throw new Error(
+        `Conflicting idempotency key submission failed: expected HTTP 409 Conflict, received HTTP ${conflictRes.status}`,
+      );
+    }
+    results.conflictReplay = {
+      httpStatus: conflictRes.status,
+      rejectedAsExpected: true,
+    };
+
+    // 7. Mandatory Admin Lead Retrieval & MFA AAL2 Access Control
+    const adminLeadsEndpoint = new URL("/v1/admin/academy/leads", apiUrl);
+
+    // 7a. Unauthenticated Access must be denied (Expected HTTP 401)
+    const unauthRes = await fetchWithTimeout(adminLeadsEndpoint);
+    if (unauthRes.status !== 401) {
+      throw new Error(
+        `AUTH_GATE_FAILURE: Unauthenticated Admin leads request was not rejected with 401: received HTTP ${unauthRes.status}`,
+      );
+    }
+
+    // 7b. AAL1 / Unassigned Role Access must be denied (Expected HTTP 403)
+    const aal1Res = await fetchWithTimeout(adminLeadsEndpoint, {
+      headers: {
+        Authorization: `Bearer ${userAal1Token}`,
+      },
+    });
+    if (aal1Res.status !== 403) {
+      throw new Error(
+        `AUTH_GATE_FAILURE: AAL1 user token was not rejected with 403 Forbidden: received HTTP ${aal1Res.status}`,
+      );
+    }
+
+    // 7c. Authorized MFA AAL2 Admin Lead Retrieval (Expected HTTP 200, paginated query)
+    const allMatchingLeads = [];
+    let currentPage = 1;
+    const maxPages = 5;
+
+    do {
+      const pageQuery = new URL(adminLeadsEndpoint);
+      pageQuery.searchParams.set("source", "3x3-oct24");
+      pageQuery.searchParams.set("page", String(currentPage));
+      pageQuery.searchParams.set("limit", "20");
+      if (syntheticLead.email) {
+        pageQuery.searchParams.set("q", syntheticLead.email);
+      }
+
+      const adminRes = await fetchWithTimeout(pageQuery, {
+        headers: {
+          Authorization: `Bearer ${adminAal2Token}`,
+        },
+      });
+
+      if (adminRes.status !== 200) {
+        throw new Error(
+          `Authorized MFA AAL2 Admin leads retrieval failed: expected HTTP 200, received HTTP ${adminRes.status}`,
+        );
+      }
+
+      const adminJson = await adminRes.json();
+      const itemsList = Array.isArray(adminJson?.items) ? adminJson.items : [];
+      const pageMatches = itemsList.filter((l) => l.id === leadId);
+      allMatchingLeads.push(...pageMatches);
+
+      const totalPages =
+        typeof adminJson?.totalPages === "number" ? adminJson.totalPages : 1;
+      if (currentPage >= totalPages || allMatchingLeads.length > 0) {
+        break;
+      }
+      currentPage++;
+    } while (currentPage <= maxPages);
+
+    if (allMatchingLeads.length !== 1) {
+      throw new Error(
+        `PERSISTENCE_INVARIANT_VIOLATION: Expected exactly 1 persisted lead for ID in Admin list, found ${allMatchingLeads.length}`,
+      );
+    }
+
+    const leadRecord = allMatchingLeads[0];
+    if (leadRecord.source !== "3x3-oct24") {
+      throw new Error(
+        `ATTRIBUTION_INVARIANT_VIOLATION: Expected source='3x3-oct24', found '${leadRecord.source}'`,
+      );
+    }
+    if (leadRecord.status !== "NEW") {
+      throw new Error(
+        `STATUS_INVARIANT_VIOLATION: Expected status='NEW', found '${leadRecord.status}'`,
+      );
+    }
+
+    // 7d. Detail endpoint check
+    const detailUrl = new URL(`/v1/admin/academy/leads/${leadId}`, apiUrl);
+    const detailRes = await fetchWithTimeout(detailUrl, {
+      headers: {
+        Authorization: `Bearer ${adminAal2Token}`,
+      },
+    });
+
+    if (detailRes.status !== 200) {
+      throw new Error(
+        `Admin lead detail lookup for lead ID failed: expected HTTP 200, received HTTP ${detailRes.status}`,
+      );
+    }
+
+    const detailJson = await detailRes.json();
+    if (
+      detailJson?.id !== leadId ||
+      detailJson?.source !== "3x3-oct24" ||
+      detailJson?.status !== "NEW"
+    ) {
+      throw new Error(
+        "Admin lead detail verification failed: attributes do not match expected lead properties",
+      );
+    }
+
+    results.adminRetrieval = {
+      mfaAal2Authorized: true,
+      persistedCount: 1,
+      sourceVerified: "3x3-oct24",
+      statusVerified: leadRecord.status,
+    };
+
+    // 8. Mandatory Independent Read-Only Database Persistence Verification
     const dbCount = await prisma.academyLead.count({
       where: { id: leadId },
     });

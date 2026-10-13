@@ -33,9 +33,22 @@ jobs:
         with:
           node-version: "24"
 
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.0 --activate
+          pnpm --version
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build API and generate Prisma client
+        run: pnpm --filter @khlim/api build
+
       - name: Execute hosted staging acceptance runner
         env:
           KHLIM_STAGING_API_URL: ${{ secrets.KHLIM_STAGING_API_URL }}
+          KHLIM_STAGING_API_ALLOWLIST: ${{ secrets.KHLIM_STAGING_API_ALLOWLIST }}
           KHLIM_STAGING_WEB_URL: ${{ secrets.KHLIM_STAGING_WEB_URL }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.KHLIM_STAGING_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.KHLIM_STAGING_SUPABASE_ANON_KEY }}
