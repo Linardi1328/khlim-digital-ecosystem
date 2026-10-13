@@ -10,11 +10,11 @@ Hosted staging acceptance operates exclusively against isolated, non-production 
 | :--- | :--- | :--- |
 | **Dedicated Staging Branch** | `staging/ric-65-academy-soft-launch` | Exact branch string assertion (`KHLIM_STAGING_TARGET_BRANCH`), workflow `if: github.ref_name == 'staging/ric-65-academy-soft-launch'` job guard, and fail-closed validation |
 | **Supabase Staging Project** | `qxsjxcbfhxbvxigghhlq` (`https://qxsjxcbfhxbvxigghhlq.supabase.co`) | Exact hostname match (`url.hostname === "qxsjxcbfhxbvxigghhlq.supabase.co"`), HTTPS and port 443 only. Rejects prefix/suffix collision |
-| **Staging API Deployment** | `khlim-api-staging.onrender.com` or `khlim-digital-ecosystem-api-git-staging-dc7b4a-rbl-productions.vercel.app` (or explicit custom allowlist) | Strict allowlist check, HTTPS standard port 443 only. Wildcard and substring Vercel matching removed. Rejects HTTP, localhost, subpaths, and production domains |
+| **Staging API Deployment** | `khlim-digital-ecosystem-api-git-staging-dc7b4a-rbl-productions.vercel.app` (or explicit custom allowlist) | Strict allowlist check, HTTPS standard port 443 only. Wildcard and substring Vercel matching removed. Rejects HTTP, localhost, subpaths, and production domains |
 | **Redirect Rejection** | `redirect: "error"` on all HTTP fetch calls | Prevents bearer token leakage across unexpected redirects or intermediary gateways |
 | **Database Identity & Preflight Attestation** | `qxsjxcbfhxbvxigghhlq` reported by API `/v1/health` & direct DB URL | Both readiness and active modes require verified database connection and project reference match. Active mode initializes direct Prisma client and executes a preflight probe before ANY POST. Independent read-only Prisma query verifies single persisted row |
 | **Campaign Attribution** | `source=3x3-oct24` | Strict token attribution retention on persisted lead records and browser navigation |
-| **Authorized Test Phone** | `APPROVED_STAGING_TEST_PHONE = "+60120000000"` (`KHLIM_STAGING_TEST_PHONE` & `KHLIM_STAGING_APPROVED_TEST_PHONE`) | Controlled Malaysian mobile E.164 test format, verified against explicitly authorized test contact before ANY POST. Eliminates risk of dialing real numbers |
+| **Test Contact Configuration** | Secure staging secrets (`KHLIM_STAGING_TEST_PHONE` & `KHLIM_STAGING_APPROVED_TEST_PHONE`) | Controlled Malaysian mobile E.164 test format, verified against an explicitly authorized test contact before ANY POST. Synthetic constant `+60120000000` is an inert fixture used only for offline tests/mocks, not an assigned operator line |
 
 > [!IMPORTANT]
 > The hosted staging acceptance runner strictly fails closed if any configuration points to production domains (`khlim.com`, `api.khlim.com`, etc.) or any Supabase project other than `qxsjxcbfhxbvxigghhlq`.
@@ -41,12 +41,12 @@ To safeguard active systems and avoid unapproved mutations:
 2. **Branch & Environment Protection**:
    Both workflows enforce `if: github.ref_name == 'staging/ric-65-academy-soft-launch'` and bind to protected environment `staging`. `KHLIM_STAGING_TARGET_BRANCH` is validated before any action; if missing or mismatched, the runner immediately halts with `MANDATORY_TARGET_BRANCH_MISSING`.
 3. **Clean CI Build Pipeline**:
-   Because `apps/api/dist` is not committed to git, CI jobs bootstrap pnpm 10.15.0, execute `pnpm install --frozen-lockfile`, and build `@khlim/api` (`pnpm --filter @khlim/api build`, generating the Prisma client and compiling the NestJS API) before launching the acceptance runner.
+   Because `apps/api/dist` is not committed to git, CI jobs bootstrap pnpm 10.15.0, execute `pnpm install --frozen-lockfile`, and build `@khlim/api` (`pnpm --filter @khlim/api build`, generating the Prisma client and compiling the NestJS API) using an inert build-only database URL (`DATABASE_URL: postgresql://postgres@localhost:5432/build_only_inert`) before launching the acceptance runner.
 4. **Preflight Mutation Protection**:
    In active mutation mode, the runner loads the database client and runs a preflight probe query (`prisma.academyLead.count`) before sending ANY HTTP POST mutation. If database connectivity or credentials fail, the run aborts cleanly without partial state.
 5. **Safety Gate (`KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED`)**:
    - **When `0` or unset (Default / Readiness Mode)**: The runner executes target validation, health checks, and database identity checks, then halts cleanly in state `SAFE_HALT`. It **never** issues hosted `POST` requests without explicit window authorization.
-   - **When `1` (Active Mutation Window)**: Requires mandatory MFA AAL2 Admin and User AAL1 tokens, explicitly approved test phone, and `KHLIM_STAGING_DATABASE_URL`. Fails closed if missing. Proceeds to non-destructive validation testing, synthetic lead creation, duplicate idempotency verification, paginated MFA AAL2 retrieval, and independent direct database row assertion.
+   - **When `1` (Active Mutation Window)**: Requires mandatory MFA AAL2 Admin and User AAL1 tokens, an explicitly approved test phone, and `KHLIM_STAGING_DATABASE_URL`. Fails closed if missing. Proceeds to non-destructive validation testing, synthetic lead creation, duplicate idempotency verification, paginated MFA AAL2 retrieval, and independent direct database row assertion.
 6. **Operational Constraints**:
    - Do not pause KYNEXA.
    - Do not activate staging without separate approval.
@@ -76,7 +76,7 @@ Sends test payloads to `POST /v1/academy/leads` to confirm server-side validatio
 - Generates synthetic lead with validated controlled phone:
   - Email: `staging-synth-${uniqueSuffix}@synthetic.khlim.test`
   - Name: `Synthetic Parent ${uniqueSuffix}`
-  - Phone: `+60120000000` (`APPROVED_STAGING_TEST_PHONE`)
+  - Phone: Validated phone from `KHLIM_STAGING_TEST_PHONE` (strictly matches `KHLIM_STAGING_APPROVED_TEST_PHONE`)
   - Child Age: `10`
   - Explicit Consent: `consent: true`
   - Campaign Source: `source: "3x3-oct24"`
@@ -89,7 +89,7 @@ Sends test payloads to `POST /v1/academy/leads` to confirm server-side validatio
 - **Unauthenticated**: `GET /v1/admin/academy/leads` -> HTTP 401 Unauthorized (`AUTH_GATE_FAILURE` if not 401).
 - **AAL1 / Unassigned Role**: `GET /v1/admin/academy/leads` with AAL1 token -> HTTP 403 Forbidden (`MFA assurance level 2 is required` / `AUTH_GATE_FAILURE` if not 403).
 - **MFA AAL2 Admin**: `GET /v1/admin/academy/leads?source=3x3-oct24&q=${syntheticLead.email}` with AAL2 Admin token:
-  - Asserts HTTP 200 OK across paginated search results.
+  - Asserts HTTP 200 OK across paginated search results (checking all pages up to `totalPages`).
   - Parses response items: `adminJson.items`.
   - Verifies exactly 1 lead with the created ID exists in `items` (`PERSISTENCE_INVARIANT_VIOLATION` if count != 1).
   - Verifies `leadRecord.source === "3x3-oct24"`.
@@ -111,18 +111,35 @@ All logs and error messages are sanitized via `sanitizeErrorMessage`:
 - Masked summaries in stdout: `S*** P***`, `s***@synthetic.khlim.test`, `+6012***000`
 Raw HTTP response bodies and stack traces containing personal data are never output to stdout or workflow logs.
 
-## 5. Workflow Execution Strategy
+## 5. Workflow Execution Strategy & Deployment Prerequisites
 
 To facilitate manual testing securely:
+
 1. **Repository Staging Dispatch (`.github/workflows/staging-acceptance.yml`)**:
    Introduced on the staging integration branch and gated by GitHub protected environment `staging`. Executes manual UI dispatch with `ric-65-hosted` mode and enforces `staging/ric-65-academy-soft-launch` target branch validation.
+   > [!NOTE]
+   > GitHub Actions renders workflow dispatch parameters from the repository default branch (`main`). Because the `ric-65-hosted` mode and dedicated workflow currently exist only on the feature branch / staging base, triggering via GitHub CLI (`gh workflow run ... --ref staging/ric-65-academy-soft-launch`) or merging the workflow definition into the staging branch is required for manual dispatch.
+
 2. **Dedicated Staging Acceptance Workflow (`.github/workflows/ric-65-hosted-staging-acceptance.yml`)**:
    Dedicated workflow for the isolated staging environment on `staging/ric-65-academy-soft-launch`, pinned to SHA action references, gated by `if: github.ref_name == 'staging/ric-65-academy-soft-launch'`, and protected by static concurrency group `ric-65-hosted-staging` (`cancel-in-progress: false`).
+
+3. **GitHub Environment `staging` Configuration Required**:
+   The GitHub environment `staging` must be formally configured in repository settings with:
+   - Deployment branch policy restricted to `staging/ric-65-academy-soft-launch`
+   - Required reviewers (environment protection rule)
+   - Environment-specific secrets (`KHLIM_STAGING_API_URL`, `KHLIM_STAGING_DATABASE_URL`, etc.)
+   Currently, environment `staging` has not been initialized in repo settings; executions will use repo-level secrets until the environment is configured.
+
+4. **Separate Staging API Deployment Prerequisite**:
+   The deployed Vercel staging preview (`khlim-digital-ecosystem-api-git-staging-dc7b4a-rbl-productions.vercel.app`) is currently protected by Vercel Authentication (SSO / 302 redirect) and runs an older API SHA without the database-attesting `/v1/health` endpoint. Before live readiness can pass:
+   - The updated NestJS API code from PR #90 must be merged into `staging/ric-65-academy-soft-launch` and deployed to the staging preview environment.
+   - If Vercel Deployment Protection remains enabled on preview deployments, `VERCEL_AUTOMATION_BYPASS_SECRET` must be provisioned in secrets to bypass the SSO redirect.
 
 ## 6. Local Verification & Testing
 
 The runner logic is fully tested without requiring live network connectivity using Node.js native test runner:
 
 ```bash
+pnpm --filter @khlim/api build
 node --test tests/ric-65-staging-acceptance.test.mjs
 ```

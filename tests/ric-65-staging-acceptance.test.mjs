@@ -688,6 +688,12 @@ test("extractDatabaseProjectRef correctly parses db, postgres, and pooler format
     extractDatabaseProjectRef("postgresql://postgres@localhost:5432/db"),
     null,
   );
+  assert.equal(
+    extractDatabaseProjectRef(
+      "postgresql://postgres.qxsjxcbfhxbvxigghhlq@attacker.com:5432/postgres",
+    ),
+    null,
+  );
   assert.equal(extractDatabaseProjectRef(null), null);
   assert.equal(extractDatabaseProjectRef("not-a-url"), null);
 });
@@ -968,15 +974,25 @@ test("safety regression: active mode requires direct database URL and verifies p
       KHLIM_STAGING_APPROVED_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
     };
 
-    // 1. Missing direct DB URL
-    await assert.rejects(
-      () =>
-        runHostedStagingAcceptance({
-          ...baseEnv,
-          KHLIM_STAGING_DATABASE_URL: "",
-        }),
-      /MANDATORY_DB_URL_MISSING/,
-    );
+    // 1. Missing direct DB URL (fails closed even if ambient process.env.DATABASE_URL is set)
+    const origEnvDbUrl = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = `postgresql://postgres@db.${STAGING_SUPABASE_PROJECT_ID}.supabase.co:5432/postgres`;
+    try {
+      await assert.rejects(
+        () =>
+          runHostedStagingAcceptance({
+            ...baseEnv,
+            KHLIM_STAGING_DATABASE_URL: "",
+          }),
+        /MANDATORY_DB_URL_MISSING/,
+      );
+    } finally {
+      if (origEnvDbUrl !== undefined) {
+        process.env.DATABASE_URL = origEnvDbUrl;
+      } else {
+        delete process.env.DATABASE_URL;
+      }
+    }
 
     // 2. Placeholder direct DB URL
     await assert.rejects(
@@ -1095,7 +1111,8 @@ test("authorized active window verifies non-destructive cases, lead creation, du
     const res = await mockFetch(url, options);
     if (
       String(url).endsWith("/v1/academy/leads") &&
-      options.method === "POST"
+      options.method === "POST" &&
+      res.status === 201
     ) {
       const body = options.body ? JSON.parse(options.body) : null;
       if (body && body.consent && !body.email?.includes("'")) {
@@ -1124,15 +1141,13 @@ test("authorized active window verifies non-destructive cases, lead creation, du
             if (where.id === leadId) return 1;
             if (where.idempotencyKey) {
               assert.ok(
-                where.idempotencyKey,
-                "Expected non-empty idempotencyKey in DB where query",
+                capturedSyntheticLead,
+                "Expected capturedSyntheticLead to be populated before DB idempotency query",
               );
-              if (capturedSyntheticLead) {
-                assert.equal(
-                  where.idempotencyKey,
-                  capturedSyntheticLead.idempotencyKey,
-                );
-              }
+              assert.equal(
+                where.idempotencyKey,
+                capturedSyntheticLead.idempotencyKey,
+              );
               return 1;
             }
             return 0;
@@ -1151,6 +1166,10 @@ test("authorized active window verifies non-destructive cases, lead creation, du
     assert.ok(results.validationCases.every((c) => c.passed));
 
     // 2. Initial synthetic lead assertion
+    assert.ok(
+      capturedSyntheticLead,
+      "Synthetic lead should have been captured from HTTP 201 response",
+    );
     assert.equal(results.leadCreation.httpStatus, 201);
     assert.equal(results.leadCreation.id, leadId);
     assert.equal(results.leadCreation.status, "RECEIVED");

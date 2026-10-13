@@ -3,7 +3,12 @@ import { randomUUID } from "node:crypto";
 
 export const STAGING_SUPABASE_PROJECT_ID = "qxsjxcbfhxbvxigghhlq";
 export const DEDICATED_STAGING_BRANCH = "staging/ric-65-academy-soft-launch";
-export const APPROVED_STAGING_TEST_PHONE = "+60120000000";
+
+// Inert test fixture used ONLY for unit tests and local mock rehearsals.
+// For live active-window execution, an actual operator-controlled test phone
+// must be securely provisioned via KHLIM_STAGING_TEST_PHONE and KHLIM_STAGING_APPROVED_TEST_PHONE.
+export const SYNTHETIC_FIXTURE_TEST_PHONE = "+60120000000";
+export const APPROVED_STAGING_TEST_PHONE = SYNTHETIC_FIXTURE_TEST_PHONE;
 
 export const REQUIRED_STAGING_ENV_VARS = [
   "KHLIM_STAGING_API_URL",
@@ -119,10 +124,14 @@ export function extractDatabaseProjectRef(databaseUrl) {
   if (!databaseUrl || typeof databaseUrl !== "string") return null;
   try {
     const parsed = new URL(databaseUrl);
+    // 1. Direct Supabase db host: db.<ref>.supabase.co
     const hostMatch = parsed.hostname.match(/^db\.([a-z0-9]+)\.supabase\.co$/);
     if (hostMatch) return hostMatch[1] ?? null;
+    // 2. Supabase Pooler user: postgres.<ref> (only valid on Supabase pooler host)
+    const isPoolerHost = parsed.hostname.endsWith(".pooler.supabase.com");
     const userMatch = parsed.username.match(/^postgres\.([a-z0-9]+)$/);
-    if (userMatch) return userMatch[1] ?? null;
+    if (userMatch && isPoolerHost) return userMatch[1] ?? null;
+    // 3. Supabase Pooler host: <ref>.pooler.supabase.com
     const poolerHostMatch = parsed.hostname.match(
       /^([a-z0-9]+)\.pooler\.supabase\.com$/,
     );
@@ -387,9 +396,18 @@ export async function runHostedStagingAcceptance(env = process.env) {
     }
   }
 
+  const vercelBypassSecret =
+    env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim() ||
+    env.KHLIM_STAGING_VERCEL_BYPASS_SECRET?.trim();
+  const vercelBypassHeaders = vercelBypassSecret
+    ? { "x-vercel-protection-bypass": vercelBypassSecret }
+    : {};
+
   // 2. Health & Database Identity Verification Before Any POST
   const apiHealthUrl = new URL("/v1/health", apiUrl);
-  const apiHealthRes = await fetchWithTimeout(apiHealthUrl);
+  const apiHealthRes = await fetchWithTimeout(apiHealthUrl, {
+    headers: { ...vercelBypassHeaders },
+  });
   if (!apiHealthRes.ok) {
     throw new Error(
       `KHLIM staging API health check failed: HTTP ${apiHealthRes.status}`,
@@ -489,8 +507,7 @@ export async function runHostedStagingAcceptance(env = process.env) {
   );
 
   // 4c. Mandatory Direct Database Client Preflight Verification BEFORE ANY POST
-  const dbUrl =
-    env.KHLIM_STAGING_DATABASE_URL?.trim() || env.DATABASE_URL?.trim();
+  const dbUrl = env.KHLIM_STAGING_DATABASE_URL?.trim();
   if (!dbUrl || /placeholder|example|replace-with/i.test(dbUrl)) {
     throw new Error(
       "MANDATORY_DB_URL_MISSING: KHLIM_STAGING_DATABASE_URL is required for mandatory independent read-only database persistence verification in active mode",
@@ -562,7 +579,10 @@ export async function runHostedStagingAcceptance(env = process.env) {
     for (const testCase of validationCases) {
       const res = await fetchWithTimeout(leadsEndpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...vercelBypassHeaders,
+        },
         body: JSON.stringify(testCase.payload),
       });
 
@@ -598,7 +618,10 @@ export async function runHostedStagingAcceptance(env = process.env) {
     // 6a. Initial Submission (Expected HTTP 201)
     const initialRes = await fetchWithTimeout(leadsEndpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...vercelBypassHeaders,
+      },
       body: JSON.stringify(syntheticLead),
     });
 
@@ -628,7 +651,10 @@ export async function runHostedStagingAcceptance(env = process.env) {
     // 6b. Duplicate Identical Submission (Idempotency Replay Receipt, Expected HTTP 201 with identical ID)
     const duplicateRes = await fetchWithTimeout(leadsEndpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...vercelBypassHeaders,
+      },
       body: JSON.stringify(syntheticLead),
     });
 
@@ -658,7 +684,10 @@ export async function runHostedStagingAcceptance(env = process.env) {
     };
     const conflictRes = await fetchWithTimeout(leadsEndpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...vercelBypassHeaders,
+      },
       body: JSON.stringify(conflictingPayload),
     });
 
@@ -676,7 +705,9 @@ export async function runHostedStagingAcceptance(env = process.env) {
     const adminLeadsEndpoint = new URL("/v1/admin/academy/leads", apiUrl);
 
     // 7a. Unauthenticated Access must be denied (Expected HTTP 401)
-    const unauthRes = await fetchWithTimeout(adminLeadsEndpoint);
+    const unauthRes = await fetchWithTimeout(adminLeadsEndpoint, {
+      headers: { ...vercelBypassHeaders },
+    });
     if (unauthRes.status !== 401) {
       throw new Error(
         `AUTH_GATE_FAILURE: Unauthenticated Admin leads request was not rejected with 401: received HTTP ${unauthRes.status}`,
@@ -686,6 +717,7 @@ export async function runHostedStagingAcceptance(env = process.env) {
     // 7b. AAL1 / Unassigned Role Access must be denied (Expected HTTP 403)
     const aal1Res = await fetchWithTimeout(adminLeadsEndpoint, {
       headers: {
+        ...vercelBypassHeaders,
         Authorization: `Bearer ${userAal1Token}`,
       },
     });
@@ -711,6 +743,7 @@ export async function runHostedStagingAcceptance(env = process.env) {
 
       const adminRes = await fetchWithTimeout(pageQuery, {
         headers: {
+          ...vercelBypassHeaders,
           Authorization: `Bearer ${adminAal2Token}`,
         },
       });
@@ -728,7 +761,7 @@ export async function runHostedStagingAcceptance(env = process.env) {
 
       const totalPages =
         typeof adminJson?.totalPages === "number" ? adminJson.totalPages : 1;
-      if (currentPage >= totalPages || allMatchingLeads.length > 0) {
+      if (currentPage >= totalPages) {
         break;
       }
       currentPage++;
@@ -756,6 +789,7 @@ export async function runHostedStagingAcceptance(env = process.env) {
     const detailUrl = new URL(`/v1/admin/academy/leads/${leadId}`, apiUrl);
     const detailRes = await fetchWithTimeout(detailUrl, {
       headers: {
+        ...vercelBypassHeaders,
         Authorization: `Bearer ${adminAal2Token}`,
       },
     });

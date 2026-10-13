@@ -44,6 +44,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build API and generate Prisma client
+        env:
+          DATABASE_URL: postgresql://postgres@localhost:5432/build_only_inert
         run: pnpm --filter @khlim/api build
       - name: Verify deployed staging services and fail-closed configuration
         if: ${{ inputs.acceptance_mode != 'ric-65-hosted' }}
@@ -65,6 +67,7 @@ jobs:
         env:
           KHLIM_STAGING_API_URL: ${{ secrets.KHLIM_STAGING_API_URL }}
           KHLIM_STAGING_API_ALLOWLIST: ${{ secrets.KHLIM_STAGING_API_ALLOWLIST }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           KHLIM_STAGING_WEB_URL: ${{ secrets.KHLIM_STAGING_WEB_URL }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.KHLIM_STAGING_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.KHLIM_STAGING_SUPABASE_ANON_KEY }}
