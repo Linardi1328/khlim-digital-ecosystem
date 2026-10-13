@@ -24,9 +24,12 @@ const DISALLOWED_PRODUCTION_HOSTS = new Set([
   "app.khlim.com",
 ]);
 
+export const PINNED_VERCEL_STAGING_API_HOST =
+  "khlim-digital-ecosystem-api-git-staging-dc7b4a-rbl-productions.vercel.app";
+
 export const VETTED_STAGING_API_HOSTS = new Set([
   "khlim-api-staging.onrender.com",
-  "khlim-digital-ecosystem-api-git-staging-dc7b4a-rbl-productions.vercel.app",
+  PINNED_VERCEL_STAGING_API_HOST,
 ]);
 
 export function createValidationCases(testPhone) {
@@ -396,15 +399,13 @@ export async function runHostedStagingAcceptance(env = process.env) {
     }
   }
 
-  const isVercelHost =
-    apiUrl.hostname.toLowerCase() ===
-      "khlim-digital-ecosystem-api-git-staging-dc7b4a-rbl-productions.vercel.app" ||
-    apiUrl.hostname.toLowerCase().endsWith(".vercel.app");
+  const isPinnedVercelHost =
+    apiUrl.hostname.toLowerCase() === PINNED_VERCEL_STAGING_API_HOST;
   const vercelBypassSecret =
     env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim() ||
     env.KHLIM_STAGING_VERCEL_BYPASS_SECRET?.trim();
   const vercelBypassHeaders =
-    isVercelHost && vercelBypassSecret
+    isPinnedVercelHost && vercelBypassSecret
       ? { "x-vercel-protection-bypass": vercelBypassSecret }
       : {};
 

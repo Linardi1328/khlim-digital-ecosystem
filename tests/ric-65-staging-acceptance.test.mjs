@@ -5,6 +5,7 @@ import {
   STAGING_SUPABASE_PROJECT_ID,
   DEDICATED_STAGING_BRANCH,
   APPROVED_STAGING_TEST_PHONE,
+  PINNED_VERCEL_STAGING_API_HOST,
   NON_DESTRUCTIVE_VALIDATION_CASES,
   maskEmail,
   maskPhone,
@@ -1267,8 +1268,7 @@ test("vercel protection bypass header is sent to pinned Vercel preview host but 
     requests.length = 0;
     await runHostedStagingAcceptance({
       ...baseEnv,
-      KHLIM_STAGING_API_URL:
-        "https://khlim-digital-ecosystem-api-git-staging-dc7b4a-rbl-productions.vercel.app",
+      KHLIM_STAGING_API_URL: `https://${PINNED_VERCEL_STAGING_API_HOST}`,
     });
     const vercelHealthReq = requests.find((r) => r.url.endsWith("/v1/health"));
     assert.ok(vercelHealthReq, "Vercel health request made");
@@ -1276,6 +1276,23 @@ test("vercel protection bypass header is sent to pinned Vercel preview host but 
       vercelHealthReq.headers["x-vercel-protection-bypass"],
       "mock-vercel-bypass-secret-12345",
       "Vercel health request MUST receive x-vercel-protection-bypass",
+    );
+
+    // 3. Target is an allowlisted non-pinned Vercel preview host: must NOT send bypass header
+    requests.length = 0;
+    await runHostedStagingAcceptance({
+      ...baseEnv,
+      KHLIM_STAGING_API_URL: "https://allowlisted-preview.vercel.app",
+      KHLIM_STAGING_API_ALLOWLIST: "allowlisted-preview.vercel.app",
+    });
+    const allowlistedHealthReq = requests.find((r) =>
+      r.url.endsWith("/v1/health"),
+    );
+    assert.ok(allowlistedHealthReq, "Allowlisted preview health request made");
+    assert.equal(
+      allowlistedHealthReq.headers["x-vercel-protection-bypass"],
+      undefined,
+      "Allowlisted non-pinned Vercel host must NOT receive x-vercel-protection-bypass",
     );
   } finally {
     globalThis.fetch = origFetch;
