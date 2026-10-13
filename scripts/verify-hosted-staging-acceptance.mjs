@@ -396,12 +396,17 @@ export async function runHostedStagingAcceptance(env = process.env) {
     }
   }
 
+  const isVercelHost =
+    apiUrl.hostname.toLowerCase() ===
+      "khlim-digital-ecosystem-api-git-staging-dc7b4a-rbl-productions.vercel.app" ||
+    apiUrl.hostname.toLowerCase().endsWith(".vercel.app");
   const vercelBypassSecret =
     env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim() ||
     env.KHLIM_STAGING_VERCEL_BYPASS_SECRET?.trim();
-  const vercelBypassHeaders = vercelBypassSecret
-    ? { "x-vercel-protection-bypass": vercelBypassSecret }
-    : {};
+  const vercelBypassHeaders =
+    isVercelHost && vercelBypassSecret
+      ? { "x-vercel-protection-bypass": vercelBypassSecret }
+      : {};
 
   // 2. Health & Database Identity Verification Before Any POST
   const apiHealthUrl = new URL("/v1/health", apiUrl);

@@ -1106,7 +1106,8 @@ test("authorized active window verifies non-destructive cases, lead creation, du
   const leadId = "c2a95d10-8b9a-4e89-a2e6-7a13c9a0b123";
   const { mockFetch } = createMockFetch({ leadId });
 
-  let capturedSyntheticLead = null;
+  let initialLeadPayload = null;
+  let replayLeadPayload = null;
   globalThis.fetch = async (url, options = {}) => {
     const res = await mockFetch(url, options);
     if (
@@ -1116,7 +1117,11 @@ test("authorized active window verifies non-destructive cases, lead creation, du
     ) {
       const body = options.body ? JSON.parse(options.body) : null;
       if (body && body.consent && !body.email?.includes("'")) {
-        capturedSyntheticLead = body;
+        if (!initialLeadPayload) {
+          initialLeadPayload = body;
+        } else if (!replayLeadPayload) {
+          replayLeadPayload = body;
+        }
       }
     }
     return res;
@@ -1141,12 +1146,12 @@ test("authorized active window verifies non-destructive cases, lead creation, du
             if (where.id === leadId) return 1;
             if (where.idempotencyKey) {
               assert.ok(
-                capturedSyntheticLead,
-                "Expected capturedSyntheticLead to be populated before DB idempotency query",
+                initialLeadPayload,
+                "Expected initialLeadPayload to be populated before DB idempotency query",
               );
               assert.equal(
                 where.idempotencyKey,
-                capturedSyntheticLead.idempotencyKey,
+                initialLeadPayload.idempotencyKey,
               );
               return 1;
             }
@@ -1167,14 +1172,23 @@ test("authorized active window verifies non-destructive cases, lead creation, du
 
     // 2. Initial synthetic lead assertion
     assert.ok(
-      capturedSyntheticLead,
-      "Synthetic lead should have been captured from HTTP 201 response",
+      initialLeadPayload,
+      "Synthetic lead should have been captured from initial HTTP 201 response",
     );
     assert.equal(results.leadCreation.httpStatus, 201);
     assert.equal(results.leadCreation.id, leadId);
     assert.equal(results.leadCreation.status, "RECEIVED");
 
     // 3. Duplicate idempotency replay assertion
+    assert.ok(
+      replayLeadPayload,
+      "Duplicate replay should have been captured from replay HTTP 201 response",
+    );
+    assert.equal(
+      replayLeadPayload.idempotencyKey,
+      initialLeadPayload.idempotencyKey,
+      "Duplicate replay submission must preserve the original idempotency key",
+    );
     assert.equal(results.idempotencyReceipt.httpStatus, 201);
     assert.equal(results.idempotencyReceipt.matchesOriginal, true);
     assert.equal(results.idempotencyReceipt.id, leadId);
@@ -1196,6 +1210,73 @@ test("authorized active window verifies non-destructive cases, lead creation, du
     assert.equal(results.independentDbVerification.recordCount, 1);
     assert.equal(results.independentDbVerification.idempotencyCount, 1);
     assert.equal(results.independentDbVerification.dbProjectRefVerified, true);
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
+test("vercel protection bypass header is sent to pinned Vercel preview host but never to Render or third-party hosts", async () => {
+  const origFetch = globalThis.fetch;
+  const requests = [];
+
+  globalThis.fetch = async (url, options = {}) => {
+    requests.push({ url: String(url), headers: options.headers || {} });
+    if (String(url).endsWith("/v1/health")) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          status: "ok",
+          database: {
+            status: "connected",
+            projectRef: STAGING_SUPABASE_PROJECT_ID,
+          },
+        }),
+      };
+    }
+    if (String(url).endsWith("/auth/v1/health")) {
+      return { ok: true, status: 200, json: async () => ({}) };
+    }
+    return { ok: false, status: 404 };
+  };
+
+  try {
+    const baseEnv = {
+      KHLIM_STAGING_TARGET_BRANCH: DEDICATED_STAGING_BRANCH,
+      NEXT_PUBLIC_SUPABASE_URL: `https://${STAGING_SUPABASE_PROJECT_ID}.supabase.co`,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
+      KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "0",
+      VERCEL_AUTOMATION_BYPASS_SECRET: "mock-vercel-bypass-secret-12345",
+    };
+
+    // 1. Target is Render: must NOT send bypass header
+    requests.length = 0;
+    await runHostedStagingAcceptance({
+      ...baseEnv,
+      KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
+    });
+    const renderHealthReq = requests.find((r) => r.url.endsWith("/v1/health"));
+    assert.ok(renderHealthReq, "Render health request made");
+    assert.equal(
+      renderHealthReq.headers["x-vercel-protection-bypass"],
+      undefined,
+      "Render health request must NOT receive x-vercel-protection-bypass",
+    );
+
+    // 2. Target is pinned Vercel preview: MUST send bypass header
+    requests.length = 0;
+    await runHostedStagingAcceptance({
+      ...baseEnv,
+      KHLIM_STAGING_API_URL:
+        "https://khlim-digital-ecosystem-api-git-staging-dc7b4a-rbl-productions.vercel.app",
+    });
+    const vercelHealthReq = requests.find((r) => r.url.endsWith("/v1/health"));
+    assert.ok(vercelHealthReq, "Vercel health request made");
+    assert.equal(
+      vercelHealthReq.headers["x-vercel-protection-bypass"],
+      "mock-vercel-bypass-secret-12345",
+      "Vercel health request MUST receive x-vercel-protection-bypass",
+    );
   } finally {
     globalThis.fetch = origFetch;
   }

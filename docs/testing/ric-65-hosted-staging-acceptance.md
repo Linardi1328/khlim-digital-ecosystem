@@ -117,8 +117,12 @@ To facilitate manual testing securely:
 
 1. **Repository Staging Dispatch (`.github/workflows/staging-acceptance.yml`)**:
    Introduced on the staging integration branch and gated by GitHub protected environment `staging`. Executes manual UI dispatch with `ric-65-hosted` mode and enforces `staging/ric-65-academy-soft-launch` target branch validation.
-   > [!NOTE]
-   > GitHub Actions renders workflow dispatch parameters from the repository default branch (`main`). Because the `ric-65-hosted` mode and dedicated workflow currently exist only on the feature branch / staging base, triggering via GitHub CLI (`gh workflow run ... --ref staging/ric-65-academy-soft-launch`) or merging the workflow definition into the staging branch is required for manual dispatch.
+   > [!IMPORTANT]
+   > GitHub Actions requires that any workflow triggered via `workflow_dispatch` must exist on the repository default branch (`main`). Running `gh workflow run ... --ref staging/ric-65-academy-soft-launch` or merging only into the staging integration branch does NOT make a new workflow dispatchable. Therefore:
+   > - The dedicated workflow (`.github/workflows/ric-65-hosted-staging-acceptance.yml`) cannot be dispatched via GitHub Actions until it is separately approved and present on `main`.
+   > - The existing workflow (`.github/workflows/staging-acceptance.yml`) on `main` does not define `inputs: acceptance_mode` or `inputs: active_window_authorized`.
+   > - For pre-merge verification on the staging branch, execute the runner directly in the staging environment (`node scripts/verify-hosted-staging-acceptance.mjs`) or rehearse offline via `node --test tests/ric-65-staging-acceptance.test.mjs`.
+   > - Do not merge into `main` solely to enable manual UI dispatch without separate authorization.
 
 2. **Dedicated Staging Acceptance Workflow (`.github/workflows/ric-65-hosted-staging-acceptance.yml`)**:
    Dedicated workflow for the isolated staging environment on `staging/ric-65-academy-soft-launch`, pinned to SHA action references, gated by `if: github.ref_name == 'staging/ric-65-academy-soft-launch'`, and protected by static concurrency group `ric-65-hosted-staging` (`cancel-in-progress: false`).
