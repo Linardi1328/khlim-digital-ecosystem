@@ -16,44 +16,52 @@ on:
         type: boolean
         required: true
         default: false
-      target_branch:
-        description: "Dedicated KHLIM staging branch"
-        type: string
-        required: true
-        default: "staging/ric-65-academy-soft-launch"
+
+concurrency:
+  group: ric-65-hosted-staging
+  cancel-in-progress: false
 
 permissions:
   contents: read
 
-env:
-  KHLIM_STAGING_WEB_URL: ${{ secrets.KHLIM_STAGING_WEB_URL }}
-  KHLIM_STAGING_API_URL: ${{ secrets.KHLIM_STAGING_API_URL }}
-  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.KHLIM_STAGING_SUPABASE_URL }}
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.KHLIM_STAGING_SUPABASE_ANON_KEY }}
-  PAYMENT_PROVIDER: billplz
-  BILLPLZ_SANDBOX: "1"
-  BILLPLZ_SECRET_KEY: ${{ secrets.KHLIM_STAGING_BILLPLZ_SECRET_KEY }}
-  BILLPLZ_COLLECTION_ID: ${{ secrets.KHLIM_STAGING_BILLPLZ_COLLECTION_ID }}
-  BILLPLZ_X_SIGNATURE_KEY: ${{ secrets.KHLIM_STAGING_BILLPLZ_X_SIGNATURE_KEY }}
-  BILLPLZ_CALLBACK_URL: ${{ secrets.KHLIM_STAGING_BILLPLZ_CALLBACK_URL }}
-  BILLPLZ_REDIRECT_URL: ${{ secrets.KHLIM_STAGING_BILLPLZ_REDIRECT_URL }}
-  KHLIM_STAGING_ADMIN_AAL2_TOKEN: ${{ secrets.KHLIM_STAGING_ADMIN_AAL2_TOKEN }}
-  KHLIM_STAGING_USER_AAL1_TOKEN: ${{ secrets.KHLIM_STAGING_USER_AAL1_TOKEN }}
-  KHLIM_STAGING_DATABASE_URL: ${{ secrets.KHLIM_STAGING_DATABASE_URL }}
-  KHLIM_STAGING_TARGET_BRANCH: ${{ inputs.target_branch || 'staging/ric-65-academy-soft-launch' }}
-  KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: ${{ inputs.active_window_authorized && '1' || '0' }}
-
 jobs:
   acceptance:
     runs-on: ubuntu-latest
+    environment: staging
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: "24"
       - name: Verify deployed staging services and fail-closed configuration
         if: ${{ inputs.acceptance_mode != 'ric-65-hosted' }}
+        env:
+          KHLIM_STAGING_WEB_URL: ${{ secrets.KHLIM_STAGING_WEB_URL }}
+          KHLIM_STAGING_API_URL: ${{ secrets.KHLIM_STAGING_API_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.KHLIM_STAGING_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.KHLIM_STAGING_SUPABASE_ANON_KEY }}
+          PAYMENT_PROVIDER: billplz
+          BILLPLZ_SANDBOX: "1"
+          BILLPLZ_SECRET_KEY: ${{ secrets.KHLIM_STAGING_BILLPLZ_SECRET_KEY }}
+          BILLPLZ_COLLECTION_ID: ${{ secrets.KHLIM_STAGING_BILLPLZ_COLLECTION_ID }}
+          BILLPLZ_X_SIGNATURE_KEY: ${{ secrets.KHLIM_STAGING_BILLPLZ_X_SIGNATURE_KEY }}
+          BILLPLZ_CALLBACK_URL: ${{ secrets.KHLIM_STAGING_BILLPLZ_CALLBACK_URL }}
+          BILLPLZ_REDIRECT_URL: ${{ secrets.KHLIM_STAGING_BILLPLZ_REDIRECT_URL }}
         run: node scripts/verify-staging-acceptance.mjs
       - name: Execute RIC-65 hosted staging acceptance gate
         if: ${{ inputs.acceptance_mode != 'readiness-only' }}
+        env:
+          KHLIM_STAGING_API_URL: ${{ secrets.KHLIM_STAGING_API_URL }}
+          KHLIM_STAGING_WEB_URL: ${{ secrets.KHLIM_STAGING_WEB_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.KHLIM_STAGING_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.KHLIM_STAGING_SUPABASE_ANON_KEY }}
+          KHLIM_STAGING_ADMIN_AAL2_TOKEN: ${{ secrets.KHLIM_STAGING_ADMIN_AAL2_TOKEN }}
+          KHLIM_STAGING_USER_AAL1_TOKEN: ${{ secrets.KHLIM_STAGING_USER_AAL1_TOKEN }}
+          KHLIM_STAGING_DATABASE_URL: ${{ secrets.KHLIM_STAGING_DATABASE_URL }}
+          KHLIM_STAGING_TEST_PHONE: ${{ secrets.KHLIM_STAGING_TEST_PHONE }}
+          KHLIM_STAGING_APPROVED_TEST_PHONE: ${{ secrets.KHLIM_STAGING_APPROVED_TEST_PHONE }}
+          KHLIM_STAGING_TARGET_BRANCH: ${{ github.ref_name }}
+          KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: ${{ inputs.active_window_authorized && '1' || '0' }}
         run: node scripts/verify-hosted-staging-acceptance.mjs

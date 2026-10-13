@@ -96,7 +96,46 @@ export function sanitizeErrorMessage(error) {
       "[email-redacted]",
     )
     .replace(/\+?60\d{8,10}/g, "[phone-redacted]")
-    .replace(/(?:password|secret|token|apikey|key)=[^&\s]+/gi, "$1=[redacted]");
+    .replace(/(password|secret|token|apikey|key)=[^&\s]+/gi, "$1=[redacted]");
+}
+
+export function extractDatabaseProjectRef(databaseUrl) {
+  if (!databaseUrl || typeof databaseUrl !== "string") return null;
+  try {
+    const parsed = new URL(databaseUrl);
+    const hostMatch = parsed.hostname.match(/^db\.([a-z0-9]+)\.supabase\.co$/);
+    if (hostMatch) return hostMatch[1] ?? null;
+    const userMatch = parsed.username.match(/^postgres\.([a-z0-9]+)$/);
+    if (userMatch) return userMatch[1] ?? null;
+    const poolerHostMatch = parsed.hostname.match(
+      /^([a-z0-9]+)\.pooler\.supabase\.com$/,
+    );
+    if (poolerHostMatch) return poolerHostMatch[1] ?? null;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function validateTestContact(phone, approvedPhone) {
+  if (!phone || typeof phone !== "string") {
+    throw new Error(
+      "TEST_CONTACT_UNAUTHORIZED: Staging test contact phone is missing",
+    );
+  }
+  const trimmed = phone.trim();
+  if (!/^\+601\d{8,9}$/.test(trimmed)) {
+    throw new Error(
+      `TEST_CONTACT_UNAUTHORIZED: Phone '${trimmed}' does not match Malaysian E.164 format`,
+    );
+  }
+  const allowedContact = approvedPhone?.trim() || APPROVED_STAGING_TEST_PHONE;
+  if (trimmed !== allowedContact) {
+    throw new Error(
+      `TEST_CONTACT_UNAUTHORIZED: Phone '${trimmed}' is not an explicitly approved test contact (expected '${allowedContact}')`,
+    );
+  }
+  return trimmed;
 }
 
 export function maskEmail(email) {
@@ -181,22 +220,15 @@ export function validateApiTarget(apiUrlString, allowlist = []) {
     );
   }
 
-  // Explicit allowed host rules
+  // Explicit allowed host rules - strict exact match only
   const customAllowlist = Array.isArray(allowlist)
     ? allowlist.map((h) => h.toLowerCase())
     : [];
 
   const isExactRenderStaging = hostname === "khlim-api-staging.onrender.com";
-  const isVercelStagingPreview =
-    hostname.endsWith(".vercel.app") &&
-    (hostname.includes("staging") || hostname.includes("khlim"));
   const isInCustomAllowlist = customAllowlist.includes(hostname);
 
-  if (
-    !isExactRenderStaging &&
-    !isVercelStagingPreview &&
-    !isInCustomAllowlist
-  ) {
+  if (!isExactRenderStaging && !isInCustomAllowlist) {
     throw new Error(
       `STAGING_TARGET_VIOLATION: Host ${hostname} is not an authorized KHLIM staging deployment origin`,
     );
@@ -319,39 +351,27 @@ export async function runHostedStagingAcceptance(env = process.env) {
     );
   }
 
-  // Database identity assertion from API health response
-  if (apiHealthJson?.database) {
-    if (apiHealthJson.database.status === "disconnected") {
-      throw new Error(
-        "STAGING_HEALTH_FAILURE: Deployed API reports database status as 'disconnected'",
-      );
-    }
-    if (
-      apiHealthJson.database.projectRef &&
-      apiHealthJson.database.projectRef !== STAGING_SUPABASE_PROJECT_ID
-    ) {
-      throw new Error(
-        `STAGING_TARGET_VIOLATION: Deployed API database is bound to project '${apiHealthJson.database.projectRef}', expected '${STAGING_SUPABASE_PROJECT_ID}'`,
-      );
-    }
-    results.databaseIdentity = {
-      status: apiHealthJson.database.status,
-      projectRefVerified:
-        apiHealthJson.database.projectRef === STAGING_SUPABASE_PROJECT_ID,
-    };
+  // Database identity assertion from API health response (mandatory for both readiness and active modes)
+  if (
+    !apiHealthJson?.database ||
+    apiHealthJson.database.status !== "connected"
+  ) {
+    throw new Error(
+      `STAGING_HEALTH_FAILURE: Deployed API reports database status as '${apiHealthJson?.database?.status || "missing"}', expected 'connected'`,
+    );
   }
-
-  // Active mutation window strictly requires database identity confirmed to staging Supabase project
-  if (results.activeWindow) {
-    if (
-      !apiHealthJson?.database?.projectRef ||
-      apiHealthJson.database.projectRef !== STAGING_SUPABASE_PROJECT_ID
-    ) {
-      throw new Error(
-        `DATABASE_IDENTITY_MISMATCH: Active mutation window requires verified database binding to '${STAGING_SUPABASE_PROJECT_ID}', but API reported '${apiHealthJson?.database?.projectRef || "none"}'`,
-      );
-    }
+  if (
+    !apiHealthJson.database.projectRef ||
+    apiHealthJson.database.projectRef !== STAGING_SUPABASE_PROJECT_ID
+  ) {
+    throw new Error(
+      `DATABASE_IDENTITY_MISMATCH: Deployed API database projectRef is '${apiHealthJson.database.projectRef || "missing"}', expected '${STAGING_SUPABASE_PROJECT_ID}'`,
+    );
   }
+  results.databaseIdentity = {
+    status: apiHealthJson.database.status,
+    projectRefVerified: true,
+  };
   results.readiness.apiHealth = "ok";
 
   const supabaseHealthUrl = new URL("/auth/v1/health", supabaseUrl);
@@ -443,10 +463,13 @@ export async function runHostedStagingAcceptance(env = process.env) {
   }
 
   // 6. Authorized Synthetic Lead Creation & Duplicate Idempotency Replay
-  const syntheticLead = generateSyntheticLead(
-    undefined,
-    env.KHLIM_STAGING_TEST_PHONE?.trim() || APPROVED_STAGING_TEST_PHONE,
+  const configuredPhone =
+    env.KHLIM_STAGING_TEST_PHONE?.trim() || APPROVED_STAGING_TEST_PHONE;
+  const validatedPhone = validateTestContact(
+    configuredPhone,
+    env.KHLIM_STAGING_APPROVED_TEST_PHONE,
   );
+  const syntheticLead = generateSyntheticLead(undefined, validatedPhone);
 
   console.log(
     JSON.stringify({
@@ -559,34 +582,52 @@ export async function runHostedStagingAcceptance(env = process.env) {
     );
   }
 
-  // 7c. Authorized MFA AAL2 Admin Lead Retrieval (Expected HTTP 200)
-  const queryUrl = new URL(adminLeadsEndpoint);
-  queryUrl.searchParams.set("source", "3x3-oct24");
+  // 7c. Authorized MFA AAL2 Admin Lead Retrieval (Expected HTTP 200, paginated query)
+  const allMatchingLeads = [];
+  let currentPage = 1;
+  const maxPages = 5;
 
-  const adminRes = await fetchWithTimeout(queryUrl, {
-    headers: {
-      Authorization: `Bearer ${adminAal2Token}`,
-    },
-  });
+  do {
+    const pageQuery = new URL(adminLeadsEndpoint);
+    pageQuery.searchParams.set("source", "3x3-oct24");
+    pageQuery.searchParams.set("page", String(currentPage));
+    pageQuery.searchParams.set("limit", "20");
+    if (syntheticLead.email) {
+      pageQuery.searchParams.set("q", syntheticLead.email);
+    }
 
-  if (adminRes.status !== 200) {
+    const adminRes = await fetchWithTimeout(pageQuery, {
+      headers: {
+        Authorization: `Bearer ${adminAal2Token}`,
+      },
+    });
+
+    if (adminRes.status !== 200) {
+      throw new Error(
+        `Authorized MFA AAL2 Admin leads retrieval failed: expected HTTP 200, received HTTP ${adminRes.status}`,
+      );
+    }
+
+    const adminJson = await adminRes.json();
+    const itemsList = Array.isArray(adminJson?.items) ? adminJson.items : [];
+    const pageMatches = itemsList.filter((l) => l.id === leadId);
+    allMatchingLeads.push(...pageMatches);
+
+    const totalPages =
+      typeof adminJson?.totalPages === "number" ? adminJson.totalPages : 1;
+    if (currentPage >= totalPages || allMatchingLeads.length > 0) {
+      break;
+    }
+    currentPage++;
+  } while (currentPage <= maxPages);
+
+  if (allMatchingLeads.length !== 1) {
     throw new Error(
-      `Authorized MFA AAL2 Admin leads retrieval failed: expected HTTP 200, received HTTP ${adminRes.status}`,
+      `PERSISTENCE_INVARIANT_VIOLATION: Expected exactly 1 persisted lead for ID in Admin list, found ${allMatchingLeads.length}`,
     );
   }
 
-  const adminJson = await adminRes.json();
-  // Standard Admin Leads API contract: { items, total, page, limit, totalPages }
-  const itemsList = Array.isArray(adminJson?.items) ? adminJson.items : [];
-
-  const matches = itemsList.filter((l) => l.id === leadId);
-  if (matches.length !== 1) {
-    throw new Error(
-      `PERSISTENCE_INVARIANT_VIOLATION: Expected exactly 1 persisted lead for ID in Admin list, found ${matches.length}`,
-    );
-  }
-
-  const leadRecord = matches[0];
+  const leadRecord = allMatchingLeads[0];
   if (leadRecord.source !== "3x3-oct24") {
     throw new Error(
       `ATTRIBUTION_INVARIANT_VIOLATION: Expected source='3x3-oct24', found '${leadRecord.source}'`,
@@ -630,48 +671,66 @@ export async function runHostedStagingAcceptance(env = process.env) {
     statusVerified: leadRecord.status,
   };
 
-  // 8. Independent Read-Only Database Row Count (if direct DB URL is provided and client is available)
+  // 8. Mandatory Independent Read-Only Database Persistence Verification
   const dbUrl =
     env.KHLIM_STAGING_DATABASE_URL?.trim() || env.DATABASE_URL?.trim();
-  if (dbUrl && !/placeholder|example|replace-with/i.test(dbUrl)) {
+  if (!dbUrl || /placeholder|example|replace-with/i.test(dbUrl)) {
+    throw new Error(
+      "MANDATORY_DB_URL_MISSING: KHLIM_STAGING_DATABASE_URL is required for mandatory independent read-only database persistence verification in active mode",
+    );
+  }
+
+  const dbProjectRef = extractDatabaseProjectRef(dbUrl);
+  if (dbProjectRef !== STAGING_SUPABASE_PROJECT_ID) {
+    throw new Error(
+      `DATABASE_IDENTITY_MISMATCH: Direct database URL is bound to project '${dbProjectRef || "unknown"}', expected '${STAGING_SUPABASE_PROJECT_ID}'`,
+    );
+  }
+
+  let prisma = env._prismaClient;
+  let prismaServiceInstance = null;
+  if (!prisma) {
     try {
-      let PrismaClientClass = null;
-      try {
-        const prismaModule =
-          await import("../apps/api/dist/generated/prisma/client.js");
-        PrismaClientClass = prismaModule.PrismaClient;
-      } catch {
-        // Dist not compiled or client module unavailable
-      }
-
-      if (PrismaClientClass) {
-        const prisma = new PrismaClientClass({
-          datasources: { db: { url: dbUrl } },
-        });
-        const dbCount = await prisma.academyLead.count({
-          where: { id: leadId },
-        });
-        const idempotencyCount = await prisma.academyLead.count({
-          where: { idempotencyKey: syntheticLead.idempotencyKey },
-        });
-        await prisma.$disconnect();
-
-        if (dbCount !== 1 || idempotencyCount !== 1) {
-          throw new Error(
-            `DATABASE_PERSISTENCE_VIOLATION: Independent DB query found ${dbCount} leads with id and ${idempotencyCount} with idempotency key (expected exactly 1)`,
-          );
-        }
-        results.independentDbVerification = {
-          verifiedDirectly: true,
-          recordCount: dbCount,
-          idempotencyCount,
-        };
-      }
-    } catch (dbErr) {
-      // If DB was explicitly configured and verification threw, fail closed
-      throw new Error(
-        `Independent DB verification failed: ${sanitizeErrorMessage(dbErr)}`,
+      const path = await import("node:path");
+      const { createRequire } = await import("node:module");
+      const apiRequire = createRequire(
+        path.resolve(process.cwd(), "apps/api/dist/main.js"),
       );
+      const { PrismaService } = apiRequire("./database/prisma.service.js");
+      const prevDbUrl = process.env.DATABASE_URL;
+      process.env.DATABASE_URL = dbUrl;
+      prismaServiceInstance = new PrismaService();
+      prisma = prismaServiceInstance.client;
+      process.env.DATABASE_URL = prevDbUrl;
+    } catch (clientErr) {
+      throw new Error(
+        `DATABASE_CLIENT_UNAVAILABLE: Failed to initialize Prisma client with PrismaPg adapter: ${sanitizeErrorMessage(clientErr)}`,
+      );
+    }
+  }
+
+  try {
+    const dbCount = await prisma.academyLead.count({
+      where: { id: leadId },
+    });
+    const idempotencyCount = await prisma.academyLead.count({
+      where: { idempotencyKey: syntheticLead.idempotencyKey },
+    });
+
+    if (dbCount !== 1 || idempotencyCount !== 1) {
+      throw new Error(
+        `DATABASE_PERSISTENCE_VIOLATION: Independent DB query found ${dbCount} leads with id and ${idempotencyCount} with idempotency key (expected exactly 1)`,
+      );
+    }
+    results.independentDbVerification = {
+      verifiedDirectly: true,
+      recordCount: dbCount,
+      idempotencyCount,
+      dbProjectRefVerified: true,
+    };
+  } finally {
+    if (prismaServiceInstance) {
+      await prismaServiceInstance.onModuleDestroy();
     }
   }
 

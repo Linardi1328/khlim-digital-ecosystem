@@ -10,11 +10,11 @@ Hosted staging acceptance operates exclusively against isolated, non-production 
 | :--- | :--- | :--- |
 | **Dedicated Staging Branch** | `staging/ric-65-academy-soft-launch` | Exact branch string assertion in runner and workflow parameters |
 | **Supabase Staging Project** | `qxsjxcbfhxbvxigghhlq` (`https://qxsjxcbfhxbvxigghhlq.supabase.co`) | Exact hostname match (`url.hostname === "qxsjxcbfhxbvxigghhlq.supabase.co"`), HTTPS and port 443 only. Rejects prefix/suffix collision |
-| **Staging API Deployment** | `khlim-api-staging.onrender.com` (or allowlisted preview origin) | Strict allowlist check, HTTPS standard port 443 only. Rejects HTTP, localhost, subpaths, and production domains |
+| **Staging API Deployment** | `khlim-api-staging.onrender.com` (or explicit custom allowlist) | Strict allowlist check, HTTPS standard port 443 only. Wildcard and substring Vercel matching removed. Rejects HTTP, localhost, subpaths, and production domains |
 | **Redirect Rejection** | `redirect: "error"` on all HTTP fetch calls | Prevents bearer token leakage across unexpected redirects or intermediary gateways |
-| **Database Identity** | `qxsjxcbfhxbvxigghhlq` reported by API `/v1/health` | Active window requires verified database connection and project reference match before any mutation |
+| **Database Identity & Persistence** | `qxsjxcbfhxbvxigghhlq` reported by API `/v1/health` & direct DB URL | Both readiness and active modes require verified database connection and project reference match. Active mode mandates independent direct read-only Prisma query verifying exactly 1 persisted lead row |
 | **Campaign Attribution** | `source=3x3-oct24` | Strict token attribution retention on persisted lead records and browser navigation |
-| **Controlled Test Phone** | `APPROVED_STAGING_TEST_PHONE = "+60120000000"` | Controlled, non-random Malaysian mobile test format. Eliminates risk of dialing real numbers |
+| **Controlled Test Phone** | `APPROVED_STAGING_TEST_PHONE = "+60120000000"` | Controlled Malaysian mobile E.164 test format, verified against authorized test contact. Eliminates risk of dialing real numbers |
 
 > [!IMPORTANT]
 > The hosted staging acceptance runner strictly fails closed if any configuration points to production domains (`khlim.com`, `api.khlim.com`, etc.) or any Supabase project other than `qxsjxcbfhxbvxigghhlq`.
@@ -25,12 +25,12 @@ RIC-65 distinguishes between two acceptance verification layers:
 
 1. **Hosted API & Database Acceptance (`HOSTED_API_AND_DATABASE_ACCEPTANCE`)**:
    - Automated via `scripts/verify-hosted-staging-acceptance.mjs`.
-   - Executes readiness health checks, database identity assertion, non-destructive validation rejection tests, synthetic lead submission, duplicate idempotency replay, conflict 409 rejection, and MFA AAL2 Admin retrieval.
+   - Executes readiness health checks, database identity assertion, non-destructive validation rejection tests, synthetic lead submission, duplicate idempotency replay, conflict 409 rejection, paginated MFA AAL2 Admin retrieval, and independent direct database query.
    - Verifies the deployed backend and database contracts independently of client-side state.
 
 2. **Browser Registration Acceptance & UX Rehearsal (`tests/e2e/staging-browser-acceptance.spec.mjs`)**:
    - Automated via Playwright at mobile (375px/390px) and desktop viewports.
-   - Verifies responsive layout, visible CTA interactions, query attribution retention (`source=3x3-oct24`), guardian consent gating, and protected staff route enforcement.
+   - Rehearses responsive client UX with mocked backend routes to safely test interactive form validation, client-side consent gating, and unauthenticated portal redirects.
 
 ## 3. Fail-Closed Execution Model & Safety Gates
 
@@ -40,7 +40,7 @@ To safeguard active systems and avoid unapproved mutations:
    The workflow is never triggered automatically on push or pull request.
 2. **Safety Gate (`KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED`)**:
    - **When `0` or unset (Default / Readiness Mode)**: The runner executes target validation, health checks, and database identity checks, then halts cleanly in state `SAFE_HALT`. It **never** issues hosted `POST` requests without explicit window authorization.
-   - **When `1` (Active Mutation Window)**: Requires mandatory MFA AAL2 Admin and User AAL1 tokens. Fails closed with `MANDATORY_AUTH_MISSING` if missing. Proceeds to non-destructive validation testing, synthetic lead creation, duplicate idempotency verification, and MFA AAL2 retrieval.
+   - **When `1` (Active Mutation Window)**: Requires mandatory MFA AAL2 Admin and User AAL1 tokens, as well as `KHLIM_STAGING_DATABASE_URL`. Fails closed with `MANDATORY_AUTH_MISSING` or `MANDATORY_DB_URL_MISSING` if missing. Proceeds to non-destructive validation testing, synthetic lead creation, duplicate idempotency verification, paginated MFA AAL2 retrieval, and independent direct database row assertion.
 3. **Operational Constraints**:
    - Do not pause KYNEXA.
    - Do not activate staging without separate approval.
@@ -67,7 +67,7 @@ Sends test payloads to `POST /v1/academy/leads` to confirm server-side validatio
 - Malformed UUID in programme offering ID -> HTTP 400
 
 ### Phase C: Synthetic Lead Creation & Idempotency Replay
-- Generates synthetic lead with controlled phone:
+- Generates synthetic lead with validated controlled phone:
   - Email: `staging-synth-${uniqueSuffix}@synthetic.khlim.test`
   - Name: `Synthetic Parent ${uniqueSuffix}`
   - Phone: `+60120000000` (`APPROVED_STAGING_TEST_PHONE`)
@@ -82,17 +82,24 @@ Sends test payloads to `POST /v1/academy/leads` to confirm server-side validatio
 ### Phase D: Admin MFA AAL2 Retrieval & Access Control
 - **Unauthenticated**: `GET /v1/admin/academy/leads` -> HTTP 401 Unauthorized (`AUTH_GATE_FAILURE` if not 401).
 - **AAL1 / Unassigned Role**: `GET /v1/admin/academy/leads` with AAL1 token -> HTTP 403 Forbidden (`MFA assurance level 2 is required` / `AUTH_GATE_FAILURE` if not 403).
-- **MFA AAL2 Admin**: `GET /v1/admin/academy/leads?source=3x3-oct24` with AAL2 Admin token:
-  - Asserts HTTP 200 OK.
+- **MFA AAL2 Admin**: `GET /v1/admin/academy/leads?source=3x3-oct24&q=${syntheticLead.email}` with AAL2 Admin token:
+  - Asserts HTTP 200 OK across paginated search results.
   - Parses response items: `adminJson.items`.
   - Verifies exactly 1 lead with the created ID exists in `items` (`PERSISTENCE_INVARIANT_VIOLATION` if count != 1).
   - Verifies `leadRecord.source === "3x3-oct24"`.
   - Verifies `leadRecord.status === "NEW"` (`STATUS_INVARIANT_VIOLATION` if status != NEW).
 - **Admin Lead Detail**: `GET /v1/admin/academy/leads/${leadId}` -> Asserts HTTP 200 OK with matching attribution and status `NEW`.
 
-### Phase E: PII-Safe Logging & Error Sanitization
+### Phase E: Independent Direct Database Verification
+- Queries staging database directly via `KHLIM_STAGING_DATABASE_URL` with Prisma client and `PrismaPg` adapter:
+  - Verifies database URL is bound to project `qxsjxcbfhxbvxigghhlq`.
+  - Asserts count by `id === leadId` is exactly 1.
+  - Asserts count by `idempotencyKey === syntheticLead.idempotencyKey` is exactly 1 (`DATABASE_PERSISTENCE_VIOLATION` if count != 1).
+
+### Phase F: PII-Safe Logging & Error Sanitization
 All logs and error messages are sanitized via `sanitizeErrorMessage`:
 - Bearer tokens and JWTs redacted to `[redacted]`
+- Sensitive query parameters (`token=`, `apikey=`, `key=`, `secret=`, `password=`) redacted to `[redacted]`
 - Emails redacted to `[email-redacted]`
 - Phones redacted to `[phone-redacted]`
 - Masked summaries in stdout: `S*** P***`, `s***@synthetic.khlim.test`, `+6012***000`
@@ -100,11 +107,11 @@ Raw HTTP response bodies and stack traces containing personal data are never out
 
 ## 5. Workflow Execution Strategy
 
-To facilitate manual testing before merging into `main`:
+To facilitate manual testing securely:
 1. **Repository Staging Dispatch (`.github/workflows/staging-acceptance.yml`)**:
-   Already present on default branch `main`, with `ric-65-hosted` mode and secret passthrough, allowing GitHub UI manual execution against any branch including `feat/ric-65-hosted-staging-acceptance` and `staging/ric-65-academy-soft-launch`.
+   Introduced on the staging integration branch and gated by GitHub protected environment `staging`. Executes manual UI dispatch with `ric-65-hosted` mode and enforces `staging/ric-65-academy-soft-launch` target branch validation.
 2. **Dedicated Staging Acceptance Workflow (`.github/workflows/ric-65-hosted-staging-acceptance.yml`)**:
-   Dedicated runner for the isolated staging environment on `staging/ric-65-academy-soft-launch`.
+   Dedicated workflow for the isolated staging environment on `staging/ric-65-academy-soft-launch`, pinned to SHA action references, gated by `if: github.ref_name == 'staging/ric-65-academy-soft-launch'`, and protected by static concurrency group `ric-65-hosted-staging` (`cancel-in-progress: false`).
 
 ## 6. Local Verification & Testing
 

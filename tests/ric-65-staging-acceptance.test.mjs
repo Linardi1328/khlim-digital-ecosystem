@@ -10,6 +10,8 @@ import {
   maskPhone,
   maskName,
   sanitizeErrorMessage,
+  extractDatabaseProjectRef,
+  validateTestContact,
   validateSupabaseTarget,
   validateApiTarget,
   validateTargetBranch,
@@ -27,9 +29,13 @@ function createMockFetch({
     status: "connected",
     projectRef: STAGING_SUPABASE_PROJECT_ID,
   },
+  omitDatabaseProperty = false,
+  adminUnauthStatus = 401,
   adminAal1Status = 403,
   adminAal2Items = null,
   adminDetailItem = null,
+  duplicateReturnsDifferentId = false,
+  conflictReturns201 = false,
 } = {}) {
   let leadCreatedInDb = null;
   const recordedRequests = [];
@@ -46,13 +52,14 @@ function createMockFetch({
     });
 
     if (urlStr.endsWith("/v1/health")) {
+      const responsePayload = { status: "ok" };
+      if (!omitDatabaseProperty && apiHealthDatabase !== null) {
+        responsePayload.database = apiHealthDatabase;
+      }
       return {
         ok: true,
         status: 200,
-        json: async () => ({
-          status: "ok",
-          database: apiHealthDatabase,
-        }),
+        json: async () => responsePayload,
       };
     }
 
@@ -101,26 +108,48 @@ function createMockFetch({
           };
         }
 
-        if (leadCreatedInDb && body.childAge === 12) {
-          return {
-            ok: false,
-            status: 409,
-            json: async () => ({
-              code: "LEAD_IDEMPOTENCY_CONFLICT",
-              message: "Submission token already used with a different payload",
-            }),
-          };
-        }
-
         if (
           leadCreatedInDb &&
           leadCreatedInDb.idempotencyKey === body.idempotencyKey
         ) {
+          const isIdentical =
+            leadCreatedInDb.guardianName === body.guardianName &&
+            leadCreatedInDb.email === body.email &&
+            leadCreatedInDb.phone === body.phone &&
+            leadCreatedInDb.childAge === body.childAge &&
+            leadCreatedInDb.consent === body.consent &&
+            leadCreatedInDb.source === body.source;
+
+          if (!isIdentical) {
+            if (conflictReturns201) {
+              return {
+                ok: true,
+                status: 201,
+                json: async () => ({
+                  id: "conflict-id-wrong",
+                  status: "RECEIVED",
+                  message: "Thank you for registering",
+                }),
+              };
+            }
+            return {
+              ok: false,
+              status: 409,
+              json: async () => ({
+                code: "LEAD_IDEMPOTENCY_CONFLICT",
+                message:
+                  "Submission token already used with a different payload",
+              }),
+            };
+          }
+
           return {
             ok: true,
             status: 201,
             json: async () => ({
-              id: leadCreatedInDb.id,
+              id: duplicateReturnsDifferentId
+                ? "different-duplicate-id"
+                : leadCreatedInDb.id,
               status: "RECEIVED",
               message: "Thank you for registering",
               createdAt: leadCreatedInDb.createdAt,
@@ -149,7 +178,19 @@ function createMockFetch({
 
     if (urlStr.includes("/v1/admin/academy/leads")) {
       const auth = options.headers?.Authorization;
-      if (!auth) return { ok: false, status: 401 };
+      if (!auth) {
+        return {
+          ok: adminUnauthStatus === 200,
+          status: adminUnauthStatus,
+          json: async () => ({
+            items: [],
+            total: 0,
+            page: 1,
+            limit: 20,
+            totalPages: 1,
+          }),
+        };
+      }
 
       if (auth.includes("aal1-token")) {
         return {
@@ -512,11 +553,155 @@ test("safety regression: runner rejects database identity mismatch and disconnec
           KHLIM_STAGING_ADMIN_AAL2_TOKEN: "admin-token",
           KHLIM_STAGING_USER_AAL1_TOKEN: "aal1-token",
         }),
-      /STAGING_TARGET_VIOLATION: Deployed API database is bound to project 'foreign-production-ref'/,
+      /DATABASE_IDENTITY_MISMATCH: Deployed API database projectRef is 'foreign-production-ref', expected 'qxsjxcbfhxbvxigghhlq'/,
     );
   } finally {
     globalThis.fetch = origFetch;
   }
+});
+
+test("readiness gate strictly rejects missing, unconfigured, or disconnected database health", async () => {
+  const origFetch = globalThis.fetch;
+
+  try {
+    const baseEnv = {
+      KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
+      NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
+      KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "0", // Readiness mode only
+    };
+
+    // 1. Missing database property in health JSON
+    const { mockFetch: mockMissingDb } = createMockFetch({
+      omitDatabaseProperty: true,
+    });
+    globalThis.fetch = mockMissingDb;
+    await assert.rejects(
+      () => runHostedStagingAcceptance(baseEnv),
+      /STAGING_HEALTH_FAILURE: Deployed API reports database status as 'missing', expected 'connected'/,
+    );
+
+    // 2. Database status is 'unconfigured'
+    const { mockFetch: mockUnconfigured } = createMockFetch({
+      apiHealthDatabase: { status: "unconfigured" },
+    });
+    globalThis.fetch = mockUnconfigured;
+    await assert.rejects(
+      () => runHostedStagingAcceptance(baseEnv),
+      /STAGING_HEALTH_FAILURE: Deployed API reports database status as 'unconfigured', expected 'connected'/,
+    );
+
+    // 3. Database status is 'disconnected'
+    const { mockFetch: mockDisconnected } = createMockFetch({
+      apiHealthDatabase: {
+        status: "disconnected",
+        projectRef: STAGING_SUPABASE_PROJECT_ID,
+      },
+    });
+    globalThis.fetch = mockDisconnected;
+    await assert.rejects(
+      () => runHostedStagingAcceptance(baseEnv),
+      /STAGING_HEALTH_FAILURE: Deployed API reports database status as 'disconnected', expected 'connected'/,
+    );
+
+    // 4. Database projectRef does not match
+    const { mockFetch: mockWrongRef } = createMockFetch({
+      apiHealthDatabase: {
+        status: "connected",
+        projectRef: "unauthorized-db-project",
+      },
+    });
+    globalThis.fetch = mockWrongRef;
+    await assert.rejects(
+      () => runHostedStagingAcceptance(baseEnv),
+      /DATABASE_IDENTITY_MISMATCH: Deployed API database projectRef is 'unauthorized-db-project', expected 'qxsjxcbfhxbvxigghhlq'/,
+    );
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
+test("validateApiTarget rejects attacker Vercel domains and arbitrary foreign hosts", () => {
+  assert.throws(
+    () => validateApiTarget("https://khlim-api-staging.vercel.app"),
+    /is not an authorized KHLIM staging deployment origin/,
+  );
+  assert.throws(
+    () => validateApiTarget("https://attacker-khlim.vercel.app"),
+    /is not an authorized KHLIM staging deployment origin/,
+  );
+  assert.throws(
+    () => validateApiTarget("https://api-preview.linardi.vercel.app"),
+    /is not an authorized KHLIM staging deployment origin/,
+  );
+});
+
+test("extractDatabaseProjectRef correctly parses db, postgres, and pooler formats", () => {
+  assert.equal(
+    extractDatabaseProjectRef(
+      "postgresql://postgres@db.qxsjxcbfhxbvxigghhlq.supabase.co:5432/postgres",
+    ),
+    "qxsjxcbfhxbvxigghhlq",
+  );
+  assert.equal(
+    extractDatabaseProjectRef(
+      "postgresql://postgres.qxsjxcbfhxbvxigghhlq@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres",
+    ),
+    "qxsjxcbfhxbvxigghhlq",
+  );
+  assert.equal(
+    extractDatabaseProjectRef(
+      "postgresql://postgres@qxsjxcbfhxbvxigghhlq.pooler.supabase.com:6543/postgres",
+    ),
+    "qxsjxcbfhxbvxigghhlq",
+  );
+  assert.equal(
+    extractDatabaseProjectRef("postgresql://postgres@localhost:5432/db"),
+    null,
+  );
+  assert.equal(extractDatabaseProjectRef(null), null);
+  assert.equal(extractDatabaseProjectRef("not-a-url"), null);
+});
+
+test("validateTestContact strictly validates Malaysian E.164 and authorized staging phone", () => {
+  assert.equal(
+    validateTestContact(
+      APPROVED_STAGING_TEST_PHONE,
+      APPROVED_STAGING_TEST_PHONE,
+    ),
+    APPROVED_STAGING_TEST_PHONE,
+  );
+
+  assert.throws(
+    () => validateTestContact(null, APPROVED_STAGING_TEST_PHONE),
+    /TEST_CONTACT_UNAUTHORIZED: Staging test contact phone is missing/,
+  );
+
+  assert.throws(
+    () => validateTestContact("+1234567890", APPROVED_STAGING_TEST_PHONE),
+    /TEST_CONTACT_UNAUTHORIZED: Phone '\+1234567890' does not match Malaysian E\.164 format/,
+  );
+
+  assert.throws(
+    () => validateTestContact("+60129999999", APPROVED_STAGING_TEST_PHONE),
+    /TEST_CONTACT_UNAUTHORIZED: Phone '\+60129999999' is not an explicitly approved test contact/,
+  );
+});
+
+test("error sanitization preserves token and secret capture groups without leaking sensitive values", () => {
+  const sensitiveError = new Error(
+    "query failed: apiKey=xyz987&token=secret123&password=pass456&key=auth789",
+  );
+  const sanitized = sanitizeErrorMessage(sensitiveError);
+  assert.ok(sanitized.includes("apiKey=[redacted]"));
+  assert.ok(sanitized.includes("token=[redacted]"));
+  assert.ok(sanitized.includes("password=[redacted]"));
+  assert.ok(sanitized.includes("key=[redacted]"));
+  assert.ok(!sanitized.includes("$1="));
+  assert.ok(!sanitized.includes("xyz987"));
+  assert.ok(!sanitized.includes("secret123"));
+  assert.ok(!sanitized.includes("pass456"));
+  assert.ok(!sanitized.includes("auth789"));
 });
 
 test("safety regression: runner fails closed when mandatory MFA AAL2 or AAL1 tokens are missing in active window", async () => {
@@ -581,6 +766,72 @@ test("safety regression: runner fails closed if AAL1 token is not rejected with 
   }
 });
 
+test("safety regression: runner fails closed if unauthenticated access to Admin leads returns 200", async () => {
+  const origFetch = globalThis.fetch;
+  // Simulate unauthenticated access unexpectedly returning 200
+  const { mockFetch } = createMockFetch({ adminUnauthStatus: 200 });
+  globalThis.fetch = mockFetch;
+
+  try {
+    await assert.rejects(
+      () =>
+        runHostedStagingAcceptance({
+          KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
+          NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
+          KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1",
+          KHLIM_STAGING_ADMIN_AAL2_TOKEN: "admin-token",
+          KHLIM_STAGING_USER_AAL1_TOKEN: "aal1-token",
+        }),
+      /AUTH_GATE_FAILURE: Unauthenticated Admin leads request was not rejected with 401: received HTTP 200/,
+    );
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
+test("safety regression: runner fails closed if duplicate replay returns different ID or conflict returns 201", async () => {
+  const origFetch = globalThis.fetch;
+  const leadId = "c2a95d10-8b9a-4e89-a2e6-7a13c9a0b123";
+
+  const baseActiveEnv = {
+    KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
+    NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
+    KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1",
+    KHLIM_STAGING_ADMIN_AAL2_TOKEN: "admin-token",
+    KHLIM_STAGING_USER_AAL1_TOKEN: "aal1-token",
+  };
+
+  try {
+    // 1. Duplicate replay returns different ID
+    const { mockFetch: mockDiffId } = createMockFetch({
+      leadId,
+      duplicateReturnsDifferentId: true,
+    });
+    globalThis.fetch = mockDiffId;
+
+    await assert.rejects(
+      () => runHostedStagingAcceptance(baseActiveEnv),
+      /Duplicate idempotency replay did not match original receipt ID/,
+    );
+
+    // 2. Conflict replay incorrectly returns HTTP 201
+    const { mockFetch: mockConflict201 } = createMockFetch({
+      leadId,
+      conflictReturns201: true,
+    });
+    globalThis.fetch = mockConflict201;
+
+    await assert.rejects(
+      () => runHostedStagingAcceptance(baseActiveEnv),
+      /Conflicting idempotency key submission failed: expected HTTP 409 Conflict, received HTTP 201/,
+    );
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
 test("safety regression: runner fails closed if Admin list parser finds incorrect count or invalid lead status", async () => {
   const origFetch = globalThis.fetch;
   const leadId = "c2a95d10-8b9a-4e89-a2e6-7a13c9a0b123";
@@ -632,7 +883,59 @@ test("safety regression: runner fails closed if Admin list parser finds incorrec
   }
 });
 
-test("authorized active window verifies non-destructive cases, lead creation, duplicate idempotency, and MFA AAL2 retrieval", async () => {
+test("safety regression: active mode requires direct database URL and verifies project ref", async () => {
+  const origFetch = globalThis.fetch;
+  const leadId = "c2a95d10-8b9a-4e89-a2e6-7a13c9a0b123";
+  const { mockFetch } = createMockFetch({ leadId });
+  globalThis.fetch = mockFetch;
+
+  try {
+    const baseEnv = {
+      KHLIM_STAGING_API_URL: "https://khlim-api-staging.onrender.com",
+      NEXT_PUBLIC_SUPABASE_URL: "https://qxsjxcbfhxbvxigghhlq.supabase.co",
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
+      KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1",
+      KHLIM_STAGING_ADMIN_AAL2_TOKEN: "admin-token",
+      KHLIM_STAGING_USER_AAL1_TOKEN: "aal1-token",
+    };
+
+    // 1. Missing direct DB URL
+    await assert.rejects(
+      () =>
+        runHostedStagingAcceptance({
+          ...baseEnv,
+          KHLIM_STAGING_DATABASE_URL: "",
+        }),
+      /MANDATORY_DB_URL_MISSING/,
+    );
+
+    // 2. Placeholder direct DB URL
+    await assert.rejects(
+      () =>
+        runHostedStagingAcceptance({
+          ...baseEnv,
+          KHLIM_STAGING_DATABASE_URL:
+            "postgresql://postgres@replace-with-host:5432/postgres",
+        }),
+      /MANDATORY_DB_URL_MISSING/,
+    );
+
+    // 3. Direct DB URL with project ref mismatch
+    await assert.rejects(
+      () =>
+        runHostedStagingAcceptance({
+          ...baseEnv,
+          KHLIM_STAGING_DATABASE_URL:
+            "postgresql://postgres@db.foreignproductionref.supabase.co:5432/postgres",
+        }),
+      /DATABASE_IDENTITY_MISMATCH: Direct database URL is bound to project 'foreignproductionref', expected 'qxsjxcbfhxbvxigghhlq'/,
+    );
+  } finally {
+    globalThis.fetch = origFetch;
+  }
+});
+
+test("authorized active window verifies non-destructive cases, lead creation, duplicate idempotency, MFA AAL2 retrieval, and independent direct DB query", async () => {
   const origFetch = globalThis.fetch;
   const leadId = "c2a95d10-8b9a-4e89-a2e6-7a13c9a0b123";
   const { mockFetch } = createMockFetch({ leadId });
@@ -646,6 +949,16 @@ test("authorized active window verifies non-destructive cases, lead creation, du
       KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1", // Authorized active window
       KHLIM_STAGING_USER_AAL1_TOKEN: "aal1-token-sample",
       KHLIM_STAGING_ADMIN_AAL2_TOKEN: "admin-aal2-token-sample",
+      KHLIM_STAGING_DATABASE_URL: `postgresql://postgres@db.${STAGING_SUPABASE_PROJECT_ID}.supabase.co:5432/postgres`,
+      _prismaClient: {
+        academyLead: {
+          count: async ({ where }) => {
+            if (where.id === leadId) return 1;
+            if (where.idempotencyKey) return 1;
+            return 0;
+          },
+        },
+      },
     };
 
     const results = await runHostedStagingAcceptance(env);
@@ -678,6 +991,12 @@ test("authorized active window verifies non-destructive cases, lead creation, du
     assert.equal(results.adminRetrieval.statusVerified, "NEW");
     assert.equal(results.acceptanceLayer, "HOSTED_API_AND_DATABASE_ACCEPTANCE");
     assert.equal(results.browserUxRehearsalRequired, true);
+
+    // 6. Mandatory independent database persistence assertion
+    assert.equal(results.independentDbVerification.verifiedDirectly, true);
+    assert.equal(results.independentDbVerification.recordCount, 1);
+    assert.equal(results.independentDbVerification.idempotencyCount, 1);
+    assert.equal(results.independentDbVerification.dbProjectRefVerified, true);
   } finally {
     globalThis.fetch = origFetch;
   }

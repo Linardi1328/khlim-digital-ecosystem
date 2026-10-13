@@ -13,9 +13,11 @@ export function extractDatabaseProjectRef(databaseUrl?: string): string | null {
     // 2. Supabase Pooler user: postgres.<ref>
     const userMatch = parsed.username.match(/^postgres\.([a-z0-9]+)$/);
     if (userMatch) return userMatch[1] ?? null;
-    // 3. General 20-character lowercase alphanumeric ref in host
-    const generalMatch = parsed.hostname.match(/([a-z0-9]{20})/);
-    if (generalMatch) return generalMatch[1] ?? null;
+    // 3. Supabase Pooler host: <ref>.pooler.supabase.com
+    const poolerHostMatch = parsed.hostname.match(
+      /^([a-z0-9]+)\.pooler\.supabase\.com$/,
+    );
+    if (poolerHostMatch) return poolerHostMatch[1] ?? null;
     return null;
   } catch {
     return null;
@@ -42,24 +44,43 @@ export class HealthController {
     },
   })
   async getHealth() {
-    const projectRef = extractDatabaseProjectRef(process.env.DATABASE_URL);
+    const isProduction = process.env.KHLIM_ENV === "production";
+    const projectRef = isProduction
+      ? null
+      : extractDatabaseProjectRef(process.env.DATABASE_URL);
     let databaseStatus = "unconfigured";
 
     if (this.prisma) {
       try {
-        await this.prisma.client.$queryRaw`SELECT 1`;
+        let timer: NodeJS.Timeout;
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error("Database probe timeout")),
+            2000,
+          );
+        });
+        await Promise.race([
+          this.prisma.client.$queryRaw`SELECT 1`.finally(() =>
+            clearTimeout(timer),
+          ),
+          timeoutPromise,
+        ]);
         databaseStatus = "connected";
       } catch {
         databaseStatus = "disconnected";
       }
     }
 
+    const isHealthy =
+      databaseStatus === "connected" ||
+      (databaseStatus === "unconfigured" && !this.prisma);
+
     return {
       service: "khlim-api",
-      status: "ok",
+      status: isHealthy ? "ok" : "error",
       database: {
         status: databaseStatus,
-        projectRef,
+        ...(projectRef ? { projectRef } : {}),
       },
     };
   }

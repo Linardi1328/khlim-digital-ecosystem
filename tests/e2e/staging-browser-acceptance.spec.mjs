@@ -1,3 +1,16 @@
+/**
+ * RIC-65 Browser Registration Acceptance & Staging UX Rehearsal
+ *
+ * NOTE: This spec provides client-side mocked UX rehearsal testing for the
+ * browser registration flow and authentication guards. It intercepts HTTP requests
+ * within Playwright to test form behavior, fail-closed validation, and client-side
+ * redirect semantics without mutating remote staging or production databases.
+ *
+ * For live, fail-closed verification of hosted API endpoints, Supabase MFA AAL2,
+ * and direct database persistence invariants, see:
+ * scripts/verify-hosted-staging-acceptance.mjs
+ */
+
 import { expect, test } from "@playwright/test";
 
 const APPROVED_STAGING_TEST_PHONE = "+60120000000";
@@ -95,11 +108,19 @@ test.describe("RIC-65 Browser Registration Acceptance & Staging UX Rehearsal", (
 
     // Try submit without consent
     await submitBtn.click();
+
+    // Explicitly assert that the client-side consent validation error is visible before checking payload
+    const consentError = page.locator(
+      '#interest-privacy-consent-error, [role="alert"]:has-text("consent"), [role="alert"]',
+    );
+    await expect(consentError.first()).toBeVisible();
     expect(interceptedPayload).toBeNull(); // No request sent without consent
 
     // 3. Check explicit consent
     const consentCheckbox = page
-      .locator('input[type="checkbox"]#consent, input[type="checkbox"]')
+      .locator(
+        'input[type="checkbox"]#interest-privacy-consent, input[type="checkbox"]#consent, input[type="checkbox"]',
+      )
       .first();
     if (await consentCheckbox.isVisible()) {
       await consentCheckbox.check();
@@ -131,20 +152,12 @@ test.describe("RIC-65 Browser Registration Acceptance & Staging UX Rehearsal", (
   test("protected staff portal routes strictly redirect unauthenticated browser sessions to login", async ({
     page,
   }) => {
-    // Attempt to access staff / portal routes directly without MFA AAL2 session
-    const response = await page.goto("/portal/dashboard", {
+    // Attempt to access staff / portal routes directly without authenticated session
+    await page.goto("/portal/dashboard", {
       waitUntil: "domcontentloaded",
     });
 
-    // Browser must either be redirected to login or denied access
-    const finalUrl = page.url();
-    const isLoginRedirect =
-      finalUrl.includes("/auth/login") || finalUrl.includes("/login");
-    const isDeniedOrUnauth =
-      response?.status() === 401 ||
-      response?.status() === 403 ||
-      isLoginRedirect;
-
-    expect(isDeniedOrUnauth).toBe(true);
+    // Browser must be redirected to login via client-side auth guard
+    await expect(page).toHaveURL(/\/auth\/login/, { timeout: 10_000 });
   });
 });
