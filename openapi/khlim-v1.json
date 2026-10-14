@@ -13,7 +13,11 @@
                 "schema": {
                   "example": {
                     "service": "khlim-api",
-                    "status": "ok"
+                    "status": "ok",
+                    "database": {
+                      "status": "connected",
+                      "projectRef": "qxsjxcbfhxbvxigghhlq"
+                    }
                   }
                 }
               }
