@@ -43,7 +43,53 @@ type Translate = (
  * verification separate prevents an unfinished editorial draft from becoming a
  * public club claim by accident.
  */
-export const achievementStories: AchievementStory[] = [];
+export const achievementStories: AchievementStory[] = [
+  {
+    id: "cls-international-cup-2026",
+    yearLabel: "2026",
+    title: "Champion — Girls KU-16",
+    eventName: "80th CLS International Cup, Indonesia",
+    description:
+      "KHLIM Basketball Club emerged as champions at the 80th CLS International Cup in Surabaya, Indonesia, demonstrating competitive poise and team teamwork on the international stage.",
+    photoLabel: "80th CLS International Cup 2026 Champions",
+    imageUrl: "/media/khlim/achievement-cls-2026.webp",
+    placeholderGradient:
+      "radial-gradient(circle at 75% 24%, rgba(245, 158, 11, 0.36), transparent 24%), linear-gradient(135deg, #18181b, #3f2d0b 58%, #0f172a)",
+    factsVerified: true,
+    photoRightsVerified: true,
+    status: "published",
+  },
+  {
+    id: "jasmine-cup-2026",
+    yearLabel: "2025–2026",
+    title: "Champion — KHLIM A",
+    eventName: "U16 Jasmine Cup",
+    description:
+      "KHLIM A captured the championship trophy at the U16 Jasmine Cup, showcasing high-level fundamentals, court discipline, and team resilience.",
+    photoLabel: "U16 Jasmine Cup 2025-2026 Champions",
+    imageUrl: "/media/khlim/achievement-jasmine-cup-2026.webp",
+    placeholderGradient:
+      "radial-gradient(circle at 28% 36%, rgba(251, 191, 36, 0.28), transparent 24%), linear-gradient(145deg, #111827, #27272a 58%, #4b3520)",
+    factsVerified: true,
+    photoRightsVerified: true,
+    status: "published",
+  },
+  {
+    id: "sba-selangor-2025",
+    yearLabel: "2025",
+    title: "Champion",
+    eventName: "U15 SBA Selangor Tournament",
+    description:
+      "KHLIM secured the championship title at the state-level U15 SBA Selangor Tournament, underscoring competitive development and player dedication.",
+    photoLabel: "U15 SBA Selangor Tournament 2025 Champions",
+    imageUrl: "/media/khlim/achievement-sba-2025.webp",
+    placeholderGradient:
+      "radial-gradient(circle at 68% 60%, rgba(245, 158, 11, 0.24), transparent 25%), linear-gradient(125deg, #292524, #18181b 55%, #1f2937)",
+    factsVerified: true,
+    photoRightsVerified: true,
+    status: "published",
+  },
+];
 
 /**
  * These neutral archive slots keep the section visually complete until the

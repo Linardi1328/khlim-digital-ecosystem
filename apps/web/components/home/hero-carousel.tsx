@@ -10,6 +10,7 @@ import { Button } from "../ui/button";
 export interface HeroCarouselSlide {
   id: string;
   imageUrl?: string;
+  imageUrlMobile?: string;
   photoLabel: string;
   placeholderGradient: string;
   showPlaceholderLabel?: boolean;
@@ -95,16 +96,25 @@ export function HeroCarousel({
       <div className="home-hero-carousel-track" aria-live="off">
         {safeSlides.map((slide, index) => {
           const isActive = index === activeIndex;
-          const backgroundImage = slide.imageUrl
-            ? `linear-gradient(90deg, rgba(9, 9, 11, 0.78), rgba(9, 9, 11, 0.48), rgba(9, 9, 11, 0.65)), url("${slide.imageUrl}")`
+          const bgDesktop = slide.imageUrl
+            ? `linear-gradient(90deg, rgba(9, 9, 11, 0.82) 0%, rgba(9, 9, 11, 0.52) 50%, rgba(9, 9, 11, 0.7) 100%), url("${slide.imageUrl}")`
             : `linear-gradient(90deg, rgba(9, 9, 11, 0.76), rgba(9, 9, 11, 0.44), rgba(9, 9, 11, 0.72)), ${slide.placeholderGradient}`;
+          const bgMobile = slide.imageUrlMobile
+            ? `linear-gradient(180deg, rgba(9, 9, 11, 0.85) 0%, rgba(9, 9, 11, 0.55) 50%, rgba(9, 9, 11, 0.88) 100%), url("${slide.imageUrlMobile}")`
+            : bgDesktop;
 
           return (
             <div
               key={slide.id}
               className={`home-hero-slide${isActive ? " is-active" : ""}`}
               aria-hidden={!isActive}
-              style={{ backgroundImage }}
+              style={
+                {
+                  backgroundImage: bgDesktop,
+                  "--hero-bg-desktop": bgDesktop,
+                  "--hero-bg-mobile": bgMobile,
+                } as React.CSSProperties
+              }
             >
               {!slide.imageUrl && slide.showPlaceholderLabel !== false && (
                 <div className="home-photo-placeholder-label">

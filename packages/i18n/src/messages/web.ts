@@ -69,6 +69,9 @@ const en = {
   "home.achievements.previewTitle": "Archive ready for verified club history.",
   "home.achievements.previewBody":
     "These three preview slots do not claim a result. Replace them with confirmed event names, years, descriptions and approved photos before publication.",
+  "home.achievements.clubBadge": "KHLIM Basketball Club Milestones",
+  "home.achievements.clubDisclaimer":
+    "These competitive milestones reflect the tournament history of KHLIM Basketball Club and are distinct from individual youth Academy training progression.",
   "home.achievements.archiveLabel": "Club archive",
   "home.achievements.signature.title": "Signature competitive milestone",
   "home.achievements.signature.event": "Highest verified team result",
@@ -230,6 +233,9 @@ const ms: WebCatalogue = {
     "Arkib sedia untuk sejarah kelab yang disahkan.",
   "home.achievements.previewBody":
     "Tiga ruang pratonton ini tidak mendakwa sebarang keputusan. Gantikannya dengan nama acara, tahun, penerangan dan foto yang telah disahkan sebelum penerbitan.",
+  "home.achievements.clubBadge": "Pencapaian Kelab Bola Keranjang KHLIM",
+  "home.achievements.clubDisclaimer":
+    "Pencapaian kejohanan ini merupakan kejayaan kompetitif pasukan Kelab Bola Keranjang KHLIM dan berbeza daripada kemajuan latihan Akademi belia individu.",
   "home.achievements.archiveLabel": "Arkib kelab",
   "home.achievements.signature.title": "Pencapaian pertandingan utama",
   "home.achievements.signature.event":
@@ -383,6 +389,9 @@ const zhHans: WebCatalogue = {
   "home.achievements.previewTitle": "档案区已准备好收录经核实的俱乐部历史。",
   "home.achievements.previewBody":
     "这三个预览位置不代表任何真实成绩。发布前请用已确认的赛事名称、年份、说明和获批照片替换。",
+  "home.achievements.clubBadge": "KHLIM 篮球俱乐部荣誉",
+  "home.achievements.clubDisclaimer":
+    "这些赛事里程碑代表 KHLIM 篮球俱乐部各梯队的竞技成就，与个人青少年学院培训进程有所区分。",
   "home.achievements.archiveLabel": "俱乐部档案",
   "home.achievements.signature.title": "标志性竞技里程碑",
   "home.achievements.signature.event": "最高已核实团队成绩",
@@ -530,6 +539,9 @@ const zhHant: WebCatalogue = {
   "home.achievements.previewTitle": "檔案區已準備好收錄經核實的俱樂部歷史。",
   "home.achievements.previewBody":
     "這三個預覽位置不代表任何真實成績。發布前請用已確認的賽事名稱、年份、說明和獲批照片替換。",
+  "home.achievements.clubBadge": "KHLIM 籃球俱樂部榮譽",
+  "home.achievements.clubDisclaimer":
+    "這些賽事里程碑代表 KHLIM 籃球俱樂部各梯隊的競技成就，與個人青少年學院培訓進程有所區分。",
   "home.achievements.archiveLabel": "俱樂部檔案",
   "home.achievements.signature.title": "標誌性競技里程碑",
   "home.achievements.signature.event": "最高已核實團隊成績",
@@ -678,6 +690,9 @@ const hi: WebCatalogue = {
     "सत्यापित क्लब इतिहास के लिए आर्काइव तैयार है।",
   "home.achievements.previewBody":
     "ये तीन प्रीव्यू स्थान किसी वास्तविक परिणाम का दावा नहीं करते। प्रकाशन से पहले इन्हें पुष्टि किए गए इवेंट नाम, वर्ष, विवरण और स्वीकृत फ़ोटो से बदलें।",
+  "home.achievements.clubBadge": "KHLIM बास्केटबॉल क्लब उपलब्धियाँ",
+  "home.achievements.clubDisclaimer":
+    "ये टूर्नामेंट उपलब्धियाँ KHLIM बास्केटबॉल क्लब की प्रतिस्पर्धी उपलब्धियाँ हैं और व्यक्तिगत युवा अकादमी प्रशिक्षण प्रगति से भिन्न हैं।",
   "home.achievements.archiveLabel": "क्लब आर्काइव",
   "home.achievements.signature.title": "प्रमुख प्रतिस्पर्धी उपलब्धि",
   "home.achievements.signature.event": "सर्वोच्च सत्यापित टीम परिणाम",

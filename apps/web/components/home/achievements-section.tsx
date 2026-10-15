@@ -84,10 +84,58 @@ export function AchievementsSection() {
         <p>{t("home.achievements.description")}</p>
       </div>
 
-      {preview && (
+      {preview ? (
         <div className="home-editorial-notice" role="note">
           <strong>{t("home.achievements.previewTitle")}</strong>
           <span>{t("home.achievements.previewBody")}</span>
+        </div>
+      ) : (
+        <div
+          className="home-club-distinction-banner"
+          role="note"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            maxWidth: 900,
+            margin: "0 auto 36px",
+            padding: "16px 20px",
+            background: "#ffffff",
+            border: "1px solid #e4e4e7",
+            borderRadius: 16,
+            boxShadow: "0 4px 20px rgba(0, 0, 0, 0.03)",
+            boxSizing: "border-box",
+          }}
+        >
+          <img
+            src="/media/khlim/logo-club.webp"
+            alt={t("home.achievements.clubBadge")}
+            width={48}
+            height={44}
+            style={{ objectFit: "contain", flexShrink: 0 }}
+          />
+          <div>
+            <strong
+              style={{
+                display: "block",
+                color: "#18181b",
+                fontSize: "0.875rem",
+                fontWeight: 700,
+                marginBottom: 2,
+              }}
+            >
+              {t("home.achievements.clubBadge")}
+            </strong>
+            <span
+              style={{
+                color: "#71717a",
+                fontSize: "0.8125rem",
+                lineHeight: 1.5,
+              }}
+            >
+              {t("home.achievements.clubDisclaimer")}
+            </span>
+          </div>
         </div>
       )}
 

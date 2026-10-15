@@ -91,6 +91,8 @@ function HomeContent() {
   const heroSlides: HeroCarouselSlide[] = [
     {
       id: "academy-first",
+      imageUrl: "/media/khlim/academy-hero-desktop.webp",
+      imageUrlMobile: "/media/khlim/academy-hero-mobile.webp",
       photoLabel: t("home.hero.photo.training"),
       showPlaceholderLabel: false,
       placeholderGradient:
