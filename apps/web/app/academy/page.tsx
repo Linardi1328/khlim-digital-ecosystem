@@ -32,6 +32,8 @@ function AcademyContent() {
 
   const { hasConsent } = useAnalyticsConsent();
   const campaignSource = queryCampaign ?? storedCampaign;
+  const youthMediaRightsConfirmed =
+    process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED === "1";
 
   useEffect(() => {
     if (hasConsent && campaignSource) {
@@ -305,44 +307,107 @@ function AcademyContent() {
           </div>
 
           <Card style={{ marginTop: 24, padding: 28 }}>
-            <div
-              style={{
-                position: "relative",
-                width: "100%",
-                borderRadius: 12,
-                overflow: "hidden",
-                margin: "0 0 24px",
-                border: "1px solid #e4e4e7",
-              }}
-            >
-              <img
-                src="/media/khlim/club-training-portrait.webp"
-                alt={t("academy.training.alt")}
-                width={1200}
-                height={721}
-                loading="lazy"
-                decoding="async"
-                style={{
-                  width: "100%",
-                  maxHeight: "360px",
-                  aspectRatio: "1200 / 721",
-                  objectFit: "cover",
-                  display: "block",
-                }}
-              />
+            {youthMediaRightsConfirmed ? (
               <div
                 style={{
-                  padding: "10px 14px",
-                  background: "#18181b",
-                  color: "#e4e4e7",
-                  fontSize: "0.8rem",
-                  fontWeight: 600,
-                  lineHeight: 1.4,
+                  position: "relative",
+                  width: "100%",
+                  borderRadius: 12,
+                  overflow: "hidden",
+                  margin: "0 0 24px",
+                  border: "1px solid #e4e4e7",
                 }}
               >
-                {t("academy.training.caption")}
+                <img
+                  src="/media/khlim/club-training-portrait.webp"
+                  alt={t("academy.training.alt")}
+                  width={1200}
+                  height={721}
+                  loading="lazy"
+                  decoding="async"
+                  style={{
+                    width: "100%",
+                    maxHeight: "360px",
+                    aspectRatio: "1200 / 721",
+                    objectFit: "cover",
+                    display: "block",
+                  }}
+                />
+                <div
+                  style={{
+                    padding: "10px 14px",
+                    background: "#18181b",
+                    color: "#e4e4e7",
+                    fontSize: "0.8rem",
+                    fontWeight: 600,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {t("academy.training.caption")}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div
+                style={{
+                  position: "relative",
+                  width: "100%",
+                  borderRadius: 12,
+                  overflow: "hidden",
+                  margin: "0 0 24px",
+                  border: "1px solid #e4e4e7",
+                  background:
+                    "radial-gradient(circle at 80% 20%, rgba(245, 158, 11, 0.15), transparent 45%), linear-gradient(135deg, #18181b 0%, #27272a 60%, #3f2d0b 100%)",
+                  padding: "32px 24px",
+                  boxSizing: "border-box",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 20,
+                }}
+              >
+                <img
+                  src="/media/khlim/logo-academy.webp"
+                  alt={t("brand.academy")}
+                  width={64}
+                  height={75}
+                  style={{ objectFit: "contain", flexShrink: 0 }}
+                />
+                <div>
+                  <span
+                    style={{
+                      color: "#f59e0b",
+                      fontSize: "0.75rem",
+                      fontWeight: 800,
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                      display: "block",
+                      marginBottom: 4,
+                    }}
+                  >
+                    {t("academy.badge")}
+                  </span>
+                  <div
+                    style={{
+                      color: "#ffffff",
+                      fontSize: "1.1rem",
+                      fontWeight: 700,
+                      marginBottom: 6,
+                    }}
+                  >
+                    {t("academy.teamStandards.title")}
+                  </div>
+                  <p
+                    style={{
+                      color: "#d4d4d8",
+                      fontSize: "0.85rem",
+                      lineHeight: 1.5,
+                      margin: 0,
+                    }}
+                  >
+                    {t("academy.teamStandards.body")}
+                  </p>
+                </div>
+              </div>
+            )}
             <h3 style={{ margin: "0 0 8px", fontSize: "1.15rem" }}>
               {t("academy.coaching.title")}
             </h3>

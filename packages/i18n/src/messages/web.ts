@@ -74,6 +74,7 @@ const en = {
     "These competitive milestones reflect the tournament history of KHLIM Basketball Club and are distinct from individual youth Academy training progression.",
   "home.achievements.nonePublished":
     "No club achievements are currently published.",
+  "home.achievements.loading": "Loading club achievements...",
   "home.achievements.archiveLabel": "Club archive",
   "home.achievements.signature.title": "Signature competitive milestone",
   "home.achievements.signature.event": "Highest verified team result",
@@ -240,6 +241,7 @@ const ms: WebCatalogue = {
     "Pencapaian kejohanan ini merupakan kejayaan kompetitif pasukan Kelab Bola Keranjang KHLIM dan berbeza daripada kemajuan latihan Akademi belia individu.",
   "home.achievements.nonePublished":
     "Tiada pencapaian kelab yang diterbitkan buat masa ini.",
+  "home.achievements.loading": "Memuatkan pencapaian kelab...",
   "home.achievements.archiveLabel": "Arkib kelab",
   "home.achievements.signature.title": "Pencapaian pertandingan utama",
   "home.achievements.signature.event":
@@ -397,6 +399,7 @@ const zhHans: WebCatalogue = {
   "home.achievements.clubDisclaimer":
     "这些赛事里程碑代表 KHLIM 篮球俱乐部各梯队的竞技成就，与个人青少年学院培训进程有所区分。",
   "home.achievements.nonePublished": "当前暂无发布的俱乐部成就。",
+  "home.achievements.loading": "正在加载俱乐部成就……",
   "home.achievements.archiveLabel": "俱乐部档案",
   "home.achievements.signature.title": "标志性竞技里程碑",
   "home.achievements.signature.event": "最高已核实团队成绩",
@@ -548,6 +551,7 @@ const zhHant: WebCatalogue = {
   "home.achievements.clubDisclaimer":
     "這些賽事里程碑代表 KHLIM 籃球俱樂部各梯隊的競技成就，與個人青少年學院培訓進程有所區分。",
   "home.achievements.nonePublished": "目前暫無發布的俱樂部成就。",
+  "home.achievements.loading": "正在載入俱樂部成就……",
   "home.achievements.archiveLabel": "俱樂部檔案",
   "home.achievements.signature.title": "標誌性競技里程碑",
   "home.achievements.signature.event": "最高已核實團隊成績",
@@ -701,6 +705,7 @@ const hi: WebCatalogue = {
     "ये टूर्नामेंट उपलब्धियाँ KHLIM बास्केटबॉल क्लब की प्रतिस्पर्धी उपलब्धियाँ हैं और व्यक्तिगत युवा अकादमी प्रशिक्षण प्रगति से भिन्न हैं।",
   "home.achievements.nonePublished":
     "वर्तमान में कोई क्लब उपलब्धि प्रकाशित नहीं है।",
+  "home.achievements.loading": "क्लब की उपलब्धियाँ लोड हो रही हैं...",
   "home.achievements.archiveLabel": "क्लब आर्काइव",
   "home.achievements.signature.title": "प्रमुख प्रतिस्पर्धी उपलब्धि",
   "home.achievements.signature.event": "सर्वोच्च सत्यापित टीम परिणाम",

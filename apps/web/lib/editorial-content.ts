@@ -57,9 +57,9 @@ export const achievementStories: AchievementStory[] = [
     placeholderGradient:
       "radial-gradient(circle at 75% 24%, rgba(245, 158, 11, 0.36), transparent 24%), linear-gradient(135deg, #18181b, #3f2d0b 58%, #0f172a)",
     factsVerified: true,
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "REF-ESTHER-TOURNAMENT-CLS26-REL",
-    status: "published",
+    status: "draft",
   },
   {
     id: "jasmine-cup-2026",
@@ -73,9 +73,9 @@ export const achievementStories: AchievementStory[] = [
     placeholderGradient:
       "radial-gradient(circle at 28% 36%, rgba(251, 191, 36, 0.28), transparent 24%), linear-gradient(145deg, #111827, #27272a 58%, #4b3520)",
     factsVerified: true,
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "REF-ESTHER-TOURNAMENT-JAS26-REL",
-    status: "published",
+    status: "draft",
   },
   {
     id: "sba-selangor-2025",
@@ -89,9 +89,9 @@ export const achievementStories: AchievementStory[] = [
     placeholderGradient:
       "radial-gradient(circle at 68% 60%, rgba(245, 158, 11, 0.24), transparent 25%), linear-gradient(125deg, #292524, #18181b 55%, #1f2937)",
     factsVerified: true,
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "REF-ESTHER-TOURNAMENT-SBA25-REL",
-    status: "published",
+    status: "draft",
   },
 ];
 
@@ -228,54 +228,69 @@ export const publishedAchievements = achievementStories.filter(
     story.photoRightsVerified,
 );
 
+export type AchievementSectionState = "loading" | "success" | "empty" | "error";
+
 export interface ResolvedAchievementsResult {
+  state: AchievementSectionState;
   stories: AchievementStory[];
   isIntentionalEmpty: boolean;
   preview: boolean;
+  isLoading: boolean;
 }
 
 export function resolveAchievementStories({
   remote,
   apiError,
-  fallback = publishedAchievements,
+  isLoading,
   archiveSlots = [],
+  fallback: _fallback = [],
 }: {
   remote: AchievementStory[] | null;
   apiError: boolean;
-  fallback?: AchievementStory[];
+  isLoading?: boolean;
   archiveSlots?: AchievementStory[];
+  fallback?: AchievementStory[];
 }): ResolvedAchievementsResult {
-  // Authoritative remote API response succeeded
+  // 1. Initial loading: remote is null and no error yet, or explicit isLoading flag
+  if (isLoading || (remote === null && !apiError)) {
+    return {
+      state: "loading",
+      stories: [],
+      isIntentionalEmpty: false,
+      preview: false,
+      isLoading: true,
+    };
+  }
+
+  // 2. Authoritative API response succeeded
   if (remote !== null && !apiError) {
     if (remote.length === 0) {
-      // Staff intentionally unpublished all achievements; do not override with hardcoded fallback
+      // Authoritative unpublish: staff unpublished all achievements or none exist
       return {
+        state: "empty",
         stories: [],
         isIntentionalEmpty: true,
         preview: false,
+        isLoading: false,
       };
     }
     return {
+      state: "success",
       stories: remote,
       isIntentionalEmpty: false,
       preview: false,
+      isLoading: false,
     };
   }
 
-  // Remote API call failed, network offline, or initial pre-hydration SSR state
-  // Fall back to verified local records if available, otherwise archive slots
-  if (fallback.length > 0) {
-    return {
-      stories: fallback,
-      isIntentionalEmpty: false,
-      preview: false,
-    };
-  }
-
+  // 3. API Error / Network outage: fail-closed against unverified or unpublished media.
+  // Never resurrect hardcoded youth photographs. Render neutral archive preview slots.
   return {
+    state: "error",
     stories: archiveSlots,
     isIntentionalEmpty: false,
     preview: true,
+    isLoading: false,
   };
 }
 

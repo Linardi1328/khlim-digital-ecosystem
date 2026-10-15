@@ -88,11 +88,18 @@ function HomeContent() {
     )
     ?.venue?.name?.trim();
 
+  const youthMediaRightsConfirmed =
+    process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED === "1";
+
   const heroSlides: HeroCarouselSlide[] = [
     {
       id: "academy-first",
-      imageUrl: "/media/khlim/academy-hero-desktop.webp",
-      imageUrlMobile: "/media/khlim/academy-hero-mobile.webp",
+      imageUrl: youthMediaRightsConfirmed
+        ? "/media/khlim/academy-hero-desktop.webp"
+        : undefined,
+      imageUrlMobile: youthMediaRightsConfirmed
+        ? "/media/khlim/academy-hero-mobile.webp"
+        : undefined,
       photoLabel: t("home.hero.photo.training"),
       showPlaceholderLabel: false,
       placeholderGradient:

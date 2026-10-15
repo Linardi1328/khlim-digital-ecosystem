@@ -25,25 +25,22 @@ test("AchievementsSection preserves editorial unpublishing authority", async () 
   assert.match(editorialSource, /export function resolveAchievementStories/);
   assert.match(componentSource, /resolveAchievementStories\(\{/);
 
+  // Must track loading separately from completion
+  assert.match(
+    componentSource,
+    /const \[isLoading, setIsLoading\] = useState\(true\)/,
+  );
+
+  // Must gate youth photographs behind confirmed media rights
+  assert.match(
+    componentSource,
+    /NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED === "1"/,
+  );
+
   // Import the pure resolver
   const { resolveAchievementStories } = await import(
     new URL("apps/web/lib/editorial-content.ts", root).href
   );
-
-  const mockFallback = [
-    {
-      id: "cls-2026",
-      yearLabel: "2026",
-      title: "Champion",
-      eventName: "CLS Cup",
-      description: "Test description",
-      photoLabel: "CLS Cup Champion",
-      placeholderGradient: "none",
-      factsVerified: true,
-      photoRightsVerified: true,
-      status: "published",
-    },
-  ];
 
   const mockArchiveSlots = [
     {
@@ -60,18 +57,33 @@ test("AchievementsSection preserves editorial unpublishing authority", async () 
     },
   ];
 
-  // Case 1: Authoritative API succeeds with intentional empty array (staff unpublished all)
+  // Case 1: Initial loading state prior to API resolution (must not reveal photographs)
+  const loadingState = resolveAchievementStories({
+    remote: null,
+    apiError: false,
+    isLoading: true,
+    archiveSlots: mockArchiveSlots,
+  });
+  assert.equal(loadingState.state, "loading");
+  assert.equal(loadingState.stories.length, 0);
+  assert.equal(loadingState.isLoading, true);
+  assert.equal(loadingState.isIntentionalEmpty, false);
+  assert.equal(loadingState.preview, false);
+
+  // Case 2: Authoritative API succeeds with intentional empty array (staff unpublished all)
   const intentionalEmpty = resolveAchievementStories({
     remote: [],
     apiError: false,
-    fallback: mockFallback,
+    isLoading: false,
     archiveSlots: mockArchiveSlots,
   });
+  assert.equal(intentionalEmpty.state, "empty");
   assert.equal(intentionalEmpty.stories.length, 0);
   assert.equal(intentionalEmpty.isIntentionalEmpty, true);
   assert.equal(intentionalEmpty.preview, false);
+  assert.equal(intentionalEmpty.isLoading, false);
 
-  // Case 2: Authoritative API succeeds with published items
+  // Case 3: Authoritative API succeeds with published items
   const mockRemote = [
     {
       id: "remote-1",
@@ -89,35 +101,39 @@ test("AchievementsSection preserves editorial unpublishing authority", async () 
   const liveSuccess = resolveAchievementStories({
     remote: mockRemote,
     apiError: false,
-    fallback: mockFallback,
+    isLoading: false,
     archiveSlots: mockArchiveSlots,
   });
+  assert.equal(liveSuccess.state, "success");
   assert.equal(liveSuccess.stories.length, 1);
   assert.equal(liveSuccess.stories[0].id, "remote-1");
   assert.equal(liveSuccess.isIntentionalEmpty, false);
   assert.equal(liveSuccess.preview, false);
+  assert.equal(liveSuccess.isLoading, false);
 
-  // Case 3: API fails / network offline -> fall back to verified local records
+  // Case 4: API outage / network offline -> fail-closed against unverified or unpublished media
+  // Must NEVER resurrect youth photographs; renders neutral archive preview slots
   const apiFailed = resolveAchievementStories({
     remote: null,
     apiError: true,
-    fallback: mockFallback,
+    isLoading: false,
     archiveSlots: mockArchiveSlots,
   });
+  assert.equal(apiFailed.state, "error");
   assert.equal(apiFailed.stories.length, 1);
-  assert.equal(apiFailed.stories[0].id, "cls-2026");
+  assert.equal(apiFailed.stories[0].id, "archive-1");
   assert.equal(apiFailed.isIntentionalEmpty, false);
-  assert.equal(apiFailed.preview, false);
+  assert.equal(apiFailed.preview, true);
+  assert.equal(apiFailed.isLoading, false);
 
-  // Case 4: API fails and local fallback is empty -> fall back to archive slots
-  const noFallback = resolveAchievementStories({
-    remote: null,
-    apiError: true,
-    fallback: [],
+  // Case 5: Takedown scenario: live items published, then unpublished to []
+  const takedown = resolveAchievementStories({
+    remote: [],
+    apiError: false,
+    isLoading: false,
     archiveSlots: mockArchiveSlots,
   });
-  assert.equal(noFallback.stories.length, 1);
-  assert.equal(noFallback.stories[0].id, "archive-1");
-  assert.equal(noFallback.isIntentionalEmpty, false);
-  assert.equal(noFallback.preview, true);
+  assert.equal(takedown.state, "empty");
+  assert.equal(takedown.stories.length, 0);
+  assert.equal(takedown.isIntentionalEmpty, true);
 });

@@ -2,7 +2,7 @@
 
 **Issue:** RIC-85 — Replace Image Placeholders with Official KHLIM Media  
 **Date:** October 2026  
-**Status:** Approved & Implemented  
+**Status:** Staging Review — Fail-Closed Safeguards Active  
 **Asset Source:** Esther (Official KHLIM Google Drive folder: `1hCSJ3QhtMhBxBya4yisD7PAZB76KFJSF`)  
 **Base Branch:** `staging/ric-65-academy-soft-launch`  
 **Feature Branch:** `feat/ric-85-replace-image-placeholders`  
@@ -11,46 +11,63 @@
 
 ## 1. Asset Registry & Optimization Matrix
 
-All official media has been converted to web-optimized WebP format, organized under `apps/web/public/media/khlim/`. Redundant asset duplication has been removed from Admin (`apps/admin/public/media` pruned to prevent bundle bloat; Admin references `apps/admin/public/khs-academy-logo.webp`).
+All official media has been converted to web-optimized WebP format under `apps/web/public/media/khlim/`. Redundant asset duplication has been removed from Admin (`apps/admin/public/media` pruned to prevent bundle bloat; Admin references `apps/admin/public/khs-academy-logo.webp`).
 
-| Original Drive Asset | Optimized File | Intrinsic Size | Aspect Ratio | Public Placement | Alt Text / Accessible Description | Internal Media Release Ref | Publication Approval Status |
+| Original Drive Asset | Optimized File | Intrinsic Size | Aspect Ratio | Public Placement | Alt Text / Accessible Description | Internal Tracking Ref | Public Build Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `main hero page.jpg` (5603×3735) | `academy-hero-desktop.webp` | 1920×1080 | 16:9 | Homepage Hero (Desktop / Wide) | *KHLIM Basketball Academy team portrait celebrating club community and heritage* | `REF-ESTHER-ACADEMY-HERO-REL` | Approved by Esther for Academy soft launch |
-| `main hero page.jpg` (5603×3735) | `academy-hero-mobile.webp` | 800×1000 | 4:5 vertical | Homepage Hero (Mobile viewport ≤ 768px) | *KHLIM Basketball Academy team portrait celebrating club community and heritage* | `REF-ESTHER-ACADEMY-HERO-REL` | Approved by Esther for Academy soft launch |
-| `Training photos.png` (1654×994) | `club-training-portrait.webp` | 1200×721 | ~16:10 | Academy Page (`/academy` Coaching & Venues section) | *KHLIM basketball squad portrait celebrating club community and heritage* | `REF-ESTHER-CLUB-HERITAGE-REL` | Approved as club credibility & culture image |
-| `Coach Seng Jun.jpg` (1280×1086) | `coach-seng-jun.webp` | 800×1000 | 4:5 portrait | Academy Page (`/academy` Meet Our Coaches) | *Coach Seng Jun — KHLIM Basketball Academy* | `REF-ESTHER-COACH-SENGJUN-REL` | Approved. Bio uses verified fundamentals/progression facts. |
-| `Coach Jia Xuan.jpg` (3306×4133) | `coach-jia-xuan.webp` | 800×1000 | 4:5 portrait | Academy Page (`/academy` Meet Our Coaches) | *Coach Jia Xuan — KHLIM Basketball Academy* | `REF-ESTHER-COACH-JIAXUAN-REL` | Approved with neutral coach designation |
-| `Coach Puimann.jpg` (3306×4133) | `coach-puimann.webp` | 800×1000 | 4:5 portrait | Academy Page (`/academy` Meet Our Coaches) | *Coach Puimann — KHLIM Basketball Academy* | `REF-ESTHER-COACH-PUIMANN-REL` | Approved with neutral coach designation |
-| `Coach Woon.png` (1122×1402) | `coach-woon.webp` | 800×1000 | 4:5 portrait | Academy Page (`/academy` Meet Our Coaches) | *Coach Woon — KHLIM Basketball Academy* | `REF-ESTHER-COACH-WOON-REL` | Approved with neutral coach designation |
-| `80th CLS International Cup, Indonesia 2026 - Champion.JPG` (3000×2000) | `achievement-cls-2026.webp` | 1200×800 | 3:2 | Homepage Achievements (`#achievements`) | *80th CLS International Cup 2026 Champions* | `REF-ESTHER-TOURNAMENT-CLS26-REL` | Approved tournament victory (Indonesia) |
-| `Jasmine Cup 2025-2026 KHLIM A - Champion.jpg` (5712×4284) | `achievement-jasmine-cup-2026.webp` | 1200×900 | 4:3 | Homepage Achievements (`#achievements`) | *U16 Jasmine Cup 2025-2026 Champions* | `REF-ESTHER-TOURNAMENT-JAS26-REL` | Approved tournament victory |
-| `U15 SBA D1 Selangor Tournament 2025 - Champion.jpg` (1280×960) | `achievement-sba-2025.webp` | 1200×900 | 4:3 | Homepage Achievements (`#achievements`) | *U15 SBA Selangor Tournament 2025 Champions* | `REF-ESTHER-TOURNAMENT-SBA25-REL` | Approved tournament victory. Division-neutral caption displayed. |
-| `Academy Logo.png` (738×869) | `logo-academy.webp` & `khs-academy-logo.webp` | 738×869 | 256:301 | Header, Footer, Favicon, Auth, Shell | *KHLIM Sports Academy* | `REF-ESTHER-BRAND-ACADEMY-LOGO` | Approved official Academy vertical crest |
-| `Club Logo.png` (2333×2124) | `logo-club.webp` | 1200×1092 | ~11:10 | Achievements section distinction banner | *KHLIM Basketball Club* | `REF-ESTHER-BRAND-CLUB-LOGO` | Approved official Club branding |
-| `KHLIM Logo.png` (499×500) | `logo-khlim.webp` | 499×500 | 1:1 | Digital Ecosystem & Parent Brand surfaces | *KHLIM* | `REF-ESTHER-BRAND-ECOSYSTEM-LOGO` | Approved official brand logo |
-| `KHS ACADEMY Logo.png` (674×410) | `logo-khs-academy.webp` | 674×410 | ~16:10 | KHS Partner surfaces where confirmed | *KHS Academy* | `REF-ESTHER-BRAND-KHS-PARTNER` | Approved secondary partner logo |
+| `main hero page.jpg` (5603×3735) | `academy-hero-desktop.webp` | 1920×1080 | 16:9 | Homepage Hero (Desktop / Wide) | *KHLIM Basketball Academy team portrait celebrating club community and heritage* | `REF-ESTHER-ACADEMY-HERO-REL` | **Held from public build** (fails closed to polished black-and-gold abstract court gradient pending custodian-verified releases) |
+| `main hero page.jpg` (5603×3735) | `academy-hero-mobile.webp` | 800×1000 | 4:5 vertical | Homepage Hero (Mobile viewport ≤ 768px) | *KHLIM Basketball Academy team portrait celebrating club community and heritage* | `REF-ESTHER-ACADEMY-HERO-REL` | **Held from public build** (fails closed to polished black-and-gold abstract court gradient pending custodian-verified releases) |
+| `Training photos.png` (1654×994) | `club-training-portrait.webp` | 1200×721 | ~16:10 | Academy Page (`/academy` Coaching & Venues section) | *KHLIM basketball squad portrait celebrating club community and heritage* | `REF-ESTHER-CLUB-HERITAGE-REL` | **Held from public build** (fails closed to official Academy crest and development standards showcase pending custodian releases) |
+| `Coach Seng Jun.jpg` (1280×1086) | `coach-seng-jun.webp` | 800×1000 | 4:5 portrait | Academy Page (`/academy` Meet Our Coaches) | *Coach Seng Jun — KHLIM Basketball Academy* | `REF-ESTHER-COACH-SENGJUN-REL` | **Approved for publication** (Adult coach portrait; factual fundamentals/progression biography) |
+| `Coach Jia Xuan.jpg` (3306×4133) | `coach-jia-xuan.webp` | 800×1000 | 4:5 portrait | Academy Page (`/academy` Meet Our Coaches) | *Coach Jia Xuan — KHLIM Basketball Academy* | `REF-ESTHER-COACH-JIAXUAN-REL` | **Approved for publication** (Adult coach portrait; neutral coach designation) |
+| `Coach Puimann.jpg` (3306×4133) | `coach-puimann.webp` | 800×1000 | 4:5 portrait | Academy Page (`/academy` Meet Our Coaches) | *Coach Puimann — KHLIM Basketball Academy* | `REF-ESTHER-COACH-PUIMANN-REL` | **Approved for publication** (Adult coach portrait; neutral coach designation) |
+| `Coach Woon.png` (1122×1402) | `coach-woon.webp` | 800×1000 | 4:5 portrait | Academy Page (`/academy` Meet Our Coaches) | *Coach Woon — KHLIM Basketball Academy* | `REF-ESTHER-COACH-WOON-REL` | **Approved for publication** (Adult coach portrait; neutral coach designation) |
+| `80th CLS International Cup, Indonesia 2026 - Champion.JPG` (3000×2000) | `achievement-cls-2026.webp` | 1200×800 | 3:2 | Homepage Achievements (`#achievements`) | *80th CLS International Cup 2026 Champions* | `REF-ESTHER-TOURNAMENT-CLS26-REL` | **Held from public build** (fcatually verified victory in Indonesia; youth photo held pending custodian releases, gradient fallback rendered) |
+| `Jasmine Cup 2025-2026 KHLIM A - Champion.jpg` (5712×4284) | `achievement-jasmine-cup-2026.webp` | 1200×900 | 4:3 | Homepage Achievements (`#achievements`) | *U16 Jasmine Cup 2025-2026 Champions* | `REF-ESTHER-TOURNAMENT-JAS26-REL` | **Held from public build** (factually verified victory; youth photo held pending custodian releases, gradient fallback rendered) |
+| `U15 SBA D1 Selangor Tournament 2025 - Champion.jpg` (1280×960) | `achievement-sba-2025.webp` | 1200×900 | 4:3 | Homepage Achievements (`#achievements`) | *U15 SBA Selangor Tournament 2025 Champions* | `REF-ESTHER-TOURNAMENT-SBA25-REL` | **Held from public build** (factually verified; division-neutral title; youth photo held pending custodian releases, gradient fallback rendered) |
+| `Academy Logo.png` (738×869) | `logo-academy.webp` & `khs-academy-logo.webp` | 738×869 | 256:301 | Header, Footer, Favicon, Auth, Shell | *KHLIM Sports Academy* | `REF-ESTHER-BRAND-ACADEMY-LOGO` | **Approved for publication** (Official Academy vertical crest branding) |
+| `Club Logo.png` (2333×2124) | `logo-club.webp` | 1200×1092 | ~11:10 | Achievements section distinction banner | *KHLIM Basketball Club* | `REF-ESTHER-BRAND-CLUB-LOGO` | **Approved for publication** (Official Club branding) |
+| `KHLIM Logo.png` (499×500) | `logo-khlim.webp` | 499×500 | 1:1 | Digital Ecosystem & Parent Brand surfaces | *KHLIM* | `REF-ESTHER-BRAND-ECOSYSTEM-LOGO` | **Approved for publication** (Official brand logo) |
+| `KHS ACADEMY Logo.png` (674×410) | `logo-khs-academy.webp` | 674×410 | ~16:10 | KHS Partner surfaces where confirmed | *KHS Academy* | `REF-ESTHER-BRAND-KHS-PARTNER` | **Approved for publication** (Secondary partner logo) |
 
 ---
 
 ## 2. Integrity, Governance & Policy Notes
 
-### 2.1 Safeguarding & Documented Parental/Guardian Consent
+### 2.1 Safeguarding, Release Verification & Public Git Remediation
 
-- **Strict Prohibition of "Implied Consent":** Under modern child safeguarding frameworks (including PDPA, COPPA, and GDPR compliance standards), youth consent is **never** treated as implied.
-- **Documented Release Tracking:** All photographs depicting youth athletes (including tournament trophy celebrations and squad photos) are linked to formal, documented parental/guardian media releases on file with club management under internal tracking reference numbers (`REF-ESTHER-TOURNAMENT-*`, `REF-ESTHER-ACADEMY-*`).
-- **Privacy & Safeguarding Guarantees:** In strict compliance with child protection guidelines:
-  - No minor names, dates of birth, school affiliations, or residential localities are published alongside squad or crowd photography.
-  - Alt texts and captions describe collective athletic achievements or team culture neutrally without tagging individuals.
-  - An immediate takedown and redaction workflow is maintained: any parent or legal guardian may request redaction or removal of any image via the club safeguarding officer, which takes effect via the live editorial unpublishing mechanism.
+- **Distinction Between Internal Reference and Verified Consent:** The identifiers `REF-ESTHER-*` are internal organizational asset tracking references. They do **not**, by themselves, constitute verified guardian media consent.
+- **Strict Prohibition of "Implied Consent":** In accordance with Malaysian Personal Data Protection Act 2010 (PDPA) principles and youth safeguarding best practices, youth consent is **never** treated as implied.
+- **Fail-Closed Public Build Policy:** Because genuine signed per-asset guardian media releases have not yet been validated by an authorized custodian, all photographs depicting identifiable minors are **held from public rendering** in the production build.
+  - Homepage Hero fails closed to the polished abstract black-and-gold basketball visual treatment.
+  - Academy Coaching section fails closed to the official Academy crest and development standards showcase.
+  - Achievements section fails closed to non-identifying championship milestone cards with verified facts and subtle brand gradients.
+- **Public Git History Remediation Risk:** Asset files committed to the public Git repository feature branch in earlier commits represent a separate exposure risk independent of website rendering. A formal Git history remediation (e.g. BFG / git-filter-repo) requires explicit management authorization and must be scheduled as a controlled administrative task to avoid destructive upstream history rewriting on active review branches.
+- **Data Privacy & Takedown Protocol:**
+  - No minor names, dates of birth, school affiliations, or residential localities are published anywhere on the website.
+  - An immediate takedown and redaction workflow is maintained: any parent or legal guardian may request redaction or removal of any image via the club safeguarding contact, which takes effect immediately via the live editorial unpublishing mechanism.
+  - Sensitive release documents and personal information must remain strictly outside the public repository.
 
-### 2.2 Editorial Unpublishing Authority
+### 2.2 Editorial Unpublishing Authority & State Machine
 
-- **No Resurrected Hardcoded Cards:** When an authoritative editorial administrator unpublishes achievements via the API, the remote endpoint returns an empty array `[]`.
-- **Pure Resolver Logic:** `resolveAchievementStories` strictly distinguishes between:
-  1. *Intentional empty state* (`remote: []`, `apiError: false`): Renders the localized unpublish/empty notice (`home.achievements.nonePublished`), respecting administrative authority. Hardcoded fallback cards are **not** displayed.
-  2. *Live published data* (`remote: [...]`): Renders live published stories.
-  3. *Network/API outage* (`remote: null`, `apiError: true`): Gracefully displays verified local fallbacks or neutral archive slots with a visible preview disclaimer.
-- Verified by automated unit tests in `tests/achievements-unpublishing.test.mjs`.
+The editorial resolver `resolveAchievementStories` implements four distinct, fail-closed states:
+
+1. **`loading` state (`isLoading === true` / pre-resolution):**
+   - The UI renders loading skeleton cards.
+   - **Crucial:** No photographs or fallback cards are revealed during loading.
+2. **`empty` state (`remote !== null && !apiError && remote.length === 0`):**
+   - Authoritative API returned an empty list (staff unpublished all achievements or none exist).
+   - Renders the localized notice (`home.achievements.nonePublished`).
+   - Hardcoded cards are **never** resurrected.
+3. **`success` state (`remote !== null && !apiError && remote.length > 0`):**
+   - Displays live published achievements and the Club Distinction banner.
+   - Any image rendering requires verified rights and explicit environment clearance (`NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED === "1"`).
+4. **`error` state (`apiError === true`):**
+   - Network outage, API timeout, or offline state.
+   - Renders neutral archive preview slots with the editorial preview notice.
+   - **Crucial:** Fails closed; never resurrects hardcoded youth photographs.
+
+Verified by automated unit tests in `tests/achievements-unpublishing.test.mjs`.
 
 ### 2.3 Media Directory De-duplication & Logo Mapping
 
@@ -61,11 +78,11 @@ All official media has been converted to web-optimized WebP format, organized un
   - `KHLIM Logo.png` represents the overarching Digital Ecosystem parent brand.
   - `KHS ACADEMY Logo.png` (wide partner banner) is restricted to confirmed KHS partnership surfaces.
 
-### 2.4 Coach Seng Jun Biography & Qualifications
+### 2.4 Adult Coach Publication Permissions & Credentials
 
-- **Current Copy:** *"Focuses on core basketball fundamentals, skill progression, and competitive player development."*
-- **Policy Enforcement:** Per the Website Checklist and soft launch instructions, assertions of **Head Coach** appointment or **MABA Level 3** qualification have NOT been published without explicit final confirmation.
-- **Action for Esther/Management:** Confirm whether MABA Level 3 certificate verification is completed before adding it to public copy.
+- **Adult Staff Approval:** Coach Seng Jun, Coach Jia Xuan, Coach Puimann, and Coach Woon are adult coaches. Esther provided their individual professional headshots specifically for the "Meet Our Coaches" section on the Academy website, with approved publication permission for this purpose.
+- **Coach Seng Jun Biography:** Copy states: *"Focuses on core basketball fundamentals, skill progression, and competitive player development."* Assertions of **Head Coach** appointment or **MABA Level 3** qualification remain withheld pending explicit final confirmation.
+- **Coaches Jia Xuan, Puimann, and Woon:** Displayed with the neutral designation "Coach" and factual youth skill development descriptions without inventing credentials.
 
 ### 2.5 U15 SBA Tournament Discrepancy Flag
 
@@ -80,9 +97,19 @@ All official media has been converted to web-optimized WebP format, organized un
 
 ### 2.7 Club vs. Academy Distinction
 
-- An official Club Distinction banner featuring the official KHLIM Basketball Club logo (`logo-club.webp`) is rendered above tournament achievements.
+- An official Club Distinction banner featuring the official KHLIM Basketball Club logo (`logo-club.webp`) is rendered above tournament achievements when live published.
 - Explicit copy states across all 5 supported languages (`en`, `ms`, `zh-Hans`, `zh-Hant`, `hi`):
   *"These competitive milestones reflect the tournament history of KHLIM Basketball Club and are distinct from individual youth Academy training progression."*
+
+### 2.8 Backend Handoff for Codex
+
+To fully complete persistent media governance, the following backend capabilities are identified for Codex:
+
+1. **Persistent Media Release Registry:** A dedicated backend table or metadata field on editorial media assets recording:
+   - `guardianConsentVerified`: Boolean indicating verified signed consent on file with the custodian.
+   - `verifiedByCustodian`: Staff user ID / timestamp of custodian verification.
+   - `consentExpiryDate`: Date when release expires or requires renewal.
+2. **CDN Cache Invalidation / Takedown Hook:** When an achievement or media asset is unpublished via the Admin Editorial Studio, an automated webhook/event must invalidate the CDN edge cache for the corresponding asset URL to ensure instantaneous global purge.
 
 ---
 
