@@ -88,18 +88,12 @@ function HomeContent() {
     )
     ?.venue?.name?.trim();
 
-  const youthMediaRightsConfirmed =
-    process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED === "1";
-
   const heroSlides: HeroCarouselSlide[] = [
     {
       id: "academy-first",
-      imageUrl: youthMediaRightsConfirmed
-        ? "/media/khlim/academy-hero-desktop.webp"
-        : undefined,
-      imageUrlMobile: youthMediaRightsConfirmed
-        ? "/media/khlim/academy-hero-mobile.webp"
-        : undefined,
+      // Unverified youth squad photographs removed from deployable public directory pending signed custodian releases
+      imageUrl: undefined,
+      imageUrlMobile: undefined,
       photoLabel: t("home.hero.photo.training"),
       showPlaceholderLabel: false,
       placeholderGradient:
