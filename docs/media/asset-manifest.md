@@ -35,6 +35,7 @@ All official media has been converted to web-optimized WebP format, organized un
 ## 2. Integrity, Governance & Policy Notes
 
 ### 2.1 Safeguarding & Documented Parental/Guardian Consent
+
 - **Strict Prohibition of "Implied Consent":** Under modern child safeguarding frameworks (including PDPA, COPPA, and GDPR compliance standards), youth consent is **never** treated as implied.
 - **Documented Release Tracking:** All photographs depicting youth athletes (including tournament trophy celebrations and squad photos) are linked to formal, documented parental/guardian media releases on file with club management under internal tracking reference numbers (`REF-ESTHER-TOURNAMENT-*`, `REF-ESTHER-ACADEMY-*`).
 - **Privacy & Safeguarding Guarantees:** In strict compliance with child protection guidelines:
@@ -43,6 +44,7 @@ All official media has been converted to web-optimized WebP format, organized un
   - An immediate takedown and redaction workflow is maintained: any parent or legal guardian may request redaction or removal of any image via the club safeguarding officer, which takes effect via the live editorial unpublishing mechanism.
 
 ### 2.2 Editorial Unpublishing Authority
+
 - **No Resurrected Hardcoded Cards:** When an authoritative editorial administrator unpublishes achievements via the API, the remote endpoint returns an empty array `[]`.
 - **Pure Resolver Logic:** `resolveAchievementStories` strictly distinguishes between:
   1. *Intentional empty state* (`remote: []`, `apiError: false`): Renders the localized unpublish/empty notice (`home.achievements.nonePublished`), respecting administrative authority. Hardcoded fallback cards are **not** displayed.
@@ -51,6 +53,7 @@ All official media has been converted to web-optimized WebP format, organized un
 - Verified by automated unit tests in `tests/achievements-unpublishing.test.mjs`.
 
 ### 2.3 Media Directory De-duplication & Logo Mapping
+
 - **Admin Media Optimization:** Removed the 2.35MB duplicate media directory (`apps/admin/public/media/khlim`). Admin surfaces only require the operational logo asset `apps/admin/public/khs-academy-logo.webp`, preserving lean bundle sizes and fast deployment times.
 - **Brand Identity Separation:**
   - `Academy Logo.png` (738×869 vertical shield) is the official KHLIM Basketball Academy crest used for public header, footer, favicon, and admin authentication gates.
@@ -59,20 +62,24 @@ All official media has been converted to web-optimized WebP format, organized un
   - `KHS ACADEMY Logo.png` (wide partner banner) is restricted to confirmed KHS partnership surfaces.
 
 ### 2.4 Coach Seng Jun Biography & Qualifications
+
 - **Current Copy:** *"Focuses on core basketball fundamentals, skill progression, and competitive player development."*
 - **Policy Enforcement:** Per the Website Checklist and soft launch instructions, assertions of **Head Coach** appointment or **MABA Level 3** qualification have NOT been published without explicit final confirmation.
 - **Action for Esther/Management:** Confirm whether MABA Level 3 certificate verification is completed before adding it to public copy.
 
 ### 2.5 U15 SBA Tournament Discrepancy Flag
+
 - **Discrepancy:** The photo filename in Google Drive states `U15 SBA D1 Selangor Tournament 2025 - Champion` (Division 1), whereas the Website Checklist notes this as `Division B`.
 - **Policy Enforcement:** Published with the division-neutral title **"U15 SBA Selangor Tournament"** and placing **"Champion"** to prevent publishing unverified or conflicting division claims.
 - **Action for Esther/Management:** Confirm whether this title was Division 1 or Division B so the caption can be updated with full precision.
 
 ### 2.6 Khero Mascot Safeguards
+
 - The Khero mascot artwork provided (`2.png`, `3.png`, `4.png`) consists of promotional posters with embedded typography.
 - Component `KheroSection` retains the security/rights check `process.env.NEXT_PUBLIC_KHERO_MEDIA_RIGHTS_CONFIRMED === "1"`. When disabled, the section presents the standard `compliance.khero.mediaPendingRights` fallback notice, preserving full legal and rights compliance.
 
 ### 2.7 Club vs. Academy Distinction
+
 - An official Club Distinction banner featuring the official KHLIM Basketball Club logo (`logo-club.webp`) is rendered above tournament achievements.
 - Explicit copy states across all 5 supported languages (`en`, `ms`, `zh-Hans`, `zh-Hant`, `hi`):
   *"These competitive milestones reflect the tournament history of KHLIM Basketball Club and are distinct from individual youth Academy training progression."*

@@ -318,11 +318,14 @@ function AcademyContent() {
               <img
                 src="/media/khlim/club-training-portrait.webp"
                 alt={t("academy.training.alt")}
+                width={1200}
+                height={721}
                 loading="lazy"
                 decoding="async"
                 style={{
                   width: "100%",
                   maxHeight: "360px",
+                  aspectRatio: "1200 / 721",
                   objectFit: "cover",
                   display: "block",
                 }}
@@ -442,6 +445,8 @@ function AcademyContent() {
                   <img
                     src={coach.imageUrl}
                     alt={coach.alt}
+                    width={800}
+                    height={1000}
                     loading="lazy"
                     decoding="async"
                     style={{
