@@ -63,9 +63,9 @@ const en = {
   "academy.coaches.woon.name": "Coach Woon",
   "academy.coaches.genericBio":
     "KHLIM Basketball Academy coach supporting youth skill development and teamwork.",
-  "academy.training.alt": "KHLIM basketball athletes in training session",
+  "academy.training.alt": "Posed group portrait of KHLIM basketball players",
   "academy.training.caption":
-    "KHLIM Basketball Club training — grounded in fundamental skills and team discipline",
+    "KHLIM Basketball Club team portrait — celebrating player community, court discipline, and long-standing club heritage.",
 } as const;
 
 type Key = keyof typeof en;
@@ -136,9 +136,9 @@ const ms: Catalogue = {
   "academy.coaches.woon.name": "Jurulatih Woon",
   "academy.coaches.genericBio":
     "Jurulatih Akademi Bola Keranjang KHLIM yang menyokong perkembangan kemahiran belia dan semangat berpasukan.",
-  "academy.training.alt": "Atlet bola keranjang KHLIM dalam sesi latihan",
+  "academy.training.alt": "Potret kumpulan pemain bola keranjang KHLIM",
   "academy.training.caption":
-    "Latihan Kelab Bola Keranjang KHLIM — berteraskan kemahiran asas dan disiplin pasukan",
+    "Potret pasukan Kelab Bola Keranjang KHLIM — meraikan komuniti pemain, disiplin gelanggang dan warisan kelab.",
 };
 
 const zhHans: Catalogue = {
@@ -203,9 +203,9 @@ const zhHans: Catalogue = {
   "academy.coaches.woon.name": "Woon 教练",
   "academy.coaches.genericBio":
     "KHLIM 篮球学院教练组成员，指导青少年技能提升与团队配合习惯。",
-  "academy.training.alt": "KHLIM 篮球运动员在训练课中",
+  "academy.training.alt": "KHLIM 篮球运动员集体合影",
   "academy.training.caption":
-    "KHLIM 篮球俱乐部日常训练——注重基本功打磨与团队纪律",
+    "KHLIM 篮球俱乐部球队合影——展现球员凝聚力、球场纪律与俱乐部深厚底蕴。",
 };
 
 const zhHant: Catalogue = {
@@ -270,9 +270,9 @@ const zhHant: Catalogue = {
   "academy.coaches.woon.name": "Woon 教練",
   "academy.coaches.genericBio":
     "KHLIM 籃球學院教練組成員，指導青少年技能提升與團隊配合習慣。",
-  "academy.training.alt": "KHLIM 籃球運動員在訓練課中",
+  "academy.training.alt": "KHLIM 籃球運動員集體合照",
   "academy.training.caption":
-    "KHLIM 籃球俱樂部日常訓練——注重基本功打磨與團隊紀律",
+    "KHLIM 籃球俱樂部球隊合照——展現球員凝聚力、球場紀律與俱樂部深厚底蘊。",
 };
 
 const hi: Catalogue = {
@@ -341,9 +341,9 @@ const hi: Catalogue = {
   "academy.coaches.woon.name": "कोच Woon",
   "academy.coaches.genericBio":
     "KHLIM बास्केटबॉल अकादमी कोच, जो युवा कौशल विकास और टीमवर्क का मार्गदर्शन करते हैं।",
-  "academy.training.alt": "प्रशिक्षण सत्र में KHLIM बास्केटबॉल एथलीट",
+  "academy.training.alt": "KHLIM बास्केटबॉल खिलाड़ियों का समूह पोर्ट्रेट",
   "academy.training.caption":
-    "KHLIM बास्केटबॉल क्लब प्रशिक्षण — मौलिक कौशल और टीम अनुशासन पर आधारित",
+    "KHLIM बास्केटबॉल क्लब टीम पोर्ट्रेट — खिलाड़ी समुदाय, कोर्ट अनुशासन और क्लब विरासत का उत्सव।",
 };
 
 export const academyWebMessages = {

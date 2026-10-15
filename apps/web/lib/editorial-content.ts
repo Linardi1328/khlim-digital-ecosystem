@@ -11,6 +11,7 @@ export interface AchievementStory {
   placeholderGradient: string;
   factsVerified: boolean;
   photoRightsVerified: boolean;
+  mediaReleaseRef?: string;
   status: EditorialPublicationStatus;
 }
 
@@ -50,13 +51,14 @@ export const achievementStories: AchievementStory[] = [
     title: "Champion — Girls KU-16",
     eventName: "80th CLS International Cup, Indonesia",
     description:
-      "KHLIM Basketball Club emerged as champions at the 80th CLS International Cup in Surabaya, Indonesia, demonstrating competitive poise and team teamwork on the international stage.",
+      "KHLIM Basketball Club emerged as champions at the 80th CLS International Cup, Indonesia, demonstrating competitive poise, teamwork, and court discipline on the international stage.",
     photoLabel: "80th CLS International Cup 2026 Champions",
     imageUrl: "/media/khlim/achievement-cls-2026.webp",
     placeholderGradient:
       "radial-gradient(circle at 75% 24%, rgba(245, 158, 11, 0.36), transparent 24%), linear-gradient(135deg, #18181b, #3f2d0b 58%, #0f172a)",
     factsVerified: true,
     photoRightsVerified: true,
+    mediaReleaseRef: "REF-ESTHER-TOURNAMENT-CLS26-REL",
     status: "published",
   },
   {
@@ -72,6 +74,7 @@ export const achievementStories: AchievementStory[] = [
       "radial-gradient(circle at 28% 36%, rgba(251, 191, 36, 0.28), transparent 24%), linear-gradient(145deg, #111827, #27272a 58%, #4b3520)",
     factsVerified: true,
     photoRightsVerified: true,
+    mediaReleaseRef: "REF-ESTHER-TOURNAMENT-JAS26-REL",
     status: "published",
   },
   {
@@ -87,6 +90,7 @@ export const achievementStories: AchievementStory[] = [
       "radial-gradient(circle at 68% 60%, rgba(245, 158, 11, 0.24), transparent 25%), linear-gradient(125deg, #292524, #18181b 55%, #1f2937)",
     factsVerified: true,
     photoRightsVerified: true,
+    mediaReleaseRef: "REF-ESTHER-TOURNAMENT-SBA25-REL",
     status: "published",
   },
 ];
@@ -223,6 +227,57 @@ export const publishedAchievements = achievementStories.filter(
     story.factsVerified &&
     story.photoRightsVerified,
 );
+
+export interface ResolvedAchievementsResult {
+  stories: AchievementStory[];
+  isIntentionalEmpty: boolean;
+  preview: boolean;
+}
+
+export function resolveAchievementStories({
+  remote,
+  apiError,
+  fallback = publishedAchievements,
+  archiveSlots = [],
+}: {
+  remote: AchievementStory[] | null;
+  apiError: boolean;
+  fallback?: AchievementStory[];
+  archiveSlots?: AchievementStory[];
+}): ResolvedAchievementsResult {
+  // Authoritative remote API response succeeded
+  if (remote !== null && !apiError) {
+    if (remote.length === 0) {
+      // Staff intentionally unpublished all achievements; do not override with hardcoded fallback
+      return {
+        stories: [],
+        isIntentionalEmpty: true,
+        preview: false,
+      };
+    }
+    return {
+      stories: remote,
+      isIntentionalEmpty: false,
+      preview: false,
+    };
+  }
+
+  // Remote API call failed, network offline, or initial pre-hydration SSR state
+  // Fall back to verified local records if available, otherwise archive slots
+  if (fallback.length > 0) {
+    return {
+      stories: fallback,
+      isIntentionalEmpty: false,
+      preview: false,
+    };
+  }
+
+  return {
+    stories: archiveSlots,
+    isIntentionalEmpty: false,
+    preview: true,
+  };
+}
 
 export const publishedPlayerSpotlights = playerSpotlightArticles.filter(
   (article) =>

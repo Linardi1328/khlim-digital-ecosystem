@@ -4,10 +4,14 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   getLocalizedAchievementArchiveSlots,
   publishedAchievements,
+  resolveAchievementStories,
   type AchievementStory,
+  type ResolvedAchievementsResult,
 } from "../../lib/editorial-content";
 import { fetchPublishedAchievements } from "../../lib/editorial-api";
 import { useI18n } from "../../lib/i18n-context";
+
+export { resolveAchievementStories, type ResolvedAchievementsResult };
 
 function AchievementCard({
   story,
@@ -58,19 +62,36 @@ function AchievementCard({
 
 export function AchievementsSection() {
   const { t, locale } = useI18n();
-  const [remote, setRemote] = useState<AchievementStory[]>([]);
+  const [remote, setRemote] = useState<AchievementStory[] | null>(null);
+  const [apiError, setApiError] = useState(false);
+
   useEffect(() => {
     void fetchPublishedAchievements()
-      .then(setRemote)
-      .catch(() => undefined);
+      .then((data) => {
+        setRemote(data);
+        setApiError(false);
+      })
+      .catch(() => {
+        setRemote(null);
+        setApiError(true);
+      });
   }, []);
-  const live = remote.length > 0 ? remote : publishedAchievements;
+
   const localizedArchiveSlots = useMemo(
     () => getLocalizedAchievementArchiveSlots(t),
     [locale, t],
   );
-  const stories = live.length > 0 ? live : localizedArchiveSlots;
-  const preview = live.length === 0;
+
+  const { stories, isIntentionalEmpty, preview } = useMemo(
+    () =>
+      resolveAchievementStories({
+        remote,
+        apiError,
+        fallback: publishedAchievements,
+        archiveSlots: localizedArchiveSlots,
+      }),
+    [remote, apiError, localizedArchiveSlots],
+  );
 
   return (
     <section
@@ -88,6 +109,10 @@ export function AchievementsSection() {
         <div className="home-editorial-notice" role="note">
           <strong>{t("home.achievements.previewTitle")}</strong>
           <span>{t("home.achievements.previewBody")}</span>
+        </div>
+      ) : isIntentionalEmpty ? (
+        <div className="home-editorial-notice" role="status">
+          <span>{t("home.achievements.nonePublished")}</span>
         </div>
       ) : (
         <div

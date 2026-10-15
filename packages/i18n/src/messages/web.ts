@@ -33,7 +33,7 @@ const en = {
   "home.hero.nextPhoto": "Show next academy photo",
   "home.hero.choosePhoto": "Choose academy photo",
   "home.hero.showPhoto": "Show academy photo {count}: {label}",
-  "home.hero.photo.training": "training action",
+  "home.hero.photo.training": "team portrait",
   "home.hero.photo.coaching": "coach and player instruction",
   "home.hero.photo.community": "team and community moment",
   "home.hero.photo.gameDay": "game-day energy",
@@ -72,6 +72,8 @@ const en = {
   "home.achievements.clubBadge": "KHLIM Basketball Club Milestones",
   "home.achievements.clubDisclaimer":
     "These competitive milestones reflect the tournament history of KHLIM Basketball Club and are distinct from individual youth Academy training progression.",
+  "home.achievements.nonePublished":
+    "No club achievements are currently published.",
   "home.achievements.archiveLabel": "Club archive",
   "home.achievements.signature.title": "Signature competitive milestone",
   "home.achievements.signature.event": "Highest verified team result",
@@ -196,7 +198,7 @@ const ms: WebCatalogue = {
   "home.hero.nextPhoto": "Tunjukkan foto akademi seterusnya",
   "home.hero.choosePhoto": "Pilih foto akademi",
   "home.hero.showPhoto": "Tunjukkan foto akademi {count}: {label}",
-  "home.hero.photo.training": "aksi latihan",
+  "home.hero.photo.training": "potret pasukan",
   "home.hero.photo.coaching": "arahan jurulatih dan pemain",
   "home.hero.photo.community": "detik pasukan dan komuniti",
   "home.hero.photo.gameDay": "tenaga hari perlawanan",
@@ -236,6 +238,8 @@ const ms: WebCatalogue = {
   "home.achievements.clubBadge": "Pencapaian Kelab Bola Keranjang KHLIM",
   "home.achievements.clubDisclaimer":
     "Pencapaian kejohanan ini merupakan kejayaan kompetitif pasukan Kelab Bola Keranjang KHLIM dan berbeza daripada kemajuan latihan Akademi belia individu.",
+  "home.achievements.nonePublished":
+    "Tiada pencapaian kelab yang diterbitkan buat masa ini.",
   "home.achievements.archiveLabel": "Arkib kelab",
   "home.achievements.signature.title": "Pencapaian pertandingan utama",
   "home.achievements.signature.event":
@@ -353,7 +357,7 @@ const zhHans: WebCatalogue = {
   "home.hero.nextPhoto": "显示下一张学院照片",
   "home.hero.choosePhoto": "选择学院照片",
   "home.hero.showPhoto": "显示学院照片 {count}：{label}",
-  "home.hero.photo.training": "训练动作",
+  "home.hero.photo.training": "球队合影",
   "home.hero.photo.coaching": "教练指导球员",
   "home.hero.photo.community": "团队与社区时刻",
   "home.hero.photo.gameDay": "比赛日活力",
@@ -392,6 +396,7 @@ const zhHans: WebCatalogue = {
   "home.achievements.clubBadge": "KHLIM 篮球俱乐部荣誉",
   "home.achievements.clubDisclaimer":
     "这些赛事里程碑代表 KHLIM 篮球俱乐部各梯队的竞技成就，与个人青少年学院培训进程有所区分。",
+  "home.achievements.nonePublished": "当前暂无发布的俱乐部成就。",
   "home.achievements.archiveLabel": "俱乐部档案",
   "home.achievements.signature.title": "标志性竞技里程碑",
   "home.achievements.signature.event": "最高已核实团队成绩",
@@ -503,7 +508,7 @@ const zhHant: WebCatalogue = {
   "home.hero.nextPhoto": "顯示下一張學院照片",
   "home.hero.choosePhoto": "選擇學院照片",
   "home.hero.showPhoto": "顯示學院照片 {count}：{label}",
-  "home.hero.photo.training": "訓練動作",
+  "home.hero.photo.training": "球隊合照",
   "home.hero.photo.coaching": "教練指導球員",
   "home.hero.photo.community": "團隊與社群時刻",
   "home.hero.photo.gameDay": "比賽日活力",
@@ -542,6 +547,7 @@ const zhHant: WebCatalogue = {
   "home.achievements.clubBadge": "KHLIM 籃球俱樂部榮譽",
   "home.achievements.clubDisclaimer":
     "這些賽事里程碑代表 KHLIM 籃球俱樂部各梯隊的競技成就，與個人青少年學院培訓進程有所區分。",
+  "home.achievements.nonePublished": "目前暫無發布的俱樂部成就。",
   "home.achievements.archiveLabel": "俱樂部檔案",
   "home.achievements.signature.title": "標誌性競技里程碑",
   "home.achievements.signature.event": "最高已核實團隊成績",
@@ -653,7 +659,7 @@ const hi: WebCatalogue = {
   "home.hero.nextPhoto": "अगली अकादमी फ़ोटो दिखाएँ",
   "home.hero.choosePhoto": "अकादमी फ़ोटो चुनें",
   "home.hero.showPhoto": "अकादमी फ़ोटो {count} दिखाएँ: {label}",
-  "home.hero.photo.training": "प्रशिक्षण का एक्शन",
+  "home.hero.photo.training": "टीम पोर्ट्रेट",
   "home.hero.photo.coaching": "कोच और खिलाड़ी का निर्देश",
   "home.hero.photo.community": "टीम और समुदाय का पल",
   "home.hero.photo.gameDay": "मैच-दिवस की ऊर्जा",
@@ -693,6 +699,8 @@ const hi: WebCatalogue = {
   "home.achievements.clubBadge": "KHLIM बास्केटबॉल क्लब उपलब्धियाँ",
   "home.achievements.clubDisclaimer":
     "ये टूर्नामेंट उपलब्धियाँ KHLIM बास्केटबॉल क्लब की प्रतिस्पर्धी उपलब्धियाँ हैं और व्यक्तिगत युवा अकादमी प्रशिक्षण प्रगति से भिन्न हैं।",
+  "home.achievements.nonePublished":
+    "वर्तमान में कोई क्लब उपलब्धि प्रकाशित नहीं है।",
   "home.achievements.archiveLabel": "क्लब आर्काइव",
   "home.achievements.signature.title": "प्रमुख प्रतिस्पर्धी उपलब्धि",
   "home.achievements.signature.event": "सर्वोच्च सत्यापित टीम परिणाम",

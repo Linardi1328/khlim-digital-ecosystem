@@ -70,7 +70,7 @@ export function HeroCarousel({
     return () => window.clearInterval(timer);
   }, [isPaused, prefersReducedMotion, safeSlides.length]);
 
-  if (safeSlides.length === 0) return null;
+  const firstSlide = safeSlides[0];
 
   return (
     <section
@@ -93,6 +93,22 @@ export function HeroCarousel({
         goTo(activeIndex + (delta < 0 ? 1 : -1));
       }}
     >
+      {firstSlide?.imageUrlMobile && (
+        <link
+          rel="preload"
+          as="image"
+          href={firstSlide.imageUrlMobile}
+          media="(max-width: 768px)"
+        />
+      )}
+      {firstSlide?.imageUrl && (
+        <link
+          rel="preload"
+          as="image"
+          href={firstSlide.imageUrl}
+          media={firstSlide.imageUrlMobile ? "(min-width: 769px)" : undefined}
+        />
+      )}
       <div className="home-hero-carousel-track" aria-live="off">
         {safeSlides.map((slide, index) => {
           const isActive = index === activeIndex;
