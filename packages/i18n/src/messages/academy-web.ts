@@ -14,7 +14,7 @@ const en = {
     "The KHLIM platform is designed to make memberships, billing and programme information easier for guardians to understand.",
   "academy.coaching.title": "Coaching team",
   "academy.coaching.body":
-    "Individual coach names, qualifications and assignments will be published only after they are verified and approved by KHLIM management.",
+    "Our coaching staff focuses on fundamental basketball skills, court discipline, and structured player development across all academy age groups.",
   "academy.venues.title": "Training venues",
   "academy.venues.body":
     "Current venue information comes from active programme offerings in the KHLIM backend.",
@@ -87,7 +87,7 @@ const ms: Catalogue = {
     "Platform KHLIM direka untuk memudahkan penjaga memahami keahlian, pengebilan dan maklumat program.",
   "academy.coaching.title": "Pasukan jurulatih",
   "academy.coaching.body":
-    "Nama, kelayakan dan tugasan jurulatih individu hanya akan diterbitkan selepas disahkan dan diluluskan oleh pengurusan KHLIM.",
+    "Barisan jurulatih kami menumpukan kemahiran asas bola keranjang, disiplin gelanggang dan pembangunan pemain berstruktur merentasi semua peringkat umur akademi.",
   "academy.venues.title": "Lokasi latihan",
   "academy.venues.body":
     "Maklumat lokasi semasa datang daripada tawaran program aktif dalam sistem KHLIM.",
@@ -157,7 +157,7 @@ const zhHans: Catalogue = {
     "KHLIM 平台旨在让监护人更容易了解会籍、账单和课程信息。",
   "academy.coaching.title": "教练团队",
   "academy.coaching.body":
-    "个别教练的姓名、资历和任务安排只会在 KHLIM 管理层核实并批准后发布。",
+    "我们的教练团队专注于扎实的篮球基本功、球场纪律以及面向各年龄段球员的结构化发展培养。",
   "academy.venues.title": "训练场地",
   "academy.venues.body": "当前场地信息来自 KHLIM 后端中的有效课程班次。",
   "academy.programmesCta": "查看当前课程",
@@ -224,7 +224,7 @@ const zhHant: Catalogue = {
     "KHLIM 平台旨在讓監護人更容易了解會籍、帳單和課程資訊。",
   "academy.coaching.title": "教練團隊",
   "academy.coaching.body":
-    "個別教練的姓名、資歷和任務安排只會在 KHLIM 管理層核實並批准後發布。",
+    "我們的教練團隊專注於扎實的籃球基本功、球場紀律以及面向各年齡段球員的結構化發展培養。",
   "academy.venues.title": "訓練場地",
   "academy.venues.body": "目前場地資訊來自 KHLIM 後端中的有效課程班次。",
   "academy.programmesCta": "查看目前課程",
@@ -291,7 +291,7 @@ const hi: Catalogue = {
     "KHLIM प्लेटफ़ॉर्म सदस्यता, बिलिंग और कार्यक्रम की जानकारी को अभिभावकों के लिए समझना आसान बनाने के लिए बनाया गया है।",
   "academy.coaching.title": "कोचिंग टीम",
   "academy.coaching.body":
-    "व्यक्तिगत कोचों के नाम, योग्यताएँ और जिम्मेदारियाँ केवल KHLIM प्रबंधन द्वारा सत्यापित और स्वीकृत होने के बाद प्रकाशित की जाएँगी।",
+    "हमारा कोचिंग स्टाफ बास्केटबॉल की बुनियादी कौशल, कोर्ट अनुशासन और सभी अकादमी आयु वर्गों में संरचित खिलाड़ी विकास पर ध्यान केंद्रित करता है।",
   "academy.venues.title": "प्रशिक्षण स्थल",
   "academy.venues.body":
     "वर्तमान स्थल जानकारी KHLIM बैकएंड में सक्रिय कार्यक्रम विकल्पों से आती है।",
