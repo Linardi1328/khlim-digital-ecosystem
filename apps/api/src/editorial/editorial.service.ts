@@ -84,7 +84,8 @@ function publicEditorialEntry<T extends { articleParagraphs: unknown }>(
 }
 
 function normalizeImageUrl(value: unknown): string | null | undefined {
-  if (value === undefined || value === null) return value;
+  if (value === undefined) return undefined;
+  if (value === null) return null;
   if (typeof value !== "string") {
     throw new BadRequestException("Image URL must be a string or null");
   }
