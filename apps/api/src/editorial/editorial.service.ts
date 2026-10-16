@@ -41,7 +41,46 @@ interface ModerationCandidate {
   achievedOnLabel: string | null;
   articleParagraphs: unknown;
   photoLabel: string;
+  imageUrl: string | null;
   factsVerified: boolean;
+}
+
+// Public editorial has no independently verified media-rights record. Select
+// only text and metadata so stored URLs (including future media fields) cannot
+// cross the public API boundary.
+const publicEditorialSelect = {
+  id: true,
+  organizationId: true,
+  type: true,
+  slug: true,
+  title: true,
+  eventName: true,
+  summary: true,
+  yearLabel: true,
+  playerName: true,
+  achievement: true,
+  achievedOnLabel: true,
+  articleParagraphs: true,
+  photoLabel: true,
+  factsVerified: true,
+  aiAssisted: true,
+  status: true,
+  publishedAt: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+function publicEditorialEntry<T extends { articleParagraphs: unknown }>(
+  entry: T,
+) {
+  return {
+    ...entry,
+    articleParagraphs: Array.isArray(entry.articleParagraphs)
+      ? entry.articleParagraphs.filter(
+          (paragraph): paragraph is string => typeof paragraph === "string",
+        )
+      : [],
+  };
 }
 
 function compatibilityPublicOrganizationId(): string {
@@ -88,11 +127,11 @@ export class EditorialService {
     });
   }
 
-  listPublished(
+  async listPublished(
     type: EditorialType,
     organizationId = compatibilityPublicOrganizationId(),
   ) {
-    return this.prisma.client.editorialEntry.findMany({
+    const entries = await this.prisma.client.editorialEntry.findMany({
       where: {
         organizationId,
         type,
@@ -100,14 +139,16 @@ export class EditorialService {
         factsVerified: true,
       },
       orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+      select: publicEditorialSelect,
     });
+    return entries.map(publicEditorialEntry);
   }
 
-  findPublishedSpotlight(
+  async findPublishedSpotlight(
     slug: string,
     organizationId = compatibilityPublicOrganizationId(),
   ) {
-    return this.prisma.client.editorialEntry.findFirst({
+    const entry = await this.prisma.client.editorialEntry.findFirst({
       where: {
         organizationId,
         slug,
@@ -115,7 +156,9 @@ export class EditorialService {
         status: "PUBLISHED",
         factsVerified: true,
       },
+      select: publicEditorialSelect,
     });
+    return entry ? publicEditorialEntry(entry) : null;
   }
 
   create(organizationId: string, input: EditorialInput) {
@@ -134,7 +177,7 @@ export class EditorialService {
         achievedOnLabel: input.achievedOnLabel,
         articleParagraphs: input.articleParagraphs,
         photoLabel: input.photoLabel,
-        imageUrl: input.imageUrl,
+        imageUrl: input.imageUrl?.trim() || null,
         factsVerified: Boolean(input.factsVerified),
         aiAssisted: Boolean(input.aiAssisted),
       },
@@ -172,13 +215,16 @@ export class EditorialService {
             )
           : undefined),
       photoLabel: input.photoLabel ?? existing.photoLabel,
-      imageUrl: input.imageUrl ?? existing.imageUrl ?? undefined,
+      imageUrl:
+        input.imageUrl === ""
+          ? undefined
+          : (input.imageUrl ?? existing.imageUrl ?? undefined),
       factsVerified: input.factsVerified ?? existing.factsVerified,
       aiAssisted: input.aiAssisted ?? existing.aiAssisted,
     } satisfies EditorialInput;
     this.assertComplete(merged);
     return this.prisma.client.editorialEntry.update({
-      where: { id },
+      where: { id, organizationId, status: { not: "PUBLISHED" } },
       data: {
         slug: input.slug,
         title: input.title,
@@ -190,7 +236,10 @@ export class EditorialService {
         achievedOnLabel: input.achievedOnLabel,
         articleParagraphs: input.articleParagraphs,
         photoLabel: input.photoLabel,
-        imageUrl: input.imageUrl,
+        imageUrl:
+          input.imageUrl === undefined
+            ? undefined
+            : input.imageUrl.trim() || null,
         factsVerified: input.factsVerified,
         aiAssisted: input.aiAssisted,
       },
@@ -206,6 +255,11 @@ export class EditorialService {
       throw new BadRequestException(
         "Facts must be verified before publication",
       );
+    if (entry.imageUrl !== null) {
+      throw new BadRequestException(
+        "Image URLs cannot be published without independently verified media rights",
+      );
+    }
     this.assertComplete({
       type: entry.type,
       slug: entry.slug ?? undefined,
@@ -226,13 +280,23 @@ export class EditorialService {
       factsVerified: entry.factsVerified,
       aiAssisted: entry.aiAssisted,
     });
-    return this.prisma.client.editorialEntry.update({
-      where: { id },
+    const result = await this.prisma.client.editorialEntry.updateMany({
+      where: {
+        id,
+        organizationId,
+        status: "DRAFT",
+        factsVerified: true,
+        imageUrl: null,
+      },
       data: {
         status: "PUBLISHED",
         publishedAt: entry.publishedAt ?? new Date(),
       },
     });
+    if (result.count !== 1) {
+      throw new BadRequestException("Draft changed before publication");
+    }
+    return this.requireEntry(organizationId, id);
   }
 
   async unpublish(organizationId: string, id: string) {
@@ -293,7 +357,12 @@ export class EditorialService {
   private moderationBlockers(entry: ModerationCandidate): string[] {
     const blockers: string[] = [];
     if (!entry.factsVerified) {
-      blockers.push("Facts and photo rights still require staff verification.");
+      blockers.push("Facts still require staff verification.");
+    }
+    if (entry.imageUrl !== null) {
+      blockers.push(
+        "Image URLs cannot be published without independently verified media rights.",
+      );
     }
     if (
       !entry.title?.trim() ||
