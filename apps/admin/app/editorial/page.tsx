@@ -339,7 +339,6 @@ export default function EditorialStudioPage() {
               Facts and photo rights verified by KHLIM staff
             </label>
             <Button onClick={save}>Save draft</Button>
-            {message && <p role="status">{message}</p>}
           </section>
           <section>
             <h2>Saved content</h2>
