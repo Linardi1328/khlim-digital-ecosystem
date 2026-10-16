@@ -84,6 +84,11 @@ function fakePrisma(rows, beforeUpdateMany = () => {}) {
       const row = rows.find((candidate) => matches(candidate, args.where));
       return row ? (args.select ? project(row, args.select) : row) : null;
     },
+    async findFirstOrThrow(args) {
+      const row = await this.findFirst(args);
+      if (!row) throw new Error("No matching editorial entry");
+      return row;
+    },
     async updateMany(args) {
       calls.push(["updateMany", args]);
       beforeUpdateMany();
@@ -104,7 +109,17 @@ function fakePrisma(rows, beforeUpdateMany = () => {}) {
       return row;
     },
   };
-  return { client: { editorialEntry }, calls };
+  const client = {
+    editorialEntry,
+    async $queryRaw() {
+      calls.push(["rowLock", {}]);
+      return [];
+    },
+    async $transaction(callback) {
+      return callback(client);
+    },
+  };
+  return { client, calls };
 }
 
 test("all public editorial routes omit stored and nested media URLs while preserving text", async () => {
@@ -155,11 +170,40 @@ test("all public editorial routes omit stored and nested media URLs while preser
     },
   ]);
   for (const [operation, args] of prisma.calls) {
+    if (operation === "rowLock") continue;
     assert.equal(args.where.organizationId, ORGANIZATION_ID);
     assert.equal(args.where.status, "PUBLISHED");
     assert.equal(args.where.factsVerified, true);
     assert.equal(args.select.imageUrl, undefined, operation);
   }
+});
+
+test("public editorial redacts legacy text links and blocks new link-bearing publication", async () => {
+  const legacy = entry({
+    imageUrl: null,
+    summary: `Synthetic summary: ${MEDIA_URL}`,
+    photoLabel: `/media/synthetic/portrait.webp`,
+    articleParagraphs: [
+      `First paragraph: ${MEDIA_URL}?token=synthetic`,
+      "Second verified paragraph.",
+    ],
+  });
+  const prisma = fakePrisma([legacy]);
+  const service = new EditorialService(prisma);
+  const publicRow = await service.findPublishedSpotlight(legacy.slug);
+  assert.equal(publicRow.summary, "Synthetic summary: [link withheld]");
+  assert.equal(publicRow.photoLabel, "[link withheld]");
+  assert.deepEqual(publicRow.articleParagraphs, [
+    "First paragraph: [link withheld]",
+    "Second verified paragraph.",
+  ]);
+
+  legacy.status = "DRAFT";
+  await assert.rejects(
+    service.publish(ORGANIZATION_ID, legacy.id),
+    (error) => error.getStatus() === 400 && /text/.test(error.message),
+  );
+  assert.equal(legacy.status, "DRAFT");
 });
 
 test("publication rejects a fact-verified draft with an unverified image URL", async () => {
