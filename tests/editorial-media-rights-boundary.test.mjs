@@ -67,6 +67,12 @@ function fakePrisma(rows, beforeUpdateMany = () => {}) {
         .map((key) => [key, row[key]]),
     );
   const editorialEntry = {
+    async create(args) {
+      calls.push(["create", args]);
+      const row = { id: `created-${rows.length + 1}`, ...args.data };
+      rows.push(row);
+      return row;
+    },
     async findMany(args) {
       calls.push(["findMany", args]);
       return rows
@@ -207,6 +213,40 @@ test("an authorized draft edit can clear media without weakening organization or
   await assert.rejects(
     service.update(ORGANIZATION_ID, row.id, { imageUrl: MEDIA_URL }),
     (error) => error.getStatus() === 400,
+  );
+});
+
+test("create and update accept null clears but reject malformed image URL bodies", async () => {
+  const row = entry({ status: "DRAFT" });
+  const prisma = fakePrisma([row]);
+  const service = new EditorialService(prisma);
+
+  const created = await service.create(ORGANIZATION_ID, {
+    ...entry(),
+    imageUrl: null,
+  });
+  assert.equal(created.imageUrl, null);
+  assert.throws(
+    () => service.create(ORGANIZATION_ID, { ...entry(), imageUrl: 123 }),
+    (error) => error.getStatus() === 400,
+  );
+  assert.equal(
+    prisma.calls.filter(([operation]) => operation === "create").length,
+    1,
+  );
+
+  assert.equal(
+    (await service.update(ORGANIZATION_ID, row.id, { imageUrl: null }))
+      .imageUrl,
+    null,
+  );
+  await assert.rejects(
+    service.update(ORGANIZATION_ID, row.id, { imageUrl: { url: MEDIA_URL } }),
+    (error) => error.getStatus() === 400,
+  );
+  assert.equal(
+    prisma.calls.filter(([operation]) => operation === "update").length,
+    1,
   );
 });
 

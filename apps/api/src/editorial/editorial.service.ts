@@ -24,7 +24,7 @@ export interface EditorialInput {
   achievedOnLabel?: string;
   articleParagraphs?: string[];
   photoLabel: string;
-  imageUrl?: string;
+  imageUrl?: string | null;
   factsVerified?: boolean;
   aiAssisted?: boolean;
 }
@@ -81,6 +81,14 @@ function publicEditorialEntry<T extends { articleParagraphs: unknown }>(
         )
       : [],
   };
+}
+
+function normalizeImageUrl(value: unknown): string | null | undefined {
+  if (value === undefined || value === null) return value;
+  if (typeof value !== "string") {
+    throw new BadRequestException("Image URL must be a string or null");
+  }
+  return value.trim() || null;
 }
 
 function compatibilityPublicOrganizationId(): string {
@@ -162,6 +170,7 @@ export class EditorialService {
   }
 
   create(organizationId: string, input: EditorialInput) {
+    const imageUrl = normalizeImageUrl(input.imageUrl);
     this.assertComplete(input);
     return this.prisma.client.editorialEntry.create({
       data: {
@@ -177,7 +186,7 @@ export class EditorialService {
         achievedOnLabel: input.achievedOnLabel,
         articleParagraphs: input.articleParagraphs,
         photoLabel: input.photoLabel,
-        imageUrl: input.imageUrl?.trim() || null,
+        imageUrl: imageUrl ?? null,
         factsVerified: Boolean(input.factsVerified),
         aiAssisted: Boolean(input.aiAssisted),
       },
@@ -195,6 +204,7 @@ export class EditorialService {
         "Published content must be unpublished by management before editing",
       );
     }
+    const imageUrl = normalizeImageUrl(input.imageUrl);
 
     const merged = {
       type: existing.type,
@@ -216,9 +226,7 @@ export class EditorialService {
           : undefined),
       photoLabel: input.photoLabel ?? existing.photoLabel,
       imageUrl:
-        input.imageUrl === ""
-          ? undefined
-          : (input.imageUrl ?? existing.imageUrl ?? undefined),
+        imageUrl === undefined ? (existing.imageUrl ?? undefined) : imageUrl,
       factsVerified: input.factsVerified ?? existing.factsVerified,
       aiAssisted: input.aiAssisted ?? existing.aiAssisted,
     } satisfies EditorialInput;
@@ -236,10 +244,7 @@ export class EditorialService {
         achievedOnLabel: input.achievedOnLabel,
         articleParagraphs: input.articleParagraphs,
         photoLabel: input.photoLabel,
-        imageUrl:
-          input.imageUrl === undefined
-            ? undefined
-            : input.imageUrl.trim() || null,
+        imageUrl,
         factsVerified: input.factsVerified,
         aiAssisted: input.aiAssisted,
       },
