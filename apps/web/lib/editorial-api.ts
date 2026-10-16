@@ -20,13 +20,15 @@ type Entry = {
   photoLabel: string;
   imageUrl?: string | null;
   factsVerified: boolean;
+  photoRightsVerified?: boolean | null;
   aiAssisted: boolean;
 };
 const paragraphs = (value: unknown): string[] =>
   Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
-const photoRightsVerified = (entry: Entry) => !entry.imageUrl;
+const photoRightsVerified = (entry: Entry) =>
+  Boolean(entry.photoRightsVerified);
 export const toAchievement = (entry: Entry): AchievementStory => ({
   id: entry.id,
   yearLabel: entry.yearLabel || "KHLIM",
