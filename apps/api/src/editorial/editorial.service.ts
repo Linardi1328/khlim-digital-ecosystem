@@ -70,15 +70,63 @@ const publicEditorialSelect = {
   updatedAt: true,
 } as const;
 
-function publicEditorialEntry<T extends { articleParagraphs: unknown }>(
-  entry: T,
-) {
+type PublicEditorialText = {
+  title: string;
+  eventName: string;
+  summary: string;
+  yearLabel: string | null;
+  playerName: string | null;
+  achievement: string | null;
+  achievedOnLabel: string | null;
+  photoLabel: string;
+  articleParagraphs: unknown;
+};
+
+// Editorial prose has no link renderer. Withhold URL-like references from legacy
+// published rows as well as rejecting them for new publication below.
+const publicLinkPattern =
+  /(?:\b[a-z][a-z0-9+.-]*:\/\/|\/\/(?=[\w.-]+\.)|\bwww\.|\bdata:image\/|\bblob:|\/(?:media|uploads|storage)\/)[^\s<>"']+/gi;
+
+function redactPublicLinks(value: string): string {
+  return value.replace(publicLinkPattern, "[link withheld]");
+}
+
+function hasPublicLinks(entry: PublicEditorialText): boolean {
+  const fields = [
+    entry.title,
+    entry.eventName,
+    entry.summary,
+    entry.yearLabel,
+    entry.playerName,
+    entry.achievement,
+    entry.achievedOnLabel,
+    entry.photoLabel,
+    ...(Array.isArray(entry.articleParagraphs) ? entry.articleParagraphs : []),
+  ];
+  return fields.some(
+    (value) =>
+      typeof value === "string" && value.search(publicLinkPattern) >= 0,
+  );
+}
+
+function publicEditorialEntry<T extends PublicEditorialText>(entry: T) {
   return {
     ...entry,
+    title: redactPublicLinks(entry.title),
+    eventName: redactPublicLinks(entry.eventName),
+    summary: redactPublicLinks(entry.summary),
+    yearLabel: entry.yearLabel && redactPublicLinks(entry.yearLabel),
+    playerName: entry.playerName && redactPublicLinks(entry.playerName),
+    achievement: entry.achievement && redactPublicLinks(entry.achievement),
+    achievedOnLabel:
+      entry.achievedOnLabel && redactPublicLinks(entry.achievedOnLabel),
+    photoLabel: redactPublicLinks(entry.photoLabel),
     articleParagraphs: Array.isArray(entry.articleParagraphs)
-      ? entry.articleParagraphs.filter(
-          (paragraph): paragraph is string => typeof paragraph === "string",
-        )
+      ? entry.articleParagraphs
+          .filter(
+            (paragraph): paragraph is string => typeof paragraph === "string",
+          )
+          .map(redactPublicLinks)
       : [],
   };
 }
@@ -252,56 +300,75 @@ export class EditorialService {
   }
 
   async publish(organizationId: string, id: string) {
-    const entry = await this.requireEntry(organizationId, id);
-    if (entry.status !== "DRAFT") {
-      throw new BadRequestException("Only draft content can be published");
-    }
-    if (!entry.factsVerified)
-      throw new BadRequestException(
-        "Facts must be verified before publication",
-      );
-    if (entry.imageUrl !== null) {
-      throw new BadRequestException(
-        "Image URLs cannot be published without independently verified media rights",
-      );
-    }
-    this.assertComplete({
-      type: entry.type,
-      slug: entry.slug ?? undefined,
-      title: entry.title,
-      eventName: entry.eventName,
-      summary: entry.summary,
-      yearLabel: entry.yearLabel ?? undefined,
-      playerName: entry.playerName ?? undefined,
-      achievement: entry.achievement ?? undefined,
-      achievedOnLabel: entry.achievedOnLabel ?? undefined,
-      articleParagraphs: Array.isArray(entry.articleParagraphs)
-        ? entry.articleParagraphs.filter(
-            (item): item is string => typeof item === "string",
-          )
-        : undefined,
-      photoLabel: entry.photoLabel,
-      imageUrl: entry.imageUrl ?? undefined,
-      factsVerified: entry.factsVerified,
-      aiAssisted: entry.aiAssisted,
+    return this.prisma.client.$transaction(async (tx) => {
+      // Lock before reading the candidate: edits cannot invalidate text checks
+      // between validation and the final conditional publication write.
+      await tx.$queryRaw`
+        SELECT "id" FROM "editorial_entries"
+        WHERE "id" = ${id}::uuid AND "organization_id" = ${organizationId}::uuid
+        FOR UPDATE
+      `;
+      const entry = await tx.editorialEntry.findFirst({
+        where: { id, organizationId },
+      });
+      if (!entry) throw new NotFoundException("Editorial entry not found");
+      if (entry.status !== "DRAFT") {
+        throw new BadRequestException("Only draft content can be published");
+      }
+      if (!entry.factsVerified)
+        throw new BadRequestException(
+          "Facts must be verified before publication",
+        );
+      if (entry.imageUrl !== null) {
+        throw new BadRequestException(
+          "Image URLs cannot be published without independently verified media rights",
+        );
+      }
+      if (hasPublicLinks(entry)) {
+        throw new BadRequestException(
+          "Public editorial text cannot include links or media references",
+        );
+      }
+      this.assertComplete({
+        type: entry.type,
+        slug: entry.slug ?? undefined,
+        title: entry.title,
+        eventName: entry.eventName,
+        summary: entry.summary,
+        yearLabel: entry.yearLabel ?? undefined,
+        playerName: entry.playerName ?? undefined,
+        achievement: entry.achievement ?? undefined,
+        achievedOnLabel: entry.achievedOnLabel ?? undefined,
+        articleParagraphs: Array.isArray(entry.articleParagraphs)
+          ? entry.articleParagraphs.filter(
+              (item): item is string => typeof item === "string",
+            )
+          : undefined,
+        photoLabel: entry.photoLabel,
+        imageUrl: entry.imageUrl ?? undefined,
+        factsVerified: entry.factsVerified,
+        aiAssisted: entry.aiAssisted,
+      });
+      const result = await tx.editorialEntry.updateMany({
+        where: {
+          id,
+          organizationId,
+          status: "DRAFT",
+          factsVerified: true,
+          imageUrl: null,
+        },
+        data: {
+          status: "PUBLISHED",
+          publishedAt: entry.publishedAt ?? new Date(),
+        },
+      });
+      if (result.count !== 1) {
+        throw new BadRequestException("Draft changed before publication");
+      }
+      return tx.editorialEntry.findFirstOrThrow({
+        where: { id, organizationId },
+      });
     });
-    const result = await this.prisma.client.editorialEntry.updateMany({
-      where: {
-        id,
-        organizationId,
-        status: "DRAFT",
-        factsVerified: true,
-        imageUrl: null,
-      },
-      data: {
-        status: "PUBLISHED",
-        publishedAt: entry.publishedAt ?? new Date(),
-      },
-    });
-    if (result.count !== 1) {
-      throw new BadRequestException("Draft changed before publication");
-    }
-    return this.requireEntry(organizationId, id);
   }
 
   async unpublish(organizationId: string, id: string) {
@@ -367,6 +434,11 @@ export class EditorialService {
     if (entry.imageUrl !== null) {
       blockers.push(
         "Image URLs cannot be published without independently verified media rights.",
+      );
+    }
+    if (hasPublicLinks(entry)) {
+      blockers.push(
+        "Public editorial text cannot include links or media references.",
       );
     }
     if (
