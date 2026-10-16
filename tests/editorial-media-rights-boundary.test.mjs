@@ -120,25 +120,40 @@ test("all public editorial routes omit stored and nested media URLs while preser
   const spotlights = await controller.listSpotlights();
   const detail = await controller.getSpotlight("player-story");
 
-  assert.deepEqual(
-    achievements.map(({ id }) => id),
-    ["achievement"],
-  );
-  assert.deepEqual(
-    spotlights.map(({ id }) => id),
-    ["spotlight"],
-  );
-  assert.equal(detail.id, "spotlight");
-  for (const result of [...achievements, ...spotlights, detail]) {
-    const json = JSON.stringify(result);
-    assert.equal(Object.hasOwn(result, "imageUrl"), false);
-    assert.equal(json.includes(MEDIA_URL), false);
-    assert.deepEqual(result.articleParagraphs, [
+  const expectedSpotlight = {
+    id: "spotlight",
+    organizationId: ORGANIZATION_ID,
+    type: "PLAYER_SPOTLIGHT",
+    slug: "player-story",
+    title: "Verified milestone",
+    eventName: "Example event",
+    summary: "A verified text summary.",
+    yearLabel: null,
+    playerName: "Example Player",
+    achievement: "Selection",
+    achievedOnLabel: "2026",
+    articleParagraphs: [
       "First verified paragraph.",
       "Second verified paragraph.",
-    ]);
-    assert.equal(result.summary, "A verified text summary.");
-  }
+    ],
+    photoLabel: "Photo placeholder",
+    factsVerified: true,
+    aiAssisted: false,
+    status: "PUBLISHED",
+    publishedAt: new Date("2026-01-01T00:00:00Z"),
+    createdAt: new Date("2026-01-01T00:00:00Z"),
+    updatedAt: new Date("2026-01-01T00:00:00Z"),
+  };
+  assert.deepEqual(spotlights, [expectedSpotlight]);
+  assert.deepEqual(detail, expectedSpotlight);
+  assert.deepEqual(achievements, [
+    {
+      ...expectedSpotlight,
+      id: "achievement",
+      type: "ACHIEVEMENT",
+      slug: null,
+    },
+  ]);
   for (const [operation, args] of prisma.calls) {
     assert.equal(args.where.organizationId, ORGANIZATION_ID);
     assert.equal(args.where.status, "PUBLISHED");
