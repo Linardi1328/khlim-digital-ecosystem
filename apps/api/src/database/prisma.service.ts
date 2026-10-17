@@ -5,6 +5,38 @@ import {
   DEFAULT_ORGANIZATION_ID,
   MULTI_ORGANIZATION_RUNTIME_ENABLED,
 } from "../organization/organization.constants";
+import { SUPABASE_ROOT_CA } from "./supabase-root-ca";
+
+const STAGING_POOLER_HOST = "aws-0-ap-southeast-1.pooler.supabase.com";
+const STAGING_PROJECT_REF = "qxsjxcbfhxbvxigghhlq";
+
+function stagingPoolerConnection(connectionString: string) {
+  const parsed = new URL(connectionString);
+  const sslMode = parsed.searchParams.get("sslmode");
+  if (
+    parsed.protocol !== "postgresql:" ||
+    parsed.hostname !== STAGING_POOLER_HOST ||
+    parsed.port !== "6543" ||
+    parsed.username !== `postgres.${STAGING_PROJECT_REF}` ||
+    parsed.pathname !== "/postgres" ||
+    !parsed.password ||
+    (sslMode !== "require" && sslMode !== "verify-full") ||
+    ["ssl", "sslcert", "sslkey", "sslrootcert", "uselibpqcompat"].some((key) =>
+      parsed.searchParams.has(key),
+    )
+  ) {
+    throw new Error("Staging database pooler configuration is invalid");
+  }
+
+  // node-postgres lets sslmode in the URL replace its explicit SSL options.
+  // Remove that parameter, then verify the pooler's certificate and hostname
+  // against the Supabase root CA selected in staging project settings.
+  parsed.searchParams.delete("sslmode");
+  return {
+    connectionString: parsed.toString(),
+    ssl: { ca: SUPABASE_ROOT_CA, rejectUnauthorized: true },
+  };
+}
 
 const COMPATIBILITY_TENANT_MODELS = new Set([
   "venue",
@@ -76,7 +108,11 @@ export class PrismaService implements OnModuleDestroy {
         throw new Error("DATABASE_URL is required before database access");
       }
 
-      const adapter = new PrismaPg({ connectionString });
+      const adapter = new PrismaPg(
+        process.env.KHLIM_ENV === "staging"
+          ? stagingPoolerConnection(connectionString)
+          : { connectionString },
+      );
       const client = new PrismaClient({ adapter });
       this.prismaClient = withOrganizationCompatibility(client);
     }
