@@ -3,6 +3,57 @@ import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { Public } from "./auth/authorization.decorators";
 import { PrismaService } from "./database/prisma.service";
 
+function databaseProbeFailure(error: unknown): {
+  category: string;
+  code: string | null;
+} {
+  const fragments: string[] = [];
+  let code: string | null = null;
+  let current: unknown = error;
+
+  for (
+    let depth = 0;
+    depth < 4 && current && typeof current === "object";
+    depth++
+  ) {
+    const detail = current as Record<string, unknown>;
+    if (
+      typeof detail.code === "string" &&
+      /^(?:[0-9A-Z_]{2,24})$/.test(detail.code)
+    ) {
+      code ??= detail.code;
+      fragments.push(detail.code);
+    }
+    if (typeof detail.message === "string") fragments.push(detail.message);
+    current = detail.cause ?? detail.meta ?? detail.driverAdapterError;
+  }
+
+  const diagnostic = fragments.join(" ");
+  const category = /Database probe timeout/.test(diagnostic)
+    ? "probe_timeout"
+    : /28P01|password authentication failed|invalid.*credential/i.test(
+          diagnostic,
+        )
+      ? "authentication"
+      : /certificate|self.signed|CERT_|UNABLE_TO_VERIFY|TLS|SSL/i.test(
+            diagnostic,
+          )
+        ? "tls"
+        : /ENOTFOUND|EAI_AGAIN|getaddrinfo|DNS/i.test(diagnostic)
+          ? "dns"
+          : /pool|too many connections|remaining connection slots/i.test(
+                diagnostic,
+              )
+            ? "pool"
+            : /ECONNREFUSED|ECONNRESET|ETIMEDOUT|P1001|network/i.test(
+                  diagnostic,
+                )
+              ? "network"
+              : "other";
+
+  return { category, code };
+}
+
 export function extractDatabaseProjectRef(databaseUrl?: string): string | null {
   if (!databaseUrl) return null;
   try {
@@ -52,23 +103,60 @@ export class HealthController {
     let databaseStatus = "unconfigured";
 
     if (this.prisma) {
+      const startedAt = Date.now();
+      let phase = "client";
+      let timer: NodeJS.Timeout | undefined;
+      let timedOut = false;
       try {
-        let timer: NodeJS.Timeout;
+        const client = this.prisma.client;
+        phase = "query";
         const timeoutPromise = new Promise<never>((_, reject) => {
-          timer = setTimeout(
-            () => reject(new Error("Database probe timeout")),
-            2000,
-          );
+          timer = setTimeout(() => {
+            timedOut = true;
+            reject(new Error("Database probe timeout"));
+          }, 2000);
         });
-        await Promise.race([
-          this.prisma.client.$queryRaw`SELECT 1`.finally(() =>
-            clearTimeout(timer),
-          ),
-          timeoutPromise,
-        ]);
+        const query = client.$queryRaw`SELECT 1`;
+        void query.then(
+          () => {
+            if (timedOut && process.env.KHLIM_ENV === "staging") {
+              console.error(
+                JSON.stringify({
+                  event: "staging.database_probe.late_success",
+                  elapsedMs: Math.min(Date.now() - startedAt, 60000),
+                }),
+              );
+            }
+          },
+          (error: unknown) => {
+            if (timedOut && process.env.KHLIM_ENV === "staging") {
+              console.error(
+                JSON.stringify({
+                  event: "staging.database_probe.late_failure",
+                  elapsedMs: Math.min(Date.now() - startedAt, 60000),
+                  ...databaseProbeFailure(error),
+                }),
+              );
+            }
+          },
+        );
+        await Promise.race([query, timeoutPromise]);
         databaseStatus = "connected";
-      } catch {
+      } catch (error) {
+        if (process.env.KHLIM_ENV === "staging") {
+          const failure = databaseProbeFailure(error);
+          console.error(
+            JSON.stringify({
+              event: "staging.database_probe.failed",
+              phase,
+              elapsedMs: Math.min(Date.now() - startedAt, 60000),
+              ...failure,
+            }),
+          );
+        }
         databaseStatus = "disconnected";
+      } finally {
+        if (timer) clearTimeout(timer);
       }
     }
 
