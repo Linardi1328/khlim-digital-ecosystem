@@ -5,10 +5,11 @@ import { PrismaService } from "./database/prisma.service";
 
 function databaseProbeFailure(error: unknown): {
   category: string;
-  code: string | null;
+  codes: string[];
+  tlsDetail: string | null;
 } {
   const fragments: string[] = [];
-  let code: string | null = null;
+  const codes: string[] = [];
   let current: unknown = error;
 
   for (
@@ -19,9 +20,9 @@ function databaseProbeFailure(error: unknown): {
     const detail = current as Record<string, unknown>;
     if (
       typeof detail.code === "string" &&
-      /^(?:[0-9A-Z_]{2,24})$/.test(detail.code)
+      /^(?:[0-9A-Z_]{2,40})$/.test(detail.code)
     ) {
-      code ??= detail.code;
+      codes.push(detail.code);
       fragments.push(detail.code);
     }
     if (typeof detail.message === "string") fragments.push(detail.message);
@@ -51,7 +52,27 @@ function databaseProbeFailure(error: unknown): {
               ? "network"
               : "other";
 
-  return { category, code };
+  const tlsDetail = /ALTNAME|hostname.*(match|verify)|host.*certificate/i.test(
+    diagnostic,
+  )
+    ? "hostname_mismatch"
+    : /SELF_SIGNED/i.test(diagnostic)
+      ? "self_signed"
+      : /UNABLE_TO_VERIFY|LOCAL_ISSUER|unable to get local issuer|certificate chain/i.test(
+            diagnostic,
+          )
+        ? "untrusted_chain"
+        : /CERT_HAS_EXPIRED|certificate.*expired/i.test(diagnostic)
+          ? "expired_certificate"
+          : /handshake|wrong version|protocol/i.test(diagnostic)
+            ? "handshake_or_protocol"
+            : /SSL SYSCALL|connection.*(closed|reset)/i.test(diagnostic)
+              ? "connection_closed"
+              : category === "tls"
+                ? "other_tls"
+                : null;
+
+  return { category, codes: codes.slice(0, 4), tlsDetail };
 }
 
 export function extractDatabaseProjectRef(databaseUrl?: string): string | null {
