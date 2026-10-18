@@ -91,6 +91,9 @@ function HomeContent() {
   const heroSlides: HeroCarouselSlide[] = [
     {
       id: "academy-first",
+      // Unverified youth squad photographs removed from deployable public directory pending signed custodian releases
+      imageUrl: undefined,
+      imageUrlMobile: undefined,
       photoLabel: t("home.hero.photo.training"),
       showPlaceholderLabel: false,
       placeholderGradient:

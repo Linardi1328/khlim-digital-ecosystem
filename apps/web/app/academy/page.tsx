@@ -39,6 +39,44 @@ function AcademyContent() {
     }
   }, [hasConsent, campaignSource]);
 
+  const coaches = useMemo(
+    () => [
+      {
+        id: "seng-jun",
+        name: t("academy.coaches.sengJun.name"),
+        role: t("academy.coaches.role"),
+        bio: t("academy.coaches.sengJun.bio"),
+        imageUrl: "/media/khlim/coach-seng-jun.webp",
+        alt: `${t("academy.coaches.sengJun.name")} — KHLIM Basketball Academy`,
+      },
+      {
+        id: "jia-xuan",
+        name: t("academy.coaches.jiaXuan.name"),
+        role: t("academy.coaches.role"),
+        bio: t("academy.coaches.genericBio"),
+        imageUrl: "/media/khlim/coach-jia-xuan.webp",
+        alt: `${t("academy.coaches.jiaXuan.name")} — KHLIM Basketball Academy`,
+      },
+      {
+        id: "puimann",
+        name: t("academy.coaches.puimann.name"),
+        role: t("academy.coaches.role"),
+        bio: t("academy.coaches.genericBio"),
+        imageUrl: "/media/khlim/coach-puimann.webp",
+        alt: `${t("academy.coaches.puimann.name")} — KHLIM Basketball Academy`,
+      },
+      {
+        id: "woon",
+        name: t("academy.coaches.woon.name"),
+        role: t("academy.coaches.role"),
+        bio: t("academy.coaches.genericBio"),
+        imageUrl: "/media/khlim/coach-woon.webp",
+        alt: `${t("academy.coaches.woon.name")} — KHLIM Basketball Academy`,
+      },
+    ],
+    [t],
+  );
+
   return (
     <div
       style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
@@ -267,6 +305,69 @@ function AcademyContent() {
           </div>
 
           <Card style={{ marginTop: 24, padding: 28 }}>
+            {/* Unverified youth squad photography removed from deployable public directory pending signed guardian releases.
+                Renders official Academy crest and development standards showcase. */}
+            <div
+              data-testid="academy-training-fallback"
+              style={{
+                position: "relative",
+                width: "100%",
+                borderRadius: 12,
+                overflow: "hidden",
+                margin: "0 0 24px",
+                border: "1px solid #e4e4e7",
+                background:
+                  "radial-gradient(circle at 80% 20%, rgba(245, 158, 11, 0.15), transparent 45%), linear-gradient(135deg, #18181b 0%, #27272a 60%, #3f2d0b 100%)",
+                padding: "32px 24px",
+                boxSizing: "border-box",
+                display: "flex",
+                alignItems: "center",
+                gap: 20,
+              }}
+            >
+              <img
+                src="/media/khlim/logo-academy.webp"
+                alt={t("brand.academy")}
+                width={64}
+                height={75}
+                style={{ objectFit: "contain", flexShrink: 0 }}
+              />
+              <div>
+                <span
+                  style={{
+                    color: "#f59e0b",
+                    fontSize: "0.75rem",
+                    fontWeight: 800,
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                    display: "block",
+                    marginBottom: 4,
+                  }}
+                >
+                  {t("academy.badge")}
+                </span>
+                <div
+                  style={{
+                    color: "#ffffff",
+                    fontSize: "1.1rem",
+                    fontWeight: 700,
+                    marginBottom: 6,
+                  }}
+                >
+                  {t("academy.teamStandards.title")}
+                </div>
+                <p
+                  style={{
+                    color: "#d4d4d8",
+                    fontSize: "0.85rem",
+                    lineHeight: 1.5,
+                    margin: 0,
+                  }}
+                >
+                  {t("academy.teamStandards.body")}
+                </p>
+              </div>
+            </div>
             <h3 style={{ margin: "0 0 8px", fontSize: "1.15rem" }}>
               {t("academy.coaching.title")}
             </h3>
@@ -300,6 +401,134 @@ function AcademyContent() {
               {t("academy.programmesCta")}
             </Link>
           </Card>
+        </section>
+
+        {/* Meet Our Coaches Section */}
+        <section
+          style={{ marginBottom: 52 }}
+          aria-labelledby="academy-coaches-title"
+        >
+          <div style={{ textAlign: "center", marginBottom: 32 }}>
+            <span
+              style={{
+                color: "#d97706",
+                fontSize: "0.8rem",
+                fontWeight: 800,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+              }}
+            >
+              {t("academy.coaches.eyebrow")}
+            </span>
+            <h2
+              id="academy-coaches-title"
+              style={{
+                fontSize: "clamp(1.75rem, 3vw, 2.4rem)",
+                margin: "8px 0 10px",
+                letterSpacing: "-0.02em",
+              }}
+            >
+              {t("academy.coaches.title")}
+            </h2>
+            <p
+              style={{
+                color: "#71717a",
+                maxWidth: 640,
+                margin: "0 auto",
+                fontSize: "0.95rem",
+                lineHeight: 1.6,
+              }}
+            >
+              {t("academy.coaches.subtitle")}
+            </p>
+          </div>
+
+          <div className="academy-coaches-grid">
+            {coaches.map((coach) => (
+              <Card
+                key={coach.id}
+                style={{
+                  overflow: "hidden",
+                  padding: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  border: "1px solid #e4e4e7",
+                  borderRadius: 16,
+                  background: "#ffffff",
+                  boxShadow: "0 10px 30px rgba(24, 24, 27, 0.05)",
+                }}
+              >
+                <div
+                  style={{
+                    position: "relative",
+                    width: "100%",
+                    aspectRatio: "4 / 5",
+                    overflow: "hidden",
+                    background: "#18181b",
+                  }}
+                >
+                  <img
+                    src={coach.imageUrl}
+                    alt={coach.alt}
+                    width={800}
+                    height={1000}
+                    loading="lazy"
+                    decoding="async"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      objectPosition: "center top",
+                      display: "block",
+                    }}
+                  />
+                </div>
+                <div
+                  style={{
+                    padding: "20px",
+                    display: "flex",
+                    flexDirection: "column",
+                    flex: 1,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      marginBottom: 8,
+                    }}
+                  >
+                    <h3
+                      style={{
+                        margin: 0,
+                        fontSize: "1.05rem",
+                        fontWeight: 800,
+                        color: "#18181b",
+                        letterSpacing: "-0.01em",
+                      }}
+                    >
+                      {coach.name}
+                    </h3>
+                    <Badge variant="brand" size="sm">
+                      {coach.role}
+                    </Badge>
+                  </div>
+                  <p
+                    style={{
+                      margin: "6px 0 0",
+                      fontSize: "0.85rem",
+                      lineHeight: 1.55,
+                      color: "#71717a",
+                      flex: 1,
+                    }}
+                  >
+                    {coach.bio}
+                  </p>
+                </div>
+              </Card>
+            ))}
+          </div>
         </section>
 
         {/* What happens next */}

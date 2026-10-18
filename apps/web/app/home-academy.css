@@ -31,6 +31,13 @@
   text-transform: none;
 }
 
+@media (max-width: 768px) {
+  .home-hero-slide {
+    background-image: var(--hero-bg-mobile, var(--hero-bg-desktop)) !important;
+    background-position: center top !important;
+  }
+}
+
 .home-academy-pillars {
   max-width: 1200px;
   margin: 0 auto;
@@ -442,3 +449,24 @@
     transition: none;
   }
 }
+
+.academy-coaches-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px;
+}
+
+@media (max-width: 960px) {
+  .academy-coaches-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+}
+
+@media (max-width: 540px) {
+  .academy-coaches-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
