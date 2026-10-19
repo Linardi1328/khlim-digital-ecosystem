@@ -8,6 +8,7 @@ import { getPublicBusinessDetails } from "../../lib/business-details";
 import {
   buildUrlWithSource,
   resolveCampaignSource,
+  resolveLeadSubmissionSource,
 } from "../../lib/campaign-source";
 import {
   trackInterestFormView,
@@ -203,6 +204,10 @@ function InterestForm() {
 
     setSubmitting(true);
 
+    const submissionSource =
+      campaignSource?.trim() ||
+      resolveLeadSubmissionSource(searchParams);
+
     try {
       await apiService.createLead({
         guardianName: guardianName.trim(),
@@ -210,7 +215,7 @@ function InterestForm() {
         email: email.trim() || null,
         childAge: Number(childAge.trim()),
         programmeOfferingId: selectedOfferingId || null,
-        source: campaignSource || null,
+        source: submissionSource,
         consent: true,
         idempotencyKey,
       });

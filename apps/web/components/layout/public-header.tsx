@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "../../lib/i18n-context";
 import { useAuth } from "../../lib/auth-context";
@@ -8,17 +8,27 @@ import { BrandLogo } from "./brand-logo";
 import { LocaleSwitcher } from "./locale-switcher";
 import { Button } from "../ui/button";
 import { Sheet } from "../ui/sheet";
-import { buildUrlWithSource } from "../../lib/campaign-source";
+import {
+  buildUrlWithSource,
+  resolveCampaignSource,
+} from "../../lib/campaign-source";
 import styles from "./public-header.module.css";
 
 export function PublicHeader({
-  campaignSource = null,
+  campaignSource: initialCampaignSource = null,
 }: {
   campaignSource?: string | null;
 }) {
   const { t } = useI18n();
   const { isAuthenticated } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [campaignSource, setCampaignSource] = useState<string | null>(
+    initialCampaignSource,
+  );
+
+  useEffect(() => {
+    setCampaignSource(initialCampaignSource || resolveCampaignSource());
+  }, [initialCampaignSource]);
 
   const navLinks = [
     { href: buildUrlWithSource("/", campaignSource), label: t("nav.home") },

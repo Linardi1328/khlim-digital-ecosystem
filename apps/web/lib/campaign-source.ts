@@ -4,17 +4,50 @@
  */
 
 const CAMPAIGN_TOKEN_REGEX = /^[a-zA-Z0-9_\-]{1,64}$/;
-const SESSION_STORAGE_KEY = "khlim_campaign_source";
+export const SESSION_STORAGE_KEY = "khlim_campaign_source";
+export const UNATTRIBUTED_CAMPAIGN_SOURCE = "unattributed";
+
+/**
+ * Narrowly scoped check for phone-like numeric tokens to prevent accidental phone number
+ * leakage through campaign query parameters, while preserving legitimate campaign IDs
+ * (e.g. '3x3-oct24', 'summer2025', 'camp-123', '2026-10-24', 'promo_2025').
+ */
+export function isPhoneLikeToken(token: string): boolean {
+  const stripped = token.replace(/[\s\-_]/g, "");
+
+  // Must consist entirely of digits to be considered a phone-like numeric token
+  if (!/^\d+$/.test(stripped)) {
+    return false;
+  }
+
+  // Malaysian mobile local (01x, 10-11 digits) or country code (601x, 11-12 digits)
+  if (/^01\d{8,9}$/.test(stripped) || /^601\d{8,9}$/.test(stripped)) {
+    return true;
+  }
+
+  // General phone-like numbers without '+' (10 to 15 digits)
+  if (stripped.length >= 10 && stripped.length <= 15) {
+    return true;
+  }
+
+  return false;
+}
 
 export function sanitizeCampaignToken(
   token: string | null | undefined,
 ): string | null {
   if (!token) return null;
   const trimmed = token.trim();
-  if (CAMPAIGN_TOKEN_REGEX.test(trimmed)) {
-    return trimmed;
+  if (!CAMPAIGN_TOKEN_REGEX.test(trimmed)) {
+    return null;
   }
-  return null;
+  if (trimmed === UNATTRIBUTED_CAMPAIGN_SOURCE) {
+    return null;
+  }
+  if (isPhoneLikeToken(trimmed)) {
+    return null;
+  }
+  return trimmed;
 }
 
 export function extractCampaignCandidate(
@@ -73,6 +106,18 @@ export function resolveCampaignSource(
   return null;
 }
 
+/**
+ * Resolves the explicit campaign attribution token for lead registration submission.
+ * If a valid bounded campaign token was tracked (via query parameter or sessionStorage),
+ * it is returned; otherwise returns the explicit fallback 'unattributed' rather than null.
+ */
+export function resolveLeadSubmissionSource(
+  querySource?: string | null | { get(key: string): string | null },
+): string {
+  const resolved = resolveCampaignSource(querySource);
+  return resolved ?? UNATTRIBUTED_CAMPAIGN_SOURCE;
+}
+
 export function buildUrlWithSource(
   path: string,
   source?: string | null,
@@ -89,7 +134,11 @@ export function buildUrlWithSource(
     }
   }
 
-  if (source && !searchParams.has("source")) {
+  if (
+    source &&
+    source !== UNATTRIBUTED_CAMPAIGN_SOURCE &&
+    !searchParams.has("source")
+  ) {
     searchParams.set("source", source);
   }
 

@@ -1,12 +1,16 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "../../lib/i18n-context";
 import {
   getMissingCommerceBusinessFields,
   getPublicBusinessDetails,
 } from "../../lib/business-details";
+import {
+  buildUrlWithSource,
+  resolveCampaignSource,
+} from "../../lib/campaign-source";
 import { BrandLogo } from "./brand-logo";
 
 const footerLinkStyle: React.CSSProperties = {
@@ -14,10 +18,21 @@ const footerLinkStyle: React.CSSProperties = {
   textDecoration: "none",
 };
 
-export function PublicFooter() {
+export function PublicFooter({
+  campaignSource: initialSource = null,
+}: {
+  campaignSource?: string | null;
+} = {}) {
   const { t } = useI18n();
   const business = getPublicBusinessDetails();
   const missingBusinessFields = getMissingCommerceBusinessFields(business);
+  const [campaignSource, setCampaignSource] = useState<string | null>(
+    initialSource,
+  );
+
+  useEffect(() => {
+    setCampaignSource(initialSource || resolveCampaignSource());
+  }, [initialSource]);
 
   return (
     <footer
@@ -143,13 +158,22 @@ export function PublicFooter() {
               fontSize: "0.875rem",
             }}
           >
-            <Link href="/programmes" style={footerLinkStyle}>
+            <Link
+              href={buildUrlWithSource("/programmes", campaignSource)}
+              style={footerLinkStyle}
+            >
               {t("footer.currentOfferings")}
             </Link>
-            <Link href="/enrol" style={footerLinkStyle}>
+            <Link
+              href={buildUrlWithSource("/enrol", campaignSource)}
+              style={footerLinkStyle}
+            >
               {t("footer.academyEnrolment")}
             </Link>
-            <Link href="/academy" style={footerLinkStyle}>
+            <Link
+              href={buildUrlWithSource("/academy", campaignSource)}
+              style={footerLinkStyle}
+            >
               {t("footer.academyApproach")}
             </Link>
           </div>
@@ -174,16 +198,28 @@ export function PublicFooter() {
               fontSize: "0.875rem",
             }}
           >
-            <Link href="/academy" style={footerLinkStyle}>
+            <Link
+              href={buildUrlWithSource("/academy", campaignSource)}
+              style={footerLinkStyle}
+            >
               {t("footer.developmentApproach")}
             </Link>
-            <Link href="/programmes" style={footerLinkStyle}>
+            <Link
+              href={buildUrlWithSource("/programmes", campaignSource)}
+              style={footerLinkStyle}
+            >
               {t("footer.venuesTerms")}
             </Link>
-            <Link href="/about" style={footerLinkStyle}>
+            <Link
+              href={buildUrlWithSource("/about", campaignSource)}
+              style={footerLinkStyle}
+            >
               {t("nav.about")}
             </Link>
-            <Link href="/contact" style={footerLinkStyle}>
+            <Link
+              href={buildUrlWithSource("/contact", campaignSource)}
+              style={footerLinkStyle}
+            >
               {t("nav.contact")}
             </Link>
           </div>
