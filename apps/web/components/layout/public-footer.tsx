@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "../../lib/i18n-context";
 import {
   getMissingCommerceBusinessFields,
@@ -18,21 +19,14 @@ const footerLinkStyle: React.CSSProperties = {
   textDecoration: "none",
 };
 
-export function PublicFooter({
-  campaignSource: initialSource = null,
+function PublicFooterView({
+  campaignSource,
 }: {
-  campaignSource?: string | null;
-} = {}) {
+  campaignSource: string | null;
+}) {
   const { t } = useI18n();
   const business = getPublicBusinessDetails();
   const missingBusinessFields = getMissingCommerceBusinessFields(business);
-  const [campaignSource, setCampaignSource] = useState<string | null>(
-    initialSource,
-  );
-
-  useEffect(() => {
-    setCampaignSource(initialSource || resolveCampaignSource());
-  }, [initialSource]);
 
   return (
     <footer
@@ -279,5 +273,34 @@ export function PublicFooter({
         <div>{t("footer.description")}</div>
       </div>
     </footer>
+  );
+}
+
+function PublicFooterWithSearchParams({
+  initialSource,
+}: {
+  initialSource: string | null;
+}) {
+  const searchParams = useSearchParams();
+  const [campaignSource, setCampaignSource] = useState<string | null>(
+    initialSource,
+  );
+
+  useEffect(() => {
+    setCampaignSource(initialSource || resolveCampaignSource(searchParams));
+  }, [initialSource, searchParams]);
+
+  return <PublicFooterView campaignSource={campaignSource} />;
+}
+
+export function PublicFooter({
+  campaignSource: initialSource = null,
+}: {
+  campaignSource?: string | null;
+} = {}) {
+  return (
+    <Suspense fallback={<PublicFooterView campaignSource={initialSource} />}>
+      <PublicFooterWithSearchParams initialSource={initialSource} />
+    </Suspense>
   );
 }

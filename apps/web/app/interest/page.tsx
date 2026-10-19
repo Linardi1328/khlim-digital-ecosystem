@@ -51,14 +51,20 @@ function getStaffWhatsAppUrl(): string | null {
   return `https://wa.me/${internationalDigits}`;
 }
 
-function InterestForm() {
+function InterestForm({
+  campaignSource: propCampaignSource = null,
+}: {
+  campaignSource?: string | null;
+} = {}) {
   const { t } = useI18n();
   const searchParams = useSearchParams();
 
   // Campaign source handling with precedence: query param -> sessionStorage -> direct
   const queryOfferingId = searchParams?.get("offeringId");
 
-  const [campaignSource, setCampaignSource] = useState<string | null>(null);
+  const [campaignSource, setCampaignSource] = useState<string | null>(
+    propCampaignSource,
+  );
   const [offerings, setOfferings] = useState<PublicOfferingItem[]>([]);
   const [loadingOfferings, setLoadingOfferings] = useState(true);
   const [staleOfferingNotice, setStaleOfferingNotice] = useState(false);
@@ -96,12 +102,19 @@ function InterestForm() {
   const { hasConsent } = useAnalyticsConsent();
 
   useEffect(() => {
-    const resolved = resolveCampaignSource(searchParams);
+    const resolved =
+      propCampaignSource || resolveCampaignSource(searchParams);
     setCampaignSource(resolved);
     if (hasConsent && resolved) {
       void trackInterestFormView(resolved);
     }
-  }, [searchParams, queryOfferingId, selectedOfferingId, hasConsent]);
+  }, [
+    propCampaignSource,
+    searchParams,
+    queryOfferingId,
+    selectedOfferingId,
+    hasConsent,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -612,23 +625,37 @@ function InterestForm() {
   );
 }
 
-export default function InterestPage() {
+function InterestContent() {
+  const searchParams = useSearchParams();
+  const [campaignSource, setCampaignSource] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCampaignSource(resolveCampaignSource(searchParams));
+  }, [searchParams]);
+
   return (
     <div
       style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
     >
-      <PublicHeader />
-      <Suspense
-        fallback={
-          <main
-            aria-busy="true"
-            style={{ flex: 1, padding: 48, textAlign: "center" }}
-          />
-        }
-      >
-        <InterestForm />
-      </Suspense>
-      <PublicFooter />
+      <PublicHeader campaignSource={campaignSource} />
+      <InterestForm campaignSource={campaignSource} />
+      <PublicFooter campaignSource={campaignSource} />
     </div>
   );
 }
+
+export default function InterestPage() {
+  return (
+    <Suspense
+      fallback={
+        <main
+          aria-busy="true"
+          style={{ minHeight: "100vh", padding: 48, textAlign: "center" }}
+        />
+      }
+    >
+      <InterestContent />
+    </Suspense>
+  );
+}
+
