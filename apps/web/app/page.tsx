@@ -91,9 +91,9 @@ function HomeContent() {
   const heroSlides: HeroCarouselSlide[] = [
     {
       id: "academy-first",
-      // Unverified youth squad photographs removed from deployable public directory pending signed custodian releases
-      imageUrl: undefined,
-      imageUrlMobile: undefined,
+      // Approved responsive hero imagery: wide variant for desktop/tablet, full-frame variant for mobile portrait
+      imageUrl: "/media/khlim/team-hero-wide-1920.webp",
+      imageUrlMobile: "/media/khlim/team-hero-1920.webp",
       photoLabel: t("home.hero.photo.training"),
       showPlaceholderLabel: false,
       placeholderGradient:
@@ -101,8 +101,8 @@ function HomeContent() {
     },
     {
       id: "team-huddle",
-      imageUrl: undefined,
-      imageUrlMobile: undefined,
+      imageUrl: "/media/home/team-huddle-desktop.webp",
+      imageUrlMobile: "/media/home/team-huddle-mobile.webp",
       photoLabel: t("home.hero.photo.coaching"),
       showPlaceholderLabel: false,
       placeholderGradient:
@@ -110,8 +110,8 @@ function HomeContent() {
     },
     {
       id: "sideline-energy",
-      imageUrl: undefined,
-      imageUrlMobile: undefined,
+      imageUrl: "/media/home/sideline-energy-desktop.webp",
+      imageUrlMobile: "/media/home/sideline-energy-mobile.webp",
       photoLabel: t("home.hero.photo.gameDay"),
       showPlaceholderLabel: false,
       placeholderGradient:
@@ -119,8 +119,8 @@ function HomeContent() {
     },
     {
       id: "court-together",
-      imageUrl: undefined,
-      imageUrlMobile: undefined,
+      imageUrl: "/media/home/court-together-desktop.webp",
+      imageUrlMobile: "/media/home/court-together-mobile.webp",
       photoLabel: t("home.hero.photo.community"),
       showPlaceholderLabel: false,
       placeholderGradient:

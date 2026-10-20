@@ -16,6 +16,9 @@ const en = {
     "Verified championship honours, podium finishes, and representative tournament milestones achieved by KHLIM squads.",
   "spotlight.achievements.featured": "Championship Honours",
   "spotlight.achievements.archive": "Tournament Archive",
+  "spotlight.achievements.gallery": "Club Event & Matchday Gallery",
+  "spotlight.achievements.galleryDesc":
+    "Moments from training sessions, sideline celebrations, team huddles, and official squad portraits captured across KHLIM competitive seasons.",
   "spotlight.achievements.milestones":
     "Player Highlights & Representative Milestones",
   "spotlight.achievements.milestonesDesc":
@@ -71,6 +74,9 @@ const ms: Catalogue = {
     "Kejuaraan yang disahkan, kedudukan podium, dan pencapaian perlawanan wakil yang dicapai oleh skuad KHLIM.",
   "spotlight.achievements.featured": "Penghormatan Kejuaraan",
   "spotlight.achievements.archive": "Arkib Kejohanan",
+  "spotlight.achievements.gallery": "Galeri Perlawanan & Acara Kelab",
+  "spotlight.achievements.galleryDesc":
+    "Detik-detik daripada sesi latihan, keraian di luar gelanggang, perbincangan pasukan dan potret rasmi skuad sepanjang musim pertandingan KHLIM.",
   "spotlight.achievements.milestones": "Sorotan Pemain & Pencapaian Wakil",
   "spotlight.achievements.milestonesDesc":
     "Mengiktiraf atlet-pelajar KHLIM yang dipilih mewakili kejohanan negeri dan kebangsaan dengan penghormatan pencapaian yang disahkan tanpa maklumat peribadi.",
@@ -123,6 +129,9 @@ const zhHans: Catalogue = {
     "KHLIM 球队获得的经核实冠军殊荣、领奖台成绩和代表性赛事里程碑。",
   "spotlight.achievements.featured": "冠军殊荣",
   "spotlight.achievements.archive": "赛事档案",
+  "spotlight.achievements.gallery": "俱乐部赛事与活动图集",
+  "spotlight.achievements.galleryDesc":
+    "记录 KHLIM 各赛季训练、场边庆祝、战术沟通与官方全队合影的精彩瞬间。",
   "spotlight.achievements.milestones": "球员亮点与代表性里程碑",
   "spotlight.achievements.milestonesDesc":
     "表彰入选州级和全国赛事的 KHLIM 学生运动员，展示经核实的非个人代表性里程碑。",
@@ -171,6 +180,9 @@ const zhHant: Catalogue = {
     "KHLIM 球隊獲得的經核實冠軍殊榮、領獎台成績和代表性賽事里程碑。",
   "spotlight.achievements.featured": "冠軍殊榮",
   "spotlight.achievements.archive": "賽事檔案",
+  "spotlight.achievements.gallery": "俱樂部賽事與活動圖集",
+  "spotlight.achievements.galleryDesc":
+    "記錄 KHLIM 各賽季訓練、場邊慶祝、戰術溝通與官方全隊合影的精彩瞬間。",
   "spotlight.achievements.milestones": "球員亮點與代表性里程碑",
   "spotlight.achievements.milestonesDesc":
     "表彰入選州級和全國賽事的 KHLIM 學生運動員，展示經核實的非個人代表性里程碑。",
@@ -219,6 +231,9 @@ const hi: Catalogue = {
     "KHLIM टीमों द्वारा प्राप्त सत्यापित चैंपियनशिप सम्मान, पोडियम परिणाम और प्रतिनिधि टूर्नामेंट उपलब्धियाँ।",
   "spotlight.achievements.featured": "चैंपियनशिप सम्मान",
   "spotlight.achievements.archive": "टूर्नामेंट संग्रह",
+  "spotlight.achievements.gallery": "क्लब इवेंट और मैचडे गैलरी",
+  "spotlight.achievements.galleryDesc":
+    "प्रशिक्षण सत्रों, साइडलाइन उत्सवों, टीम हडल्स और आधिकारिक टीम पोर्ट्रेट के क्षण।",
   "spotlight.achievements.milestones":
     "खिलाड़ी मुख्य बातें और प्रतिनिधि मील के पत्थर",
   "spotlight.achievements.milestonesDesc":

@@ -14,6 +14,7 @@ import {
   resolveCampaignSource,
 } from "../../lib/campaign-source";
 import {
+  clubEventGallery,
   publishedPlayerSpotlights,
   type AchievementStory,
   type PlayerSpotlightArticle,
@@ -441,6 +442,35 @@ function SpotlightArchiveContent() {
                   </div>
                 </div>
               )}
+
+              {/* Subsection 3: Club Event & Matchday Gallery */}
+              <div className="spotlight-subsection">
+                <div className="spotlight-subsection-header">
+                  <h3>{t("spotlight.achievements.gallery")}</h3>
+                  <p>{t("spotlight.achievements.galleryDesc")}</p>
+                </div>
+                <div className="spotlight-club-gallery-grid">
+                  {clubEventGallery.map((item) => (
+                    <figure key={item.id} className="spotlight-gallery-card">
+                      <div
+                        className="spotlight-gallery-image-wrapper"
+                        style={{
+                          backgroundImage: `linear-gradient(180deg, rgba(9, 9, 11, 0.04), rgba(9, 9, 11, 0.72)), url("${item.imageUrl}")`,
+                        }}
+                        role="img"
+                        aria-label={item.photoLabel}
+                      />
+                      <figcaption className="spotlight-gallery-caption">
+                        <h4>{item.title}</h4>
+                        <p>{item.description}</p>
+                        <span className="spotlight-gallery-file-ref">
+                          {item.notes}
+                        </span>
+                      </figcaption>
+                    </figure>
+                  ))}
+                </div>
+              </div>
             </>
           )}
         </section>
