@@ -1,13 +1,16 @@
 "use client";
 
-import React, { Suspense, useEffect, useId, useRef, useState } from "react";
+import React, { Suspense, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { apiService, ApiError } from "../../lib/api-service";
 import { getPublicBusinessDetails } from "../../lib/business-details";
 import {
   buildUrlWithSource,
+  getQueryCampaignSource,
   resolveCampaignSource,
+  resolveLeadSubmissionSource,
+  sanitizeCampaignToken,
 } from "../../lib/campaign-source";
 import {
   trackInterestFormView,
@@ -50,14 +53,37 @@ function getStaffWhatsAppUrl(): string | null {
   return `https://wa.me/${internationalDigits}`;
 }
 
-function InterestForm() {
+function InterestForm({
+  campaignSource: propCampaignSource = null,
+}: {
+  campaignSource?: string | null;
+} = {}) {
   const { t } = useI18n();
   const searchParams = useSearchParams();
-
+  const { hasConsent } = useAnalyticsConsent();
   // Campaign source handling with precedence: query param -> sessionStorage -> direct
   const queryOfferingId = searchParams?.get("offeringId");
 
-  const [campaignSource, setCampaignSource] = useState<string | null>(null);
+  const queryCampaign = useMemo(
+    () => getQueryCampaignSource(searchParams),
+    [searchParams],
+  );
+  const [storedCampaign, setStoredCampaign] = useState<string | null>(null);
+
+  useEffect(() => {
+    const resolved =
+      propCampaignSource || resolveCampaignSource(searchParams);
+    setStoredCampaign(resolved);
+    if (hasConsent && resolved) {
+      void trackInterestFormView(resolved);
+    }
+  }, [propCampaignSource, searchParams, hasConsent]);
+
+  const campaignSource =
+    sanitizeCampaignToken(propCampaignSource) ??
+    queryCampaign ??
+    storedCampaign;
+
   const [offerings, setOfferings] = useState<PublicOfferingItem[]>([]);
   const [loadingOfferings, setLoadingOfferings] = useState(true);
   const [staleOfferingNotice, setStaleOfferingNotice] = useState(false);
@@ -92,15 +118,6 @@ function InterestForm() {
   const ageRef = useRef<HTMLInputElement>(null);
   const offeringSelectId = useId();
 
-  const { hasConsent } = useAnalyticsConsent();
-
-  useEffect(() => {
-    const resolved = resolveCampaignSource(searchParams);
-    setCampaignSource(resolved);
-    if (hasConsent && resolved) {
-      void trackInterestFormView(resolved);
-    }
-  }, [searchParams, queryOfferingId, selectedOfferingId, hasConsent]);
 
   useEffect(() => {
     let cancelled = false;
@@ -203,6 +220,10 @@ function InterestForm() {
 
     setSubmitting(true);
 
+    const submissionSource =
+      sanitizeCampaignToken(campaignSource) ||
+      resolveLeadSubmissionSource(searchParams);
+
     try {
       await apiService.createLead({
         guardianName: guardianName.trim(),
@@ -210,7 +231,7 @@ function InterestForm() {
         email: email.trim() || null,
         childAge: Number(childAge.trim()),
         programmeOfferingId: selectedOfferingId || null,
-        source: campaignSource || null,
+        source: submissionSource,
         consent: true,
         idempotencyKey,
       });
@@ -607,23 +628,60 @@ function InterestForm() {
   );
 }
 
-export default function InterestPage() {
+function InterestContent() {
+  const searchParams = useSearchParams();
+  const queryCampaign = useMemo(
+    () => getQueryCampaignSource(searchParams),
+    [searchParams],
+  );
+  const [storedCampaign, setStoredCampaign] = useState<string | null>(null);
+
+  useEffect(() => {
+    setStoredCampaign(resolveCampaignSource(searchParams));
+  }, [searchParams]);
+
+  const campaignSource = queryCampaign ?? storedCampaign;
+
   return (
     <div
       style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
     >
+      <PublicHeader campaignSource={campaignSource} />
+      <InterestForm campaignSource={campaignSource} />
+      <PublicFooter campaignSource={campaignSource} />
+    </div>
+  );
+}
+
+function InterestLoadingShell() {
+  const { t } = useI18n();
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
       <PublicHeader />
-      <Suspense
-        fallback={
-          <main
-            aria-busy="true"
-            style={{ flex: 1, padding: 48, textAlign: "center" }}
-          />
-        }
+      <main
+        aria-busy="true"
+        aria-live="polite"
+        style={{ flex: 1, padding: 48, textAlign: "center" }}
       >
-        <InterestForm />
-      </Suspense>
+        <span className="sr-only">{t("interest.loading")}</span>
+      </main>
       <PublicFooter />
     </div>
   );
 }
+
+export default function InterestPage() {
+  return (
+    <Suspense fallback={<InterestLoadingShell />}>
+      <InterestContent />
+    </Suspense>
+  );
+}
+
