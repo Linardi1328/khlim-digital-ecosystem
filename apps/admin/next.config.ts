@@ -6,7 +6,7 @@ function allowedConnectSources(): string[] {
   const sources = new Set(["'self'"]);
 
   for (const candidate of [
-    process.env.NEXT_PUBLIC_API_BASE_URL,
+    process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001",
     process.env.NEXT_PUBLIC_SUPABASE_URL,
   ]) {
     if (!candidate) continue;

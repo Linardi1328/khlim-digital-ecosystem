@@ -43,12 +43,12 @@ export default function TermsPage() {
     {
       title: "5. Cancellations and refunds",
       paragraphs: [
-        <>
+        <React.Fragment key="terms-en-refund-policy-link">
           The <Link href="/refunds">Refund Policy</Link> forms part of these
           terms. Nothing in these terms is intended to exclude, restrict or
           modify a consumer guarantee, remedy or other right that cannot
           lawfully be excluded under Malaysian law.
-        </>,
+        </React.Fragment>,
       ],
     },
     {
@@ -73,13 +73,13 @@ export default function TermsPage() {
     {
       title: "9. Privacy",
       paragraphs: [
-        <>
+        <React.Fragment key="terms-en-privacy-policy-link">
           Personal data is handled under the{" "}
           <Link href="/privacy">Privacy Policy</Link>. Optional marketing or
           media/publicity consent must be kept separate from consent needed for
           core enrolment where the optional use is not necessary to provide the
           service.
-        </>,
+        </React.Fragment>,
       ],
     },
     {
@@ -127,13 +127,13 @@ export default function TermsPage() {
     {
       title: "5. Pembatalan dan bayaran balik",
       paragraphs: [
-        <>
+        <React.Fragment key="terms-ms-refund-policy-link">
           <Link href="/refunds">Dasar Bayaran Balik</Link> menjadi sebahagian
           daripada terma ini. Tiada apa-apa dalam terma ini bertujuan
           mengecualikan, menyekat atau mengubah jaminan, remedi atau hak
           pengguna yang tidak boleh dikecualikan secara sah di bawah
           undang-undang Malaysia.
-        </>,
+        </React.Fragment>,
       ],
     },
     {
@@ -158,13 +158,13 @@ export default function TermsPage() {
     {
       title: "9. Privasi",
       paragraphs: [
-        <>
+        <React.Fragment key="terms-ms-privacy-policy-link">
           Data peribadi dikendalikan di bawah{" "}
           <Link href="/privacy">Dasar Privasi</Link>. Persetujuan pemasaran atau
           media/publisiti pilihan hendaklah diasingkan daripada persetujuan yang
           diperlukan untuk pendaftaran teras jika penggunaan pilihan itu tidak
           diperlukan untuk menyediakan perkhidmatan.
-        </>,
+        </React.Fragment>,
       ],
     },
     {
@@ -181,15 +181,100 @@ export default function TermsPage() {
     },
   ];
 
+  const chineseSections: LegalSection[] = [
+    {
+      title: "1. 运营方与协议 (Operator and agreement)",
+      paragraphs: [
+        `本条款适用于由 ${business.legalName}（“KHLIM”）提供的学院网站、会员门户、课程报名及会员服务。创建账户或完成报名即表示您同意本条款以及在付款前明确显示的任何特定计划信息。`,
+        "若您为 18 岁以下人士报名，您确认自己是其父母、法定监护人或其他具有监护责任的人员，并有权进行报名并提供所需的个人数据同意。",
+      ],
+    },
+    {
+      title:
+        "2. 课程项目、价格与服务信息 (Programme, price and service information)",
+      paragraphs: [
+        "在结账前，KHLIM 将展示所选学员、课程/项目、地点（若适用）、会员计划、价格、货币、账单结算周期以及平台支持的任何承诺期限。税费或其他强制性费用（如适用）必须在付款前包含在内或明确披露。",
+        "课程描述、年龄段、容量和时间表受合理的运营调整约束。若重大调整导致 KHLIM 无法提供已付费服务，将根据《退款政策》和适用的马来西亚消费者权益法律处理。",
+      ],
+    },
+    {
+      title: "3. 账户与准确信息 (Accounts and accurate information)",
+      paragraphs: [
+        "您必须提供足够准确的信息，以便进行账户管理、参与者身份识别、资格核实与安全保障。请勿仅为规避监护人控制而创建儿童账户。请对登录凭证予以保密，并在合理怀疑账户遭到未授权访问时及时通知 KHLIM。",
+      ],
+    },
+    {
+      title: "4. 付款与周期性扣费 (Payments and recurring billing)",
+      paragraphs: [
+        "付款可由 Billplz 或结账时指明的其他支付服务商处理。KHLIM 绝不会要求您在 KHLIM 表单中输入原始卡号或 CVV 校验码。只有在 KHLIM 收到后端/支付服务商核实的付款成功状态后，付款才被视为成功。",
+        "若计划按周期性分期付款计费，必须在结账前显示扣款金额、扣费频率和承诺期限，且您必须单独授权周期性扣费。在适用的消费者权利和《退款政策》的前提下，取消支付方式本身并不会免除根据约定计划已有效到期的应付金额。",
+      ],
+    },
+    {
+      title: "5. 取消与退款 (Cancellations and refunds)",
+      paragraphs: [
+        <React.Fragment key="terms-zh-refund-policy-link">
+          <Link href="/refunds">退款政策 (Refund Policy)</Link>{" "}
+          构成本条款的一部分。本条款中的任何内容均无意排除、限制或修改根据马来西亚法律无法依法排除的消费者法定保证、救济或其他权利。
+        </React.Fragment>,
+      ],
+    },
+    {
+      title: "6. 出勤、行为规范与安全 (Attendance, conduct and safety)",
+      paragraphs: [
+        "参与者必须遵守场地、教练和安全方面的合理指示，并尊重其他参与者、工作人员和公共财产。出于安全需要、严重不当行为或逾期未缴费的合理必要情况，KHLIM 可暂停其参与资格，但不会利用本条款剥夺不可排除的法定权利。",
+        "篮球和体育训练包含常规体育运动风险。KHLIM 不作任何医疗、伤病预防或保证成绩的声明。父母/监护人有责任确定参与者是否适合参加训练，并按 KHLIM 明确要求的渠道提供安全相关信息。",
+      ],
+    },
+    {
+      title:
+        "7. 网站内容与知识产权 (Website content and intellectual property)",
+      paragraphs: [
+        "KHLIM 拥有的品牌标识、原创文字、图表及其他材料受适用的知识产权法保护。第三方材料仍受其所有者权利的约束。您可将本网站用于正常访问 KHLIM 服务的个人用途，但未经许可或无其他合法依据，不得复制、再发布或商业性利用受保护的材料。",
+      ],
+    },
+    {
+      title: "8. 服务可用性与变更 (Availability and changes)",
+      paragraphs: [
+        "KHLIM 可能会维护、保护、更新或暂时中断网站服务。我们不会故意对付费服务做出重大更改而不妥善解决对受影响客户的影响。政策或条款更新将标明新的生效日期；在适当时，重大变更可能需要新的通知或用户重新确认。",
+      ],
+    },
+    {
+      title: "9. 隐私 (Privacy)",
+      paragraphs: [
+        <React.Fragment key="terms-zh-privacy-policy-link">
+          个人数据根据 <Link href="/privacy">隐私政策 (Privacy Policy)</Link>{" "}
+          进行处理。如果可选用途对于提供核心服务并非必需，则可选的市场营销或媒体/宣传同意必须与核心报名所需的同意分开处理。
+        </React.Fragment>,
+      ],
+    },
+    {
+      title:
+        "10. 责任限制与马来西亚消费者权利 (Liability and Malaysian consumer rights)",
+      paragraphs: [
+        "在法律允许的最大范围内，各方对其自身的违约、疏忽或违法行为造成的损失承担责任。KHLIM 不排除马来西亚法律不允许排除的责任或救济。因此，本条款中的任何限制均必须受强制性消费者保护法及其他适用法律的约束。",
+      ],
+    },
+    {
+      title: "11. 管辖法律与联系方式 (Governing law and contact)",
+      paragraphs: [
+        `本条款受马来西亚法律管辖。有关本条款的问题可发送至 ${contact} 或通过 KHLIM 联系页面提交。此处的任何规定均不妨碍消费者利用适用法律下可用的任何投诉渠道、仲裁庭或法庭途径。`,
+      ],
+    },
+  ];
+
   return (
     <LegalDocument
       title="Academy Terms and Conditions"
       malayTitle="Terma dan Syarat Akademi"
+      chineseTitle="学院条款与条件"
       effectiveDate={EFFECTIVE_DATE}
       englishIntro="Please read these terms before creating an account, enrolling an athlete or paying for an academy plan. Plan-specific commercial terms shown before checkout form part of the agreement and must not contradict non-excludable Malaysian consumer rights."
       malayIntro="Sila baca terma ini sebelum mewujudkan akaun, mendaftarkan atlet atau membuat pembayaran bagi pelan akademi. Terma komersial khusus pelan yang dipaparkan sebelum pembayaran menjadi sebahagian daripada perjanjian dan tidak boleh bercanggah dengan hak pengguna Malaysia yang tidak boleh dikecualikan."
+      chineseIntro="在创建账户、为学员报名或为学院计划付款之前，请仔细阅读本条款。结账前显示的特定计划商业条款构成本协议的一部分，且不得与不可排除的马来西亚消费者法定权利相抵触。"
       englishSections={englishSections}
       malaySections={malaySections}
+      chineseSections={chineseSections}
     />
   );
 }

@@ -1,15 +1,42 @@
 const en = {
-  "spotlight.archive.badge": "Player Spotlight",
-  "spotlight.archive.title": "Stories from the next milestone.",
+  "spotlight.archive.badge": "KHLIM Spotlight",
+  "spotlight.archive.title": "KHLIM Spotlight",
   "spotlight.archive.description":
-    "KHLIM Player Spotlight turns verified player achievements into concise club news stories, using AI-assisted drafting with staff review before publication.",
+    "The official editorial archive of KHLIM Basketball Club: celebrating verified team championships, podium finishes, and individual development milestones.",
   "spotlight.archive.previewTitle": "Editorial preview only.",
   "spotlight.archive.previewBody":
     "No verified player spotlight has been published yet. The sample below demonstrates the article format without claiming a real result.",
   "spotlight.archive.photoSlot": "Photo slot: {label}",
   "spotlight.archive.previewStory": "Preview story →",
   "spotlight.archive.readStory": "Read story →",
-  "spotlight.article.back": "← Back to Player Spotlight",
+  "spotlight.nav.jumpAchievements": "Team Achievements",
+  "spotlight.nav.jumpPlayers": "Player Spotlights",
+  "spotlight.achievements.title": "Team Achievements",
+  "spotlight.achievements.description":
+    "Verified championship honours, podium finishes, and representative tournament milestones achieved by KHLIM squads.",
+  "spotlight.achievements.featured": "Championship Honours",
+  "spotlight.achievements.archive": "Tournament Archive",
+  "spotlight.achievements.milestones":
+    "Player Highlights & Representative Milestones",
+  "spotlight.achievements.milestonesDesc":
+    "Recognising KHLIM student-athletes selected for state and national tournament representation with verified, non-personal milestone honours.",
+  "spotlight.achievements.emptyTitle": "Editorial Review in Progress",
+  "spotlight.achievements.emptyBody":
+    "Championship records and tournament photographs are currently undergoing editorial and media-rights certification. Published honours will appear here once approved.",
+  "spotlight.achievements.errorTitle":
+    "Editorial Archive Currently Unavailable",
+  "spotlight.achievements.errorBody":
+    "Unable to connect to the verified editorial archive service. Please check your network connection or try again shortly.",
+  "spotlight.players.title": "Player Spotlights",
+  "spotlight.players.description":
+    "Verified individual player stories, game milestones, and development journeys.",
+  "spotlight.players.emptyTitle": "Individual Stories Pending Release",
+  "spotlight.players.emptyBody":
+    "Individual player profiles require verified source facts, coach review, and documented guardian consent before publication. Explore our verified team achievements and representative milestones above.",
+  "spotlight.players.errorTitle": "Spotlight Service Currently Unavailable",
+  "spotlight.players.errorBody":
+    "Unable to retrieve published player stories at this time. Please check back shortly.",
+  "spotlight.article.back": "← Back to Spotlight",
   "spotlight.article.previewTitle":
     "Editorial preview — not a real player result.",
   "spotlight.article.previewBody":
@@ -27,17 +54,44 @@ type Key = keyof typeof en;
 type Catalogue = Record<Key, string>;
 
 const ms: Catalogue = {
-  "spotlight.archive.badge": "Sorotan Pemain",
-  "spotlight.archive.title": "Kisah daripada pencapaian seterusnya.",
+  "spotlight.archive.badge": "Sorotan KHLIM",
+  "spotlight.archive.title": "Sorotan KHLIM",
   "spotlight.archive.description":
-    "Sorotan Pemain KHLIM menukar pencapaian pemain yang disahkan kepada berita kelab yang ringkas, menggunakan draf dibantu AI dengan semakan kakitangan sebelum penerbitan.",
+    "Arkib editorial rasmi Kelab Bola Keranjang KHLIM: meraikan kejuaraan pasukan yang disahkan, kedudukan podium, dan pencapaian pembangunan individu.",
   "spotlight.archive.previewTitle": "Pratonton editorial sahaja.",
   "spotlight.archive.previewBody":
     "Belum ada sorotan pemain yang disahkan diterbitkan. Contoh di bawah menunjukkan format artikel tanpa mendakwa keputusan sebenar.",
   "spotlight.archive.photoSlot": "Ruang foto: {label}",
   "spotlight.archive.previewStory": "Pratonton cerita →",
   "spotlight.archive.readStory": "Baca cerita →",
-  "spotlight.article.back": "← Kembali ke Sorotan Pemain",
+  "spotlight.nav.jumpAchievements": "Pencapaian Pasukan",
+  "spotlight.nav.jumpPlayers": "Sorotan Pemain",
+  "spotlight.achievements.title": "Pencapaian Pasukan",
+  "spotlight.achievements.description":
+    "Kejuaraan yang disahkan, kedudukan podium, dan pencapaian perlawanan wakil yang dicapai oleh skuad KHLIM.",
+  "spotlight.achievements.featured": "Penghormatan Kejuaraan",
+  "spotlight.achievements.archive": "Arkib Kejohanan",
+  "spotlight.achievements.milestones": "Sorotan Pemain & Pencapaian Wakil",
+  "spotlight.achievements.milestonesDesc":
+    "Mengiktiraf atlet-pelajar KHLIM yang dipilih mewakili kejohanan negeri dan kebangsaan dengan penghormatan pencapaian yang disahkan tanpa maklumat peribadi.",
+  "spotlight.achievements.emptyTitle": "Semakan Editorial Sedang Dijalankan",
+  "spotlight.achievements.emptyBody":
+    "Rekod kejuaraan dan foto kejohanan sedang menjalani pensijilan hak media dan editorial. Penghormatan yang diterbitkan akan dipaparkan di sini setelah diluluskan.",
+  "spotlight.achievements.errorTitle":
+    "Arkib Editorial Tidak Tersedia Buat Masa Ini",
+  "spotlight.achievements.errorBody":
+    "Tidak dapat menyambung ke perkhidmatan arkib editorial yang disahkan. Sila semak sambungan rangkaian anda atau cuba sebentar lagi.",
+  "spotlight.players.title": "Sorotan Pemain",
+  "spotlight.players.description":
+    "Kisah individu pemain yang disahkan, pencapaian perlawanan, dan perjalanan pembangunan.",
+  "spotlight.players.emptyTitle": "Kisah Individu Menunggu Kebenaran",
+  "spotlight.players.emptyBody":
+    "Profil individu pemain memerlukan fakta sumber yang disahkan, semakan jurulatih, dan persetujuan penjaga yang didokumenkan sebelum penerbitan. Ikuti pencapaian pasukan dan pencapaian wakil kami yang disahkan di atas.",
+  "spotlight.players.errorTitle":
+    "Perkhidmatan Sorotan Tidak Tersedia Buat Masa Ini",
+  "spotlight.players.errorBody":
+    "Tidak dapat memuat turun kisah pemain yang diterbitkan pada masa ini. Sila semak semula sebentar lagi.",
+  "spotlight.article.back": "← Kembali ke Sorotan KHLIM",
   "spotlight.article.previewTitle":
     "Pratonton editorial — bukan keputusan pemain sebenar.",
   "spotlight.article.previewBody":
@@ -52,17 +106,41 @@ const ms: Catalogue = {
 };
 
 const zhHans: Catalogue = {
-  "spotlight.archive.badge": "球员聚焦",
-  "spotlight.archive.title": "记录下一个里程碑的故事。",
+  "spotlight.archive.badge": "KHLIM 聚焦",
+  "spotlight.archive.title": "KHLIM 聚焦",
   "spotlight.archive.description":
-    "KHLIM 球员聚焦将经核实的球员成就整理成简洁的俱乐部新闻，AI 辅助起草后由工作人员审核再发布。",
+    "KHLIM 篮球俱乐部官方编辑档案：展示经核实的球队锦标、领奖台荣誉及个人成长里程碑。",
   "spotlight.archive.previewTitle": "仅为编辑预览。",
   "spotlight.archive.previewBody":
     "目前尚未发布经核实的球员聚焦。以下示例只展示文章格式，不代表真实成绩。",
   "spotlight.archive.photoSlot": "照片位置：{label}",
   "spotlight.archive.previewStory": "预览故事 →",
   "spotlight.archive.readStory": "阅读故事 →",
-  "spotlight.article.back": "← 返回球员聚焦",
+  "spotlight.nav.jumpAchievements": "球队战绩",
+  "spotlight.nav.jumpPlayers": "球员聚焦",
+  "spotlight.achievements.title": "球队战绩",
+  "spotlight.achievements.description":
+    "KHLIM 球队获得的经核实冠军殊荣、领奖台成绩和代表性赛事里程碑。",
+  "spotlight.achievements.featured": "冠军殊荣",
+  "spotlight.achievements.archive": "赛事档案",
+  "spotlight.achievements.milestones": "球员亮点与代表性里程碑",
+  "spotlight.achievements.milestonesDesc":
+    "表彰入选州级和全国赛事的 KHLIM 学生运动员，展示经核实的非个人代表性里程碑。",
+  "spotlight.achievements.emptyTitle": "编辑审核中",
+  "spotlight.achievements.emptyBody":
+    "各项赛事的战绩与照片正在进行编辑与媒体权利审核，审核通过后将在此正式发布。",
+  "spotlight.achievements.errorTitle": "编辑档案服务暂时不可用",
+  "spotlight.achievements.errorBody":
+    "暂时无法连接至经核实的编辑档案服务。请检查您的网络连接或稍后再试。",
+  "spotlight.players.title": "球员聚焦",
+  "spotlight.players.description":
+    "经核实的个人球员故事、比赛里程碑及成长历程。",
+  "spotlight.players.emptyTitle": "个人故事待审核发布",
+  "spotlight.players.emptyBody":
+    "个人球员特写需在事实核实、教练审核及取得家长/监护人书面同意后方可发布。敬请关注上方经核实的球队战绩与代表性里程碑。",
+  "spotlight.players.errorTitle": "球员聚焦服务暂时不可用",
+  "spotlight.players.errorBody": "暂时无法获取已发布的球员故事。请稍后再试。",
+  "spotlight.article.back": "← 返回 KHLIM 聚焦",
   "spotlight.article.previewTitle": "编辑预览 — 并非真实球员成绩。",
   "spotlight.article.previewBody":
     "这篇 AI 辅助文章展示预期的语气和版式。发布真实 KHLIM 故事前，请替换占位球员/赛事事实并使用已获批准的照片。",
@@ -76,17 +154,41 @@ const zhHans: Catalogue = {
 };
 
 const zhHant: Catalogue = {
-  "spotlight.archive.badge": "球員聚焦",
-  "spotlight.archive.title": "記錄下一個里程碑的故事。",
+  "spotlight.archive.badge": "KHLIM 聚焦",
+  "spotlight.archive.title": "KHLIM 聚焦",
   "spotlight.archive.description":
-    "KHLIM 球員聚焦將經核實的球員成就整理成簡潔的俱樂部新聞，AI 輔助起草後由工作人員審核再發布。",
+    "KHLIM 籃球俱樂部官方編輯檔案：展示經核實的球隊錦標、領獎台榮譽及個人成長里程碑。",
   "spotlight.archive.previewTitle": "僅為編輯預覽。",
   "spotlight.archive.previewBody":
     "目前尚未發布經核實的球員聚焦。以下示例只展示文章格式，不代表真實成績。",
   "spotlight.archive.photoSlot": "照片位置：{label}",
   "spotlight.archive.previewStory": "預覽故事 →",
   "spotlight.archive.readStory": "閱讀故事 →",
-  "spotlight.article.back": "← 返回球員聚焦",
+  "spotlight.nav.jumpAchievements": "球隊戰績",
+  "spotlight.nav.jumpPlayers": "球員聚焦",
+  "spotlight.achievements.title": "球隊戰績",
+  "spotlight.achievements.description":
+    "KHLIM 球隊獲得的經核實冠軍殊榮、領獎台成績和代表性賽事里程碑。",
+  "spotlight.achievements.featured": "冠軍殊榮",
+  "spotlight.achievements.archive": "賽事檔案",
+  "spotlight.achievements.milestones": "球員亮點與代表性里程碑",
+  "spotlight.achievements.milestonesDesc":
+    "表彰入選州級和全國賽事的 KHLIM 學生運動員，展示經核實的非個人代表性里程碑。",
+  "spotlight.achievements.emptyTitle": "編輯審核中",
+  "spotlight.achievements.emptyBody":
+    "各項賽事的戰績與照片正在進行編輯與媒體權利審核，審核通過後將在此正式發布。",
+  "spotlight.achievements.errorTitle": "編輯檔案服務暫時不可用",
+  "spotlight.achievements.errorBody":
+    "暫時無法連接至經核實的編輯檔案服務。請檢查您的網絡連接或稍後再試。",
+  "spotlight.players.title": "球員聚焦",
+  "spotlight.players.description":
+    "經核實的個人球員故事、比賽里程碑及成長歷程。",
+  "spotlight.players.emptyTitle": "個人故事待審核發布",
+  "spotlight.players.emptyBody":
+    "個人球員特寫需在事實核實、教練審核及取得家長/監護人書面同意後方可發布。敬請關注上方經核實的球隊戰績與代表性里程碑。",
+  "spotlight.players.errorTitle": "球員聚焦服務暫時不可用",
+  "spotlight.players.errorBody": "暫時無法獲取已發布的球員故事。請稍後再試。",
+  "spotlight.article.back": "← 返回 KHLIM 聚焦",
   "spotlight.article.previewTitle": "編輯預覽 — 並非真實球員成績。",
   "spotlight.article.previewBody":
     "這篇 AI 輔助文章展示預期的語氣和版式。發布真實 KHLIM 故事前，請替換佔位球員/賽事事實並使用已獲批准的照片。",
@@ -100,17 +202,44 @@ const zhHant: Catalogue = {
 };
 
 const hi: Catalogue = {
-  "spotlight.archive.badge": "प्लेयर स्पॉटलाइट",
-  "spotlight.archive.title": "अगली उपलब्धि की कहानियाँ।",
+  "spotlight.archive.badge": "KHLIM स्पॉटलाइट",
+  "spotlight.archive.title": "KHLIM स्पॉटलाइट",
   "spotlight.archive.description":
-    "KHLIM प्लेयर स्पॉटलाइट सत्यापित खिलाड़ी उपलब्धियों को संक्षिप्त क्लब समाचार में बदलता है, जिसमें प्रकाशन से पहले स्टाफ समीक्षा के साथ AI-सहायित ड्राफ्टिंग होती है।",
+    "KHLIM बास्केटबॉल क्लब का आधिकारिक संपादकीय संग्रह: सत्यापित टीम चैंपियनशिप, पोडियम परिणाम और व्यक्तिगत मील के पत्थरों का उत्सव।",
   "spotlight.archive.previewTitle": "केवल संपादकीय प्रीव्यू।",
   "spotlight.archive.previewBody":
     "अभी कोई सत्यापित खिलाड़ी स्पॉटलाइट प्रकाशित नहीं हुआ है। नीचे का नमूना किसी वास्तविक परिणाम का दावा किए बिना लेख प्रारूप दिखाता है।",
   "spotlight.archive.photoSlot": "फ़ोटो स्थान: {label}",
   "spotlight.archive.previewStory": "कहानी का प्रीव्यू →",
   "spotlight.archive.readStory": "कहानी पढ़ें →",
-  "spotlight.article.back": "← प्लेयर स्पॉटलाइट पर वापस",
+  "spotlight.nav.jumpAchievements": "टीम उपलब्धियाँ",
+  "spotlight.nav.jumpPlayers": "प्लेयर स्पॉटलाइट",
+  "spotlight.achievements.title": "टीम उपलब्धियाँ",
+  "spotlight.achievements.description":
+    "KHLIM टीमों द्वारा प्राप्त सत्यापित चैंपियनशिप सम्मान, पोडियम परिणाम और प्रतिनिधि टूर्नामेंट उपलब्धियाँ।",
+  "spotlight.achievements.featured": "चैंपियनशिप सम्मान",
+  "spotlight.achievements.archive": "टूर्नामेंट संग्रह",
+  "spotlight.achievements.milestones":
+    "खिलाड़ी मुख्य बातें और प्रतिनिधि मील के पत्थर",
+  "spotlight.achievements.milestonesDesc":
+    "राज्य और राष्ट्रीय टूर्नामेंट प्रतिनिधित्व के लिए चुने गए KHLIM छात्र-एथलीटों को सत्यापित, गैर-व्यक्तिगत उपलब्धियों के साथ पहचानना।",
+  "spotlight.achievements.emptyTitle": "संपादकीय समीक्षा प्रगति पर है",
+  "spotlight.achievements.emptyBody":
+    "चैंपियनशिप रिकॉर्ड और टूर्नामेंट तस्वीरों का संपादकीय और मीडिया-अधिकार सत्यापन चल रहा है। स्वीकृत होने पर प्रकाशित सम्मान यहाँ दिखाई देंगे।",
+  "spotlight.achievements.errorTitle":
+    "संपादकीय संग्रह सेवा वर्तमान में अनुपलब्ध है",
+  "spotlight.achievements.errorBody":
+    "सत्यापित संपादकीय संग्रह सेवा से कनेक्ट करने में असमर्थ। कृपया अपना नेटवर्क कनेक्शन जांचें या थोड़ी देर बाद पुनः प्रयास करें।",
+  "spotlight.players.title": "प्लेयर स्पॉटलाइट",
+  "spotlight.players.description":
+    "सत्यापित व्यक्तिगत खिलाड़ी कहानियाँ, मैच मील के पत्थर और विकास यात्रा।",
+  "spotlight.players.emptyTitle": "व्यक्तिगत कहानियाँ अनुमति की प्रतीक्षा में",
+  "spotlight.players.emptyBody":
+    "व्यक्तिगत खिलाड़ी प्रोफाइल के लिए प्रकाशन से पहले सत्यापित स्रोत तथ्यों, कोच समीक्षा और अभिभावक सहमति की आवश्यकता होती है। ऊपर हमारी सत्यापित टीम उपलब्धियों को देखें।",
+  "spotlight.players.errorTitle": "स्पॉटलाइट सेवा वर्तमान में अनुपलब्ध है",
+  "spotlight.players.errorBody":
+    "इस समय प्रकाशित खिलाड़ी कहानियों को लोड करने में असमर्थ। कृपया थोड़ी देर बाद पुनः देखें।",
+  "spotlight.article.back": "← KHLIM स्पॉटलाइट पर वापस",
   "spotlight.article.previewTitle":
     "संपादकीय प्रीव्यू — वास्तविक खिलाड़ी परिणाम नहीं।",
   "spotlight.article.previewBody":

@@ -8,6 +8,7 @@ export const hi: Record<MessageKey, string> = {
   "nav.home": "मुख्य पृष्ठ",
   "nav.academy": "अकादमी",
   "nav.programmes": "प्रोग्राम",
+  "nav.spotlight": "स्पॉटलाइट",
   "nav.about": "हमारे बारे में",
   "nav.contact": "संपर्क करें",
   "nav.portal": "अभिभावक पोर्टल",

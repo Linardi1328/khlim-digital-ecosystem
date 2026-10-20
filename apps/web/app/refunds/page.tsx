@@ -65,11 +65,11 @@ export default function RefundPolicyPage() {
     {
       title: "9. Questions",
       paragraphs: [
-        <>
+        <React.Fragment key="refunds-en-s9-terms-privacy-links">
           For related contract terms, see the{" "}
           <Link href="/terms">Terms and Conditions</Link>. For payment-related
           personal data, see the <Link href="/privacy">Privacy Policy</Link>.
-        </>,
+        </React.Fragment>,
       ],
     },
   ];
@@ -127,12 +127,78 @@ export default function RefundPolicyPage() {
     {
       title: "9. Pertanyaan",
       paragraphs: [
-        <>
+        <React.Fragment key="refunds-ms-s9-terms-privacy-links">
           Bagi terma kontrak berkaitan, lihat{" "}
           <Link href="/terms">Terma dan Syarat</Link>. Bagi data peribadi
           berkaitan pembayaran, lihat <Link href="/privacy">Dasar Privasi</Link>
           .
-        </>,
+        </React.Fragment>,
+      ],
+    },
+  ];
+
+  const chineseSections: LegalSection[] = [
+    {
+      title: "1. 法定权利优先 (Statutory rights come first)",
+      paragraphs: [
+        "本政策是 KHLIM 学院服务的基础客户政策。它不会排除、限制或替代根据马来西亚法律无法合法排除的任何退款、救济、消费者保证或其他权利。",
+      ],
+    },
+    {
+      title:
+        "2. 付费服务期开始前的退款 (Refund before the paid service period starts)",
+      paragraphs: [
+        "如果您在付费服务期的首个预定训练课程开始前取消，且 KHLIM 尚未提供该付费服务的任何部分，您可以申请全额退还为该服务期支付的金额。任何实质性改变此规则的特定计划条款必须在结账前明确披露，并始终符合适用法律。",
+      ],
+    },
+    {
+      title:
+        "3. KHLIM 取消或无法提供服务 (KHLIM cancellation or inability to supply)",
+      paragraphs: [
+        "如果 KHLIM 取消付费课程、对其进行实质性修改致使所购服务无法合理提供，或无法提供已付费课程/服务，KHLIM 将针对受影响的未使用服务提供适当的救济，如替补课程、积分抵扣或退款。如果提供的替代方案与所购服务存在重大差异且您合理拒绝，KHLIM 将依法退还受影响的未使用金额。",
+      ],
+    },
+    {
+      title: "4. 服务期开始后 (After the service period has started)",
+      paragraphs: [
+        "付费服务期开始后，对于已参加的课程或已提供的服务，通常不因改变主意而予以退款。对于未使用的未来服务，KHLIM 将适用结账前为所选计划明确披露的取消条款，结合本政策和任何强制性消费者权利执行。如果结账前未披露更具体的取消规则，KHLIM 不会在付款后临时制定更严苛的规则。",
+      ],
+    },
+    {
+      title: "5. 缺席课程 (Missed sessions)",
+      paragraphs: [
+        "如果 KHLIM 已按约定提供了所购课程，参与者因个人原因缺席并不自动产生退款权利。KHLIM 可出于善意或运营安排提供补课或积分，但这不影响因 KHLIM 未依法或依约提供服务时适用的法定救济。",
+      ],
+    },
+    {
+      title:
+        "6. 重复、错误或未授权扣费 (Duplicate, incorrect or unauthorised charges)",
+      paragraphs: [
+        "如果您认为自己被重复扣费、扣费金额错误或未经授权扣款，请立即通知 KHLIM。经核实的重复或错误扣费将予以更正或退款。涉嫌未经授权的支付案例可能还需要向支付服务商或金融机构报备处理。",
+      ],
+    },
+    {
+      title: "7. 如何申请退款 (How to request a refund)",
+      paragraphs: [
+        `请联系 ${contact} 或使用 KHLIM 联系页面。请提供付款人姓名、学员/会员姓名、课程或会员名称、付款日期以及足以让 KHLIM 定位该笔付款的交易凭据信息。请勿发送银行卡号、CVV 校验码或网银密码。`,
+        "在退款前，KHLIM 可能会要求提供合理信息以核实付款人、监护人权限或交易真实性。经批准的退款在合理可行的情况下应通过原支付渠道退还。处理时间取决于支付服务商或银行；KHLIM 不承诺超出其可控范围的更快到账时间。",
+      ],
+    },
+    {
+      title: "8. 周期性扣费计划 (Recurring plans)",
+      paragraphs: [
+        "退款申请与取消未来的周期性账单属于不同操作。如果周期性会员符合终止条件，KHLIM 应在取消生效后根据适用计划条款和法律停止未来的扣款。已有效到期的应付金额或已提供的服务在此政策下单独处理。",
+      ],
+    },
+    {
+      title: "9. 疑问与相关政策 (Questions)",
+      paragraphs: [
+        <React.Fragment key="refunds-zh-s9-terms-privacy-links">
+          有关相关合同条款，请参阅{" "}
+          <Link href="/terms">服务条款 (Terms and Conditions)</Link>
+          。有关支付相关的个人数据，请参阅{" "}
+          <Link href="/privacy">隐私政策 (Privacy Policy)</Link>。
+        </React.Fragment>,
       ],
     },
   ];
@@ -141,11 +207,14 @@ export default function RefundPolicyPage() {
     <LegalDocument
       title="Refund and Cancellation Policy"
       malayTitle="Dasar Bayaran Balik dan Pembatalan"
+      chineseTitle="退款与取消政策"
       effectiveDate={EFFECTIVE_DATE}
       englishIntro="This policy explains the baseline refund and cancellation treatment for KHLIM academy purchases. Specific membership-plan cancellation terms may add detail only if they are clearly disclosed before checkout and comply with applicable Malaysian law."
       malayIntro="Dasar ini menerangkan layanan asas bayaran balik dan pembatalan bagi pembelian akademi KHLIM. Terma pembatalan khusus pelan keahlian hanya boleh menambah butiran jika didedahkan dengan jelas sebelum pembayaran dan mematuhi undang-undang Malaysia yang berkenaan."
+      chineseIntro="本政策说明 KHLIM 学院购买的基础退款和取消处理规则。具体会员计划取消条款只有在结账前明确披露且符合适用的马来西亚法律的前提下，方可作为补充细则。"
       englishSections={englishSections}
       malaySections={malaySections}
+      chineseSections={chineseSections}
     />
   );
 }

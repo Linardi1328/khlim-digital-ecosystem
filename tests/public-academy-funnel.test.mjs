@@ -77,8 +77,9 @@ test("PublicHeader makes low-friction Register Interest the primary acquisition 
   );
   assert.match(
     header,
-    /href="\/enrol"[\s\S]*?<Button[\s\S]*?variant="outline"[\s\S]*?\{t\("nav\.register"\)\}/,
+    /href=\{buildUrlWithSource\("\/enrol", campaignSource\)\}[\s\S]*?<Button[\s\S]*?variant="outline"[\s\S]*?\{t\("nav\.register"\)\}/,
   );
+  assert.doesNotMatch(header, /href="\/enrol"/);
 
   // Authenticated portal navigation is preserved
   assert.match(header, /isAuthenticated/);

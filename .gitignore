@@ -69,3 +69,10 @@ test-results/
 # Tool-specific local state
 .turbo/
 .vercel/
+
+# Next.js auto-generated agent instructions
+AGENTS.md
+CLAUDE.md
+
+# Private staging media pack (withheld from git to prevent unverified minor photo exposure)
+docs/media/staging-pack/

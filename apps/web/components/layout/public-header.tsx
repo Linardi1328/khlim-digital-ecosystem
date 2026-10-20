@@ -1,20 +1,25 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "../../lib/i18n-context";
 import { useAuth } from "../../lib/auth-context";
 import { BrandLogo } from "./brand-logo";
 import { LocaleSwitcher } from "./locale-switcher";
 import { Button } from "../ui/button";
 import { Sheet } from "../ui/sheet";
-import { buildUrlWithSource } from "../../lib/campaign-source";
+import {
+  buildUrlWithSource,
+  getQueryCampaignSource,
+  resolveCampaignSource,
+} from "../../lib/campaign-source";
 import styles from "./public-header.module.css";
 
-export function PublicHeader({
-  campaignSource = null,
+function PublicHeaderView({
+  campaignSource,
 }: {
-  campaignSource?: string | null;
+  campaignSource: string | null;
 }) {
   const { t } = useI18n();
   const { isAuthenticated } = useAuth();
@@ -29,6 +34,10 @@ export function PublicHeader({
     {
       href: buildUrlWithSource("/programmes", campaignSource),
       label: t("nav.programmes"),
+    },
+    {
+      href: buildUrlWithSource("/spotlight", campaignSource),
+      label: t("nav.spotlight"),
     },
     {
       href: buildUrlWithSource("/interest", campaignSource),
@@ -55,35 +64,17 @@ export function PublicHeader({
         borderBottom: "1px solid #E4E4E7",
       }}
     >
-      <div
-        className={`public-header-inner ${styles.inner}`}
-        style={{
-          maxWidth: "1200px",
-          margin: "0 auto",
-          padding: "0 20px",
-          height: "76px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
+      <div className={`public-header-inner ${styles.inner}`}>
         <Link
           href={buildUrlWithSource("/", campaignSource)}
           className={`public-header-brand ${styles.brand}`}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            textDecoration: "none",
-            minWidth: 0,
-          }}
         >
           <BrandLogo
             height={54}
             priority
             className={`public-header-logo ${styles.brandLogo}`}
           />
-          <div style={{ minWidth: 0, lineHeight: 1.05 }}>
+          <div className={styles.brandText}>
             <div
               className={`public-header-brand-name ${styles.brandName}`}
               style={{
@@ -114,40 +105,19 @@ export function PublicHeader({
           </div>
         </Link>
 
-        <nav
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "24px",
-          }}
-          className="desktop-nav"
-        >
+        <nav className={`desktop-nav ${styles.desktopNav}`}>
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              style={{
-                fontSize: "0.9375rem",
-                fontWeight: 600,
-                color: "#3F3F46",
-                textDecoration: "none",
-                transition: "color 0.15s ease",
-              }}
+              className={`desktop-nav-link ${styles.navLink}`}
             >
               {link.label}
             </Link>
           ))}
         </nav>
 
-        <div
-          className={`public-header-actions ${styles.actions}`}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "14px",
-            flexShrink: 0,
-          }}
-        >
+        <div className={`public-header-actions ${styles.actions}`}>
           <div className={`public-header-locale ${styles.locale}`}>
             <LocaleSwitcher />
           </div>
@@ -182,7 +152,6 @@ export function PublicHeader({
             onClick={() => setMobileMenuOpen(true)}
             aria-label={t("layout.openMobileMenu")}
             style={{
-              display: "none",
               minWidth: "44px",
               minHeight: "44px",
               alignItems: "center",
@@ -195,7 +164,7 @@ export function PublicHeader({
               cursor: "pointer",
               flexShrink: 0,
             }}
-            className="mobile-menu-btn"
+            className={`mobile-menu-btn ${styles.mobileMenuBtn}`}
           >
             ☰
           </button>
@@ -255,9 +224,6 @@ export function PublicHeader({
         position="right"
       >
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          <div className="public-mobile-locale">
-            <LocaleSwitcher />
-          </div>
           {navLinks.map((link) => (
             <Link
               key={link.href}
@@ -315,7 +281,10 @@ export function PublicHeader({
                 {t("nav.registerInterest")}
               </Button>
             </Link>
-            <Link href="/enrol" onClick={() => setMobileMenuOpen(false)}>
+            <Link
+              href={buildUrlWithSource("/enrol", campaignSource)}
+              onClick={() => setMobileMenuOpen(false)}
+            >
               <Button
                 variant="outline"
                 size="md"
@@ -328,5 +297,40 @@ export function PublicHeader({
         </div>
       </Sheet>
     </header>
+  );
+}
+
+function PublicHeaderWithSearchParams({
+  initialSource,
+}: {
+  initialSource: string | null;
+}) {
+  const searchParams = useSearchParams();
+  const queryCampaign = useMemo(
+    () => getQueryCampaignSource(searchParams),
+    [searchParams],
+  );
+  const [storedCampaign, setStoredCampaign] = useState<string | null>(null);
+
+  useEffect(() => {
+    setStoredCampaign(resolveCampaignSource(searchParams));
+  }, [searchParams]);
+
+  const activeSource = initialSource ?? queryCampaign ?? storedCampaign;
+
+  return <PublicHeaderView campaignSource={activeSource} />;
+}
+
+export function PublicHeader({
+  campaignSource: initialCampaignSource = null,
+}: {
+  campaignSource?: string | null;
+} = {}) {
+  return (
+    <Suspense
+      fallback={<PublicHeaderView campaignSource={initialCampaignSource} />}
+    >
+      <PublicHeaderWithSearchParams initialSource={initialCampaignSource} />
+    </Suspense>
   );
 }

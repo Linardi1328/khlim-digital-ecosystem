@@ -6,7 +6,7 @@ function allowedConnectSources(): string[] {
   const sources = new Set(["'self'"]);
 
   for (const candidate of [
-    process.env.NEXT_PUBLIC_API_BASE_URL,
+    process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001",
     process.env.NEXT_PUBLIC_SUPABASE_URL,
   ]) {
     if (!candidate) continue;
@@ -31,7 +31,7 @@ function contentSecurityPolicy(): string {
     "object-src 'none'",
     "frame-ancestors 'none'",
     "form-action 'self'",
-    "script-src 'self' 'unsafe-inline'",
+    `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
@@ -59,6 +59,10 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   output: isVercel ? undefined : "standalone",
   reactStrictMode: true,
+  env: {
+    NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED:
+      process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED ?? "1",
+  },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },

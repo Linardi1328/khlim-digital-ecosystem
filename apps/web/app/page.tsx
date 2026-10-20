@@ -91,10 +91,40 @@ function HomeContent() {
   const heroSlides: HeroCarouselSlide[] = [
     {
       id: "academy-first",
+      // Unverified youth squad photographs removed from deployable public directory pending signed custodian releases
+      imageUrl: undefined,
+      imageUrlMobile: undefined,
       photoLabel: t("home.hero.photo.training"),
       showPlaceholderLabel: false,
       placeholderGradient:
         "radial-gradient(circle at 76% 24%, rgba(245, 158, 11, 0.36), transparent 18%), radial-gradient(circle at 78% 72%, rgba(245, 158, 11, 0.14), transparent 24%), linear-gradient(135deg, #09090b 0%, #18181b 48%, #2a1d08 100%)",
+    },
+    {
+      id: "team-huddle",
+      imageUrl: undefined,
+      imageUrlMobile: undefined,
+      photoLabel: t("home.hero.photo.coaching"),
+      showPlaceholderLabel: false,
+      placeholderGradient:
+        "radial-gradient(circle at 35% 40%, rgba(245, 158, 11, 0.25), transparent 24%), linear-gradient(135deg, #18181b, #27272a 58%, #1f2937)",
+    },
+    {
+      id: "sideline-energy",
+      imageUrl: undefined,
+      imageUrlMobile: undefined,
+      photoLabel: t("home.hero.photo.gameDay"),
+      showPlaceholderLabel: false,
+      placeholderGradient:
+        "radial-gradient(circle at 75% 24%, rgba(245, 158, 11, 0.28), transparent 24%), linear-gradient(135deg, #18181b, #3f2d0b 58%, #0f172a)",
+    },
+    {
+      id: "court-together",
+      imageUrl: undefined,
+      imageUrlMobile: undefined,
+      photoLabel: t("home.hero.photo.community"),
+      showPlaceholderLabel: false,
+      placeholderGradient:
+        "radial-gradient(circle at 50% 50%, rgba(251, 191, 36, 0.25), transparent 24%), linear-gradient(145deg, #111827, #27272a 58%, #4b3520)",
     },
   ];
 
