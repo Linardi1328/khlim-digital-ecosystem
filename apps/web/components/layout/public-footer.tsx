@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "../../lib/i18n-context";
@@ -10,6 +10,7 @@ import {
 } from "../../lib/business-details";
 import {
   buildUrlWithSource,
+  getQueryCampaignSource,
   resolveCampaignSource,
 } from "../../lib/campaign-source";
 import { BrandLogo } from "./brand-logo";
@@ -282,15 +283,19 @@ function PublicFooterWithSearchParams({
   initialSource: string | null;
 }) {
   const searchParams = useSearchParams();
-  const [campaignSource, setCampaignSource] = useState<string | null>(
-    initialSource,
+  const queryCampaign = useMemo(
+    () => getQueryCampaignSource(searchParams),
+    [searchParams],
   );
+  const [storedCampaign, setStoredCampaign] = useState<string | null>(null);
 
   useEffect(() => {
-    setCampaignSource(initialSource || resolveCampaignSource(searchParams));
-  }, [initialSource, searchParams]);
+    setStoredCampaign(resolveCampaignSource(searchParams));
+  }, [searchParams]);
 
-  return <PublicFooterView campaignSource={campaignSource} />;
+  const activeSource = initialSource ?? queryCampaign ?? storedCampaign;
+
+  return <PublicFooterView campaignSource={activeSource} />;
 }
 
 export function PublicFooter({

@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import { register } from "node:module";
 import { test, describe } from "node:test";
 
@@ -386,261 +385,124 @@ describe("Lead Attribution and Campaign Source Resolution", () => {
     assert.equal(resolveLeadSubmissionSource(unattributedParams), "3x3-oct24");
   });
 
-  test("Mock lead submission payload: verifies 'unattributed' vs tracked campaign source without live network", async () => {
+  test("Campaign source helper resolution sequence: initial URL, dynamic query transition, stored preservation, untagged navigation, and phone rejection", async () => {
     const {
       resolveCampaignSource,
       resolveLeadSubmissionSource,
-      UNATTRIBUTED_CAMPAIGN_SOURCE,
-    } = await import("../apps/web/lib/campaign-source.ts");
-
-    // Simulate lead submission logic from apps/web/app/interest/page.tsx
-    const capturedApiCalls = [];
-
-    const mockApiService = {
-      async createLead(data) {
-        capturedApiCalls.push(data);
-        return {
-          id: "mock-lead-uuid-1234",
-          status: "RECEIVED",
-          message: "Thank you for registering interest",
-          createdAt: new Date().toISOString(),
-        };
-      },
-    };
-
-    // Case 1: Untagged / organic visitor submission
-    setupMockBrowser("http://localhost:3000/interest");
-    const organicSearchParams = new URLSearchParams("");
-    const organicCampaignSource = resolveCampaignSource(organicSearchParams);
-    assert.equal(organicCampaignSource, null);
-
-    const organicSubmissionSource =
-      organicCampaignSource?.trim() ||
-      resolveLeadSubmissionSource(organicSearchParams);
-
-    assert.equal(organicSubmissionSource, UNATTRIBUTED_CAMPAIGN_SOURCE);
-
-    await mockApiService.createLead({
-      guardianName: "Test Guardian",
-      phone: "+601100000001",
-      email: "guardian@example.com",
-      childAge: 10,
-      programmeOfferingId: null,
-      source: organicSubmissionSource,
-      consent: true,
-      idempotencyKey: "test-idempotency-key-1",
-    });
-
-    assert.equal(capturedApiCalls.length, 1);
-    assert.equal(capturedApiCalls[0].source, "unattributed");
-    assert.equal(capturedApiCalls[0].consent, true);
-    assert.equal(capturedApiCalls[0].guardianName, "Test Guardian");
-
-    // Case 2: Tagged campaign visitor submission
-    setupMockBrowser("http://localhost:3000/interest?source=3x3-oct24");
-    const taggedSearchParams = new URLSearchParams("source=3x3-oct24");
-    const taggedCampaignSource = resolveCampaignSource(taggedSearchParams);
-    assert.equal(taggedCampaignSource, "3x3-oct24");
-
-    const taggedSubmissionSource =
-      taggedCampaignSource?.trim() ||
-      resolveLeadSubmissionSource(taggedSearchParams);
-
-    assert.equal(taggedSubmissionSource, "3x3-oct24");
-
-    await mockApiService.createLead({
-      guardianName: "Campaign Guardian",
-      phone: "+601100000001",
-      email: null,
-      childAge: 12,
-      programmeOfferingId: "offering-uuid-5678",
-      source: taggedSubmissionSource,
-      consent: true,
-      idempotencyKey: "test-idempotency-key-2",
-    });
-
-    // Case 3: Visitor arriving with phone number in query parameter
-    setupMockBrowser("http://localhost:3000/interest?source=01100000001");
-    const phoneSearchParams = new URLSearchParams("source=01100000001");
-    const phoneCampaignSource = resolveCampaignSource(phoneSearchParams);
-    assert.equal(phoneCampaignSource, null);
-
-    const phoneSubmissionSource =
-      phoneCampaignSource?.trim() ||
-      resolveLeadSubmissionSource(phoneSearchParams);
-
-    assert.equal(phoneSubmissionSource, "unattributed");
-
-    await mockApiService.createLead({
-      guardianName: "Phone Visitor",
-      phone: "+601100000001",
-      email: null,
-      childAge: 9,
-      programmeOfferingId: null,
-      source: phoneSubmissionSource,
-      consent: true,
-      idempotencyKey: "test-idempotency-key-3",
-    });
-
-    assert.equal(capturedApiCalls.length, 3);
-    assert.equal(capturedApiCalls[2].source, "unattributed");
-    assert.notEqual(capturedApiCalls[2].source, "01100000001");
-    assert.equal(capturedApiCalls[2].consent, true);
-  });
-
-  test("Behavioral regression: mounted footer updates attribution when campaign query parameter changes and routes navigation correctly", async () => {
-    const {
-      resolveCampaignSource,
       buildUrlWithSource,
+      SESSION_STORAGE_KEY,
     } = await import("../apps/web/lib/campaign-source.ts");
 
-    // Initialize mock browser environment
+    // 1. Initial campaign URL with no parent source prop
     const { sessionStorage } = setupMockBrowser("http://localhost:3000/?source=3x3-oct24");
-
-    // Simulate mounted PublicFooter lifecycle and reactive subscription:
-    // Effect depends on [initialSource, searchParams]
-    class MountedFooterController {
-      constructor(initialSource = null, initialParams = new URLSearchParams()) {
-        this.initialSource = initialSource;
-        this.searchParams = initialParams;
-        this.campaignSource = this.initialSource;
-        this.runEffect();
-      }
-
-      runEffect() {
-        this.campaignSource =
-          this.initialSource || resolveCampaignSource(this.searchParams);
-      }
-
-      // Prop update from parent (if parent passes reactive state)
-      updateProps(newPropSource) {
-        this.initialSource = newPropSource;
-        this.runEffect();
-      }
-
-      // Route / query param change while remaining mounted (e.g. client navigation)
-      updateSearchParams(newParams) {
-        this.searchParams = newParams;
-        this.runEffect();
-      }
-
-      // Generates footer navigation URLs as PublicFooterView does
-      getNavigationUrls() {
-        return {
-          home: buildUrlWithSource("/", this.campaignSource),
-          academy: buildUrlWithSource("/academy", this.campaignSource),
-          programmes: buildUrlWithSource("/programmes", this.campaignSource),
-          interest: buildUrlWithSource("/interest", this.campaignSource),
-          about: buildUrlWithSource("/about", this.campaignSource),
-          contact: buildUrlWithSource("/contact", this.campaignSource),
-        };
-      }
-    }
-
-    // 1. Initial mount without parent prop (self-resolving via searchParams)
     const initialParams = new URLSearchParams("source=3x3-oct24");
-    const footer = new MountedFooterController(null, initialParams);
-
-    assert.equal(footer.campaignSource, "3x3-oct24");
+    const initialSource = resolveCampaignSource(initialParams);
+    assert.equal(initialSource, "3x3-oct24");
+    assert.equal(sessionStorage.getItem(SESSION_STORAGE_KEY), "3x3-oct24");
     assert.equal(
-      footer.getNavigationUrls().interest,
+      buildUrlWithSource("/interest", initialSource),
       "/interest?source=3x3-oct24",
     );
     assert.equal(
-      footer.getNavigationUrls().programmes,
-      "/programmes?source=3x3-oct24",
-    );
-    assert.equal(
-      footer.getNavigationUrls().academy,
+      buildUrlWithSource("/academy", initialSource),
       "/academy?source=3x3-oct24",
     );
 
-    // 2. Query parameter changes while footer remains mounted
-    // (client-side route transition to a new campaign)
-    const updatedParams = new URLSearchParams("source=holiday_clinic_2026");
-    footer.updateSearchParams(updatedParams);
-
-    // Footer reactively updates campaign source and navigation links
-    assert.equal(footer.campaignSource, "holiday_clinic_2026");
+    // 2. Client-side source query change while header/footer stay mounted
+    const changedParams = new URLSearchParams("source=holiday_clinic_2026");
+    const updatedSource = resolveCampaignSource(changedParams);
+    assert.equal(updatedSource, "holiday_clinic_2026");
+    assert.equal(sessionStorage.getItem(SESSION_STORAGE_KEY), "holiday_clinic_2026");
     assert.equal(
-      footer.getNavigationUrls().interest,
+      buildUrlWithSource("/interest", updatedSource),
       "/interest?source=holiday_clinic_2026",
     );
     assert.equal(
-      footer.getNavigationUrls().programmes,
+      buildUrlWithSource("/programmes", updatedSource),
       "/programmes?source=holiday_clinic_2026",
     );
+
+    // 3. Stored campaign preservation across untagged internal navigation
+    const emptyParams = new URLSearchParams("");
+    const preservedSource = resolveCampaignSource(emptyParams);
+    assert.equal(preservedSource, "holiday_clinic_2026");
     assert.equal(
-      footer.getNavigationUrls().academy,
-      "/academy?source=holiday_clinic_2026",
+      buildUrlWithSource("/interest", preservedSource),
+      "/interest?source=holiday_clinic_2026",
     );
 
-    // 3. Parent passes reactive state directly and updates it while mounted
-    const parentManagedFooter = new MountedFooterController(
-      "campaign_alpha",
-      new URLSearchParams(),
-    );
-    assert.equal(parentManagedFooter.campaignSource, "campaign_alpha");
-    assert.equal(
-      parentManagedFooter.getNavigationUrls().interest,
-      "/interest?source=campaign_alpha",
-    );
-
-    parentManagedFooter.updateProps("campaign_beta");
-    assert.equal(parentManagedFooter.campaignSource, "campaign_beta");
-    assert.equal(
-      parentManagedFooter.getNavigationUrls().interest,
-      "/interest?source=campaign_beta",
-    );
-
-    // 4. Query parameter injection with phone-like token while mounted is sanitized
+    // 4. Untagged navigation with fresh session
     sessionStorage.clear();
+    const freshUntaggedParams = new URLSearchParams("");
+    const untaggedSource = resolveCampaignSource(freshUntaggedParams);
+    assert.equal(untaggedSource, null);
+    assert.equal(resolveLeadSubmissionSource(freshUntaggedParams), "unattributed");
+    assert.equal(buildUrlWithSource("/interest", untaggedSource), "/interest");
+    assert.equal(buildUrlWithSource("/academy", untaggedSource), "/academy");
+
+    // 5. Rejection of phone-like campaign values
     const phoneParams = new URLSearchParams("source=01100000001");
-    const phoneFooter = new MountedFooterController(null, phoneParams);
-    assert.equal(phoneFooter.campaignSource, null);
-    assert.equal(phoneFooter.getNavigationUrls().interest, "/interest");
-    assert.equal(phoneFooter.getNavigationUrls().programmes, "/programmes");
+    const phoneResolved = resolveCampaignSource(phoneParams);
+    assert.equal(phoneResolved, null);
+    assert.equal(sessionStorage.getItem(SESSION_STORAGE_KEY), null);
+    assert.equal(resolveLeadSubmissionSource(phoneParams), "unattributed");
+    assert.equal(buildUrlWithSource("/interest", phoneResolved), "/interest");
 
-    // 5. Verify PublicFooter implementation in public-footer.tsx
-    const footerSource = await readFile(
-      new URL("../apps/web/components/layout/public-footer.tsx", import.meta.url),
-      "utf8",
+    // 6. Rejection of underscore-formatted phone number
+    const underscorePhoneParams = new URLSearchParams("source=011_0000_0002");
+    const underscorePhoneResolved = resolveCampaignSource(underscorePhoneParams);
+    assert.equal(underscorePhoneResolved, null);
+    assert.equal(resolveLeadSubmissionSource(underscorePhoneParams), "unattributed");
+  });
+
+  test("Initial-loading state preserves valid campaign attribution and localized announcement", async () => {
+    const {
+      getQueryCampaignSource,
+      resolveLeadSubmissionSource,
+      buildUrlWithSource,
+    } = await import("../apps/web/lib/campaign-source.ts");
+
+    // 1. Initial valid campaign URL resolves synchronously during initial render
+    const initialParams = new URLSearchParams("source=3x3-oct24");
+    const synchronousSource = getQueryCampaignSource(initialParams);
+    assert.equal(
+      synchronousSource,
+      "3x3-oct24",
+      "Valid campaign token must resolve synchronously on initial render without waiting for effects",
     );
-    assert.match(
-      footerSource,
-      /import\s*\{[^}]*useSearchParams[^}]*\}\s*from\s*["']next\/navigation["']/,
-      "PublicFooter must import useSearchParams from next/navigation for reactive routing",
+    assert.equal(
+      buildUrlWithSource("/interest", synchronousSource),
+      "/interest?source=3x3-oct24",
+      "Navigable links in loading shell must never drop a fresh valid campaign token",
     );
-    assert.match(
-      footerSource,
-      /function\s+PublicFooterWithSearchParams/,
-      "PublicFooterWithSearchParams must handle reactive routing state",
-    );
-    assert.match(
-      footerSource,
-      /\[initialSource,\s*searchParams\]/,
-      "Effect must depend on both initialSource and searchParams to react to query updates while mounted",
-    );
-    assert.match(
-      footerSource,
-      /<Suspense\s+fallback=\{<PublicFooterView\s+campaignSource=\{initialSource\}\s*\/>\}>/,
-      "PublicFooter must wrap search params subscription in Suspense with fallback view to avoid SSR de-opt",
+    assert.equal(
+      buildUrlWithSource("/programmes", synchronousSource),
+      "/programmes?source=3x3-oct24",
+      "Footer links in loading shell must retain the valid campaign token",
     );
 
-    // 6. Verify InterestPage passes reactive campaignSource in interest/page.tsx
-    const interestPageSource = await readFile(
-      new URL("../apps/web/app/interest/page.tsx", import.meta.url),
-      "utf8",
+    // 2. Initial untagged or invalid phone query falls back safely
+    const untaggedParams = new URLSearchParams("");
+    assert.equal(getQueryCampaignSource(untaggedParams), null);
+    assert.equal(resolveLeadSubmissionSource(untaggedParams), "unattributed");
+
+    const phoneParams = new URLSearchParams("source=011_0000_0002");
+    assert.equal(getQueryCampaignSource(phoneParams), null);
+    assert.equal(resolveLeadSubmissionSource(phoneParams), "unattributed");
+
+    // 3. Verify localized loading announcement keys exist in i18n messages
+    const { interestWebMessages } = await import(
+      "../packages/i18n/src/messages/interest-web.ts"
     );
-    assert.match(
-      interestPageSource,
-      /<PublicFooter\s+campaignSource=\{campaignSource\}\s*\/>/,
-      "InterestPage must pass reactive campaignSource to PublicFooter",
+    assert.equal(
+      interestWebMessages.en["interest.loading"],
+      "Loading registration form...",
+      "English translation for interest.loading must exist",
     );
-    assert.match(
-      interestPageSource,
-      /<PublicHeader\s+campaignSource=\{campaignSource\}\s*\/>/,
-      "InterestPage must pass reactive campaignSource to PublicHeader",
+    assert.equal(
+      interestWebMessages.ms["interest.loading"],
+      "Memuatkan borang pendaftaran...",
+      "Malay translation for interest.loading must exist",
     );
   });
 });

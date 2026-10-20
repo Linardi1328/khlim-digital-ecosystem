@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "../../lib/i18n-context";
 import { useAuth } from "../../lib/auth-context";
 import { BrandLogo } from "./brand-logo";
@@ -10,25 +11,19 @@ import { Button } from "../ui/button";
 import { Sheet } from "../ui/sheet";
 import {
   buildUrlWithSource,
+  getQueryCampaignSource,
   resolveCampaignSource,
 } from "../../lib/campaign-source";
 import styles from "./public-header.module.css";
 
-export function PublicHeader({
-  campaignSource: initialCampaignSource = null,
+function PublicHeaderView({
+  campaignSource,
 }: {
-  campaignSource?: string | null;
+  campaignSource: string | null;
 }) {
   const { t } = useI18n();
   const { isAuthenticated } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [campaignSource, setCampaignSource] = useState<string | null>(
-    initialCampaignSource,
-  );
-
-  useEffect(() => {
-    setCampaignSource(initialCampaignSource || resolveCampaignSource());
-  }, [initialCampaignSource]);
 
   const navLinks = [
     { href: buildUrlWithSource("/", campaignSource), label: t("nav.home") },
@@ -338,5 +333,40 @@ export function PublicHeader({
         </div>
       </Sheet>
     </header>
+  );
+}
+
+function PublicHeaderWithSearchParams({
+  initialSource,
+}: {
+  initialSource: string | null;
+}) {
+  const searchParams = useSearchParams();
+  const queryCampaign = useMemo(
+    () => getQueryCampaignSource(searchParams),
+    [searchParams],
+  );
+  const [storedCampaign, setStoredCampaign] = useState<string | null>(null);
+
+  useEffect(() => {
+    setStoredCampaign(resolveCampaignSource(searchParams));
+  }, [searchParams]);
+
+  const activeSource = initialSource ?? queryCampaign ?? storedCampaign;
+
+  return <PublicHeaderView campaignSource={activeSource} />;
+}
+
+export function PublicHeader({
+  campaignSource: initialCampaignSource = null,
+}: {
+  campaignSource?: string | null;
+} = {}) {
+  return (
+    <Suspense
+      fallback={<PublicHeaderView campaignSource={initialCampaignSource} />}
+    >
+      <PublicHeaderWithSearchParams initialSource={initialCampaignSource} />
+    </Suspense>
   );
 }
