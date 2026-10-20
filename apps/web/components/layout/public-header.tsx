@@ -320,7 +320,10 @@ function PublicHeaderView({
                 {t("nav.registerInterest")}
               </Button>
             </Link>
-            <Link href="/enrol" onClick={() => setMobileMenuOpen(false)}>
+            <Link
+              href={buildUrlWithSource("/enrol", campaignSource)}
+              onClick={() => setMobileMenuOpen(false)}
+            >
               <Button
                 variant="outline"
                 size="md"

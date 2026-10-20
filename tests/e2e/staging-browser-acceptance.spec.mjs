@@ -385,6 +385,21 @@ test.describe("RIC-65 Browser Registration Acceptance & Staging UX Rehearsal", (
     await expect(
       page.locator('footer a[href*="/programmes"]').first(),
     ).toHaveAttribute("href", "/programmes?source=holiday_clinic_2026");
+    await expect(
+      page.locator('footer a[href*="/enrol"]').first(),
+    ).toHaveAttribute("href", "/enrol?source=holiday_clinic_2026");
+
+    // 4. Mobile menu enrolment link carries active campaign source in mobile viewport
+    await page.setViewportSize({ width: 390, height: 844 });
+    const mobileMenuBtn = page.locator(".mobile-menu-btn");
+    await expect(mobileMenuBtn).toBeVisible();
+    await mobileMenuBtn.click();
+
+    const mobileEnrolLink = page.locator('a[href*="/enrol"]').first();
+    await expect(mobileEnrolLink).toHaveAttribute(
+      "href",
+      "/enrol?source=holiday_clinic_2026",
+    );
   });
 
   test("protected staff portal routes strictly redirect unauthenticated browser sessions to login", async ({
