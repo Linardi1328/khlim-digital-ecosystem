@@ -407,6 +407,10 @@ describe("Lead Attribution and Campaign Source Resolution", () => {
       buildUrlWithSource("/academy", initialSource),
       "/academy?source=3x3-oct24",
     );
+    assert.equal(
+      buildUrlWithSource("/enrol", initialSource),
+      "/enrol?source=3x3-oct24",
+    );
 
     // 2. Client-side source query change while header/footer stay mounted
     const changedParams = new URLSearchParams("source=holiday_clinic_2026");
@@ -421,6 +425,10 @@ describe("Lead Attribution and Campaign Source Resolution", () => {
       buildUrlWithSource("/programmes", updatedSource),
       "/programmes?source=holiday_clinic_2026",
     );
+    assert.equal(
+      buildUrlWithSource("/enrol", updatedSource),
+      "/enrol?source=holiday_clinic_2026",
+    );
 
     // 3. Stored campaign preservation across untagged internal navigation
     const emptyParams = new URLSearchParams("");
@@ -429,6 +437,10 @@ describe("Lead Attribution and Campaign Source Resolution", () => {
     assert.equal(
       buildUrlWithSource("/interest", preservedSource),
       "/interest?source=holiday_clinic_2026",
+    );
+    assert.equal(
+      buildUrlWithSource("/enrol", preservedSource),
+      "/enrol?source=holiday_clinic_2026",
     );
 
     // 4. Untagged navigation with fresh session
@@ -439,6 +451,7 @@ describe("Lead Attribution and Campaign Source Resolution", () => {
     assert.equal(resolveLeadSubmissionSource(freshUntaggedParams), "unattributed");
     assert.equal(buildUrlWithSource("/interest", untaggedSource), "/interest");
     assert.equal(buildUrlWithSource("/academy", untaggedSource), "/academy");
+    assert.equal(buildUrlWithSource("/enrol", untaggedSource), "/enrol");
 
     // 5. Rejection of phone-like campaign values
     const phoneParams = new URLSearchParams("source=01100000001");
@@ -447,12 +460,14 @@ describe("Lead Attribution and Campaign Source Resolution", () => {
     assert.equal(sessionStorage.getItem(SESSION_STORAGE_KEY), null);
     assert.equal(resolveLeadSubmissionSource(phoneParams), "unattributed");
     assert.equal(buildUrlWithSource("/interest", phoneResolved), "/interest");
+    assert.equal(buildUrlWithSource("/enrol", phoneResolved), "/enrol");
 
     // 6. Rejection of underscore-formatted phone number
     const underscorePhoneParams = new URLSearchParams("source=011_0000_0002");
     const underscorePhoneResolved = resolveCampaignSource(underscorePhoneParams);
     assert.equal(underscorePhoneResolved, null);
     assert.equal(resolveLeadSubmissionSource(underscorePhoneParams), "unattributed");
+    assert.equal(buildUrlWithSource("/enrol", underscorePhoneResolved), "/enrol");
   });
 
   test("Initial-loading state preserves valid campaign attribution and localized announcement", async () => {
@@ -503,69 +518,6 @@ describe("Lead Attribution and Campaign Source Resolution", () => {
       interestWebMessages.ms["interest.loading"],
       "Memuatkan borang pendaftaran...",
       "Malay translation for interest.loading must exist",
-    );
-  });
-
-  test("Mobile enrolment navigation preserves valid campaign attribution and falls back cleanly without a campaign token", async () => {
-    const {
-      resolveCampaignSource,
-      buildUrlWithSource,
-      getQueryCampaignSource,
-      SESSION_STORAGE_KEY,
-    } = await import("../apps/web/lib/campaign-source.ts");
-
-    const { sessionStorage } = setupMockBrowser("http://localhost:3000/?source=3x3-oct24");
-
-    // 1. Valid campaign token is preserved for mobile enrolment navigation
-    const initialParams = new URLSearchParams("source=3x3-oct24");
-    const activeSource = getQueryCampaignSource(initialParams);
-    assert.equal(activeSource, "3x3-oct24");
-    assert.equal(
-      buildUrlWithSource("/enrol", activeSource),
-      "/enrol?source=3x3-oct24",
-      "Mobile enrolment URL must propagate valid campaign source",
-    );
-
-    // 2. Client-side updated campaign token propagates to /enrol
-    const updatedParams = new URLSearchParams("source=holiday_clinic_2026");
-    const updatedSource = resolveCampaignSource(updatedParams);
-    assert.equal(updatedSource, "holiday_clinic_2026");
-    assert.equal(sessionStorage.getItem(SESSION_STORAGE_KEY), "holiday_clinic_2026");
-    assert.equal(
-      buildUrlWithSource("/enrol", updatedSource),
-      "/enrol?source=holiday_clinic_2026",
-      "Mobile enrolment URL must reactively reflect updated campaign token",
-    );
-
-    // 3. Stored campaign persists across untagged internal navigation to /enrol
-    const emptyParams = new URLSearchParams("");
-    const storedSource = resolveCampaignSource(emptyParams);
-    assert.equal(storedSource, "holiday_clinic_2026");
-    assert.equal(
-      buildUrlWithSource("/enrol", storedSource),
-      "/enrol?source=holiday_clinic_2026",
-      "Stored campaign source must persist for mobile enrolment on untagged internal navigation",
-    );
-
-    // 4. Untagged navigation with fresh session produces clean /enrol
-    sessionStorage.clear();
-    const freshUntaggedParams = new URLSearchParams("");
-    const untaggedSource = resolveCampaignSource(freshUntaggedParams);
-    assert.equal(untaggedSource, null);
-    assert.equal(
-      buildUrlWithSource("/enrol", untaggedSource),
-      "/enrol",
-      "Untagged mobile enrolment URL must remain clean without search parameters",
-    );
-
-    // 5. Phone-like token is rejected and mobile enrolment URL stays clean
-    const phoneParams = new URLSearchParams("source=011_0000_0002");
-    const phoneSource = resolveCampaignSource(phoneParams);
-    assert.equal(phoneSource, null);
-    assert.equal(
-      buildUrlWithSource("/enrol", phoneSource),
-      "/enrol",
-      "Phone-like query tokens must be rejected and not propagate to mobile enrolment URL",
     );
   });
 });

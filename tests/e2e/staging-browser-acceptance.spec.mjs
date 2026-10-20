@@ -328,6 +328,14 @@ test.describe("RIC-65 Browser Registration Acceptance & Staging UX Rehearsal", (
     expect(interceptedPayload.source).toBe("unattributed");
     expect(interceptedPayload.source).not.toContain("011_0000_0002");
     expect(interceptedPayload.source).not.toContain("0000_0002");
+
+    // 3. Verify phone-like source does not enter mobile menu /enrol link
+    await page.setViewportSize({ width: 390, height: 844 });
+    const mobileMenuBtn = page.locator(".mobile-menu-btn");
+    await expect(mobileMenuBtn).toBeVisible();
+    await mobileMenuBtn.click();
+    const mobileEnrolLink = page.getByRole("dialog").locator('a[href*="/enrol"]').first();
+    await expect(mobileEnrolLink).toHaveAttribute("href", "/enrol");
   });
 
   test("changing campaign query parameters client-side updates rendered header and footer links while components remain mounted", async ({
@@ -395,11 +403,23 @@ test.describe("RIC-65 Browser Registration Acceptance & Staging UX Rehearsal", (
     await expect(mobileMenuBtn).toBeVisible();
     await mobileMenuBtn.click();
 
-    const mobileEnrolLink = page.locator('a[href*="/enrol"]').first();
+    const mobileEnrolLink = page.getByRole("dialog").locator('a[href*="/enrol"]').first();
     await expect(mobileEnrolLink).toHaveAttribute(
       "href",
       "/enrol?source=holiday_clinic_2026",
     );
+
+    // 5. Navigate to untagged route client-side and verify stored campaign source is preserved in mobile menu
+    await page.evaluate(() => {
+      window.history.pushState({}, "", "/programmes");
+      window.dispatchEvent(new Event("popstate"));
+    });
+    if (!(await page.getByRole("dialog").isVisible())) {
+      await mobileMenuBtn.click();
+    }
+    await expect(
+      page.getByRole("dialog").locator('a[href*="/enrol"]').first(),
+    ).toHaveAttribute("href", "/enrol?source=holiday_clinic_2026");
   });
 
   test("protected staff portal routes strictly redirect unauthenticated browser sessions to login", async ({
