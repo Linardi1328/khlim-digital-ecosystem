@@ -50,6 +50,22 @@ const en = {
   "academy.finalCta.title": "Start your child's basketball journey",
   "academy.finalCta.body":
     "Register your interest today and we’ll help you find the most suitable current training programme.",
+  "academy.coaches.eyebrow": "Coaching Team",
+  "academy.coaches.title": "Meet Our Coaches",
+  "academy.coaches.subtitle":
+    "Dedicated coaches focusing on fundamental basketball skills, court discipline, and structured player development.",
+  "academy.coaches.role": "Coach",
+  "academy.coaches.sengJun.name": "Coach Seng Jun",
+  "academy.coaches.sengJun.bio":
+    "Focuses on core basketball fundamentals, skill progression, and competitive player development.",
+  "academy.coaches.jiaXuan.name": "Coach Jia Xuan",
+  "academy.coaches.puimann.name": "Coach Puimann",
+  "academy.coaches.woon.name": "Coach Woon",
+  "academy.coaches.genericBio":
+    "KHLIM Basketball Academy coach supporting youth skill development and teamwork.",
+  "academy.training.alt": "Posed group portrait of KHLIM basketball players",
+  "academy.training.caption":
+    "KHLIM Basketball Club team portrait — celebrating player community, court discipline, and long-standing club heritage.",
 } as const;
 
 type Key = keyof typeof en;
@@ -107,6 +123,22 @@ const ms: Catalogue = {
   "academy.finalCta.title": "Mulakan perjalanan bola keranjang anak anda",
   "academy.finalCta.body":
     "Daftar minat anda hari ini dan kami akan membantu anda mencari program latihan semasa yang paling sesuai.",
+  "academy.coaches.eyebrow": "Pasukan Jurulatih",
+  "academy.coaches.title": "Kenali Jurulatih Kami",
+  "academy.coaches.subtitle":
+    "Jurulatih berdedikasi yang menumpukan kemahiran asas bola keranjang, disiplin gelanggang dan pembangunan pemain berstruktur.",
+  "academy.coaches.role": "Jurulatih",
+  "academy.coaches.sengJun.name": "Jurulatih Seng Jun",
+  "academy.coaches.sengJun.bio":
+    "Menumpukan asas teras bola keranjang, kemajuan kemahiran dan pembangunan pemain kompetitif.",
+  "academy.coaches.jiaXuan.name": "Jurulatih Jia Xuan",
+  "academy.coaches.puimann.name": "Jurulatih Puimann",
+  "academy.coaches.woon.name": "Jurulatih Woon",
+  "academy.coaches.genericBio":
+    "Jurulatih Akademi Bola Keranjang KHLIM yang menyokong perkembangan kemahiran belia dan semangat berpasukan.",
+  "academy.training.alt": "Potret kumpulan pemain bola keranjang KHLIM",
+  "academy.training.caption":
+    "Potret pasukan Kelab Bola Keranjang KHLIM — meraikan komuniti pemain, disiplin gelanggang dan warisan kelab.",
 };
 
 const zhHans: Catalogue = {
@@ -158,6 +190,22 @@ const zhHans: Catalogue = {
   "academy.finalCta.title": "开启孩子的篮球成长之旅",
   "academy.finalCta.body":
     "立即登记意向，我们将协助您找到最适合的当前训练课程。",
+  "academy.coaches.eyebrow": "教练团队",
+  "academy.coaches.title": "认识我们的教练",
+  "academy.coaches.subtitle":
+    "专注于扎实篮球基本功、球场纪律与结构化青少年球员培养的专业教练团队。",
+  "academy.coaches.role": "教练",
+  "academy.coaches.sengJun.name": "Seng Jun 教练",
+  "academy.coaches.sengJun.bio":
+    "专注于核心篮球基本功、技能阶梯进阶以及竞技青少年球员的发展培养。",
+  "academy.coaches.jiaXuan.name": "Jia Xuan 教练",
+  "academy.coaches.puimann.name": "Puimann 教练",
+  "academy.coaches.woon.name": "Woon 教练",
+  "academy.coaches.genericBio":
+    "KHLIM 篮球学院教练组成员，指导青少年技能提升与团队配合习惯。",
+  "academy.training.alt": "KHLIM 篮球运动员集体合影",
+  "academy.training.caption":
+    "KHLIM 篮球俱乐部球队合影——展现球员凝聚力、球场纪律与俱乐部深厚底蕴。",
 };
 
 const zhHant: Catalogue = {
@@ -209,6 +257,22 @@ const zhHant: Catalogue = {
   "academy.finalCta.title": "開啟孩子的籃球成長之旅",
   "academy.finalCta.body":
     "立即登記意向，我們將協助您找到最適合的當前訓練課程。",
+  "academy.coaches.eyebrow": "教練團隊",
+  "academy.coaches.title": "認識我們的教練",
+  "academy.coaches.subtitle":
+    "專注於扎實籃球基本功、球場紀律與結構化青少年球員培養的專業教練團隊。",
+  "academy.coaches.role": "教練",
+  "academy.coaches.sengJun.name": "Seng Jun 教練",
+  "academy.coaches.sengJun.bio":
+    "專注於核心籃球基本功、技能階梯進階以及競技青少年球員的發展培養。",
+  "academy.coaches.jiaXuan.name": "Jia Xuan 教練",
+  "academy.coaches.puimann.name": "Puimann 教練",
+  "academy.coaches.woon.name": "Woon 教練",
+  "academy.coaches.genericBio":
+    "KHLIM 籃球學院教練組成員，指導青少年技能提升與團隊配合習慣。",
+  "academy.training.alt": "KHLIM 籃球運動員集體合照",
+  "academy.training.caption":
+    "KHLIM 籃球俱樂部球隊合照——展現球員凝聚力、球場紀律與俱樂部深厚底蘊。",
 };
 
 const hi: Catalogue = {
@@ -264,6 +328,22 @@ const hi: Catalogue = {
   "academy.finalCta.title": "अपने बच्चे की बास्केटबॉल यात्रा शुरू करें",
   "academy.finalCta.body":
     "आज ही अपनी रुचि दर्ज करें और हम आपके लिए सबसे उपयुक्त वर्तमान प्रशिक्षण कार्यक्रम खोजने में सहायता करेंगे।",
+  "academy.coaches.eyebrow": "कोचिंग टीम",
+  "academy.coaches.title": "हमारे कोचों से मिलें",
+  "academy.coaches.subtitle":
+    "बुनियादी बास्केटबॉल कौशल, कोर्ट अनुशासन और संरचित खिलाड़ी विकास पर केंद्रित समर्पित कोच।",
+  "academy.coaches.role": "कोच",
+  "academy.coaches.sengJun.name": "कोच Seng Jun",
+  "academy.coaches.sengJun.bio":
+    "कोर बास्केटबॉल बुनियादी बातों, कौशल प्रगति और प्रतिस्पर्धी खिलाड़ी विकास पर केंद्रित।",
+  "academy.coaches.jiaXuan.name": "कोच Jia Xuan",
+  "academy.coaches.puimann.name": "कोच Puimann",
+  "academy.coaches.woon.name": "कोच Woon",
+  "academy.coaches.genericBio":
+    "KHLIM बास्केटबॉल अकादमी कोच, जो युवा कौशल विकास और टीमवर्क का मार्गदर्शन करते हैं।",
+  "academy.training.alt": "KHLIM बास्केटबॉल खिलाड़ियों का समूह पोर्ट्रेट",
+  "academy.training.caption":
+    "KHLIM बास्केटबॉल क्लब टीम पोर्ट्रेट — खिलाड़ी समुदाय, कोर्ट अनुशासन और क्लब विरासत का उत्सव।",
 };
 
 export const academyWebMessages = {
