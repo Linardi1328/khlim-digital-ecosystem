@@ -112,9 +112,7 @@ test("homepage showcases verified honours and unnamed representatives", async ({
   ).toHaveCount(0);
 });
 
-test("achievement and representative photos fill their width without cropping", async ({
-  page,
-}) => {
+test("photo cards retain their full natural aspect ratios", async ({ page }) => {
   const samples = [
     ["/", "#achievements .verified-milestone-photo"],
     ["/", "#player-spotlight .verified-milestone-photo"],
@@ -131,9 +129,9 @@ test("achievement and representative photos fill their width without cropping", 
     }
     const photo = page.locator(selector).first();
     await photo.scrollIntoViewIfNeeded();
-    await expect.poll(
-      () => photo.evaluate((image) => image.complete && image.naturalWidth > 0),
-    ).toBe(true);
+    const imageLoaded = () =>
+      photo.evaluate((image) => image.complete && image.naturalWidth > 0);
+    await expect.poll(imageLoaded).toBe(true);
 
     const dimensions = await photo.evaluate((image) => {
       const photoBox = image.getBoundingClientRect();
@@ -146,17 +144,15 @@ test("achievement and representative photos fill their width without cropping", 
       };
     });
 
-    expect(
-      Math.abs(dimensions.containerWidth - dimensions.photoWidth),
-      `${route} ${selector} must span the full photo card`,
-    ).toBeLessThan(2);
-    expect(
-      Math.abs(
-        dimensions.photoWidth / dimensions.photoHeight -
-          dimensions.naturalRatio,
-      ),
-      `${route} ${selector} must preserve the source photo aspect ratio`,
-    ).toBeLessThan(0.015);
+    const widthGap = Math.abs(
+      dimensions.containerWidth - dimensions.photoWidth,
+    );
+    const displayedRatio = dimensions.photoWidth / dimensions.photoHeight;
+    const ratioDifference = Math.abs(
+      displayedRatio - dimensions.naturalRatio,
+    );
+    expect(widthGap).toBeLessThan(2);
+    expect(ratioDifference).toBeLessThan(0.015);
   }
 });
 
