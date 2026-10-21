@@ -23,24 +23,30 @@ test("the public website uses KHLIM's exact registered company identity", () => 
   );
 });
 
-test("company disclosures use the shared formatter instead of duplicate or partial names", async () => {
-  const paths = [
-    "apps/web/components/layout/public-footer.tsx",
-    "apps/web/app/contact/page.tsx",
-    "apps/web/app/privacy/page.tsx",
-    "apps/web/app/terms/page.tsx",
-  ];
-  for (const path of paths) {
-    const source = await readFile(new URL(`../${path}`, import.meta.url), "utf8");
-    assert.match(
-      source,
-      /formatRegisteredBusinessName\(business\)/,
-      `${path} should display the shared registered identity`,
+test(
+  "company disclosures use the shared formatter instead of duplicate or partial names",
+  async () => {
+    const paths = [
+      "apps/web/components/layout/public-footer.tsx",
+      "apps/web/app/contact/page.tsx",
+      "apps/web/app/privacy/page.tsx",
+      "apps/web/app/terms/page.tsx",
+    ];
+    for (const path of paths) {
+      const source = await readFile(
+      new URL(`../${path}`, import.meta.url),
+      "utf8",
     );
-    assert.doesNotMatch(
-      source,
-      /business\.registrationNumber\.match\(/,
-      `${path} must not parse registration parentheses by hand`,
-    );
-  }
-});
+      assert.match(
+        source,
+        /formatRegisteredBusinessName\(business\)/,
+        `${path} should display the shared registered identity`,
+      );
+      assert.doesNotMatch(
+        source,
+        /business\.registrationNumber\.match\(/,
+        `${path} must not parse registration parentheses by hand`,
+      );
+    }
+  },
+);
