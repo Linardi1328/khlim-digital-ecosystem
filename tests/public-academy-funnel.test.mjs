@@ -77,8 +77,9 @@ test("PublicHeader makes low-friction Register Interest the primary acquisition 
   );
   assert.match(
     header,
-    /href="\/enrol"[\s\S]*?<Button[\s\S]*?variant="outline"[\s\S]*?\{t\("nav\.register"\)\}/,
+    /href=\{buildUrlWithSource\("\/enrol", campaignSource\)\}[\s\S]*?<Button[\s\S]*?variant="outline"[\s\S]*?\{t\("nav\.register"\)\}/,
   );
+  assert.doesNotMatch(header, /href="\/enrol"/);
 
   // Authenticated portal navigation is preserved
   assert.match(header, /isAuthenticated/);
@@ -547,22 +548,25 @@ test("Sheet component renders via createPortal to document.body, mounts safely o
   );
 });
 
-test("Contact page uses authoritative getPublicBusinessDetails and renders complete business information with localized enquiry channel", async () => {
+test("Contact and footer display the exact registered company identity with localized enquiry channels", async () => {
   const contactPage = await read("apps/web/app/contact/page.tsx");
   const publicPageMsgs = await read(
     "packages/i18n/src/messages/public-pages.ts",
   );
 
   // Authoritative business details source
-  assert.match(
-    contactPage,
-    /import\s*\{\s*getPublicBusinessDetails\s*\}\s*from\s*"\.\.\/\.\.\/lib\/business-details"/,
-  );
+  assert.match(contactPage, /formatRegisteredBusinessName/);
+  assert.match(contactPage, /getPublicBusinessDetails/);
   assert.match(contactPage, /const business = getPublicBusinessDetails\(\)/);
 
   // Renders business details fields
-  assert.match(contactPage, /business\.legalName/);
-  assert.match(contactPage, /business\.registrationNumber/);
+  assert.match(contactPage, /\{formatRegisteredBusinessName\(business\)\}/);
+  // Contact page should not expose a separate registration-number row.
+  assert.doesNotMatch(contactPage, /business\.registrationNumber/);
+  const footer = await read("apps/web/components/layout/public-footer.tsx");
+  assert.match(footer, /\{formatRegisteredBusinessName\(business\)\}/);
+  assert.doesNotMatch(footer, /business\.registrationNumber\.match/);
+  assert.doesNotMatch(footer, /compliance\.footer\.companyNumberLabel/);
   assert.match(contactPage, /business\.businessAddress/);
   assert.match(contactPage, /href=\{`mailto:\$\{business\.email\}`\}/);
   assert.match(contactPage, /href=\{`tel:\$\{business\.phone\}`\}/);
@@ -605,12 +609,20 @@ test("Contact page uses authoritative getPublicBusinessDetails and renders compl
     process.env.NEXT_PUBLIC_BUSINESS_EMAIL = "enquiry@khlim-academy.com";
     process.env.NEXT_PUBLIC_BUSINESS_PHONE = "+60 3-8941 2000";
 
-    const { getPublicBusinessDetails, isCommerceBusinessDetailsComplete } =
-      await import(new URL("apps/web/lib/business-details.ts", root).href);
+    const {
+      formatRegisteredBusinessName,
+      getPublicBusinessDetails,
+      isCommerceBusinessDetailsComplete,
+    } = await import(new URL("apps/web/lib/business-details.ts", root).href);
 
     const populated = getPublicBusinessDetails();
-    assert.equal(populated.legalName, "KHLIM Sports Academy Sdn Bhd");
-    assert.equal(populated.registrationNumber, "202601009999 (1234567-X)");
+    // Deployment env cannot replace the company's confirmed legal identity.
+    assert.equal(populated.legalName, "KHLIM Basketball Sdn. Bhd.");
+    assert.equal(populated.registrationNumber, "1277329-U");
+    assert.equal(
+      formatRegisteredBusinessName(populated),
+      "KHLIM Basketball Sdn. Bhd. (1277329-U)",
+    );
     assert.equal(
       populated.businessAddress,
       "Level 2, Sports Complex, 43300 Seri Kembangan, Selangor",

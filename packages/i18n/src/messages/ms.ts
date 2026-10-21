@@ -8,6 +8,7 @@ export const ms: Record<MessageKey, string> = {
   "nav.home": "Utama",
   "nav.academy": "Akademi",
   "nav.programmes": "Program",
+  "nav.spotlight": "Sorotan",
   "nav.about": "Mengenai Kami",
   "nav.contact": "Hubungi",
   "nav.portal": "Portal Ibu Bapa",

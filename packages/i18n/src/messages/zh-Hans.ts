@@ -8,6 +8,7 @@ export const zhHans: Record<MessageKey, string> = {
   "nav.home": "首页",
   "nav.academy": "学院介绍",
   "nav.programmes": "课程项目",
+  "nav.spotlight": "球员聚焦",
   "nav.about": "关于我们",
   "nav.contact": "联系我们",
   "nav.portal": "家长门户",

@@ -7,6 +7,10 @@
 /* Small amber text must meet WCAG AA contrast on the light public background. */
 .home-section-heading > span,
 .home-gallery-heading > span,
+.home-photo-story-content > span,
+.home-academy-pillars-heading > span,
+.home-khero-heading > span,
+.home-khero-points-copy > span,
 .home-join-cta > div:first-child > span {
   color: #b45309;
 }

@@ -91,10 +91,40 @@ function HomeContent() {
   const heroSlides: HeroCarouselSlide[] = [
     {
       id: "academy-first",
+      // Approved responsive hero imagery: wide variant for desktop/tablet, full-frame variant for mobile portrait
+      imageUrl: "/media/khlim/team-hero-wide-1920.webp",
+      imageUrlMobile: "/media/khlim/team-hero-1920.webp",
       photoLabel: t("home.hero.photo.training"),
       showPlaceholderLabel: false,
       placeholderGradient:
         "radial-gradient(circle at 76% 24%, rgba(245, 158, 11, 0.36), transparent 18%), radial-gradient(circle at 78% 72%, rgba(245, 158, 11, 0.14), transparent 24%), linear-gradient(135deg, #09090b 0%, #18181b 48%, #2a1d08 100%)",
+    },
+    {
+      id: "team-huddle",
+      imageUrl: "/media/home/team-huddle-desktop.webp",
+      imageUrlMobile: "/media/home/team-huddle-mobile.webp",
+      photoLabel: t("home.hero.photo.coaching"),
+      showPlaceholderLabel: false,
+      placeholderGradient:
+        "radial-gradient(circle at 35% 40%, rgba(245, 158, 11, 0.25), transparent 24%), linear-gradient(135deg, #18181b, #27272a 58%, #1f2937)",
+    },
+    {
+      id: "sideline-energy",
+      imageUrl: "/media/home/sideline-energy-desktop.webp",
+      imageUrlMobile: "/media/home/sideline-energy-mobile.webp",
+      photoLabel: t("home.hero.photo.gameDay"),
+      showPlaceholderLabel: false,
+      placeholderGradient:
+        "radial-gradient(circle at 75% 24%, rgba(245, 158, 11, 0.28), transparent 24%), linear-gradient(135deg, #18181b, #3f2d0b 58%, #0f172a)",
+    },
+    {
+      id: "court-together",
+      imageUrl: "/media/home/court-together-desktop.webp",
+      imageUrlMobile: "/media/home/court-together-mobile.webp",
+      photoLabel: t("home.hero.photo.community"),
+      showPlaceholderLabel: false,
+      placeholderGradient:
+        "radial-gradient(circle at 50% 50%, rgba(251, 191, 36, 0.25), transparent 24%), linear-gradient(145deg, #111827, #27272a 58%, #4b3520)",
     },
   ];
 

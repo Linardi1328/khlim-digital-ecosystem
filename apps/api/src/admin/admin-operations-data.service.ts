@@ -556,9 +556,10 @@ export class AdminOperationsDataService {
           },
         })
       : [];
-    const offeringMap = new Map(
-      offerings.map((offering) => [offering.id, offering]),
-    );
+    const offeringMap = new Map<
+      string,
+      { name: string; programme: { name: string } }
+    >(offerings.map((offering) => [offering.id, offering]));
     const timezone = setting?.timezone ?? "Asia/Kuala_Lumpur";
 
     return sessions.map((session) => {

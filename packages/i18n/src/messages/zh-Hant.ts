@@ -8,6 +8,7 @@ export const zhHant: Record<MessageKey, string> = {
   "nav.home": "首頁",
   "nav.academy": "學院介紹",
   "nav.programmes": "課程項目",
+  "nav.spotlight": "球員聚焦",
   "nav.about": "關於我們",
   "nav.contact": "聯絡我們",
   "nav.portal": "家長門戶",

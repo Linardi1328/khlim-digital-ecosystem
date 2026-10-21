@@ -85,7 +85,10 @@ test("mobile drawer and academy hero actions stay finger-friendly", async ({
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   await expectMinimumHeight(dialog.getByRole("button", { name: /close/i }));
-  await expectMinimumHeight(dialog.locator("select"));
+  await expect(dialog.locator("select")).toHaveCount(0);
+  await expect(
+    page.locator(".public-header-locale select:visible"),
+  ).toHaveCount(1);
 
   const drawerLinks = await dialog.getByRole("link").all();
   for (const link of drawerLinks) {
@@ -97,9 +100,17 @@ test("mobile drawer and academy hero actions stay finger-friendly", async ({
   const hero = page.locator(".home-hero-carousel");
   await expect(hero).toBeVisible();
   await expectMinimumHeight(hero.locator('a[href="/interest"]'));
-  await expectMinimumHeight(hero.locator('a[href="/programmes"]'));
-  await expect(hero.locator(".home-carousel-arrow")).toHaveCount(0);
-  await expect(hero.locator(".home-carousel-dots")).toHaveCount(0);
+  const arrows = hero.locator(".home-carousel-arrow");
+  const arrowCount = await arrows.count();
+  for (let index = 0; index < arrowCount; index += 1) {
+    await expectMinimumHeight(arrows.nth(index));
+  }
+
+  const dotButtons = hero.locator(".home-carousel-dots button");
+  const dotCount = await dotButtons.count();
+  for (let index = 0; index < dotCount; index += 1) {
+    await expectMinimumHeight(dotButtons.nth(index));
+  }
 });
 
 test("mobile sheet portal covers full viewport and unconstrains overlay on 375px and 390px mobile viewports", async ({
