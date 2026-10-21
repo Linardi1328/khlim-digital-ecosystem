@@ -138,11 +138,11 @@ export function HeroCarousel({
           const isLoaded = loadedIndices.includes(index);
           const bgDesktop =
             isLoaded && slide.imageUrl
-              ? `linear-gradient(90deg, rgba(9, 9, 11, 0.82) 0%, rgba(9, 9, 11, 0.52) 50%, rgba(9, 9, 11, 0.7) 100%), url("${slide.imageUrl}")`
+              ? `linear-gradient(90deg, rgba(9, 9, 11, 0.82) 0%, rgba(9, 9, 11, 0.42) 50%, rgba(9, 9, 11, 0.3) 100%), url("${slide.imageUrl}")`
               : `linear-gradient(90deg, rgba(9, 9, 11, 0.76), rgba(9, 9, 11, 0.44), rgba(9, 9, 11, 0.72)), ${slide.placeholderGradient}`;
           const bgMobile =
             isLoaded && slide.imageUrlMobile
-              ? `linear-gradient(180deg, rgba(9, 9, 11, 0.85) 0%, rgba(9, 9, 11, 0.55) 50%, rgba(9, 9, 11, 0.88) 100%), url("${slide.imageUrlMobile}")`
+              ? `linear-gradient(180deg, rgba(9, 9, 11, 0.72) 0%, rgba(9, 9, 11, 0.36) 50%, rgba(9, 9, 11, 0.86) 100%), url("${slide.imageUrlMobile}")`
               : bgDesktop;
 
           return (
