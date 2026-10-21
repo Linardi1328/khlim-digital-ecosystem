@@ -26,6 +26,10 @@ import {
 } from "../../lib/editorial-api";
 import { useI18n } from "../../lib/i18n-context";
 
+// Only Vercel-authenticated preview deployments can show internal review media.
+const isStagingMediaReview =
+  process.env.NEXT_PUBLIC_STAGING_MEDIA_REVIEW === "1";
+
 const FEATURED_ACHIEVEMENT_IDS = [
   "cls-international-cup-2026",
   "sba-selangor-2025-d1",
@@ -102,6 +106,12 @@ function SpotlightArchiveContent() {
   const [spotlightsError, setSpotlightsError] = useState(false);
 
   useEffect(() => {
+    if (isStagingMediaReview) {
+      setAchievements([]);
+      setAchievementsLoading(false);
+      setAchievementsError(false);
+      return;
+    }
     setAchievementsLoading(true);
     setAchievementsError(false);
     void fetchPublishedAchievements()
@@ -119,6 +129,12 @@ function SpotlightArchiveContent() {
   }, []);
 
   useEffect(() => {
+    if (isStagingMediaReview) {
+      setSpotlights([]);
+      setSpotlightsLoading(false);
+      setSpotlightsError(false);
+      return;
+    }
     setSpotlightsLoading(true);
     setSpotlightsError(false);
     void fetchPublishedSpotlights()
@@ -473,6 +489,45 @@ function SpotlightArchiveContent() {
             </>
           )}
         </section>
+
+        {isStagingMediaReview && (
+          <section
+            className="spotlight-section"
+            id="staging-media-review"
+            aria-labelledby="staging-media-review-title"
+          >
+            <div className="spotlight-section-heading">
+              <span>{t("spotlight.review.badge")}</span>
+              <h2 id="staging-media-review-title">
+                {t("spotlight.review.title")}
+              </h2>
+              <p>{t("spotlight.review.description")}</p>
+            </div>
+            <div className="spotlight-club-gallery-grid">
+              {clubEventGallery.map((item) => {
+                const showImage = canRenderYouthMedia(item);
+                return (
+                  <figure key={item.id} className="spotlight-gallery-card">
+                    <div
+                      className="spotlight-gallery-image-wrapper"
+                      style={{
+                        backgroundImage: showImage
+                          ? `linear-gradient(180deg, rgba(9, 9, 11, 0.04), rgba(9, 9, 11, 0.72)), url("${item.imageUrl}")`
+                          : "linear-gradient(135deg, #18181b, #27272a)",
+                      }}
+                      role="img"
+                      aria-label={item.photoLabel}
+                    />
+                    <figcaption className="spotlight-gallery-caption">
+                      <h4>{item.title}</h4>
+                      <p>{item.description}</p>
+                    </figcaption>
+                  </figure>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {/* Section 2: Player Spotlights */}
         <section
