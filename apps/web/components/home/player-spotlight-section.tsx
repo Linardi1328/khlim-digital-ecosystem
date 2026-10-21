@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import {
   getLocalizedSpotlightPreview,
   publishedPlayerSpotlights,
+  verifiedRepresentativeMilestones,
   type PlayerSpotlightArticle,
 } from "../../lib/editorial-content";
 import { fetchPublishedSpotlights } from "../../lib/editorial-api";
@@ -15,6 +16,7 @@ import {
 } from "../../lib/campaign-source";
 import { useI18n } from "../../lib/i18n-context";
 import { Button } from "../ui/button";
+import { VerifiedMilestoneGallery } from "../editorial/verified-milestone-gallery";
 
 function SpotlightCard({
   article,
@@ -147,6 +149,14 @@ export function PlayerSpotlightSection({
           <Button variant="outline">{t("spotlight.viewAll")}</Button>
         </Link>
       </div>
+
+      <VerifiedMilestoneGallery
+        stories={verifiedRepresentativeMilestones.slice(0, 3)}
+        compact
+      />
+      <p className="verified-milestone-context">
+        {t("spotlight.representatives.namesPending")}
+      </p>
 
       {preview && (
         <div
