@@ -33,7 +33,7 @@ const en = {
   "home.hero.nextPhoto": "Show next academy photo",
   "home.hero.choosePhoto": "Choose academy photo",
   "home.hero.showPhoto": "Show academy photo {count}: {label}",
-  "home.hero.photo.training": "training action",
+  "home.hero.photo.training": "team portrait",
   "home.hero.photo.coaching": "coach and player instruction",
   "home.hero.photo.community": "team and community moment",
   "home.hero.photo.gameDay": "game-day energy",
@@ -69,6 +69,13 @@ const en = {
   "home.achievements.previewTitle": "Archive ready for verified club history.",
   "home.achievements.previewBody":
     "These three preview slots do not claim a result. Replace them with confirmed event names, years, descriptions and approved photos before publication.",
+  "home.achievements.clubBadge": "KHLIM Basketball Club Milestones",
+  "home.achievements.clubDisclaimer":
+    "These competitive milestones reflect the tournament history of KHLIM Basketball Club and are distinct from individual youth Academy training progression.",
+  "home.achievements.nonePublished":
+    "No club achievements are currently published.",
+  "home.achievements.viewAllCta": "View Full Archive →",
+  "home.achievements.loading": "Loading club achievements...",
   "home.achievements.archiveLabel": "Club archive",
   "home.achievements.signature.title": "Signature competitive milestone",
   "home.achievements.signature.event": "Highest verified team result",
@@ -156,7 +163,87 @@ const en = {
 
   "enrol.error.childRequired": "Enter the child's name and date of birth.",
   "enrol.error.createAthlete": "Unable to create the athlete profile.",
-} as const;
+
+  "mediaPreview.eyebrow": "Staging & Rights Verification",
+  "mediaPreview.title": "Media Integration & Rights Console",
+  "mediaPreview.description":
+    "Private preview of staging pack assets, licensing status, and authorization requirements for public publication.",
+  "mediaPreview.notice":
+    "Private Local Preview — Not for Public Deployment. Assets marked as awaiting approval are withheld from public builds.",
+  "mediaPreview.noticeDetails":
+    "Current Brand Identity: /khs-academy-logo.webp remains active on public pages. Staged assets are kept in docs/media/staging-pack/ and omitted from public static trees.",
+  "mediaPreview.localhostOnly": "Localhost Preview Only",
+  "mediaPreview.scorecard.title": "Authorization & Legal Rights Scorecard",
+  "mediaPreview.scorecard.totalStaged": "Total Staged Assets",
+  "mediaPreview.scorecard.totalStagedSubtitle": "14 WebP derivatives prepared",
+  "mediaPreview.scorecard.brandOwner": "Brand Owner Sign-off",
+  "mediaPreview.scorecard.brandOwnerSubtitle": "Logos & Academy Crests",
+  "mediaPreview.scorecard.mascot": "Mascot Artwork Release",
+  "mediaPreview.scorecard.mascotSubtitle": "KHero Posters (Artist Rights)",
+  "mediaPreview.scorecard.coaches": "Coach & Photo Release",
+  "mediaPreview.scorecard.coachesSubtitle":
+    "Coaches Seng Jun, Jia Xuan, Puimann, Woon",
+  "mediaPreview.scorecard.guardian": "Guardian Consent (Minors)",
+  "mediaPreview.scorecard.guardianSubtitle":
+    "Identifiable Youth Minors (Fail-Closed)",
+  "mediaPreview.scorecard.publicReady": "Public-Ready Status",
+  "mediaPreview.scorecard.publicReadySubtitle": "0% unverified files served",
+  "mediaPreview.tab.all": "All Assets",
+  "mediaPreview.tab.branding": "Brand Identity",
+  "mediaPreview.tab.khero": "KHero Mascot",
+  "mediaPreview.tab.coaches": "Coaches",
+  "mediaPreview.tab.youth": "Youth & Hero",
+  "mediaPreview.tab.achievements": "Achievements",
+  "mediaPreview.status.verified": "Verified & Approved",
+  "mediaPreview.status.ownerRequired": "Brand Owner Sign-off Required",
+  "mediaPreview.status.mascotRequired": "Mascot Artwork Release Required",
+  "mediaPreview.status.coachRequired": "Coach & Photographer Release Required",
+  "mediaPreview.status.guardianRequired": "Guardian Consent Required",
+  "mediaPreview.viewMode.label": "Display Mode",
+  "mediaPreview.viewMode.publicSafe":
+    "Public Production Safe (Placeholders Active)",
+  "mediaPreview.viewMode.staging": "Private Staging Preview",
+  "mediaPreview.branding.title": "Brand Identity Evaluation & Comparison",
+  "mediaPreview.branding.description":
+    "Existing Brand Identity (Left) vs Proposed Staging Variants (Right). Public pages retain current crest.",
+  "mediaPreview.branding.activeBadge": "CURRENT ACTIVE IDENTITY",
+  "mediaPreview.branding.activeTitle": "KHS Academy Crest",
+  "mediaPreview.branding.activeNote":
+    "Confirmed active identity tested by PR #95 desktop/mobile headers and end-to-end suites.",
+  "mediaPreview.branding.corporateBadge": "CANDIDATE: CORPORATE",
+  "mediaPreview.branding.laurelTitle": "KHLIM Laurel Crest",
+  "mediaPreview.branding.horizontalBadge": "CANDIDATE: HORIZONTAL",
+  "mediaPreview.branding.markTitle": "KHS Academy Wordmark",
+  "mediaPreview.branding.clubBadge": "CANDIDATE: CLUB",
+  "mediaPreview.branding.clubTitle": "KH Basketball Club",
+  "mediaPreview.branding.previewGated": "Preview Gated",
+  "mediaPreview.khero.title":
+    "KHero Mascot Posters & Multilingual Accessibility Transcripts",
+  "mediaPreview.khero.badge": "3-Language Support",
+  "mediaPreview.khero.description":
+    "Because the staging posters contain embedded English typography, the translations below provide accessible, translatable surrounding content for Bahasa Melayu and Simplified Chinese readers.",
+  "mediaPreview.coaches.title": "Academy Coaching Staff (720x900 Aspect 4:5)",
+  "mediaPreview.coaches.description":
+    "High-resolution coach portraits with photographer release and individual coach consent status.",
+  "mediaPreview.coaches.crop": "720x900 WebP (4:5 Crop)",
+  "mediaPreview.youth.title":
+    "Youth Squad Photography (Minor Protection Safeguards)",
+  "mediaPreview.youth.badge": "Restricted Access",
+  "mediaPreview.youth.description":
+    "Photographs containing identifiable children require documented guardian consent before public deployment.",
+  "mediaPreview.youth.privatePreviewOnly": "PRIVATE PREVIEW ONLY",
+  "mediaPreview.youth.withheldNotice":
+    "WITHHELD FROM PUBLIC TREES PENDING GUARDIAN RELEASES",
+  "mediaPreview.registry.title": "Comprehensive Staging Pack Rights Registry",
+  "mediaPreview.registry.withheldBadge": "Withheld (Fail-Closed)",
+  "mediaPreview.loading": "Loading media preview...",
+  "mediaPreview.table.asset": "Asset / File",
+  "mediaPreview.table.sourceLabel": "Source:",
+  "mediaPreview.table.placement": "Placement",
+  "mediaPreview.table.rightsStatus": "Rights Status",
+  "mediaPreview.table.authorizationRequired": "Authorization Required From",
+  "mediaPreview.table.publicTreeStatus": "Public Tree Safety",
+};
 
 export type WebMessageKey = keyof typeof en;
 type WebCatalogue = Record<WebMessageKey, string>;
@@ -193,7 +280,7 @@ const ms: WebCatalogue = {
   "home.hero.nextPhoto": "Tunjukkan foto akademi seterusnya",
   "home.hero.choosePhoto": "Pilih foto akademi",
   "home.hero.showPhoto": "Tunjukkan foto akademi {count}: {label}",
-  "home.hero.photo.training": "aksi latihan",
+  "home.hero.photo.training": "potret pasukan",
   "home.hero.photo.coaching": "arahan jurulatih dan pemain",
   "home.hero.photo.community": "detik pasukan dan komuniti",
   "home.hero.photo.gameDay": "tenaga hari perlawanan",
@@ -230,6 +317,13 @@ const ms: WebCatalogue = {
     "Arkib sedia untuk sejarah kelab yang disahkan.",
   "home.achievements.previewBody":
     "Tiga ruang pratonton ini tidak mendakwa sebarang keputusan. Gantikannya dengan nama acara, tahun, penerangan dan foto yang telah disahkan sebelum penerbitan.",
+  "home.achievements.clubBadge": "Pencapaian Kelab Bola Keranjang KHLIM",
+  "home.achievements.clubDisclaimer":
+    "Pencapaian kejohanan ini merupakan kejayaan kompetitif pasukan Kelab Bola Keranjang KHLIM dan berbeza daripada kemajuan latihan Akademi belia individu.",
+  "home.achievements.nonePublished":
+    "Tiada pencapaian kelab yang diterbitkan buat masa ini.",
+  "home.achievements.viewAllCta": "Lihat Arkib Penuh →",
+  "home.achievements.loading": "Memuatkan pencapaian kelab...",
   "home.achievements.archiveLabel": "Arkib kelab",
   "home.achievements.signature.title": "Pencapaian pertandingan utama",
   "home.achievements.signature.event":
@@ -314,6 +408,89 @@ const ms: WebCatalogue = {
   "portal.child.save": "Simpan Profil Anak",
   "enrol.error.childRequired": "Masukkan nama anak dan tarikh lahir.",
   "enrol.error.createAthlete": "Tidak dapat mencipta profil atlet.",
+
+  "mediaPreview.eyebrow": "Pementasan & Pengesahan Hak",
+  "mediaPreview.title": "Konsol Integrasi Media & Hak",
+  "mediaPreview.description":
+    "Pratonton peribadi aset pek pementasan, status pelesenan, dan keperluan kebenaran untuk penerbitan awam.",
+  "mediaPreview.notice":
+    "Pratonton Tempatan Peribadi — Bukan untuk Penerbitan Awam. Aset yang menunggu kelulusan disekat daripada binaan awam.",
+  "mediaPreview.noticeDetails":
+    "Identiti Jenama Semasa: /khs-academy-logo.webp kekal aktif di halaman awam. Aset pementasan disimpan dalam docs/media/staging-pack/ dan dikecualikan daripada salasilah statik awam.",
+  "mediaPreview.localhostOnly": "Pratonton Tempatan Sahaja",
+  "mediaPreview.scorecard.title": "Kad Skor Kebenaran & Hak Undang-undang",
+  "mediaPreview.scorecard.totalStaged": "Jumlah Aset Pementasan",
+  "mediaPreview.scorecard.totalStagedSubtitle": "14 terbitan WebP disediakan",
+  "mediaPreview.scorecard.brandOwner": "Pengesahan Pemilik Jenama",
+  "mediaPreview.scorecard.brandOwnerSubtitle": "Logo & Lambang Akademi",
+  "mediaPreview.scorecard.mascot": "Pelepasan Karya Seni Maskot",
+  "mediaPreview.scorecard.mascotSubtitle": "Poster KHero (Hak Artis)",
+  "mediaPreview.scorecard.coaches": "Pelepasan Jurulatih & Foto",
+  "mediaPreview.scorecard.coachesSubtitle":
+    "Jurulatih Seng Jun, Jia Xuan, Puimann, Woon",
+  "mediaPreview.scorecard.guardian": "Keizinan Penjaga (Kanak-kanak)",
+  "mediaPreview.scorecard.guardianSubtitle":
+    "Belia Dikenal Pasti (Gagal Ditutup)",
+  "mediaPreview.scorecard.publicReady": "Status Sedia Awam",
+  "mediaPreview.scorecard.publicReadySubtitle":
+    "0% fail tidak disahkan disiarkan",
+  "mediaPreview.tab.all": "Semua Aset",
+  "mediaPreview.tab.branding": "Identiti Jenama",
+  "mediaPreview.tab.khero": "Maskot KHero",
+  "mediaPreview.tab.coaches": "Jurulatih",
+  "mediaPreview.tab.youth": "Belia & Hero",
+  "mediaPreview.tab.achievements": "Pencapaian",
+  "mediaPreview.status.verified": "Disahkan & Diluluskan",
+  "mediaPreview.status.ownerRequired": "Pengesahan Pemilik Jenama Diperlukan",
+  "mediaPreview.status.mascotRequired":
+    "Pelepasan Karya Seni Maskot Diperlukan",
+  "mediaPreview.status.coachRequired":
+    "Pelepasan Jurulatih & Jurugambar Diperlukan",
+  "mediaPreview.status.guardianRequired": "Keizinan Penjaga Diperlukan",
+  "mediaPreview.viewMode.label": "Mod Paparan",
+  "mediaPreview.viewMode.publicSafe":
+    "Selamat Pengeluaran Awam (Pemegang Tempat Aktif)",
+  "mediaPreview.viewMode.staging": "Pratonton Pementasan Peribadi",
+  "mediaPreview.branding.title": "Penilaian & Perbandingan Identiti Jenama",
+  "mediaPreview.branding.description":
+    "Identiti Jenama Sedia Ada (Kiri) berbanding Varian Pementasan Dicadangkan (Kanan). Halaman awam mengekalkan lambang semasa.",
+  "mediaPreview.branding.activeBadge": "IDENTITI AKTIF SEMASA",
+  "mediaPreview.branding.activeTitle": "Lambang Akademi KHS",
+  "mediaPreview.branding.activeNote":
+    "Identiti aktif yang disahkan diuji oleh pengepala desktop/mudah alih dan suite hujung ke hujung PR #95.",
+  "mediaPreview.branding.corporateBadge": "CALON: KORPORAT",
+  "mediaPreview.branding.laurelTitle": "Lambang Laurel KHLIM",
+  "mediaPreview.branding.horizontalBadge": "CALON: MENDATAR",
+  "mediaPreview.branding.markTitle": "Tanda Kata Akademi KHS",
+  "mediaPreview.branding.clubBadge": "CALON: KELAB",
+  "mediaPreview.branding.clubTitle": "Kelab Bola Keranjang KH",
+  "mediaPreview.branding.previewGated": "Pratonton Disekat",
+  "mediaPreview.khero.title":
+    "Poster Maskot KHero & Transkrip Kebolehcapaian Berbilang Bahasa",
+  "mediaPreview.khero.badge": "Sokongan 3 Bahasa",
+  "mediaPreview.khero.description":
+    "Oleh kerana poster pementasan mengandungi tipografi bahasa Inggeris, terjemahan di bawah menyediakan kandungan sekeliling yang boleh diakses dan diterjemahkan untuk pembaca Bahasa Melayu dan Bahasa Cina Ringkas.",
+  "mediaPreview.coaches.title":
+    "Kakitangan Kejurulatihan Akademi (Aspek 720x900 4:5)",
+  "mediaPreview.coaches.description":
+    "Potret jurulatih beresolusi tinggi dengan pelepasan jurugambar dan status kebenaran individu.",
+  "mediaPreview.coaches.crop": "WebP 720x900 (Potongan 4:5)",
+  "mediaPreview.youth.title": "Fotografi Skuad Belia (Perlindungan Bawah Umur)",
+  "mediaPreview.youth.badge": "Akses Terhad",
+  "mediaPreview.youth.description":
+    "Gambar yang mengandungi kanak-kanak yang boleh dikenal pasti memerlukan keizinan penjaga sebelum penerbitan awam.",
+  "mediaPreview.youth.privatePreviewOnly": "PRATONTON PERIBADI SAHAJA",
+  "mediaPreview.youth.withheldNotice":
+    "DISEKAT DARIPADA SALASILAH AWAM SEHINGGA PELEPASAN PENJAGA DITERIMA",
+  "mediaPreview.registry.title": "Daftar Hak Pek Pementasan Komprehensif",
+  "mediaPreview.registry.withheldBadge": "Disekat (Gagal Ditutup)",
+  "mediaPreview.loading": "Memuatkan pratonton media...",
+  "mediaPreview.table.asset": "Aset / Fail",
+  "mediaPreview.table.sourceLabel": "Sumber:",
+  "mediaPreview.table.placement": "Penempatan",
+  "mediaPreview.table.rightsStatus": "Status Hak",
+  "mediaPreview.table.authorizationRequired": "Kebenaran Diperlukan Daripada",
+  "mediaPreview.table.publicTreeStatus": "Keselamatan Salasilah Awam",
 };
 
 const zhHans: WebCatalogue = {
@@ -347,7 +524,7 @@ const zhHans: WebCatalogue = {
   "home.hero.nextPhoto": "显示下一张学院照片",
   "home.hero.choosePhoto": "选择学院照片",
   "home.hero.showPhoto": "显示学院照片 {count}：{label}",
-  "home.hero.photo.training": "训练动作",
+  "home.hero.photo.training": "球队合影",
   "home.hero.photo.coaching": "教练指导球员",
   "home.hero.photo.community": "团队与社区时刻",
   "home.hero.photo.gameDay": "比赛日活力",
@@ -383,6 +560,12 @@ const zhHans: WebCatalogue = {
   "home.achievements.previewTitle": "档案区已准备好收录经核实的俱乐部历史。",
   "home.achievements.previewBody":
     "这三个预览位置不代表任何真实成绩。发布前请用已确认的赛事名称、年份、说明和获批照片替换。",
+  "home.achievements.clubBadge": "KHLIM 篮球俱乐部荣誉",
+  "home.achievements.clubDisclaimer":
+    "这些赛事里程碑代表 KHLIM 篮球俱乐部各梯队的竞技成就，与个人青少年学院培训进程有所区分。",
+  "home.achievements.nonePublished": "当前暂无发布的俱乐部成就。",
+  "home.achievements.viewAllCta": "查看完整档案 →",
+  "home.achievements.loading": "正在加载俱乐部成就……",
   "home.achievements.archiveLabel": "俱乐部档案",
   "home.achievements.signature.title": "标志性竞技里程碑",
   "home.achievements.signature.event": "最高已核实团队成绩",
@@ -460,6 +643,83 @@ const zhHans: WebCatalogue = {
   "portal.child.save": "保存孩子档案",
   "enrol.error.childRequired": "请输入孩子姓名和出生日期。",
   "enrol.error.createAthlete": "无法创建学员档案。",
+
+  "mediaPreview.eyebrow": "预发布与版权核验",
+  "mediaPreview.title": "媒体整合与版权控制台",
+  "mediaPreview.description":
+    "预发布资源包、许可状态以及公开发布所需授权要求的内部预览。",
+  "mediaPreview.notice":
+    "本地内部预览 — 不得用于公开发布。待批准资源已从公开版本中剔除。",
+  "mediaPreview.noticeDetails":
+    "当前品牌标识：/khs-academy-logo.webp 在公开页面保持生效。预发布资源保留在 docs/media/staging-pack/，不包含在公开静态资源树中。",
+  "mediaPreview.localhostOnly": "仅限本地预览",
+  "mediaPreview.scorecard.title": "授权与法律版权记分板",
+  "mediaPreview.scorecard.totalStaged": "预发布资源总数",
+  "mediaPreview.scorecard.totalStagedSubtitle":
+    "已制作 14 张优化 WebP 衍生素材",
+  "mediaPreview.scorecard.brandOwner": "品牌所有者批准",
+  "mediaPreview.scorecard.brandOwnerSubtitle": "徽标与学院盾徽",
+  "mediaPreview.scorecard.mascot": "吉祥物美术授权",
+  "mediaPreview.scorecard.mascotSubtitle": "KHero 海报（插画师版权）",
+  "mediaPreview.scorecard.coaches": "教练与摄影师协议",
+  "mediaPreview.scorecard.coachesSubtitle":
+    "Seng Jun、Jia Xuan、Puimann、Woon 教练",
+  "mediaPreview.scorecard.guardian": "监护人书面同意（未成年人）",
+  "mediaPreview.scorecard.guardianSubtitle": "可识别青少年球员（安全闭环）",
+  "mediaPreview.scorecard.publicReady": "公开就绪状态",
+  "mediaPreview.scorecard.publicReadySubtitle": "0% 未核验文件对外提供",
+  "mediaPreview.tab.all": "全部资源",
+  "mediaPreview.tab.branding": "品牌标识",
+  "mediaPreview.tab.khero": "KHero 吉祥物",
+  "mediaPreview.tab.coaches": "教练团队",
+  "mediaPreview.tab.youth": "青少年与英雄",
+  "mediaPreview.tab.achievements": "荣誉成就",
+  "mediaPreview.status.verified": "已核验并批准",
+  "mediaPreview.status.ownerRequired": "需要品牌所有者签署批准",
+  "mediaPreview.status.mascotRequired": "需要吉祥物美术版权发布授权",
+  "mediaPreview.status.coachRequired": "需要教练及摄影师授权协议",
+  "mediaPreview.status.guardianRequired": "需要法定监护人书面同意",
+  "mediaPreview.viewMode.label": "显示模式",
+  "mediaPreview.viewMode.publicSafe": "公开生产安全模式（占位符生效）",
+  "mediaPreview.viewMode.staging": "内部预发布预览",
+  "mediaPreview.branding.title": "品牌标识评估与对比",
+  "mediaPreview.branding.description":
+    "现有品牌标识（左）与候选预发布版本（右）。公开页面保持当前盾徽不变。",
+  "mediaPreview.branding.activeBadge": "当前正式生效标识",
+  "mediaPreview.branding.activeTitle": "KHS 学院盾徽",
+  "mediaPreview.branding.activeNote":
+    "PR #95 桌面端/移动端导航及端到端测试套件已验证的正式标识。",
+  "mediaPreview.branding.corporateBadge": "候选标识：企业版",
+  "mediaPreview.branding.laurelTitle": "KHLIM 桂冠盾徽",
+  "mediaPreview.branding.horizontalBadge": "候选标识：横向文字版",
+  "mediaPreview.branding.markTitle": "KHS 学院字标",
+  "mediaPreview.branding.clubBadge": "候选标识：俱乐部版",
+  "mediaPreview.branding.clubTitle": "KH 篮球俱乐部",
+  "mediaPreview.branding.previewGated": "预览受限",
+  "mediaPreview.khero.title": "KHero 吉祥物海报与多语言无障碍文本对照",
+  "mediaPreview.khero.badge": "三语支持",
+  "mediaPreview.khero.description":
+    "由于预发布海报内嵌英文美术字体，下方提供了马来语及简体中文的对照转录与核心价值说明，确保无障碍可达。",
+  "mediaPreview.coaches.title": "学院教练团队（720x900 4:5 比例）",
+  "mediaPreview.coaches.description":
+    "高清教练肖像照片，包含摄影师版权协议与教练肖像权签署状态。",
+  "mediaPreview.coaches.crop": "720x900 WebP（4:5 裁剪）",
+  "mediaPreview.youth.title": "青少年球员摄影（未成年人安全保护）",
+  "mediaPreview.youth.badge": "受限访问",
+  "mediaPreview.youth.description":
+    "包含可识别儿童的照片必须在获得监护人签署授权后方可进入公开版本。",
+  "mediaPreview.youth.privatePreviewOnly": "仅限内部预览",
+  "mediaPreview.youth.withheldNotice":
+    "等待监护人签署同意书，已从公开代码树剔除",
+  "mediaPreview.registry.title": "预发布资源包完整版权台账",
+  "mediaPreview.registry.withheldBadge": "已剔除（安全闭环）",
+  "mediaPreview.loading": "正在加载媒体预览……",
+  "mediaPreview.table.asset": "资源 / 文件",
+  "mediaPreview.table.sourceLabel": "来源：",
+  "mediaPreview.table.placement": "展示位置",
+  "mediaPreview.table.rightsStatus": "版权状态",
+  "mediaPreview.table.authorizationRequired": "所需授权方",
+  "mediaPreview.table.publicTreeStatus": "公开代码树安全性",
 };
 
 const zhHant: WebCatalogue = {
@@ -494,7 +754,7 @@ const zhHant: WebCatalogue = {
   "home.hero.nextPhoto": "顯示下一張學院照片",
   "home.hero.choosePhoto": "選擇學院照片",
   "home.hero.showPhoto": "顯示學院照片 {count}：{label}",
-  "home.hero.photo.training": "訓練動作",
+  "home.hero.photo.training": "球隊合照",
   "home.hero.photo.coaching": "教練指導球員",
   "home.hero.photo.community": "團隊與社群時刻",
   "home.hero.photo.gameDay": "比賽日活力",
@@ -530,6 +790,12 @@ const zhHant: WebCatalogue = {
   "home.achievements.previewTitle": "檔案區已準備好收錄經核實的俱樂部歷史。",
   "home.achievements.previewBody":
     "這三個預覽位置不代表任何真實成績。發布前請用已確認的賽事名稱、年份、說明和獲批照片替換。",
+  "home.achievements.clubBadge": "KHLIM 籃球俱樂部榮譽",
+  "home.achievements.clubDisclaimer":
+    "這些賽事里程碑代表 KHLIM 籃球俱樂部各梯隊的競技成就，與個人青少年學院培訓進程有所區分。",
+  "home.achievements.nonePublished": "目前暫無發布的俱樂部成就。",
+  "home.achievements.viewAllCta": "查看完整檔案 →",
+  "home.achievements.loading": "正在載入俱樂部成就……",
   "home.achievements.archiveLabel": "俱樂部檔案",
   "home.achievements.signature.title": "標誌性競技里程碑",
   "home.achievements.signature.event": "最高已核實團隊成績",
@@ -641,7 +907,7 @@ const hi: WebCatalogue = {
   "home.hero.nextPhoto": "अगली अकादमी फ़ोटो दिखाएँ",
   "home.hero.choosePhoto": "अकादमी फ़ोटो चुनें",
   "home.hero.showPhoto": "अकादमी फ़ोटो {count} दिखाएँ: {label}",
-  "home.hero.photo.training": "प्रशिक्षण का एक्शन",
+  "home.hero.photo.training": "टीम पोर्ट्रेट",
   "home.hero.photo.coaching": "कोच और खिलाड़ी का निर्देश",
   "home.hero.photo.community": "टीम और समुदाय का पल",
   "home.hero.photo.gameDay": "मैच-दिवस की ऊर्जा",
@@ -678,6 +944,13 @@ const hi: WebCatalogue = {
     "सत्यापित क्लब इतिहास के लिए आर्काइव तैयार है।",
   "home.achievements.previewBody":
     "ये तीन प्रीव्यू स्थान किसी वास्तविक परिणाम का दावा नहीं करते। प्रकाशन से पहले इन्हें पुष्टि किए गए इवेंट नाम, वर्ष, विवरण और स्वीकृत फ़ोटो से बदलें।",
+  "home.achievements.clubBadge": "KHLIM बास्केटबॉल क्लब उपलब्धियाँ",
+  "home.achievements.clubDisclaimer":
+    "ये टूर्नामेंट उपलब्धियाँ KHLIM बास्केटबॉल क्लब की प्रतिस्पर्धी उपलब्धियाँ हैं और व्यक्तिगत युवा अकादमी प्रशिक्षण प्रगति से भिन्न हैं।",
+  "home.achievements.nonePublished":
+    "वर्तमान में कोई क्लब उपलब्धि प्रकाशित नहीं है।",
+  "home.achievements.viewAllCta": "पूरा संग्रह देखें →",
+  "home.achievements.loading": "क्लब की उपलब्धियाँ लोड हो रही हैं...",
   "home.achievements.archiveLabel": "क्लब आर्काइव",
   "home.achievements.signature.title": "प्रमुख प्रतिस्पर्धी उपलब्धि",
   "home.achievements.signature.event": "सर्वोच्च सत्यापित टीम परिणाम",
@@ -759,6 +1032,83 @@ const hi: WebCatalogue = {
   "portal.child.save": "बच्चे की प्रोफ़ाइल सहेजें",
   "enrol.error.childRequired": "बच्चे का नाम और जन्म तिथि दर्ज करें।",
   "enrol.error.createAthlete": "खिलाड़ी प्रोफ़ाइल नहीं बनाई जा सकी।",
+
+  "mediaPreview.eyebrow": "स्टेजिंग और अधिकार सत्यापन",
+  "mediaPreview.title": "मीडिया एकीकरण और अधिकार कंसोल",
+  "mediaPreview.description":
+    "स्टेजिंग पैक संपत्तियों, लाइसेंसिंग स्थिति और सार्वजनिक प्रकाशन के लिए आवश्यक प्राधिकरण आवश्यकताओं का निजी पूर्वावलोकन।",
+  "mediaPreview.notice":
+    "निजी स्थानीय पूर्वावलोकन — सार्वजनिक परिनियोजन के लिए नहीं। अनुमोदन की प्रतीक्षा कर रही संपत्तियों को सार्वजनिक बिल्ड से बाहर रखा गया है।",
+  "mediaPreview.noticeDetails":
+    "वर्तमान ब्रांड पहचान: /khs-academy-logo.webp सार्वजनिक पेजों पर सक्रिय रहती है। स्टेजिंग संपत्तियां docs/media/staging-pack/ में रखी गई हैं।",
+  "mediaPreview.localhostOnly": "केवल लोकलहोस्ट पूर्वावलोकन",
+  "mediaPreview.scorecard.title": "प्राधिकरण और कानूनी अधिकार स्कोरकार्ड",
+  "mediaPreview.scorecard.totalStaged": "कुल स्टेज की गई संपत्तियां",
+  "mediaPreview.scorecard.totalStagedSubtitle": "14 WebP संपत्तियां तैयार",
+  "mediaPreview.scorecard.brandOwner": "ब्रांड स्वामी हस्ताक्षर",
+  "mediaPreview.scorecard.brandOwnerSubtitle": "लोगो और अकादमी क्रेस्ट",
+  "mediaPreview.scorecard.mascot": "शुभंकर कलाकृति रिलीज",
+  "mediaPreview.scorecard.mascotSubtitle": "KHero पोस्टर (कलाकार अधिकार)",
+  "mediaPreview.scorecard.coaches": "कोच और फोटो रिलीज",
+  "mediaPreview.scorecard.coachesSubtitle":
+    "कोच Seng Jun, Jia Xuan, Puimann, Woon",
+  "mediaPreview.scorecard.guardian": "अभिभावक सहमति (नाबालिग)",
+  "mediaPreview.scorecard.guardianSubtitle": "पहचान योग्य युवा (सुरक्षित बंद)",
+  "mediaPreview.scorecard.publicReady": "सार्वजनिक-तैयार स्थिति",
+  "mediaPreview.scorecard.publicReadySubtitle": "0% असत्यापित फाइलें सार्वजनिक",
+  "mediaPreview.tab.all": "सभी संपत्तियां",
+  "mediaPreview.tab.branding": "ब्रांड पहचान",
+  "mediaPreview.tab.khero": "KHero शुभंकर",
+  "mediaPreview.tab.coaches": "प्रशिक्षक",
+  "mediaPreview.tab.youth": "युवा और हीरो",
+  "mediaPreview.tab.achievements": "उपलब्धियां",
+  "mediaPreview.status.verified": "सत्यापित और स्वीकृत",
+  "mediaPreview.status.ownerRequired": "ब्रांड स्वामी हस्ताक्षर आवश्यक",
+  "mediaPreview.status.mascotRequired": "शुभंकर कलाकृति रिलीज आवश्यक",
+  "mediaPreview.status.coachRequired": "कोच और फोटोग्राफर रिलीज आवश्यक",
+  "mediaPreview.status.guardianRequired": "अभिभावक सहमति आवश्यक",
+  "mediaPreview.viewMode.label": "प्रदर्शन मोड",
+  "mediaPreview.viewMode.publicSafe":
+    "सार्वजनिक उत्पादन सुरक्षित (प्लेसहोल्डर सक्रिय)",
+  "mediaPreview.viewMode.staging": "निजी स्टेजिंग पूर्वावलोकन",
+  "mediaPreview.branding.title": "ब्रांड पहचान मूल्यांकन और तुलना",
+  "mediaPreview.branding.description":
+    "मौजूदा ब्रांड पहचान (बाएं) बनाम प्रस्तावित स्टेजिंग संस्करण (दाएं)।",
+  "mediaPreview.branding.activeBadge": "वर्तमान सक्रिय पहचान",
+  "mediaPreview.branding.activeTitle": "KHS अकादमी क्रेस्ट",
+  "mediaPreview.branding.activeNote":
+    "PR #95 हेडर और E2E टेस्ट द्वारा सत्यापित सक्रिय पहचान।",
+  "mediaPreview.branding.corporateBadge": "उम्मीदवार: कॉर्पोरेट",
+  "mediaPreview.branding.laurelTitle": "KHLIM लॉरेल क्रेस्ट",
+  "mediaPreview.branding.horizontalBadge": "उम्मीदवार: क्षैतिज",
+  "mediaPreview.branding.markTitle": "KHS अकादमी वर्डमार्क",
+  "mediaPreview.branding.clubBadge": "उम्मीदवार: क्लब",
+  "mediaPreview.branding.clubTitle": "KH बास्केटबॉल क्लब",
+  "mediaPreview.branding.previewGated": "पूर्वावलोकन बंद",
+  "mediaPreview.khero.title": "KHero शुभंकर पोस्टर और बहुभाषी पहुंच प्रतिलेख",
+  "mediaPreview.khero.badge": "3-भाषा समर्थन",
+  "mediaPreview.khero.description":
+    "क्योंकि स्टेजिंग पोस्टरों में अंग्रेजी टाइपोग्राफी एम्बेडेड है, नीचे दिए गए अनुवाद सुलभ विवरण प्रदान करते हैं।",
+  "mediaPreview.coaches.title": "अकादमी कोचिंग स्टाफ (720x900 4:5 अनुपात)",
+  "mediaPreview.coaches.description":
+    "फोटोग्राफर रिलीज और व्यक्तिगत सहमति स्थिति के साथ कोच चित्र।",
+  "mediaPreview.coaches.crop": "720x900 WebP (4:5 क्रॉप)",
+  "mediaPreview.youth.title": "युवा टीम फोटोग्राफी (नाबालिग सुरक्षा संरक्षण)",
+  "mediaPreview.youth.badge": "प्रतिबंधित पहुंच",
+  "mediaPreview.youth.description":
+    "पहचान योग्य बच्चों वाली तस्वीरों के लिए सार्वजनिक परिनियोजन से पहले अभिभावक सहमति की आवश्यकता होती है।",
+  "mediaPreview.youth.privatePreviewOnly": "केवल निजी पूर्वावलोकन",
+  "mediaPreview.youth.withheldNotice":
+    "अभिभावक सहमति लंबित होने तक सार्वजनिक ट्री से बाहर रखा गया",
+  "mediaPreview.registry.title": "व्यापक स्टेजिंग पैक अधिकार रजिस्ट्री",
+  "mediaPreview.registry.withheldBadge": "बाहर रखा गया (सुरक्षित)",
+  "mediaPreview.loading": "मीडिया पूर्वावलोकन लोड हो रहा है...",
+  "mediaPreview.table.asset": "संपत्ति / फ़ाइल",
+  "mediaPreview.table.sourceLabel": "स्रोत:",
+  "mediaPreview.table.placement": "स्थान",
+  "mediaPreview.table.rightsStatus": "अधिकार स्थिति",
+  "mediaPreview.table.authorizationRequired": "आवश्यक प्राधिकरण",
+  "mediaPreview.table.publicTreeStatus": "सार्वजनिक ट्री सुरक्षा",
 };
 
 export const webMessages = {

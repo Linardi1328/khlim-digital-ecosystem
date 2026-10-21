@@ -24,6 +24,7 @@ export const interestWebMessages = {
       "The selected programme offering is no longer open or is unavailable. Your selection has been reset to general interest.",
     "interest.submit": "Submit Interest",
     "interest.submitting": "Submitting...",
+    "interest.loading": "Loading registration form...",
     "interest.successTitle": "Interest Received!",
     "interest.successMessage":
       "KHLIM Academy has received your interest. Our staff will follow up with you directly.",
@@ -76,6 +77,7 @@ export const interestWebMessages = {
       "Tawaran program yang dipilih tidak lagi dibuka atau tidak tersedia. Pilihan anda telah ditetapkan kepada minat umum.",
     "interest.submit": "Hantar Pendaftaran Minat",
     "interest.submitting": "Sedang menghantar...",
+    "interest.loading": "Memuatkan borang pendaftaran...",
     "interest.successTitle": "Pendaftaran Minat Diterima!",
     "interest.successMessage":
       "Akademi KHLIM telah menerima minat anda. Kakitangan kami akan membuat susulan terus dengan anda.",
@@ -128,6 +130,7 @@ export const interestWebMessages = {
       "所选课程目前未开放或不可选，已自动调整为综合意向。",
     "interest.submit": "提交意向",
     "interest.submitting": "提交中...",
+    "interest.loading": "正在加载登记表格...",
     "interest.successTitle": "意向登记已收到！",
     "interest.successMessage":
       "KHLIM 学院已收到您的意向登记。工作人员将直接与您联系。",
@@ -174,6 +177,7 @@ export const interestWebMessages = {
       "所選課程目前未開放或不可選，已自動調整為綜合意向。",
     "interest.submit": "提交意向",
     "interest.submitting": "提交中...",
+    "interest.loading": "正在載入登記表格...",
     "interest.successTitle": "意向登記已收到！",
     "interest.successMessage":
       "KHLIM 學院已收到您的意向登記。工作人員將直接與您聯繫。",
@@ -220,6 +224,7 @@ export const interestWebMessages = {
       "चयनित कार्यक्रम अब खुला नहीं है। आपका चयन सामान्य रुचि पर रीसेट कर दिया गया है।",
     "interest.submit": "रुचि सबमिट करें",
     "interest.submitting": "सबमिट किया जा रहा है...",
+    "interest.loading": "पंजीकरण फ़ॉर्म लोड हो रहा है...",
     "interest.successTitle": "रुचि प्राप्त हुई!",
     "interest.successMessage":
       "KHLIM अकादमी को आपकी रुचि प्राप्त हो गई है। हमारी टीम सीधे आपसे संपर्क करेगी।",

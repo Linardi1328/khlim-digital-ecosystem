@@ -20,7 +20,14 @@ export function SpotlightArticleContent({
   const { t } = useI18n();
   const preview = sourceArticle.slug === playerSpotlightEditorialPreview.slug;
   const article = preview ? getLocalizedSpotlightPreview(t) : sourceArticle;
-  const backgroundImage = article.imageUrl
+  const youthMediaRightsConfirmed =
+    process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED === "1";
+  const hasVerifiedImage = Boolean(
+    article.imageUrl &&
+    article.photoRightsVerified &&
+    youthMediaRightsConfirmed,
+  );
+  const backgroundImage = hasVerifiedImage
     ? `linear-gradient(180deg, rgba(9, 9, 11, 0.14), rgba(9, 9, 11, 0.82)), url("${article.imageUrl}")`
     : `linear-gradient(180deg, rgba(9, 9, 11, 0.1), rgba(9, 9, 11, 0.84)), ${article.placeholderGradient}`;
 
@@ -67,14 +74,14 @@ export function SpotlightArticleContent({
             style={{ backgroundImage }}
             role="img"
             aria-label={
-              article.imageUrl
+              hasVerifiedImage
                 ? article.photoLabel
                 : t("spotlight.archive.photoSlot", {
                     label: article.photoLabel,
                   })
             }
           >
-            {!article.imageUrl && (
+            {!hasVerifiedImage && (
               <span>
                 {t("spotlight.article.photoSlot", {
                   label: article.photoLabel,

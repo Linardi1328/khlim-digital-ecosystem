@@ -1,3 +1,7 @@
+/** Legal identity confirmed by KHLIM for public-facing company disclosures. */
+export const KHLIM_LEGAL_NAME = "KHLIM Basketball Sdn. Bhd.";
+export const KHLIM_REGISTRATION_NUMBER = "1277329-U";
+
 export interface PublicBusinessDetails {
   legalName: string;
   registrationNumber: string;
@@ -8,10 +12,6 @@ export interface PublicBusinessDetails {
 
 function readPublicEnv(name: string): string {
   switch (name) {
-    case "NEXT_PUBLIC_BUSINESS_LEGAL_NAME":
-      return process.env.NEXT_PUBLIC_BUSINESS_LEGAL_NAME?.trim() ?? "";
-    case "NEXT_PUBLIC_BUSINESS_REGISTRATION_NO":
-      return process.env.NEXT_PUBLIC_BUSINESS_REGISTRATION_NO?.trim() ?? "";
     case "NEXT_PUBLIC_BUSINESS_ADDRESS":
       return process.env.NEXT_PUBLIC_BUSINESS_ADDRESS?.trim() ?? "";
     case "NEXT_PUBLIC_BUSINESS_EMAIL":
@@ -25,10 +25,8 @@ function readPublicEnv(name: string): string {
 
 export function getPublicBusinessDetails(): PublicBusinessDetails {
   return {
-    legalName:
-      readPublicEnv("NEXT_PUBLIC_BUSINESS_LEGAL_NAME") ||
-      "KHLIM Basketball Sdn Bhd",
-    registrationNumber: readPublicEnv("NEXT_PUBLIC_BUSINESS_REGISTRATION_NO"),
+    legalName: KHLIM_LEGAL_NAME,
+    registrationNumber: KHLIM_REGISTRATION_NUMBER,
     businessAddress: readPublicEnv("NEXT_PUBLIC_BUSINESS_ADDRESS"),
     email:
       readPublicEnv("NEXT_PUBLIC_BUSINESS_EMAIL") ||
@@ -36,6 +34,15 @@ export function getPublicBusinessDetails(): PublicBusinessDetails {
       "",
     phone: readPublicEnv("NEXT_PUBLIC_BUSINESS_PHONE"),
   };
+}
+
+/** Present the registered company as one consistent name-and-number unit. */
+export function formatRegisteredBusinessName(
+  details: PublicBusinessDetails = getPublicBusinessDetails(),
+): string {
+  return details.registrationNumber
+    ? `${details.legalName} (${details.registrationNumber})`
+    : details.legalName;
 }
 
 export function getMissingCommerceBusinessFields(

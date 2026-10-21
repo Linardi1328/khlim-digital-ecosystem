@@ -6,6 +6,7 @@ export const en = {
   "nav.home": "Home",
   "nav.academy": "Academy",
   "nav.programmes": "Programmes",
+  "nav.spotlight": "Spotlight",
   "nav.about": "About",
   "nav.contact": "Contact",
   "nav.portal": "Parent Portal",

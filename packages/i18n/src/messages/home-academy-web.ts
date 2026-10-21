@@ -15,6 +15,29 @@ const en = {
   "home.khero.poster.way": "The Khero Way",
   "home.khero.poster.meet": "Meet Khero",
   "home.khero.poster.coming": "Something is coming",
+  "home.khero.transcripts.title": "Khero Mascot Story & Values",
+  "home.khero.transcripts.subtitle":
+    "Official core message, origin, and playing values of the KHLIM mascot.",
+  "home.khero.poster.meet.tagline": "Every player starts somewhere.",
+  "home.khero.poster.meet.details": "Born: September 23 · Sign: Libra",
+  "home.khero.poster.meet.story":
+    "Khero wasn't born to be the best. She simply fell in love with the game. She represents every player who keeps showing up, keeps learning, lifts their teammates and finds joy on the court.",
+  "home.khero.poster.meaning.tagline": "More than a mascot.",
+  "home.khero.poster.meaning.origin": "Derived from 'KH' and 'Hero'.",
+  "home.khero.poster.meaning.values":
+    "The name represents a brave and confident mascot that embodies the spirit of excellence, determination, and leadership.",
+  "home.khero.poster.way.tagline": "This is how we play.",
+  "home.khero.poster.way.motto":
+    "Play with heart. Lift each other. Keep going.",
+  "home.khero.poster.way.p1":
+    "Play with Heart — Give your best, even when you are still learning.",
+  "home.khero.poster.way.p2":
+    "Lift Each Other — Celebrate teammates, effort, assists and progress.",
+  "home.khero.poster.way.p3": "Keep Going — Miss. Learn. Try again.",
+  "home.khero.poster.way.p4": "Enjoy the Game — Never forget why you started.",
+  "home.khero.poster.coming.tagline": "Something is coming",
+  "home.khero.poster.coming.description":
+    "New mascot merchandise, community events, and member badges will be announced soon.",
   "home.khero.points.eyebrow": "Member rewards",
   "home.khero.points.title": "Train. Participate. Earn Khero Points.",
   "home.khero.points.description":
@@ -46,6 +69,31 @@ const ms: Catalogue = {
   "home.khero.poster.way": "Cara Khero",
   "home.khero.poster.meet": "Kenali Khero",
   "home.khero.poster.coming": "Sesuatu sedang tiba",
+  "home.khero.transcripts.title": "Kisah & Nilai Maskot Khero",
+  "home.khero.transcripts.subtitle":
+    "Mesej teras rasmi, asal-usul, dan nilai permainan maskot KHLIM.",
+  "home.khero.poster.meet.tagline": "Setiap pemain bermula di suatu tempat.",
+  "home.khero.poster.meet.details": "Lahir: 23 September · Zodiak: Libra",
+  "home.khero.poster.meet.story":
+    "Khero tidak dilahirkan untuk menjadi yang terbaik. Dia hanya jatuh cinta dengan permainan ini. Dia mewakili setiap pemain yang sentiasa hadir, terus belajar, menaikkan semangat rakan sepasukan dan mencari kegembiraan di atas gelanggang.",
+  "home.khero.poster.meaning.tagline": "Bukan sekadar maskot.",
+  "home.khero.poster.meaning.origin":
+    "Khero berasal daripada gabungan 'KH' dan 'Hero'.",
+  "home.khero.poster.meaning.values":
+    "Nama ini mewakili maskot yang berani dan berkeyakinan yang merangkumi semangat kecemerlangan, keazaman, dan kepimpinan.",
+  "home.khero.poster.way.tagline": "Beginilah cara kami bermain.",
+  "home.khero.poster.way.motto":
+    "Bermain dengan jiwa. Saling menyokong. Terus maju.",
+  "home.khero.poster.way.p1":
+    "Bermain dengan Jiwa — Berikan yang terbaik, walaupun anda masih belajar.",
+  "home.khero.poster.way.p2":
+    "Saling Menyokong — Raikan rakan sepasukan, usaha, bantuan dan kemajuan.",
+  "home.khero.poster.way.p3": "Terus Maju — Terlepas. Belajar. Cuba lagi.",
+  "home.khero.poster.way.p4":
+    "Nikmati Permainan — Jangan lupa sebab anda bermula.",
+  "home.khero.poster.coming.tagline": "Sesuatu sedang tiba",
+  "home.khero.poster.coming.description":
+    "Barangan maskot baharu, acara komuniti, dan lencana ahli akan diumumkan tidak lama lagi.",
   "home.khero.points.eyebrow": "Ganjaran ahli",
   "home.khero.points.title": "Berlatih. Sertai. Kumpul Mata Khero.",
   "home.khero.points.description":
@@ -74,6 +122,26 @@ const zhHans: Catalogue = {
   "home.khero.poster.way": "Khero 方式",
   "home.khero.poster.meet": "认识 Khero",
   "home.khero.poster.coming": "精彩即将到来",
+  "home.khero.transcripts.title": "Khero 吉祥物故事与核心价值观",
+  "home.khero.transcripts.subtitle":
+    "KHLIM 吉祥物的官方核心主旨、起源寓意与篮球运动价值观。",
+  "home.khero.poster.meet.tagline": "每位球员都有起点。",
+  "home.khero.poster.meet.details": "生日：9月23日 · 星座：天秤座",
+  "home.khero.poster.meet.story":
+    "Khero 并不是天生的最强者，她只是深深爱上了这项运动。她代表着每一位坚持出勤、不断学习、鼓舞队友并在球场上找到快乐的球员。",
+  "home.khero.poster.meaning.tagline": "不仅仅是吉祥物。",
+  "home.khero.poster.meaning.origin": "源自“KH”与“Hero”（英雄）。",
+  "home.khero.poster.meaning.values":
+    "这一名字代表着一个勇敢且自信的吉祥物，体现卓越、坚韧与领导力的精神。",
+  "home.khero.poster.way.tagline": "这就是我们的打球方式。",
+  "home.khero.poster.way.motto": "用心打球。互相鼓舞。坚持不懈。",
+  "home.khero.poster.way.p1": "用心打球 —— 即使还在学习，也要拼尽全力。",
+  "home.khero.poster.way.p2": "互相鼓舞 —— 为队友的努力、助攻与进步喝彩。",
+  "home.khero.poster.way.p3": "坚持不懈 —— 投失、学习、再试一次。",
+  "home.khero.poster.way.p4": "享受比赛 —— 永不忘记为何启程。",
+  "home.khero.poster.coming.tagline": "精彩即将到来",
+  "home.khero.poster.coming.description":
+    "全新吉祥物周边、社区活动及会员徽章即将发布，敬请期待。",
   "home.khero.points.eyebrow": "会员奖励",
   "home.khero.points.title": "训练。参与。赚取 Khero 积分。",
   "home.khero.points.description":
@@ -102,6 +170,26 @@ const zhHant: Catalogue = {
   "home.khero.poster.way": "Khero 方式",
   "home.khero.poster.meet": "認識 Khero",
   "home.khero.poster.coming": "精彩即將到來",
+  "home.khero.transcripts.title": "Khero 吉祥物故事與核心價值觀",
+  "home.khero.transcripts.subtitle":
+    "KHLIM 吉祥物的官方核心主旨、起源寓意與籃球運動價值觀。",
+  "home.khero.poster.meet.tagline": "每位球員都有起點。",
+  "home.khero.poster.meet.details": "生日：9月23日 · 星座：天秤座",
+  "home.khero.poster.meet.story":
+    "Khero 並不是天生的最強者，她只是深深愛上了這項運動。她代表著每一位堅持出勤、不斷學習、鼓舞隊友並在球場上找到快樂的球員。",
+  "home.khero.poster.meaning.tagline": "不僅僅是吉祥物。",
+  "home.khero.poster.meaning.origin": "源自「KH」與「Hero」（英雄）。",
+  "home.khero.poster.meaning.values":
+    "這一名字代表著一個勇敢且自信的吉祥物，體現卓越、堅韌與領導力的精神。",
+  "home.khero.poster.way.tagline": "這就是我們的打球方式。",
+  "home.khero.poster.way.motto": "用心打球。互相鼓舞。堅持不懈。",
+  "home.khero.poster.way.p1": "用心打球 —— 即使還在學習，也要拼盡全力。",
+  "home.khero.poster.way.p2": "互相鼓舞 —— 為隊友的努力、助攻與進步喝彩。",
+  "home.khero.poster.way.p3": "堅持不懈 —— 投失、學習、再試一次。",
+  "home.khero.poster.way.p4": "享受比賽 —— 永不忘記為何啟程。",
+  "home.khero.poster.coming.tagline": "精彩即將到來",
+  "home.khero.poster.coming.description":
+    "全新吉祥物周邊、社群活動及會員徽章即將發布，敬請期待。",
   "home.khero.points.eyebrow": "會員獎勵",
   "home.khero.points.title": "訓練。參與。賺取 Khero 積分。",
   "home.khero.points.description":
@@ -130,6 +218,31 @@ const hi: Catalogue = {
   "home.khero.poster.way": "Khero तरीका",
   "home.khero.poster.meet": "Khero से मिलें",
   "home.khero.poster.coming": "कुछ नया आने वाला है",
+  "home.khero.transcripts.title": "Khero शुभंकर कहानी और मूल्य",
+  "home.khero.transcripts.subtitle":
+    "KHLIM शुभंकर का आधिकारिक मुख्य संदेश, उत्पत्ति और खेल मूल्य।",
+  "home.khero.poster.meet.tagline": "हर खिलाड़ी की शुरुआत कहीं से होती है।",
+  "home.khero.poster.meet.details": "जन्म: 23 सितंबर · राशि: तुला",
+  "home.khero.poster.meet.story":
+    "Khero सर्वश्रेष्ठ बनने के लिए पैदा नहीं हुई थी। वह बस खेल से प्यार करने लगी। वह हर उस खिलाड़ी का प्रतिनिधित्व करती है जो निरंतर अभ्यास करता है, सीखता रहता है, साथियों का हौसला बढ़ाता है और कोर्ट पर खुशी पाता है।",
+  "home.khero.poster.meaning.tagline": "केवल एक शुभंकर से कहीं अधिक।",
+  "home.khero.poster.meaning.origin": "'KH' और 'Hero' से व्युत्पन्न।",
+  "home.khero.poster.meaning.values":
+    "यह नाम एक साहसी और आत्मविश्वासी शुभंकर का प्रतिनिधित्व करता है जो उत्कृष्टता, दृढ़ संकल्प और नेतृत्व की भावना का प्रतीक है।",
+  "home.khero.poster.way.tagline": "यह हमारे खेलने का तरीका है।",
+  "home.khero.poster.way.motto":
+    "दिल से खेलें। एक-दूसरे का साथ दें। आगे बढ़ते रहें।",
+  "home.khero.poster.way.p1":
+    "दिल से खेलें — अपना सर्वश्रेष्ठ दें, भले ही आप सीख रहे हों।",
+  "home.khero.poster.way.p2":
+    "एक-दूसरे का साथ दें — साथियों के प्रयास, सहायता और प्रगति की सराहना करें।",
+  "home.khero.poster.way.p3":
+    "आगे बढ़ते रहें — चूकें। सीखें। दोबारा प्रयास करें।",
+  "home.khero.poster.way.p4":
+    "खेल का आनंद लें — कभी न भूलें कि आपने शुरुआत क्यों की थी।",
+  "home.khero.poster.coming.tagline": "कुछ नया आने वाला है",
+  "home.khero.poster.coming.description":
+    "नए शुभंकर उत्पाद, सामुदायिक कार्यक्रम और सदस्य बैज जल्द ही घोषित किए जाएंगे।",
   "home.khero.points.eyebrow": "सदस्य पुरस्कार",
   "home.khero.points.title": "प्रशिक्षण लें। भाग लें। Khero Points कमाएं।",
   "home.khero.points.description":

@@ -1,6 +1,7 @@
-import type {
-  AchievementStory,
-  PlayerSpotlightArticle,
+import {
+  achievementStories,
+  type AchievementStory,
+  type PlayerSpotlightArticle,
 } from "./editorial-content";
 const API = (
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001/v1"
@@ -20,26 +21,37 @@ type Entry = {
   photoLabel: string;
   imageUrl?: string | null;
   factsVerified: boolean;
+  photoRightsVerified?: boolean | null;
   aiAssisted: boolean;
 };
 const paragraphs = (value: unknown): string[] =>
   Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
-const photoRightsVerified = (entry: Entry) => !entry.imageUrl;
-export const toAchievement = (entry: Entry): AchievementStory => ({
-  id: entry.id,
-  yearLabel: entry.yearLabel || "KHLIM",
-  title: entry.title,
-  eventName: entry.eventName,
-  description: entry.summary,
-  photoLabel: entry.photoLabel,
-  imageUrl: entry.imageUrl || undefined,
-  placeholderGradient: GRADIENT,
-  factsVerified: entry.factsVerified,
-  photoRightsVerified: photoRightsVerified(entry),
-  status: "published",
-});
+const photoRightsVerified = (entry: Entry) =>
+  Boolean(entry.photoRightsVerified);
+export const toAchievement = (entry: Entry): AchievementStory => {
+  const matchId = entry.slug || entry.id;
+  const verifiedStory = achievementStories.find(
+    (story) =>
+      story.id === matchId || story.id === entry.id || story.id === entry.slug,
+  );
+
+  return {
+    id: matchId,
+    yearLabel: entry.yearLabel || verifiedStory?.yearLabel || "KHLIM",
+    title: entry.title,
+    eventName: entry.eventName,
+    description: entry.summary,
+    photoLabel: entry.photoLabel || verifiedStory?.photoLabel || entry.title,
+    // API media publication decisions are authoritative; local records supply copy only.
+    imageUrl: entry.imageUrl || undefined,
+    placeholderGradient: verifiedStory?.placeholderGradient || GRADIENT,
+    factsVerified: entry.factsVerified,
+    photoRightsVerified: entry.photoRightsVerified === true,
+    status: "published",
+  };
+};
 export const toSpotlight = (entry: Entry): PlayerSpotlightArticle => ({
   slug: entry.slug || entry.id,
   playerName: entry.playerName || "KHLIM Player",

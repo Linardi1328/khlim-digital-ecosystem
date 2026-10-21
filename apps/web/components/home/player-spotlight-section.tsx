@@ -1,13 +1,18 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   getLocalizedSpotlightPreview,
   publishedPlayerSpotlights,
   type PlayerSpotlightArticle,
 } from "../../lib/editorial-content";
 import { fetchPublishedSpotlights } from "../../lib/editorial-api";
+import {
+  buildUrlWithSource,
+  getQueryCampaignSource,
+} from "../../lib/campaign-source";
 import { useI18n } from "../../lib/i18n-context";
 import { Button } from "../ui/button";
 
@@ -15,13 +20,22 @@ function SpotlightCard({
   article,
   preview,
   featured = false,
+  campaignSource,
 }: {
   article: PlayerSpotlightArticle;
   preview: boolean;
   featured?: boolean;
+  campaignSource?: string | null;
 }) {
   const { t } = useI18n();
-  const backgroundImage = article.imageUrl
+  const youthMediaRightsConfirmed =
+    process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED === "1";
+  const hasVerifiedImage = Boolean(
+    article.imageUrl &&
+    article.photoRightsVerified &&
+    youthMediaRightsConfirmed,
+  );
+  const backgroundImage = hasVerifiedImage
     ? `linear-gradient(180deg, rgba(9, 9, 11, 0.04), rgba(9, 9, 11, 0.76)), url("${article.imageUrl}")`
     : `linear-gradient(180deg, rgba(9, 9, 11, 0.06), rgba(9, 9, 11, 0.8)), ${article.placeholderGradient}`;
 
@@ -32,12 +46,12 @@ function SpotlightCard({
         style={{ backgroundImage }}
         role="img"
         aria-label={
-          article.imageUrl
+          hasVerifiedImage
             ? article.photoLabel
             : t("home.photoSlot", { label: article.photoLabel })
         }
       >
-        {!article.imageUrl && (
+        {!hasVerifiedImage && (
           <span className="home-spotlight-photo-label">
             {t("home.photoSlot", { label: article.photoLabel })}
           </span>
@@ -69,7 +83,10 @@ function SpotlightCard({
           </span>
         </div>
         <Link
-          href={`/spotlight/${article.slug}`}
+          href={buildUrlWithSource(
+            `/spotlight/${article.slug}`,
+            campaignSource,
+          )}
           style={{ textDecoration: "none", alignSelf: "flex-start" }}
         >
           <Button variant="outline" size="md">
@@ -83,8 +100,19 @@ function SpotlightCard({
   );
 }
 
-export function PlayerSpotlightSection() {
+export function PlayerSpotlightSection({
+  campaignSource,
+}: {
+  campaignSource?: string | null;
+} = {}) {
   const { t } = useI18n();
+  const searchParams = useSearchParams();
+  const queryCampaign = useMemo(
+    () => getQueryCampaignSource(searchParams),
+    [searchParams],
+  );
+  const effectiveCampaignSource = campaignSource ?? queryCampaign;
+
   const [remote, setRemote] = useState<PlayerSpotlightArticle[]>([]);
   useEffect(() => {
     void fetchPublishedSpotlights()
@@ -109,11 +137,15 @@ export function PlayerSpotlightSection() {
           <h2 id="home-spotlight-title">{t("spotlight.homeTitle")}</h2>
           <p>{t("spotlight.homeDescription")}</p>
         </div>
-        {!preview && live.length > 3 && (
-          <Link href="/spotlight" style={{ textDecoration: "none" }}>
-            <Button variant="outline">{t("spotlight.viewAll")}</Button>
-          </Link>
-        )}
+        <Link
+          href={buildUrlWithSource(
+            "/spotlight#player-spotlights",
+            effectiveCampaignSource,
+          )}
+          style={{ textDecoration: "none" }}
+        >
+          <Button variant="outline">{t("spotlight.viewAll")}</Button>
+        </Link>
       </div>
 
       {preview && (
@@ -133,6 +165,7 @@ export function PlayerSpotlightSection() {
             article={article}
             preview={preview}
             featured={index === 0}
+            campaignSource={effectiveCampaignSource}
           />
         ))}
       </div>
