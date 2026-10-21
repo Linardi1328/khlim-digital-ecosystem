@@ -297,6 +297,45 @@ test("browser/component regression: unverified image URLs do not render in cards
       await page.locator(".home-achievement-photo-label").count(),
       0,
     );
+
+    // Scenario D: Known local slug whose rights are explicitly revoked via API (photoRightsVerified: false)
+    await page.unroute("**/editorial/achievements");
+    await page.route("**/editorial/achievements", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: "jasmine-cup-2026-a",
+            slug: "jasmine-cup-2026-a",
+            yearLabel: "2026",
+            title: "Revoked Rights Story",
+            eventName: "Jasmine Cup",
+            summary: "Revoked summary",
+            photoLabel: "Photo label",
+            imageUrl:
+              "/media/achievements/jasmine-cup-2025-2026-khlim-a-champion.webp",
+            factsVerified: true,
+            photoRightsVerified: false,
+            aiAssisted: false,
+          },
+        ]),
+      });
+    });
+
+    await mountComponent(page, {
+      component: "achievements",
+      env: { NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED: "1" },
+    });
+
+    await page.waitForSelector(".home-achievement-card");
+    photoEl = page.locator(".home-achievement-photo");
+    style = await photoEl.getAttribute("style");
+    assert.doesNotMatch(
+      style,
+      /url\(/,
+      "Explicit API photoRightsVerified=false must override local metadata and not render url(...)",
+    );
   } finally {
     await browser.close();
   }

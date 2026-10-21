@@ -44,11 +44,16 @@ export const toAchievement = (entry: Entry): AchievementStory => {
     eventName: entry.eventName,
     description: entry.summary,
     photoLabel: entry.photoLabel || verifiedStory?.photoLabel || entry.title,
-    imageUrl: entry.imageUrl || verifiedStory?.imageUrl,
+    imageUrl:
+      entry.imageUrl === undefined
+        ? verifiedStory?.imageUrl
+        : entry.imageUrl || undefined,
     placeholderGradient: verifiedStory?.placeholderGradient || GRADIENT,
     factsVerified: entry.factsVerified,
     photoRightsVerified:
-      photoRightsVerified(entry) || Boolean(verifiedStory?.photoRightsVerified),
+      entry.photoRightsVerified == null
+        ? Boolean(verifiedStory?.photoRightsVerified)
+        : entry.photoRightsVerified === true,
     status: "published",
   };
 };

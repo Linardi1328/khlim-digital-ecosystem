@@ -83,6 +83,12 @@ test("browser: unified spotlight page renders honest empty states when API retur
     const heading = page.locator("h1");
     await heading.waitFor({ state: "visible" });
     assert.equal(await heading.textContent(), "KHLIM Spotlight");
+    await page
+      .locator("#achievements .spotlight-empty-state")
+      .waitFor({ state: "visible" });
+    await page
+      .locator("#player-spotlights .spotlight-empty-state")
+      .waitFor({ state: "visible" });
 
     // Quick jump navigation
     const jumpLinks = page.locator(".spotlight-jump-pill");

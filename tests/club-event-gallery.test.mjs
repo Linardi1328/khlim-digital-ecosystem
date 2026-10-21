@@ -47,6 +47,15 @@ test("club event gallery: data model accounts for all 9 event photographs with f
       item.imageUrl && item.imageUrl.startsWith("/media/achievements/"),
       `Item for ${original} must have webp image path`,
     );
+    assert.equal(
+      item.photoRightsVerified,
+      true,
+      `Item for ${original} must have photoRightsVerified=true`,
+    );
+    assert.ok(
+      item.mediaReleaseRef,
+      `Item for ${original} must have mediaReleaseRef documented`,
+    );
 
     // Verify file exists on disk in deployable public tree
     const diskPath = `apps/web/public${item.imageUrl}`;
@@ -162,6 +171,81 @@ test("browser: unified spotlight page renders 9-item club gallery under #achieve
       .locator("h4")
       .textContent();
     assert.equal(firstCardTitle, "Pre-Game Strategy Circle");
+
+    const firstImageStyle = await galleryCards
+      .first()
+      .locator(".spotlight-gallery-image-wrapper")
+      .getAttribute("style");
+    assert.match(
+      firstImageStyle,
+      /club-gallery-team-huddle-circle\.webp/,
+      "Gallery card must render image URL when youth media rights flag is confirmed",
+    );
+  } finally {
+    await browser.close();
+  }
+});
+
+test("browser: club gallery images are withheld when youth media rights flag is disabled", async () => {
+  const { mountComponent } = await import("./helpers/browser-mount.mjs");
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+
+    const mockAchievements = [
+      {
+        id: "cls-international-cup-2026",
+        yearLabel: "2026",
+        title: "Champion — Girls KU-16",
+        eventName: "80th CLS International Cup, Indonesia",
+        summary: "CLS Champions summary",
+        photoLabel: "80th CLS Champions photo",
+        imageUrl:
+          "/media/achievements/cls-international-indonesia-2026-champion.webp",
+        factsVerified: true,
+        photoRightsVerified: true,
+        aiAssisted: false,
+      },
+    ];
+
+    await page.route("**/editorial/achievements", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(mockAchievements),
+      });
+    });
+    await page.route("**/editorial/player-spotlights", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
+    });
+
+    await mountComponent(page, {
+      component: "spotlightArchivePage",
+      env: { NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED: "0" },
+    });
+
+    await page.waitForSelector(".spotlight-club-gallery-grid");
+
+    const galleryCards = page.locator(".spotlight-gallery-card");
+    assert.equal(
+      await galleryCards.count(),
+      9,
+      "Must render exactly 9 gallery cards even when rights flag is disabled",
+    );
+
+    const firstImageStyle = await galleryCards
+      .first()
+      .locator(".spotlight-gallery-image-wrapper")
+      .getAttribute("style");
+    assert.doesNotMatch(
+      firstImageStyle,
+      /url\(/,
+      "Gallery card must not contain url(...) when youth media rights flag is 0",
+    );
   } finally {
     await browser.close();
   }

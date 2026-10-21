@@ -31,6 +31,7 @@ const en = {
   "spotlight.achievements.errorBody":
     "Unable to connect to the verified editorial archive service. Please check your network connection or try again shortly.",
   "spotlight.players.title": "Player Spotlights",
+  "spotlight.players.loading": "Loading player spotlight stories...",
   "spotlight.players.description":
     "Verified individual player stories, game milestones, and development journeys.",
   "spotlight.players.emptyTitle": "Individual Stories Pending Release",
@@ -88,6 +89,7 @@ const ms: Catalogue = {
   "spotlight.achievements.errorBody":
     "Tidak dapat menyambung ke perkhidmatan arkib editorial yang disahkan. Sila semak sambungan rangkaian anda atau cuba sebentar lagi.",
   "spotlight.players.title": "Sorotan Pemain",
+  "spotlight.players.loading": "Memuatkan sorotan pemain...",
   "spotlight.players.description":
     "Kisah individu pemain yang disahkan, pencapaian perlawanan, dan perjalanan pembangunan.",
   "spotlight.players.emptyTitle": "Kisah Individu Menunggu Kebenaran",
@@ -142,6 +144,7 @@ const zhHans: Catalogue = {
   "spotlight.achievements.errorBody":
     "暂时无法连接至经核实的编辑档案服务。请检查您的网络连接或稍后再试。",
   "spotlight.players.title": "球员聚焦",
+  "spotlight.players.loading": "正在加载学员特写报道...",
   "spotlight.players.description":
     "经核实的个人球员故事、比赛里程碑及成长历程。",
   "spotlight.players.emptyTitle": "个人故事待审核发布",
@@ -193,6 +196,7 @@ const zhHant: Catalogue = {
   "spotlight.achievements.errorBody":
     "暫時無法連接至經核實的編輯檔案服務。請檢查您的網絡連接或稍後再試。",
   "spotlight.players.title": "球員聚焦",
+  "spotlight.players.loading": "正在載入球員特寫報道...",
   "spotlight.players.description":
     "經核實的個人球員故事、比賽里程碑及成長歷程。",
   "spotlight.players.emptyTitle": "個人故事待審核發布",
@@ -246,6 +250,7 @@ const hi: Catalogue = {
   "spotlight.achievements.errorBody":
     "सत्यापित संपादकीय संग्रह सेवा से कनेक्ट करने में असमर्थ। कृपया अपना नेटवर्क कनेक्शन जांचें या थोड़ी देर बाद पुनः प्रयास करें।",
   "spotlight.players.title": "प्लेयर स्पॉटलाइट",
+  "spotlight.players.loading": "खिलाड़ी स्पॉटलाइट कहानियां लोड हो रही हैं...",
   "spotlight.players.description":
     "सत्यापित व्यक्तिगत खिलाड़ी कहानियाँ, मैच मील के पत्थर और विकास यात्रा।",
   "spotlight.players.emptyTitle": "व्यक्तिगत कहानियाँ अनुमति की प्रतीक्षा में",

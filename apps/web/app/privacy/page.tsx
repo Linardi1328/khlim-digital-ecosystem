@@ -14,6 +14,8 @@ export default function PrivacyPage() {
   const contactPhone =
     business.phone ||
     "the telephone number shown in the website footer when configured";
+  const contactZh = business.email || "联络表格";
+  const contactPhoneZh = business.phone || "网站页脚中配置的电话号码";
 
   const englishSections: LegalSection[] = [
     {
@@ -237,7 +239,7 @@ export default function PrivacyPage() {
           {business.legalName}
           （“KHLIM”、“我们”）是通过本网站、学院报名及会员门户收集的个人数据的数据控制者。隐私事务联络人职务为
           KHLIM 数据保护联络人（KHLIM Data Protection
-          Contact）。隐私合规咨询可发送至 {contact}，致电 {contactPhone}
+          Contact）。隐私合规咨询可发送至 {contactZh}，致电 {contactPhoneZh}
           ，或通过 <Link href="/contact">联系页面 (Contact Page)</Link> 提交。
         </React.Fragment>,
       ],

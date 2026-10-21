@@ -14,6 +14,7 @@ import {
   resolveCampaignSource,
 } from "../../lib/campaign-source";
 import {
+  canRenderYouthMedia,
   clubEventGallery,
   publishedPlayerSpotlights,
   type AchievementStory,
@@ -42,11 +43,7 @@ const MILESTONE_ACHIEVEMENT_IDS = [
 
 function AchievementCard({ story }: { story: AchievementStory }) {
   const { t } = useI18n();
-  const youthMediaRightsConfirmed =
-    process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED === "1";
-  const hasVerifiedImage = Boolean(
-    story.imageUrl && story.photoRightsVerified && youthMediaRightsConfirmed,
-  );
+  const hasVerifiedImage = canRenderYouthMedia(story);
   const backgroundImage = hasVerifiedImage
     ? `linear-gradient(180deg, rgba(9, 9, 11, 0.08), rgba(9, 9, 11, 0.84)), url("${story.imageUrl}")`
     : `linear-gradient(180deg, rgba(9, 9, 11, 0.1), rgba(9, 9, 11, 0.84)), ${story.placeholderGradient}`;
@@ -450,25 +447,27 @@ function SpotlightArchiveContent() {
                   <p>{t("spotlight.achievements.galleryDesc")}</p>
                 </div>
                 <div className="spotlight-club-gallery-grid">
-                  {clubEventGallery.map((item) => (
-                    <figure key={item.id} className="spotlight-gallery-card">
-                      <div
-                        className="spotlight-gallery-image-wrapper"
-                        style={{
-                          backgroundImage: `linear-gradient(180deg, rgba(9, 9, 11, 0.04), rgba(9, 9, 11, 0.72)), url("${item.imageUrl}")`,
-                        }}
-                        role="img"
-                        aria-label={item.photoLabel}
-                      />
-                      <figcaption className="spotlight-gallery-caption">
-                        <h4>{item.title}</h4>
-                        <p>{item.description}</p>
-                        <span className="spotlight-gallery-file-ref">
-                          {item.notes}
-                        </span>
-                      </figcaption>
-                    </figure>
-                  ))}
+                  {clubEventGallery.map((item) => {
+                    const showImage = canRenderYouthMedia(item);
+                    return (
+                      <figure key={item.id} className="spotlight-gallery-card">
+                        <div
+                          className="spotlight-gallery-image-wrapper"
+                          style={{
+                            backgroundImage: showImage
+                              ? `linear-gradient(180deg, rgba(9, 9, 11, 0.04), rgba(9, 9, 11, 0.72)), url("${item.imageUrl}")`
+                              : "linear-gradient(135deg, #18181b, #27272a)",
+                          }}
+                          role="img"
+                          aria-label={item.photoLabel}
+                        />
+                        <figcaption className="spotlight-gallery-caption">
+                          <h4>{item.title}</h4>
+                          <p>{item.description}</p>
+                        </figcaption>
+                      </figure>
+                    );
+                  })}
                 </div>
               </div>
             </>
@@ -509,7 +508,7 @@ function SpotlightArchiveContent() {
             <div
               className="spotlight-archive-grid"
               role="status"
-              aria-label={t("common.toBeConfirmed")}
+              aria-label={t("spotlight.players.loading")}
               style={{ opacity: 0.6 }}
             >
               {[1, 2].map((id) => (
@@ -542,13 +541,7 @@ function SpotlightArchiveContent() {
           ) : (
             <div className="spotlight-archive-grid">
               {liveSpotlights.map((article) => {
-                const youthMediaRightsConfirmed =
-                  process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED === "1";
-                const hasVerifiedImage = Boolean(
-                  article.imageUrl &&
-                  article.photoRightsVerified &&
-                  youthMediaRightsConfirmed,
-                );
+                const hasVerifiedImage = canRenderYouthMedia(article);
                 const backgroundImage = hasVerifiedImage
                   ? `linear-gradient(180deg, rgba(9, 9, 11, 0.04), rgba(9, 9, 11, 0.78)), url("${article.imageUrl}")`
                   : `linear-gradient(180deg, rgba(9, 9, 11, 0.06), rgba(9, 9, 11, 0.82)), ${article.placeholderGradient}`;

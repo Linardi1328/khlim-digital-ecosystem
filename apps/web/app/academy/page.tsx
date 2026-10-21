@@ -321,7 +321,7 @@ function AcademyContent() {
             >
               <Image
                 src="/media/khlim/training-group-1280.webp"
-                alt={t("academy.pathway.title")}
+                alt={t("academy.training.alt")}
                 fill
                 sizes="(max-width: 768px) 100vw, 1100px"
                 style={{ objectFit: "cover", objectPosition: "center 35%" }}

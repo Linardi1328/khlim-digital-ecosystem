@@ -801,15 +801,3 @@
   margin: 0;
   flex: 1;
 }
-
-.spotlight-gallery-file-ref {
-  display: inline-block;
-  font-size: 0.75rem;
-  color: #71717a;
-  background: #f4f4f5;
-  padding: 4px 10px;
-  border-radius: 8px;
-  margin-top: 6px;
-  align-self: flex-start;
-  line-height: 1.4;
-}

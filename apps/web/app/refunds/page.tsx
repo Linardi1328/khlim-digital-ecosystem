@@ -11,6 +11,7 @@ const EFFECTIVE_DATE = "11 September 2026";
 export default function RefundPolicyPage() {
   const business = getPublicBusinessDetails();
   const contact = business.email || "the contact form";
+  const contactZh = business.email || "联络表格";
 
   const englishSections: LegalSection[] = [
     {
@@ -180,7 +181,7 @@ export default function RefundPolicyPage() {
     {
       title: "7. 如何申请退款 (How to request a refund)",
       paragraphs: [
-        `请联系 ${contact} 或使用 KHLIM 联系页面。请提供付款人姓名、学员/会员姓名、课程或会员名称、付款日期以及足以让 KHLIM 定位该笔付款的交易凭据信息。请勿发送银行卡号、CVV 校验码或网银密码。`,
+        `请联系 ${contactZh} 或使用 KHLIM 联系页面。请提供付款人姓名、学员/会员姓名、课程或会员名称、付款日期以及足以让 KHLIM 定位该笔付款的交易凭据信息。请勿发送银行卡号、CVV 校验码或网银密码。`,
         "在退款前，KHLIM 可能会要求提供合理信息以核实付款人、监护人权限或交易真实性。经批准的退款在合理可行的情况下应通过原支付渠道退还。处理时间取决于支付服务商或银行；KHLIM 不承诺超出其可控范围的更快到账时间。",
       ],
     },

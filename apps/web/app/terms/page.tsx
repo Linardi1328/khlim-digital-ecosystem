@@ -11,6 +11,7 @@ const EFFECTIVE_DATE = "11 September 2026";
 export default function TermsPage() {
   const business = getPublicBusinessDetails();
   const contact = business.email || "the contact form";
+  const contactZh = business.email || "联络表格";
 
   const englishSections: LegalSection[] = [
     {
@@ -258,7 +259,7 @@ export default function TermsPage() {
     {
       title: "11. 管辖法律与联系方式 (Governing law and contact)",
       paragraphs: [
-        `本条款受马来西亚法律管辖。有关本条款的问题可发送至 ${contact} 或通过 KHLIM 联系页面提交。此处的任何规定均不妨碍消费者利用适用法律下可用的任何投诉渠道、仲裁庭或法庭途径。`,
+        `本条款受马来西亚法律管辖。有关本条款的问题可发送至 ${contactZh} 或通过 KHLIM 联系页面提交。此处的任何规定均不妨碍消费者利用适用法律下可用的任何投诉渠道、仲裁庭或法庭途径。`,
       ],
     },
   ];

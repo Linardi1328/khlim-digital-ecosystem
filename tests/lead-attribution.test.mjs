@@ -495,7 +495,7 @@ describe("Lead Attribution and Campaign Source Resolution", () => {
     );
   });
 
-  test("Initial-loading state preserves valid campaign attribution and localized announcement", async () => {
+  test("Campaign helpers resolve a valid query token synchronously and append to URLs", async () => {
     const {
       getQueryCampaignSource,
       resolveLeadSubmissionSource,
@@ -513,12 +513,12 @@ describe("Lead Attribution and Campaign Source Resolution", () => {
     assert.equal(
       buildUrlWithSource("/interest", synchronousSource),
       "/interest?source=3x3-oct24",
-      "Navigable links in loading shell must never drop a fresh valid campaign token",
+      "buildUrlWithSource must append a synchronously resolved campaign token",
     );
     assert.equal(
       buildUrlWithSource("/programmes", synchronousSource),
       "/programmes?source=3x3-oct24",
-      "Footer links in loading shell must retain the valid campaign token",
+      "buildUrlWithSource must append the token to /programmes",
     );
 
     // 2. Initial untagged or invalid phone query falls back safely

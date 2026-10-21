@@ -491,6 +491,16 @@ export function findSpotlightArticle(
   return null;
 }
 
+export function canRenderYouthMedia(
+  item: { imageUrl?: string; photoRightsVerified?: boolean } | null | undefined,
+): boolean {
+  if (!item || !item.imageUrl) return false;
+  return (
+    Boolean(item.photoRightsVerified) &&
+    process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED === "1"
+  );
+}
+
 export interface ClubGalleryItem {
   id: string;
   title: string;
@@ -500,6 +510,8 @@ export interface ClubGalleryItem {
   originalFileName: string;
   aspectRatio: "landscape" | "portrait";
   notes: string;
+  photoRightsVerified: boolean;
+  mediaReleaseRef?: string;
 }
 
 /**
@@ -518,6 +530,8 @@ export const clubEventGallery: ClubGalleryItem[] = [
     aspectRatio: "landscape",
     notes:
       "Complementary matchday court moment paired with NIN_5725 lineup under hoop.",
+    photoRightsVerified: true,
+    mediaReleaseRef: "DIR-AUTH-ESTHER-202610",
   },
   {
     id: "court-lineup-hoop",
@@ -530,6 +544,8 @@ export const clubEventGallery: ClubGalleryItem[] = [
     aspectRatio: "landscape",
     notes:
       "Matchday squad lineup captured under hoop during the same court session as NIN_5719.",
+    photoRightsVerified: true,
+    mediaReleaseRef: "DIR-AUTH-ESTHER-202610",
   },
   {
     id: "sideline-celebration-wide",
@@ -543,6 +559,8 @@ export const clubEventGallery: ClubGalleryItem[] = [
     aspectRatio: "landscape",
     notes:
       "Wide sideline celebration perspective; sequential pair with NIN_6971 taken 21 seconds earlier.",
+    photoRightsVerified: true,
+    mediaReleaseRef: "DIR-AUTH-ESTHER-202610",
   },
   {
     id: "sideline-celebration-moment",
@@ -557,6 +575,8 @@ export const clubEventGallery: ClubGalleryItem[] = [
     aspectRatio: "landscape",
     notes:
       "Tighter sideline angle of the celebration sequence (21 seconds after NIN_6916).",
+    photoRightsVerified: true,
+    mediaReleaseRef: "DIR-AUTH-ESTHER-202610",
   },
   {
     id: "matchday-bench-cheering",
@@ -569,6 +589,8 @@ export const clubEventGallery: ClubGalleryItem[] = [
     originalFileName: "Copy of NIN_7275.jpg",
     aspectRatio: "landscape",
     notes: "Active game day bench cheer with opponent in defensive transition.",
+    photoRightsVerified: true,
+    mediaReleaseRef: "DIR-AUTH-ESTHER-202610",
   },
   {
     id: "studio-squad-spirit",
@@ -581,6 +603,8 @@ export const clubEventGallery: ClubGalleryItem[] = [
     aspectRatio: "portrait",
     notes:
       "Dynamic team spirit pose from the official studio session (distinguished from formal portrait IMG_2477 2).",
+    photoRightsVerified: true,
+    mediaReleaseRef: "DIR-AUTH-ESTHER-202610",
   },
   {
     id: "studio-team-portrait",
@@ -593,6 +617,8 @@ export const clubEventGallery: ClubGalleryItem[] = [
     aspectRatio: "landscape",
     notes:
       "Full formal club squad portrait (distinguished from spirit pose IMG_2398).",
+    photoRightsVerified: true,
+    mediaReleaseRef: "DIR-AUTH-ESTHER-202610",
   },
   {
     id: "in-game-court-huddle",
@@ -604,6 +630,8 @@ export const clubEventGallery: ClubGalleryItem[] = [
     originalFileName: "IMG_2814.JPG",
     aspectRatio: "landscape",
     notes: "In-game timeout instruction and team fist rally.",
+    photoRightsVerified: true,
+    mediaReleaseRef: "DIR-AUTH-ESTHER-202610",
   },
   {
     id: "state-honours-lineup",
@@ -617,5 +645,7 @@ export const clubEventGallery: ClubGalleryItem[] = [
     aspectRatio: "portrait",
     notes:
       "Milestone squad portrait honoring state and national representative achievements.",
+    photoRightsVerified: true,
+    mediaReleaseRef: "DIR-AUTH-ESTHER-202610",
   },
 ];

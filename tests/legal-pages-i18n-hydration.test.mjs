@@ -16,21 +16,12 @@ let serverPromise = null;
 function getNextServer() {
   if (!serverPromise) {
     serverPromise = (async () => {
-      // 1. Check if a local Next.js server is already running (e.g. port 3000 or 3055)
-      for (const port of [3000, 3055]) {
-        try {
-          const response = await fetch(`http://localhost:${port}/cookies`, {
-            signal: AbortSignal.timeout(1000),
-          });
-          if (response.ok) {
-            return {
-              baseUrl: `http://localhost:${port}`,
-              stop: async () => {},
-            };
-          }
-        } catch {
-          // Continue checking next port or fallback to spawning
-        }
+      // 1. If explicit LEGAL_TEST_BASE_URL is provided, reuse it
+      if (process.env.LEGAL_TEST_BASE_URL) {
+        return {
+          baseUrl: process.env.LEGAL_TEST_BASE_URL,
+          stop: async () => {},
+        };
       }
 
       // 2. Otherwise, spawn Next.js dev server on port 3055
@@ -64,6 +55,7 @@ function getNextServer() {
         output += error.message;
       });
 
+      let ready = false;
       const deadline = Date.now() + 60000;
       while (Date.now() < deadline) {
         if (child.exitCode !== null) {
@@ -73,11 +65,19 @@ function getNextServer() {
           const response = await fetch(`http://localhost:${testPort}/cookies`, {
             signal: AbortSignal.timeout(2000),
           });
-          if (response.ok) break;
+          if (response.ok) {
+            ready = true;
+            break;
+          }
         } catch {
           // Waiting for server startup
         }
         await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+
+      if (!ready) {
+        child.kill("SIGKILL");
+        throw new Error(`Next.js dev server not ready within 60s: ${output}`);
       }
 
       return {
@@ -249,6 +249,12 @@ describe("legal pages browser acceptance", { concurrency: 1 }, () => {
         "Must have zero hydration or nesting error logs across all legal routes",
       );
 
+      assert.deepEqual(
+        pageErrors,
+        [],
+        "Must have zero page errors or console errors across all legal routes",
+      );
+
       // Specific verification on /cookies
       await page.goto(`${server.baseUrl}/cookies`, {
         waitUntil: "networkidle",
@@ -268,16 +274,15 @@ describe("legal pages browser acceptance", { concurrency: 1 }, () => {
       const declineBtn = page
         .locator('article button:has-text("Decline")')
         .first();
-      if (await declineBtn.isVisible()) {
-        await declineBtn.click();
-        await page.waitForFunction(
-          () => localStorage.getItem("khlim_analytics_consent") === "denied",
-        );
-        const consentStatus = await page.evaluate(() =>
-          localStorage.getItem("khlim_analytics_consent"),
-        );
-        assert.equal(consentStatus, "denied");
-      }
+      await declineBtn.waitFor({ state: "visible" });
+      await declineBtn.click();
+      await page.waitForFunction(
+        () => localStorage.getItem("khlim_analytics_consent") === "denied",
+      );
+      const consentStatus = await page.evaluate(() =>
+        localStorage.getItem("khlim_analytics_consent"),
+      );
+      assert.equal(consentStatus, "denied");
 
       // Hard refresh test on /cookies: ensures SSR + hydration consistency on refresh
       await page.reload({ waitUntil: "networkidle" });
@@ -306,14 +311,14 @@ describe("legal pages browser acceptance", { concurrency: 1 }, () => {
       );
 
       // Assert strictly 1 interactive control in Dual View
+      // Since consent was denied above, the active control renders only the "Enable Analytics" button.
       const enableBtnsInDual = page.locator(
-        'button:has-text("Enable Analytics"), button:has-text("Decline")',
+        'button:has-text("Enable Analytics")',
       );
       assert.equal(
-        (await enableBtnsInDual.count()) > 0 &&
-          (await enableBtnsInDual.count()) <= 2,
-        true,
-        "Dual view must have exactly one active interactive control group (not duplicated)",
+        await enableBtnsInDual.count(),
+        1,
+        "Dual view must render exactly one analytics control (not duplicated)",
       );
 
       // Assert second language displays reference note instead of duplicate interactive control

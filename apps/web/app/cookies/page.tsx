@@ -153,7 +153,7 @@ export default function CookiePolicyPage() {
     {
       title: "1. 当前 Cookie 立场 (Current cookie position)",
       paragraphs: [
-        "KHLIM 仅使用维护身份验证会话、保护表单安全以及记住语言选择等界面偏好所绝对必要的浏览器存储及 Cookie。",
+        "KHLIM 使用维护身份验证会话、保护表单安全以及记住语言选择等界面偏好所绝对必要的浏览器存储及 Cookie。",
         "针对 2026 年 10 月 24 日的 3x3 篮球赛事活动，KHLIM 亦提供基于 PostHog（美国云端，项目 ID 652783）的可选、注重隐私保护的分析集成，以统计访客路径。该追踪默认关闭，仅在您明确同意后运行。",
         "本站绝未部署任何广告像素、跨站营销追踪程序或第三方行为广告 Cookie。",
       ],

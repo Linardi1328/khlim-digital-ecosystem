@@ -266,6 +266,17 @@ async function run() {
       photoLabel: "60th MABA-MATRIX U17 National Championship Representatives",
       factsVerified: true,
     },
+    {
+      id: "revoked-rights-cuid",
+      slug: "sba-selangor-2024-third",
+      title: "3rd Place — Division 1",
+      eventName: "U15 SBA Selangor 2024",
+      summary: "Revoked photo rights test record",
+      yearLabel: "2024",
+      photoLabel: "Revoked photo label",
+      factsVerified: true,
+      photoRightsVerified: false,
+    },
   ];
 
   await spotlightPage.route("**/v1/editorial/achievements", async (route) => {
@@ -296,8 +307,19 @@ async function run() {
   console.log(`Rendered ${cardCount} achievement cards on /spotlight`);
   assert.equal(
     cardCount,
-    6,
-    "Must render exactly the 6 published achievement records",
+    7,
+    "Must render exactly the 7 published achievement records",
+  );
+
+  // Verify revoked rights photo has no url(...) in style
+  const revokedPhoto = spotlightPage
+    .locator(".home-achievement-photo", { hasText: "U15 SBA Selangor 2024" })
+    .first();
+  const revokedStyle = await revokedPhoto.getAttribute("style");
+  assert.doesNotMatch(
+    revokedStyle,
+    /url\(/,
+    "Revoked photo rights must not have url(...) in style",
   );
 
   // Verify Jasmine Cup A and E photos

@@ -7,6 +7,10 @@ on:
       - staging/ric-65-academy-soft-launch
       - "staging/**"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -50,9 +54,11 @@ jobs:
         run: pnpm i18n:audit
 
       - name: Diff whitespace checks
+        env:
+          BASE_REF: ${{ github.base_ref || 'main' }}
         run: |
           git diff --check
-          git diff --check origin/${{ github.base_ref || 'main' }}...HEAD
+          git diff --check "origin/${BASE_REF}...HEAD"
 
       - name: Lint
         run: pnpm lint
