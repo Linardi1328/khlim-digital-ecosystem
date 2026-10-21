@@ -437,7 +437,9 @@ function selectCuratedMilestones(ids: readonly string[]): AchievementStory[] {
   });
 }
 
-export const verifiedTeamResults = selectCuratedMilestones(VERIFIED_TEAM_RESULT_IDS);
+export const verifiedTeamResults = selectCuratedMilestones(
+  VERIFIED_TEAM_RESULT_IDS,
+);
 export const verifiedRepresentativeMilestones = selectCuratedMilestones(
   VERIFIED_REPRESENTATIVE_IDS,
 );
