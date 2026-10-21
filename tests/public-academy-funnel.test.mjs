@@ -548,7 +548,7 @@ test("Sheet component renders via createPortal to document.body, mounts safely o
   );
 });
 
-test("Contact page uses authoritative getPublicBusinessDetails and renders complete business information with localized enquiry channel", async () => {
+test("Contact omits registration-number row and footer shows short registration suffix with localized enquiry channel", async () => {
   const contactPage = await read("apps/web/app/contact/page.tsx");
   const publicPageMsgs = await read(
     "packages/i18n/src/messages/public-pages.ts",
@@ -563,7 +563,12 @@ test("Contact page uses authoritative getPublicBusinessDetails and renders compl
 
   // Renders business details fields
   assert.match(contactPage, /business\.legalName/);
-  assert.match(contactPage, /business\.registrationNumber/);
+  // Contact page should not expose a separate registration-number row.
+  assert.doesNotMatch(contactPage, /business\\.registrationNumber/);
+  const footer = await read("apps/web/components/layout/public-footer.tsx");
+  assert.match(footer, /business\\.legalName/);
+  assert.match(footer, /business\\.registrationNumber\\.match/);
+  assert.doesNotMatch(footer, /compliance\\.footer\\.companyNumberLabel/);
   assert.match(contactPage, /business\.businessAddress/);
   assert.match(contactPage, /href=\{`mailto:\$\{business\.email\}`\}/);
   assert.match(contactPage, /href=\{`tel:\$\{business\.phone\}`\}/);
