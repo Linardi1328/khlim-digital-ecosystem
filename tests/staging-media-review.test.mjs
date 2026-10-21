@@ -17,7 +17,8 @@ test("club gallery is independent of live editorial API and rights-gated", async
   assert.match(page, /id="club-event-gallery"/);
   assert.match(page, /const showImage = canRenderYouthMedia\(item\)/);
   assert.match(page, /href=\{item\.imageUrl\}/);
-  assert.match(page, /objectFit: "contain"/);
+  assert.match(page, /objectFit: "cover"/);
+  assert.match(page, /objectPosition: "center"/);
   assert.doesNotMatch(page, /isStagingMediaReview && \(/);
   assert.match(page, /fetchPublishedAchievements\(\)/);
   assert.match(page, /fetchPublishedSpotlights\(\)/);
