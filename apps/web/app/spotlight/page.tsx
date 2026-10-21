@@ -508,7 +508,7 @@ function SpotlightArchiveContent() {
                           alt={item.photoLabel}
                           fill
                           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                          style={{ objectFit: "contain" }}
+                          style={{ objectFit: "cover", objectPosition: "center" }}
                         />
                       </a>
                     ) : (
