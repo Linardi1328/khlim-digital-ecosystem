@@ -73,7 +73,15 @@ test("home and Spotlight use distinct photo groups", async () => {
     "apps/web/components/editorial/verified-milestone-gallery.tsx";
   const component = await readFile(new URL(galleryPath, root), "utf8");
   assert.match(component, /canRenderYouthMedia\(story\)/);
-  assert.match(component, /objectFit: "cover"/);
-  assert.match(component, /objectPosition: "center"/);
+  assert.match(component, /className="verified-milestone-photo"/);
   assert.match(component, /href={story.imageUrl}/);
+  assert.doesNotMatch(component, /\bfill\b/);
+  assert.doesNotMatch(component, /objectFit: "cover"/);
+
+  const styles = await readFile(
+    new URL("apps/web/app/editorial.css", root),
+    "utf8",
+  );
+  assert.match(styles, /\.verified-milestone-photo\s*\{\s*height: auto;/);
+  assert.doesNotMatch(styles, /height: clamp\(220px, 23vw, 320px\)/);
 });
