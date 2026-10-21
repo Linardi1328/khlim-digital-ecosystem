@@ -115,7 +115,7 @@ test("club event gallery: data model accounts for all 9 event photographs with f
   );
 });
 
-test("browser: unified spotlight page renders 9-item club gallery under #achievements", async () => {
+test("browser: spotlight renders 9 club photos independently from editorial status", async () => {
   const { mountComponent } = await import("./helpers/browser-mount.mjs");
   const browser = await chromium.launch({ headless: true });
   try {
@@ -172,14 +172,17 @@ test("browser: unified spotlight page renders 9-item club gallery under #achieve
       .textContent();
     assert.equal(firstCardTitle, "Pre-Game Strategy Circle");
 
-    const firstImageStyle = await galleryCards
-      .first()
-      .locator(".spotlight-gallery-image-wrapper")
-      .getAttribute("style");
+    const firstImage = galleryCards.first().locator("img");
+    assert.equal(await firstImage.count(), 1);
     assert.match(
-      firstImageStyle,
+      await firstImage.getAttribute("src"),
+      /club-gallery-team-huddle-circle/,
+      "Approved club photo must render as a full-frame image",
+    );
+    const firstImageLink = galleryCards.first().locator("a");
+    assert.match(
+      await firstImageLink.getAttribute("href"),
       /club-gallery-team-huddle-circle\.webp/,
-      "Gallery card must render image URL when youth media rights flag is confirmed",
     );
   } finally {
     await browser.close();
@@ -237,14 +240,15 @@ test("browser: club gallery images are withheld when youth media rights flag is 
       "Must render exactly 9 gallery cards even when rights flag is disabled",
     );
 
-    const firstImageStyle = await galleryCards
-      .first()
-      .locator(".spotlight-gallery-image-wrapper")
-      .getAttribute("style");
-    assert.doesNotMatch(
-      firstImageStyle,
-      /url\(/,
-      "Gallery card must not contain url(...) when youth media rights flag is 0",
+    assert.equal(
+      await galleryCards.first().locator("img").count(),
+      0,
+      "Youth images must be withheld when the media-rights flag is disabled",
+    );
+    assert.equal(
+      await galleryCards.first().locator("a").count(),
+      0,
+      "No full-size photo link should be exposed when rights are disabled",
     );
   } finally {
     await browser.close();
