@@ -221,7 +221,7 @@ function SpotlightArchiveContent() {
 
           <div className="spotlight-subsection" id="verified-team-honours">
             <div className="spotlight-subsection-header">
-              <h3>{t("spotlight.achievements.featured")}</h3>
+              <h3>{t("spotlight.achievements.verifiedGalleryTitle")}</h3>
               <p>{t("spotlight.achievements.galleryDesc")}</p>
             </div>
             <VerifiedMilestoneGallery stories={verifiedTeamResults} />
