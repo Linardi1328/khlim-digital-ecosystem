@@ -144,13 +144,9 @@ test("photo cards retain their full natural aspect ratios", async ({ page }) => 
       };
     });
 
-    const widthGap = Math.abs(
-      dimensions.containerWidth - dimensions.photoWidth,
-    );
+    const widthGap = Math.abs(dimensions.containerWidth - dimensions.photoWidth);
     const displayedRatio = dimensions.photoWidth / dimensions.photoHeight;
-    const ratioDifference = Math.abs(
-      displayedRatio - dimensions.naturalRatio,
-    );
+    const ratioDifference = Math.abs(displayedRatio - dimensions.naturalRatio);
     expect(widthGap).toBeLessThan(2);
     expect(ratioDifference).toBeLessThan(0.015);
   }
