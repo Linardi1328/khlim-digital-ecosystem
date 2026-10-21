@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
-  getLocalizedSpotlightPreview,
   publishedPlayerSpotlights,
   verifiedRepresentativeMilestones,
   type PlayerSpotlightArticle,
@@ -123,9 +122,9 @@ export function PlayerSpotlightSection({
   }, []);
   const live = remote.length > 0 ? remote : publishedPlayerSpotlights;
   const preview = live.length === 0;
-  const stories = preview
-    ? [getLocalizedSpotlightPreview(t)]
-    : live.slice(0, 3);
+  // Verified representative photographs display above; unverified individual
+  // profiles must never be synthesized from an editorial demo placeholder.
+  const stories = preview ? [] : live.slice(0, 3);
 
   return (
     <section
@@ -163,8 +162,8 @@ export function PlayerSpotlightSection({
           className="home-editorial-notice home-spotlight-notice"
           role="note"
         >
-          <strong>{t("spotlight.previewNoticeTitle")}</strong>
-          <span>{t("spotlight.previewNoticeBody")}</span>
+          <strong>{t("spotlight.achievements.milestones")}</strong>
+          <span>{t("spotlight.representatives.namesPending")}</span>
         </div>
       )}
 
