@@ -564,11 +564,11 @@ test("Contact omits registration-number row and footer shows short registration 
   // Renders business details fields
   assert.match(contactPage, /business\.legalName/);
   // Contact page should not expose a separate registration-number row.
-  assert.doesNotMatch(contactPage, /business\\.registrationNumber/);
+  assert.doesNotMatch(contactPage, /business\.registrationNumber/);
   const footer = await read("apps/web/components/layout/public-footer.tsx");
-  assert.match(footer, /business\\.legalName/);
-  assert.match(footer, /business\\.registrationNumber\\.match/);
-  assert.doesNotMatch(footer, /compliance\\.footer\\.companyNumberLabel/);
+  assert.match(footer, /business\.legalName/);
+  assert.match(footer, /business\.registrationNumber\.match/);
+  assert.doesNotMatch(footer, /compliance\.footer\.companyNumberLabel/);
   assert.match(contactPage, /business\.businessAddress/);
   assert.match(contactPage, /href=\{`mailto:\$\{business\.email\}`\}/);
   assert.match(contactPage, /href=\{`tel:\$\{business\.phone\}`\}/);
