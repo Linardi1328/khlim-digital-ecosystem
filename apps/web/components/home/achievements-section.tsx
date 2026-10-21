@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   getLocalizedAchievementArchiveSlots,
+  verifiedTeamResults,
   resolveAchievementStories,
   type AchievementStory,
   type ResolvedAchievementsResult,
@@ -17,6 +18,7 @@ import {
 } from "../../lib/campaign-source";
 import { useI18n } from "../../lib/i18n-context";
 import { Button } from "../ui/button";
+import { VerifiedMilestoneGallery } from "../editorial/verified-milestone-gallery";
 
 export { resolveAchievementStories, type ResolvedAchievementsResult };
 
@@ -132,6 +134,11 @@ export function AchievementsSection({
         <h2 id="home-achievements-title">{t("home.achievements.title")}</h2>
         <p>{t("home.achievements.description")}</p>
       </div>
+
+      <VerifiedMilestoneGallery
+        stories={verifiedTeamResults.slice(0, 3)}
+        compact
+      />
 
       {state === "loading" ? (
         <div
