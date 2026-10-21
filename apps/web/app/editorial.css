@@ -803,7 +803,7 @@
 }
 
 /* Independent, verified club honours and player-representation photo collection.
-   A contained image preserves tournament banners, medals and full squad portraits. */
+   Images fill each card edge-to-edge; original full-frame files remain accessible by clicking. */
 .verified-milestone-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
