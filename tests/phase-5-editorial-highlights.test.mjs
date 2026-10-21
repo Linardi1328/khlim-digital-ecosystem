@@ -44,9 +44,9 @@ test("Player Spotlight keeps AI drafting subordinate to verified facts and photo
   assert.match(content, /article\.status === "published"/);
   assert.match(content, /article\.factsVerified/);
   assert.match(content, /article\.photoRightsVerified/);
-  assert.match(section, /t\("spotlight\.previewNoticeTitle"\)/);
-  assert.match(section, /t\("spotlight\.previewNoticeBody"\)/);
-  assert.match(section, /getLocalizedSpotlightPreview\(t\)/);
+  assert.match(section, /t\("spotlight\.representatives\.namesPending"\)/);
+  assert.match(section, /verifiedRepresentativeMilestones\.slice\(0, 3\)/);
+  assert.doesNotMatch(section, /getLocalizedSpotlightPreview\(t\)/);
   assert.match(webCatalogue, /AI-assisted example, not a real player claim/);
   assert.match(webCatalogue, /player, event, result and timing/);
 });
