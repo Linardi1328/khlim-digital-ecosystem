@@ -4,7 +4,10 @@ import {
   LegalDocument,
   type LegalSection,
 } from "../../components/legal/legal-document";
-import { getPublicBusinessDetails } from "../../lib/business-details";
+import {
+  formatRegisteredBusinessName,
+  getPublicBusinessDetails,
+} from "../../lib/business-details";
 
 const EFFECTIVE_DATE = "11 September 2026";
 
@@ -17,7 +20,7 @@ export default function TermsPage() {
     {
       title: "1. Operator and agreement",
       paragraphs: [
-        `These terms govern the academy website, member portal, enrolments and memberships supplied by ${business.legalName} ("KHLIM"). By creating an account or completing an enrolment, you agree to these terms and any plan-specific information clearly shown before payment.`,
+        `These terms govern the academy website, member portal, enrolments and memberships supplied by ${formatRegisteredBusinessName(business)} ("KHLIM"). By creating an account or completing an enrolment, you agree to these terms and any plan-specific information clearly shown before payment.`,
         "If you enrol a person under 18, you confirm that you are their parent, legal guardian or another person with parental responsibility and that you have authority to make the enrolment and provide the required personal-data consent.",
       ],
     },
@@ -101,7 +104,7 @@ export default function TermsPage() {
     {
       title: "1. Pengendali dan perjanjian",
       paragraphs: [
-        `Terma ini mengawal laman akademi, portal ahli, pendaftaran dan keahlian yang dibekalkan oleh ${business.legalName} ("KHLIM"). Dengan mewujudkan akaun atau melengkapkan pendaftaran, anda bersetuju dengan terma ini dan maklumat khusus pelan yang dipaparkan dengan jelas sebelum pembayaran.`,
+        `Terma ini mengawal laman akademi, portal ahli, pendaftaran dan keahlian yang dibekalkan oleh ${formatRegisteredBusinessName(business)} ("KHLIM"). Dengan mewujudkan akaun atau melengkapkan pendaftaran, anda bersetuju dengan terma ini dan maklumat khusus pelan yang dipaparkan dengan jelas sebelum pembayaran.`,
         "Jika anda mendaftarkan individu bawah 18 tahun, anda mengesahkan bahawa anda ialah ibu bapa, penjaga sah atau orang lain yang mempunyai tanggungjawab keibubapaan dan mempunyai kuasa untuk membuat pendaftaran serta memberikan persetujuan data peribadi yang diperlukan.",
       ],
     },
@@ -186,7 +189,7 @@ export default function TermsPage() {
     {
       title: "1. 运营方与协议 (Operator and agreement)",
       paragraphs: [
-        `本条款适用于由 ${business.legalName}（“KHLIM”）提供的学院网站、会员门户、课程报名及会员服务。创建账户或完成报名即表示您同意本条款以及在付款前明确显示的任何特定计划信息。`,
+        `本条款适用于由 ${formatRegisteredBusinessName(business)}（“KHLIM”）提供的学院网站、会员门户、课程报名及会员服务。创建账户或完成报名即表示您同意本条款以及在付款前明确显示的任何特定计划信息。`,
         "若您为 18 岁以下人士报名，您确认自己是其父母、法定监护人或其他具有监护责任的人员，并有权进行报名并提供所需的个人数据同意。",
       ],
     },
