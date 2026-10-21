@@ -112,6 +112,54 @@ test("homepage showcases verified honours and unnamed representatives", async ({
   ).toHaveCount(0);
 });
 
+test("achievement and representative photos fill their width without cropping", async ({
+  page,
+}) => {
+  const samples = [
+    ["/", "#achievements .verified-milestone-photo"],
+    ["/", "#player-spotlight .verified-milestone-photo"],
+    ["/spotlight", "#verified-team-honours .verified-milestone-photo"],
+    ["/spotlight", "#representative-milestones .verified-milestone-photo"],
+    ["/spotlight", "#club-event-gallery .spotlight-gallery-photo"],
+  ];
+
+  let currentRoute = "";
+  for (const [route, selector] of samples) {
+    if (route !== currentRoute) {
+      await page.goto(route, { waitUntil: "domcontentloaded" });
+      currentRoute = route;
+    }
+    const photo = page.locator(selector).first();
+    await photo.scrollIntoViewIfNeeded();
+    await expect.poll(
+      () => photo.evaluate((image) => image.complete && image.naturalWidth > 0),
+    ).toBe(true);
+
+    const dimensions = await photo.evaluate((image) => {
+      const photoBox = image.getBoundingClientRect();
+      const containerBox = image.parentElement.getBoundingClientRect();
+      return {
+        photoWidth: photoBox.width,
+        photoHeight: photoBox.height,
+        containerWidth: containerBox.width,
+        naturalRatio: image.naturalWidth / image.naturalHeight,
+      };
+    });
+
+    expect(
+      Math.abs(dimensions.containerWidth - dimensions.photoWidth),
+      `${route} ${selector} must span the full photo card`,
+    ).toBeLessThan(2);
+    expect(
+      Math.abs(
+        dimensions.photoWidth / dimensions.photoHeight -
+          dimensions.naturalRatio,
+      ),
+      `${route} ${selector} must preserve the source photo aspect ratio`,
+    ).toBeLessThan(0.015);
+  }
+});
+
 test("language choice persists after reload and restores document language", async ({
   page,
 }) => {
