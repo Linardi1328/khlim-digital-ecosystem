@@ -51,7 +51,7 @@ export const achievementStories: AchievementStory[] = [
     title: "Champion — Girls KU-16",
     eventName: "80th CLS International Cup, Indonesia",
     description:
-      "KHLIM Basketball Club emerged as champions at the 80th CLS International Cup, Indonesia, demonstrating competitive poise, teamwork, and court discipline on the international stage.",
+      "KHLIM won the Girls KU-16 championship at the 80th CLS International Cup in Indonesia in 2026.",
     photoLabel: "80th CLS International Cup 2026 Champions",
     imageUrl:
       "/media/achievements/cls-international-indonesia-2026-champion.webp",
@@ -68,7 +68,7 @@ export const achievementStories: AchievementStory[] = [
     title: "Champion — KHLIM A",
     eventName: "Jasmine Cup 2025–2026",
     description:
-      "KHLIM A captured the championship trophy at the Jasmine Cup, showcasing high-level fundamentals, court discipline, and team resilience.",
+      "KHLIM A won the Jasmine Cup 2025–2026 championship.",
     photoLabel: "Jasmine Cup 2025-2026 KHLIM A Champions",
     imageUrl: "/media/achievements/jasmine-cup-2025-2026-khlim-a-champion.webp",
     placeholderGradient:
@@ -84,7 +84,7 @@ export const achievementStories: AchievementStory[] = [
     title: "4th Place — KHLIM E",
     eventName: "Jasmine Cup 2025–2026",
     description:
-      "KHLIM E secured 4th place at the Jasmine Cup through tenacity and dedicated team play against seasoned regional squads.",
+      "KHLIM E finished in 4th place at the Jasmine Cup 2025–2026.",
     photoLabel: "Jasmine Cup 2025-2026 KHLIM E 4th Place",
     imageUrl: "/media/achievements/jasmine-cup-2025-2026-khlim-e-fourth.webp",
     placeholderGradient:
@@ -100,7 +100,7 @@ export const achievementStories: AchievementStory[] = [
     title: "Champion — Division 1",
     eventName: "U15 SBA D1 Selangor Tournament",
     description:
-      "KHLIM secured the Division 1 championship title at the state-level U15 SBA Selangor Tournament, underscoring competitive development and player dedication.",
+      "KHLIM won the U15 SBA Division 1 Selangor Tournament in 2025.",
     photoLabel: "U15 SBA D1 Selangor Tournament 2025 Champions",
     imageUrl: "/media/achievements/u15-sba-d1-selangor-2025-champion.webp",
     placeholderGradient:
@@ -116,7 +116,7 @@ export const achievementStories: AchievementStory[] = [
     title: "Division 2 Competitor",
     eventName: "U15 SBA D2 Selangor Tournament",
     description:
-      "KHLIM developmental squads gained valuable tournament mileage and high-pressure game experience in the U15 SBA D2 Selangor competition.",
+      "KHLIM took part in the U15 SBA Division 2 Selangor Tournament in 2025. A final placing has not been supplied.",
     photoLabel: "U15 SBA D2 Selangor Tournament 2025 Team",
     imageUrl: "/media/achievements/u15-sba-d2-selangor-2025.webp",
     placeholderGradient:
@@ -132,7 +132,7 @@ export const achievementStories: AchievementStory[] = [
     title: "3rd Place",
     eventName: "U15 SBA Selangor Tournament",
     description:
-      "A podium finish at the 2024 U15 SBA Selangor Tournament marked a critical milestone in establishing KHLIM's competitive standard in the state.",
+      "KHLIM finished 3rd at the U15 SBA Selangor Tournament in 2024.",
     photoLabel: "U15 SBA Selangor Tournament 2024 3rd Place",
     imageUrl: "/media/achievements/u15-sba-selangor-2024-third.webp",
     placeholderGradient:
@@ -148,7 +148,7 @@ export const achievementStories: AchievementStory[] = [
     title: "1st Runner-Up — Division 2",
     eventName: "U16 D2 SBA Selangor Tournament",
     description:
-      "KHLIM U16 reached the grand finals of the 2026 U16 D2 SBA Selangor Tournament, finishing as proud first runners-up after an undefeated group stage.",
+      "KHLIM finished 1st runner-up in the U16 Division 2 SBA Selangor Tournament in 2026.",
     photoLabel: "U16 D2 SBA Selangor Tournament 2026 1st Runner-Up",
     imageUrl: "/media/achievements/u16-d2-sba-selangor-2026-runner-up.webp",
     placeholderGradient:
@@ -164,7 +164,7 @@ export const achievementStories: AchievementStory[] = [
     title: "1st Runner-Up — Girls U14",
     eventName: "U14G MPBL League",
     description:
-      "The KHLIM Girls U14 team demonstrated exceptional court discipline and tactical execution, capturing 1st runner-up in the competitive MPBL League 2025.",
+      "KHLIM Girls U14 finished 1st runner-up in the MPBL League 2025.",
     photoLabel: "U14G MPBL League 2025 1st Runner-Up",
     imageUrl: "/media/achievements/u14g-mpbl-2025-runner-up.webp",
     placeholderGradient:
@@ -180,7 +180,7 @@ export const achievementStories: AchievementStory[] = [
     title: "Champion — Girls U14",
     eventName: "U14G Fastbreak League",
     description:
-      "KHLIM Girls U14 captured the championship title in the Fastbreak League 2024, exemplifying high-tempo transition play and relentless teamwork.",
+      "KHLIM Girls U14 won the Fastbreak Mini League in 2024.",
     photoLabel: "U14G Fastbreak League 2024 Champions",
     imageUrl: "/media/achievements/u14g-fastbreak-2024-champion.webp",
     placeholderGradient:
@@ -196,7 +196,7 @@ export const achievementStories: AchievementStory[] = [
     title: "National Representative",
     eventName: "60th MABA-MATRIX 17 & Below National Championship",
     description:
-      "KHLIM athletes earned prestigious selections to represent at the 60th MABA-MATRIX National Basketball Championship, competing at the highest youth level in Malaysia.",
+      "KHLIM athletes represented their team at the 60th MABA-MATRIX 17 & Below National Basketball Championship in 2026. Individual names await confirmation.",
     photoLabel: "60th MABA-MATRIX U17 National Championship Representatives",
     imageUrl: "/media/achievements/khlim-maba-matrix-u17-2026.webp",
     placeholderGradient:
@@ -209,10 +209,10 @@ export const achievementStories: AchievementStory[] = [
   {
     id: "maba-matrix-u17-2026-squad2",
     yearLabel: "2026",
-    title: "National Representative (Squad 2)",
+    title: "National Representative — Additional Photo",
     eventName: "60th MABA-MATRIX 17 & Below National Championship",
     description:
-      "Continued representation at the 60th MABA-MATRIX National Championship, showcasing KHLIM's developmental depth across junior age brackets.",
+      "Another photograph of KHLIM representation at the 60th MABA-MATRIX 17 & Below National Basketball Championship 2026. Individual names await confirmation.",
     photoLabel: "60th MABA-MATRIX U17 National Championship Squad 2",
     imageUrl: "/media/achievements/khlim-maba-matrix-u17-2026-2.webp",
     placeholderGradient:
@@ -228,7 +228,7 @@ export const achievementStories: AchievementStory[] = [
     title: "MSSM State Representative",
     eventName: "MSSM National Championship",
     description:
-      "KHLIM student-athletes were chosen to represent the state at the prestigious Majlis Sukan Sekolah Malaysia (MSSM) National Championship 2024.",
+      "KHLIM players were represented at MSSM in 2024. Individual names and teams await confirmation.",
     photoLabel: "KHLIM Representative in MSSM 2024",
     imageUrl: "/media/achievements/khlim-mssm-2024.webp",
     placeholderGradient:
@@ -244,7 +244,7 @@ export const achievementStories: AchievementStory[] = [
     title: "MSSM State Representative",
     eventName: "MSSM National Championship",
     description:
-      "Consecutive-year selection of KHLIM talent to represent at the MSSM National Championship 2025, validating the academy's player development pipeline.",
+      "KHLIM players were represented at MSSM in 2025. Individual names and teams await confirmation.",
     photoLabel: "KHLIM Representative in MSSM 2025",
     imageUrl: "/media/achievements/khlim-mssm-2025.webp",
     placeholderGradient:
@@ -260,7 +260,7 @@ export const achievementStories: AchievementStory[] = [
     title: "National Cup Representative",
     eventName: "U15 LMC National Cup",
     description:
-      "KHLIM representatives competed in the U15 LMC National Cup 2025, demonstrating poise, teamwork, and high-level basketball skills on a national stage.",
+      "KHLIM players represented their teams at the U15 LMC National Cup in 2025. Individual names await confirmation.",
     photoLabel: "KHLIM Representative in U15 LMC National Cup 2025",
     imageUrl: "/media/achievements/khlim-u15-lmc-cup-2025.webp",
     placeholderGradient:
