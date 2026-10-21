@@ -1,4 +1,5 @@
 const en = {
+  "spotlight.achievements.verifiedGalleryTitle": "KHLIM Competition Highlights",
   "spotlight.representatives.namesPending":
     "Individual player names and profiles will be added after KHLIM verifies the athletes featured in each photograph.",
   "spotlight.archive.badge": "KHLIM Spotlight",
@@ -60,6 +61,7 @@ type Key = keyof typeof en;
 type Catalogue = Record<Key, string>;
 
 const ms: Catalogue = {
+  "spotlight.achievements.verifiedGalleryTitle": "Sorotan Pertandingan KHLIM",
   "spotlight.representatives.namesPending":
     "Nama dan profil pemain individu akan ditambah selepas KHLIM mengesahkan atlet yang dipaparkan dalam setiap foto.",
   "spotlight.archive.badge": "Sorotan KHLIM",
@@ -118,6 +120,7 @@ const ms: Catalogue = {
 };
 
 const zhHans: Catalogue = {
+  "spotlight.achievements.verifiedGalleryTitle": "KHLIM 赛事亮点",
   "spotlight.representatives.namesPending":
     "各张照片中的球员身份经 KHLIM 核实后，才会补充个人姓名与简介。",
   "spotlight.archive.badge": "KHLIM 聚焦",
@@ -172,6 +175,7 @@ const zhHans: Catalogue = {
 };
 
 const zhHant: Catalogue = {
+  "spotlight.achievements.verifiedGalleryTitle": "KHLIM 賽事亮點",
   "spotlight.representatives.namesPending":
     "各張照片中的球員身分經 KHLIM 核實後，才會補充個人姓名與簡介。",
   "spotlight.archive.badge": "KHLIM 聚焦",
@@ -226,6 +230,7 @@ const zhHant: Catalogue = {
 };
 
 const hi: Catalogue = {
+  "spotlight.achievements.verifiedGalleryTitle": "KHLIM प्रतियोगिता की मुख्य उपलब्धियाँ",
   "spotlight.representatives.namesPending":
     "प्रत्येक तस्वीर में दिखाई देने वाले खिलाड़ियों की पहचान की KHLIM द्वारा पुष्टि होने के बाद उनके नाम और परिचय जोड़े जाएंगे।",
   "spotlight.archive.badge": "KHLIM स्पॉटलाइट",
