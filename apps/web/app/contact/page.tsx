@@ -122,12 +122,6 @@ function ContactContent() {
                 >
                   {business.legalName}
                 </div>
-                {business.registrationNumber ? (
-                  <div>
-                    {t("compliance.footer.companyNumberLabel")}:{" "}
-                    <span>{business.registrationNumber}</span>
-                  </div>
-                ) : null}
                 {business.businessAddress ? (
                   <div>{business.businessAddress}</div>
                 ) : null}
