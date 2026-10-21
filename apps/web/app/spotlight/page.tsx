@@ -455,7 +455,6 @@ function SpotlightArchiveContent() {
                   </div>
                 </div>
               )}
-
             </>
           )}
         </section>
