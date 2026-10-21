@@ -769,12 +769,28 @@
 }
 
 .spotlight-gallery-image-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
-  height: 240px;
-  background-position: center;
-  background-size: cover;
-  background-repeat: no-repeat;
+  min-height: 240px;
+  background: #18181b;
   border-bottom: 1px solid #f4f4f5;
+}
+
+.spotlight-gallery-image-wrapper--photo {
+  display: block;
+  min-height: 0;
+}
+
+.spotlight-gallery-photo-link,
+.spotlight-gallery-photo {
+  display: block;
+  width: 100%;
+}
+
+.spotlight-gallery-photo {
+  height: auto;
 }
 
 .spotlight-gallery-caption {
@@ -802,8 +818,8 @@
   flex: 1;
 }
 
-/* Independent, verified club honours and player-representation photo collection.
-   Images fill each card edge-to-edge; original full-frame files remain accessible by clicking. */
+/* Curated team and player photographs: natural aspect ratio, full card width.
+   Variable photo heights preserve faces, trophies, and signs without side gaps. */
 .verified-milestone-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -829,18 +845,23 @@
 }
 
 .verified-milestone-media {
-  position: relative;
-  isolation: isolate;
   width: 100%;
-  height: clamp(220px, 23vw, 320px);
+  min-width: 0;
   background: #f4f4f5;
   border-bottom: 1px solid #e4e4e7;
 }
 
-.verified-milestone-photo-link {
-  position: absolute;
-  inset: 0;
+.verified-milestone-photo-link,
+.verified-milestone-photo {
   display: block;
+  width: 100%;
+}
+
+.verified-milestone-photo {
+  height: auto;
+}
+
+.verified-milestone-photo-link {
   outline-offset: -4px;
 }
 
@@ -853,7 +874,7 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 100%;
+  min-height: 240px;
   padding: 24px;
   box-sizing: border-box;
   color: #52525b;
@@ -922,10 +943,6 @@
   .verified-milestone-grid--compact {
     grid-template-columns: minmax(0, 1fr);
     gap: 16px;
-  }
-
-  .verified-milestone-media {
-    height: clamp(230px, 74vw, 380px);
   }
 
   .verified-milestone-details {
