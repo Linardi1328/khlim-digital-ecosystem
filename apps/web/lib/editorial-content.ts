@@ -405,6 +405,48 @@ export const publishedAchievements = achievementStories.filter(
     story.photoRightsVerified,
 );
 
+/**
+ * Director-reviewed historical club records are a separate, curated collection
+ * from the live editorial API. They are grouped by subject, not by the source
+ * Google Drive folder name. Individual names must never be inferred from photos.
+ *
+ * Publishing an asset also requires a valid media permission record: the
+ * canRenderYouthMedia() gate controls presentation, not HTTP asset access.
+ */
+const VERIFIED_TEAM_RESULT_IDS = [
+  "cls-international-cup-2026",
+  "jasmine-cup-2026-a",
+  "sba-selangor-2025-d1",
+  "fastbreak-2024-u14g",
+  "mpbl-2025-u14g",
+  "sba-selangor-2026-u16",
+  "jasmine-cup-2026-e",
+  "sba-selangor-2024",
+  "sba-selangor-2025-d2",
+] as const;
+
+const VERIFIED_REPRESENTATIVE_IDS = [
+  "maba-matrix-u17-2026",
+  "maba-matrix-u17-2026-squad2",
+  "mssm-2025",
+  "mssm-2024",
+  "lmc-cup-2025",
+] as const;
+
+function selectCuratedMilestones(ids: readonly string[]): AchievementStory[] {
+  return ids.flatMap((id) => {
+    const record = publishedAchievements.find((story) => story.id === id);
+    return record ? [record] : [];
+  });
+}
+
+export const verifiedTeamResults = selectCuratedMilestones(
+  VERIFIED_TEAM_RESULT_IDS,
+);
+export const verifiedRepresentativeMilestones = selectCuratedMilestones(
+  VERIFIED_REPRESENTATIVE_IDS,
+);
+
 export type AchievementSectionState = "loading" | "success" | "empty" | "error";
 
 export interface ResolvedAchievementsResult {
