@@ -801,3 +801,134 @@
   margin: 0;
   flex: 1;
 }
+
+/* Independent, verified club honours and player-representation photo collection.
+   A contained image preserves tournament banners, medals and full squad portraits. */
+.verified-milestone-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  width: 100%;
+  min-width: 0;
+  margin: 24px 0 40px;
+}
+
+.verified-milestone-grid--compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.verified-milestone-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #e4e4e7;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(24, 24, 27, 0.06);
+}
+
+.verified-milestone-media {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  height: clamp(220px, 23vw, 320px);
+  background: #f4f4f5;
+  border-bottom: 1px solid #e4e4e7;
+}
+
+.verified-milestone-photo-link {
+  position: absolute;
+  inset: 0;
+  display: block;
+  outline-offset: -4px;
+}
+
+.verified-milestone-photo-link:focus-visible {
+  outline: 3px solid #b45309;
+}
+
+.verified-milestone-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 24px;
+  box-sizing: border-box;
+  color: #52525b;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.verified-milestone-details {
+  flex: 1;
+  min-width: 0;
+  padding: 20px 22px 24px;
+  color: #18181b;
+}
+
+.verified-milestone-year {
+  display: inline-block;
+  margin-bottom: 10px;
+  color: #9a3412;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.verified-milestone-details h3 {
+  margin: 0 0 8px;
+  font-size: clamp(1.05rem, 1.6vw, 1.35rem);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.verified-milestone-details strong {
+  display: block;
+  color: #b45309;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.verified-milestone-details p {
+  margin: 10px 0 0;
+  color: #52525b;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.verified-milestone-context {
+  max-width: 760px;
+  margin: 0 auto 18px;
+  color: #52525b;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  text-align: center;
+}
+
+@media (max-width: 1000px) {
+  .verified-milestone-grid,
+  .verified-milestone-grid--compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+}
+
+@media (max-width: 650px) {
+  .verified-milestone-grid,
+  .verified-milestone-grid--compact {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .verified-milestone-media {
+    height: clamp(230px, 74vw, 380px);
+  }
+
+  .verified-milestone-details {
+    padding: 18px 20px 22px;
+  }
+}
