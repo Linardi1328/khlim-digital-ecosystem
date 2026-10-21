@@ -439,9 +439,14 @@ test("browser/component regression: API failures cannot resurrect withdrawn phot
     }
 
     assert.equal(
-      await page.locator("img").count(),
+      await page.locator(".home-achievement-card img").count(),
       0,
-      "No <img> elements rendered during outage",
+      "API-owned achievements must not render images during an outage",
+    );
+    assert.equal(
+      await page.locator(".verified-milestone-card img").count(),
+      3,
+      "Separately verified club honours stay visible during editorial API outages",
     );
     assert.equal(
       await page.locator(".home-club-distinction-banner").count(),
