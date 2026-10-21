@@ -325,7 +325,7 @@ function SpotlightArchiveContent() {
               <h3>{t("spotlight.achievements.errorTitle")}</h3>
               <p>{t("spotlight.achievements.errorBody")}</p>
             </div>
-          ) : achievements.length === 0 && isStagingMediaReview ? null : achievements.length === 0 ? (
+          ) : achievements.length === 0 ? (
             <div className="spotlight-empty-state" role="status">
               <div
                 className="home-club-distinction-banner"
