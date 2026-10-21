@@ -34,9 +34,9 @@ test(
     ];
     for (const path of paths) {
       const source = await readFile(
-      new URL(`../${path}`, import.meta.url),
-      "utf8",
-    );
+        new URL(`../${path}`, import.meta.url),
+        "utf8",
+      );
       assert.match(
         source,
         /formatRegisteredBusinessName\(business\)/,
