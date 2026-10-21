@@ -9,7 +9,7 @@ import {
 
 const root = new URL("../", import.meta.url);
 
-test("14 source-folder images are correctly separated by subject", async () => {
+test("verified photos are categorized by subject", async () => {
   assert.equal(verifiedTeamResults.length, 9);
   assert.equal(verifiedRepresentativeMilestones.length, 5);
 
@@ -35,15 +35,16 @@ test("14 source-folder images are correctly separated by subject", async () => {
   }
 });
 
-test("the historical photo gallery respects the youth media rights flag", () => {
+test("the historical gallery respects the youth rights flag", () => {
   const previous = process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED;
+  const representative = verifiedRepresentativeMilestones[0];
   try {
     process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED = "0";
     assert.equal(canRenderYouthMedia(verifiedTeamResults[0]), false);
-    assert.equal(canRenderYouthMedia(verifiedRepresentativeMilestones[0]), false);
+    assert.equal(canRenderYouthMedia(representative), false);
     process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED = "1";
     assert.equal(canRenderYouthMedia(verifiedTeamResults[0]), true);
-    assert.equal(canRenderYouthMedia(verifiedRepresentativeMilestones[0]), true);
+    assert.equal(canRenderYouthMedia(representative), true);
   } finally {
     if (previous === undefined) {
       delete process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED;
@@ -53,7 +54,7 @@ test("the historical photo gallery respects the youth media rights flag", () => 
   }
 });
 
-test("both website entry points render the approved photo groups without inferring names", async () => {
+test("home and Spotlight use distinct photo groups", async () => {
   const files = [
     "apps/web/app/spotlight/page.tsx",
     "apps/web/components/home/achievements-section.tsx",
@@ -68,10 +69,9 @@ test("both website entry points render the approved photo groups without inferri
   assert.match(contents[2], /verifiedRepresentativeMilestones\.slice\(0, 3\)/);
   assert.match(contents[0], /spotlight\.representatives\.namesPending/);
   assert.doesNotMatch(contents[2], /getLocalizedSpotlightPreview/);
-  const component = await readFile(
-    new URL("apps/web/components/editorial/verified-milestone-gallery.tsx", root),
-    "utf8",
-  );
+  const galleryPath =
+    "apps/web/components/editorial/verified-milestone-gallery.tsx";
+  const component = await readFile(new URL(galleryPath, root), "utf8");
   assert.match(component, /canRenderYouthMedia\(story\)/);
   assert.match(component, /objectFit: "contain"/);
 });
