@@ -220,6 +220,8 @@ async function run() {
         "KHLIM A captured the championship trophy at the Jasmine Cup in full-color team glory.",
       yearLabel: "2025–2026",
       photoLabel: "Jasmine Cup 2025-2026 KHLIM A Champions",
+      imageUrl: "/media/achievements/jasmine-cup-2025-2026-khlim-a-champion.webp",
+      photoRightsVerified: true,
       factsVerified: true,
     },
     {
@@ -231,6 +233,8 @@ async function run() {
         "KHLIM E secured 4th place at the Jasmine Cup through tenacity and dedicated team play.",
       yearLabel: "2025–2026",
       photoLabel: "Jasmine Cup 2025-2026 KHLIM E 4th Place",
+      imageUrl: "/media/achievements/jasmine-cup-2025-2026-khlim-e-fourth.webp",
+      photoRightsVerified: true,
       factsVerified: true,
     },
     {
