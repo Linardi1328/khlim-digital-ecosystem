@@ -67,8 +67,7 @@ export const achievementStories: AchievementStory[] = [
     yearLabel: "2025–2026",
     title: "Champion — KHLIM A",
     eventName: "Jasmine Cup 2025–2026",
-    description:
-      "KHLIM A won the Jasmine Cup 2025–2026 championship.",
+    description: "KHLIM A won the Jasmine Cup 2025–2026 championship.",
     photoLabel: "Jasmine Cup 2025-2026 KHLIM A Champions",
     imageUrl: "/media/achievements/jasmine-cup-2025-2026-khlim-a-champion.webp",
     placeholderGradient:
@@ -83,8 +82,7 @@ export const achievementStories: AchievementStory[] = [
     yearLabel: "2025–2026",
     title: "4th Place — KHLIM E",
     eventName: "Jasmine Cup 2025–2026",
-    description:
-      "KHLIM E finished in 4th place at the Jasmine Cup 2025–2026.",
+    description: "KHLIM E finished in 4th place at the Jasmine Cup 2025–2026.",
     photoLabel: "Jasmine Cup 2025-2026 KHLIM E 4th Place",
     imageUrl: "/media/achievements/jasmine-cup-2025-2026-khlim-e-fourth.webp",
     placeholderGradient:
@@ -179,8 +177,7 @@ export const achievementStories: AchievementStory[] = [
     yearLabel: "2024",
     title: "Champion — Girls U14",
     eventName: "U14G Fastbreak League",
-    description:
-      "KHLIM Girls U14 won the Fastbreak Mini League in 2024.",
+    description: "KHLIM Girls U14 won the Fastbreak Mini League in 2024.",
     photoLabel: "U14G Fastbreak League 2024 Champions",
     imageUrl: "/media/achievements/u14g-fastbreak-2024-champion.webp",
     placeholderGradient:
@@ -440,9 +437,7 @@ function selectCuratedMilestones(ids: readonly string[]): AchievementStory[] {
   });
 }
 
-export const verifiedTeamResults = selectCuratedMilestones(
-  VERIFIED_TEAM_RESULT_IDS,
-);
+export const verifiedTeamResults = selectCuratedMilestones(VERIFIED_TEAM_RESULT_IDS);
 export const verifiedRepresentativeMilestones = selectCuratedMilestones(
   VERIFIED_REPRESENTATIVE_IDS,
 );
