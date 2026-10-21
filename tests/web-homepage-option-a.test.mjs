@@ -28,7 +28,6 @@ test("Khero supports brand storytelling and member points", async () => {
     "khero-meaning.webp",
     "khero-way.webp",
     "meet-khero.webp",
-    "coming-soon.webp",
   ]) {
     assert.match(section, new RegExp(`/media/khero/${poster}`));
     await access(new URL(`apps/web/public/media/khero/${poster}`, rootUrl));

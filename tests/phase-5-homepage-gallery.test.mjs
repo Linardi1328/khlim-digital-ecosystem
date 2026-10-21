@@ -36,7 +36,6 @@ test("homepage media is configuration-driven without pretending placeholder phot
   assert.match(khero, /\/media\/khero\/khero-meaning\.webp/);
   assert.match(khero, /\/media\/khero\/khero-way\.webp/);
   assert.match(khero, /\/media\/khero\/meet-khero\.webp/);
-  assert.match(khero, /\/media\/khero\/coming-soon\.webp/);
   assert.doesNotMatch(page, /https?:\/\//);
 });
 

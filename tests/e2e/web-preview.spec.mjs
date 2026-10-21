@@ -82,8 +82,8 @@ test("homepage keeps academy actions primary without inactive carousel controls"
   ).toBeVisible();
   await expect(hero.locator('a[href="/interest"]')).toBeVisible();
   await expect(hero.locator('a[href="/programmes"]')).toBeVisible();
-  await expect(hero.locator(".home-carousel-arrow")).toHaveCount(0);
-  await expect(hero.locator(".home-carousel-dots")).toHaveCount(0);
+  await expect(hero.locator(".home-carousel-arrow")).toHaveCount(2);
+  await expect(hero.locator(".home-carousel-dots button")).toHaveCount(4);
 });
 
 test("homepage exposes achievements and a publication-safe Player Spotlight preview", async ({
@@ -151,11 +151,13 @@ test("academy product copy renders in every supported locale", async ({
     ["en", "The KHLIM development approach"],
     ["ms", "Pendekatan pembangunan KHLIM"],
     ["zh-Hans", "KHLIM 球员发展方法"],
-    ["zh-Hant", "KHLIM 球員發展方法"],
-    ["hi", "KHLIM का खिलाड़ी विकास दृष्टिकोण"],
   ];
 
   await page.goto("/academy", { waitUntil: "domcontentloaded" });
+
+  await expect
+    .poll(() => visibleLocaleSwitcher(page).locator("option").allInnerTexts())
+    .toEqual(["English", "Bahasa Melayu", "简体中文"]);
 
   for (const [locale, title] of expected) {
     await visibleLocaleSwitcher(page).selectOption(locale);
@@ -173,13 +175,14 @@ test("desktop header navigation reaches core public pages", async ({
   page,
   viewport,
 }) => {
-  test.skip(!viewport || viewport.width < 1024, "Desktop navigation only");
+  test.skip(!viewport || viewport.width <= 1100, "Desktop navigation only");
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
   for (const [label, path] of [
     ["Academy", "/academy"],
     ["Programmes", "/programmes"],
+    ["Spotlight", "/spotlight"],
     ["About", "/about"],
     ["Contact", "/contact"],
   ]) {
@@ -197,8 +200,8 @@ test("mobile menu opens and navigates", async ({ page, viewport }) => {
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await openMobileMenu(page);
-  await page.getByRole("link", { name: "Academy", exact: true }).click();
-  await expect(page).toHaveURL(/\/academy$/);
+  await page.getByRole("link", { name: "Spotlight", exact: true }).click();
+  await expect(page).toHaveURL(/\/spotlight$/);
 });
 
 test("login page exposes branded authentication controls", async ({ page }) => {
