@@ -543,7 +543,7 @@ function SpotlightArchiveContent() {
 
           <div className="spotlight-subsection" id="representative-milestones">
             <div className="spotlight-subsection-header">
-              <h3>{t("spotlight.achievements.milestones")}</h3>
+              <h3>{t("spotlight.representatives.galleryTitle")}</h3>
               <p>{t("spotlight.achievements.milestonesDesc")}</p>
             </div>
             <VerifiedMilestoneGallery stories={verifiedRepresentativeMilestones} />
