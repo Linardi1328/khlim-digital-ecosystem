@@ -131,3 +131,7 @@ This register records Director Esther's explicit organizational authorization as
 | 34 | `KHLIM Logo` | `apps/web/public/media/brand/khlim-laurel-crest.webp` | 499×500 | Ecosystem brand mark | `VERIFIED` — Director Esther website authorization |
 | 35 | `Academy Logo` | `apps/web/public/media/brand/academy-crest.webp` | 738×869 | Official Academy crest (Header, Footer, Nav) | `VERIFIED` — Director Esther website authorization |
 | 36 | `Club Logo` | `apps/web/public/media/brand/kh-basketball-club.webp` | 800×728 | Official Club distinction crest | `VERIFIED` — Director Esther website authorization |
+
+## 2026-10-22 Website media review approval (user report)
+
+The project operator explicitly approved the photographs visible in the access-protected updated Spotlight gallery preview on 22 October 2026 for the KHLIM website. This is additional project-level visual and publication-direction approval for that displayed gallery. It does **not** independently establish photographer copyright assignments, individual guardian consents, or the scope of permissions for identifiable minors. Continue to apply the media-rights register and publication safeguards before releasing the production website; do not publish evidence documents or minors' personal information in this public repository.
