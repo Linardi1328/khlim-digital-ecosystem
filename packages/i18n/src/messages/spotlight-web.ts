@@ -1,8 +1,4 @@
 const en = {
-  "spotlight.review.badge": "INTERNAL STAGING REVIEW",
-  "spotlight.review.title": "Club photos for visual approval",
-  "spotlight.review.description":
-    "These photographs are shown only in the access-protected staging preview for visual approval. They are not published achievements or player stories. Individual media permissions must still be verified before public release.",
   "spotlight.archive.badge": "KHLIM Spotlight",
   "spotlight.archive.title": "KHLIM Spotlight",
   "spotlight.archive.description":
@@ -62,10 +58,6 @@ type Key = keyof typeof en;
 type Catalogue = Record<Key, string>;
 
 const ms: Catalogue = {
-  "spotlight.review.badge": "SEMAKAN DALAMAN STAGING",
-  "spotlight.review.title": "Foto kelab untuk semakan visual",
-  "spotlight.review.description":
-    "Foto ini hanya dipaparkan dalam pratonton staging yang dilindungi untuk semakan visual. Foto ini bukan pencapaian atau kisah pemain yang telah diterbitkan. Kebenaran media individu mesti disahkan sebelum penerbitan awam.",
   "spotlight.archive.badge": "Sorotan KHLIM",
   "spotlight.archive.title": "Sorotan KHLIM",
   "spotlight.archive.description":
@@ -122,10 +114,6 @@ const ms: Catalogue = {
 };
 
 const zhHans: Catalogue = {
-  "spotlight.review.badge": "内部预览审核",
-  "spotlight.review.title": "俱乐部照片视觉审核",
-  "spotlight.review.description":
-    "这些照片仅在受保护的预览网站中供内部视觉审核，不代表已发布的比赛成绩或球员故事。公开发布前仍须核实个人影像授权。",
   "spotlight.archive.badge": "KHLIM 聚焦",
   "spotlight.archive.title": "KHLIM 聚焦",
   "spotlight.archive.description":
@@ -178,10 +166,6 @@ const zhHans: Catalogue = {
 };
 
 const zhHant: Catalogue = {
-  "spotlight.review.badge": "內部預覽審核",
-  "spotlight.review.title": "俱樂部照片視覺審核",
-  "spotlight.review.description":
-    "這些照片僅在受保護的預覽網站中供內部視覺審核，不代表已發佈的比賽成績或球員故事。公開發佈前仍須核實個人影像授權。",
   "spotlight.archive.badge": "KHLIM 聚焦",
   "spotlight.archive.title": "KHLIM 聚焦",
   "spotlight.archive.description":
@@ -234,10 +218,6 @@ const zhHant: Catalogue = {
 };
 
 const hi: Catalogue = {
-  "spotlight.review.badge": "आंतरिक स्टेजिंग समीक्षा",
-  "spotlight.review.title": "दृश्य अनुमोदन के लिए क्लब फ़ोटो",
-  "spotlight.review.description":
-    "ये तस्वीरें केवल सुरक्षित स्टेजिंग प्रीव्यू में समीक्षा के लिए हैं। ये प्रकाशित उपलब्धियाँ या खिलाड़ी कहानियाँ नहीं हैं; सार्वजनिक प्रकाशन से पहले व्यक्तिगत मीडिया सहमति की पुष्टि आवश्यक है।",
   "spotlight.archive.badge": "KHLIM स्पॉटलाइट",
   "spotlight.archive.title": "KHLIM स्पॉटलाइट",
   "spotlight.archive.description":
