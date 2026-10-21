@@ -62,6 +62,8 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED:
       process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED ?? "1",
+    NEXT_PUBLIC_STAGING_MEDIA_REVIEW:
+      process.env.VERCEL_ENV === "preview" ? "1" : "0",
   },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
