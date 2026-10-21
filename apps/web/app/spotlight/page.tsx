@@ -456,53 +456,22 @@ function SpotlightArchiveContent() {
                 </div>
               )}
 
-              {/* Subsection 3: Club Event & Matchday Gallery */}
-              <div className="spotlight-subsection">
-                <div className="spotlight-subsection-header">
-                  <h3>{t("spotlight.achievements.gallery")}</h3>
-                  <p>{t("spotlight.achievements.galleryDesc")}</p>
-                </div>
-                <div className="spotlight-club-gallery-grid">
-                  {clubEventGallery.map((item) => {
-                    const showImage = canRenderYouthMedia(item);
-                    return (
-                      <figure key={item.id} className="spotlight-gallery-card">
-                        <div
-                          className="spotlight-gallery-image-wrapper"
-                          style={{
-                            backgroundImage: showImage
-                              ? `linear-gradient(180deg, rgba(9, 9, 11, 0.04), rgba(9, 9, 11, 0.72)), url("${item.imageUrl}")`
-                              : "linear-gradient(135deg, #18181b, #27272a)",
-                          }}
-                          role="img"
-                          aria-label={item.photoLabel}
-                        />
-                        <figcaption className="spotlight-gallery-caption">
-                          <h4>{item.title}</h4>
-                          <p>{item.description}</p>
-                        </figcaption>
-                      </figure>
-                    );
-                  })}
-                </div>
-              </div>
             </>
           )}
         </section>
 
-        {isStagingMediaReview && (
-          <section
-            className="spotlight-section"
-            id="staging-media-review"
-            aria-labelledby="staging-media-review-title"
-          >
-            <div className="spotlight-section-heading">
-              <span>{t("spotlight.review.badge")}</span>
-              <h2 id="staging-media-review-title">
-                {t("spotlight.review.title")}
-              </h2>
-              <p>{t("spotlight.review.description")}</p>
-            </div>
+        <section
+          className="spotlight-section"
+          id="club-event-gallery"
+          aria-labelledby="club-event-gallery-title"
+        >
+          <div className="spotlight-section-heading">
+            <span>{t("spotlight.archive.badge")}</span>
+            <h2 id="club-event-gallery-title">
+              {t("spotlight.achievements.gallery")}
+            </h2>
+            <p>{t("spotlight.achievements.galleryDesc")}</p>
+          </div>
             <div className="spotlight-club-gallery-grid">
               {clubEventGallery.map((item) => {
                 const showImage = canRenderYouthMedia(item);
@@ -548,8 +517,7 @@ function SpotlightArchiveContent() {
                 );
               })}
             </div>
-          </section>
-        )}
+        </section>
 
         {/* Section 2: Player Spotlights */}
         <section
