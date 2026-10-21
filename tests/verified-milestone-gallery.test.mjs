@@ -23,7 +23,10 @@ test("14 source-folder images are correctly separated by subject", async () => {
   assert.ok(reps.has("mssm-2024"));
   assert.ok(reps.has("mssm-2025"));
 
-  for (const story of [...verifiedTeamResults, ...verifiedRepresentativeMilestones]) {
+  for (const story of [
+    ...verifiedTeamResults,
+    ...verifiedRepresentativeMilestones,
+  ]) {
     assert.equal(story.factsVerified, true);
     assert.equal(story.photoRightsVerified, true);
     assert.equal(story.status, "published");
