@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+/* eslint-disable @next/next/no-img-element -- Approved local WebP gallery photos must use their natural dimensions without cropping. */
 import type { AchievementStory } from "../../lib/editorial-content";
 import { canRenderYouthMedia } from "../../lib/editorial-content";
 import { useI18n } from "../../lib/i18n-context";
@@ -31,12 +31,12 @@ export function VerifiedMilestoneGallery({
                   aria-label={story.photoLabel}
                   className="verified-milestone-photo-link"
                 >
-                  <Image
+                  <img
                     src={story.imageUrl}
                     alt={story.photoLabel}
-                    fill
-                    sizes="(max-width: 650px) 100vw, (max-width: 1050px) 50vw, 33vw"
-                    style={{ objectFit: "cover", objectPosition: "center" }}
+                    className="verified-milestone-photo"
+                    loading="lazy"
+                    decoding="async"
                   />
                 </a>
               ) : (
