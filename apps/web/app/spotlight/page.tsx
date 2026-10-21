@@ -472,51 +472,51 @@ function SpotlightArchiveContent() {
             </h2>
             <p>{t("spotlight.achievements.galleryDesc")}</p>
           </div>
-            <div className="spotlight-club-gallery-grid">
-              {clubEventGallery.map((item) => {
-                const showImage = canRenderYouthMedia(item);
-                return (
-                  <figure key={item.id} className="spotlight-gallery-card">
-                    <div
-                      className="spotlight-gallery-image-wrapper"
-                      style={{
-                        position: "relative",
-                        height: 300,
-                        background: "#18181b",
-                      }}
-                    >
-                      {showImage ? (
-                        <a
-                          href={item.imageUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          aria-label={item.photoLabel}
-                          style={{ position: "absolute", inset: 0 }}
-                        >
-                          <Image
-                            src={item.imageUrl}
-                            alt={item.photoLabel}
-                            fill
-                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                            style={{ objectFit: "contain" }}
-                          />
-                        </a>
-                      ) : (
-                        <span className="home-achievement-photo-label">
-                          {t("spotlight.archive.photoSlot", {
-                            label: item.photoLabel,
-                          })}
-                        </span>
-                      )}
-                    </div>
-                    <figcaption className="spotlight-gallery-caption">
-                      <h4>{item.title}</h4>
-                      <p>{item.description}</p>
-                    </figcaption>
-                  </figure>
-                );
-              })}
-            </div>
+          <div className="spotlight-club-gallery-grid">
+            {clubEventGallery.map((item) => {
+              const showImage = canRenderYouthMedia(item);
+              return (
+                <figure key={item.id} className="spotlight-gallery-card">
+                  <div
+                    className="spotlight-gallery-image-wrapper"
+                    style={{
+                      position: "relative",
+                      height: 300,
+                      background: "#18181b",
+                    }}
+                  >
+                    {showImage ? (
+                      <a
+                        href={item.imageUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={item.photoLabel}
+                        style={{ position: "absolute", inset: 0 }}
+                      >
+                        <Image
+                          src={item.imageUrl}
+                          alt={item.photoLabel}
+                          fill
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                          style={{ objectFit: "contain" }}
+                        />
+                      </a>
+                    ) : (
+                      <span className="home-achievement-photo-label">
+                        {t("spotlight.archive.photoSlot", {
+                          label: item.photoLabel,
+                        })}
+                      </span>
+                    )}
+                  </div>
+                  <figcaption className="spotlight-gallery-caption">
+                    <h4>{item.title}</h4>
+                    <p>{item.description}</p>
+                  </figcaption>
+                </figure>
+              );
+            })}
+          </div>
         </section>
 
         {/* Section 2: Player Spotlights */}
