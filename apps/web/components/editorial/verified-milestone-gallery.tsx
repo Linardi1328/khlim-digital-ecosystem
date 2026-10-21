@@ -36,7 +36,7 @@ export function VerifiedMilestoneGallery({
                     alt={story.photoLabel}
                     fill
                     sizes="(max-width: 650px) 100vw, (max-width: 1050px) 50vw, 33vw"
-                    style={{ objectFit: "contain" }}
+                    style={{ objectFit: "cover", objectPosition: "center" }}
                   />
                 </a>
               ) : (
