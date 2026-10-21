@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { PublicFooter } from "../../components/layout/public-footer";
 import { PublicHeader } from "../../components/layout/public-header";
+import { VerifiedMilestoneGallery } from "../../components/editorial/verified-milestone-gallery";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import {
@@ -17,6 +18,8 @@ import {
   canRenderYouthMedia,
   clubEventGallery,
   publishedPlayerSpotlights,
+  verifiedTeamResults,
+  verifiedRepresentativeMilestones,
   type AchievementStory,
   type PlayerSpotlightArticle,
 } from "../../lib/editorial-content";
@@ -214,6 +217,14 @@ function SpotlightArchiveContent() {
               {t("spotlight.achievements.title")}
             </h2>
             <p>{t("spotlight.achievements.description")}</p>
+          </div>
+
+          <div className="spotlight-subsection" id="verified-team-honours">
+            <div className="spotlight-subsection-header">
+              <h3>{t("spotlight.achievements.featured")}</h3>
+              <p>{t("spotlight.achievements.galleryDesc")}</p>
+            </div>
+            <VerifiedMilestoneGallery stories={verifiedTeamResults} />
           </div>
 
           {achievementsLoading ? (
@@ -528,6 +539,17 @@ function SpotlightArchiveContent() {
             <span>{t("spotlight.archive.badge")}</span>
             <h2 id="spotlight-players-title">{t("spotlight.players.title")}</h2>
             <p>{t("spotlight.players.description")}</p>
+          </div>
+
+          <div className="spotlight-subsection" id="representative-milestones">
+            <div className="spotlight-subsection-header">
+              <h3>{t("spotlight.achievements.milestones")}</h3>
+              <p>{t("spotlight.achievements.milestonesDesc")}</p>
+            </div>
+            <VerifiedMilestoneGallery stories={verifiedRepresentativeMilestones} />
+            <p className="verified-milestone-context">
+              {t("spotlight.representatives.namesPending")}
+            </p>
           </div>
 
           {/* Representative Selection Milestones (District, State & National honours) */}
