@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "../../lib/i18n-context";
 import {
+  formatRegisteredBusinessName,
   getMissingCommerceBusinessFields,
   getPublicBusinessDetails,
 } from "../../lib/business-details";
@@ -98,13 +99,7 @@ function PublicFooterView({
             }}
           >
             <strong style={{ color: "#FFFFFF" }}>
-              {business.legalName
-                .replace(/^KH\s+LIM\s+BASKETBALL/i, "KHLIM Basketball")
-                .replace(/Sdn\.?\s+Bhd\.?$/i, "Sdn. Bhd")
-                .trim()}
-              {business.registrationNumber.match(/\(([^)]+)\)/)?.[1]
-                ? ` (${business.registrationNumber.match(/\(([^)]+)\)/)?.[1]})`
-                : ""}
+              {formatRegisteredBusinessName(business)}
             </strong>
             {business.businessAddress ? (
               <div>{business.businessAddress}</div>
