@@ -13,6 +13,7 @@ const EFFECTIVE_DATE = "11 October 2026";
 
 export default function PrivacyPage() {
   const business = getPublicBusinessDetails();
+  const registeredCompany = formatRegisteredBusinessName(business);
   const contact = business.email || "the contact form";
   const contactPhone =
     business.phone ||
@@ -25,7 +26,7 @@ export default function PrivacyPage() {
       title: "1. Who controls your personal data",
       paragraphs: [
         <React.Fragment key="privacy-en-s1-controller-contact-link">
-          {formatRegisteredBusinessName(business)} ("KHLIM", "we", "us") is the data controller for
+          {registeredCompany} ("KHLIM", "we", "us") is the data controller for
           personal data collected through this website, academy enrolment and
           the member portal. The contact designation for privacy matters is the
           KHLIM Data Protection Contact. Privacy enquiries may be sent to{" "}
@@ -132,7 +133,7 @@ export default function PrivacyPage() {
       title: "1. Siapa yang mengawal data peribadi anda",
       paragraphs: [
         <React.Fragment key="privacy-ms-s1-controller-contact-link">
-          {formatRegisteredBusinessName(business)} ("KHLIM", "kami") ialah pengawal data bagi data
+          {registeredCompany} ("KHLIM", "kami") ialah pengawal data bagi data
           peribadi yang dikumpulkan melalui laman ini, pendaftaran akademi dan
           portal ahli. Jawatan hubungan bagi hal privasi ialah KHLIM Data
           Protection Contact. Pertanyaan privasi boleh dihantar ke {contact},
@@ -239,7 +240,7 @@ export default function PrivacyPage() {
       title: "1. 谁控制您的个人数据 (Who controls your personal data)",
       paragraphs: [
         <React.Fragment key="privacy-zh-s1-controller-contact-link">
-          {formatRegisteredBusinessName(business)}
+          {registeredCompany}
           （“KHLIM”、“我们”）是通过本网站、学院报名及会员门户收集的个人数据的数据控制者。隐私事务联络人职务为
           KHLIM 数据保护联络人（KHLIM Data Protection
           Contact）。隐私合规咨询可发送至 {contactZh}，致电 {contactPhoneZh}
