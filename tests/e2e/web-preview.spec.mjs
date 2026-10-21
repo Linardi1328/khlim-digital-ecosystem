@@ -112,7 +112,7 @@ test("homepage showcases verified honours and unnamed representatives", async ({
   ).toHaveCount(0);
 });
 
-test("photo cards retain their full natural aspect ratios", async ({ page }) => {
+test("photos use natural ratios without side gaps", async ({ page }) => {
   const samples = [
     ["/", "#achievements .verified-milestone-photo"],
     ["/", "#player-spotlight .verified-milestone-photo"],
@@ -144,10 +144,10 @@ test("photo cards retain their full natural aspect ratios", async ({ page }) => 
       };
     });
 
-    const widthGap = Math.abs(dimensions.containerWidth - dimensions.photoWidth);
+    const widthGap = dimensions.containerWidth - dimensions.photoWidth;
     const displayedRatio = dimensions.photoWidth / dimensions.photoHeight;
     const ratioDifference = Math.abs(displayedRatio - dimensions.naturalRatio);
-    expect(widthGap).toBeLessThan(2);
+    expect(Math.abs(widthGap)).toBeLessThan(2);
     expect(ratioDifference).toBeLessThan(0.015);
   }
 });
