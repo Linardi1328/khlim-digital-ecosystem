@@ -99,6 +99,7 @@ function PublicFooterView({
           >
             <strong style={{ color: "#FFFFFF" }}>
               {business.legalName
+                .replace(/^KH\s+LIM\s+BASKETBALL/i, "KHLIM Basketball")
                 .replace(/Sdn\.?\s+Bhd\.?$/i, "Sdn. Bhd")
                 .trim()}
               {business.registrationNumber.match(/\(([^)]+)\)/)?.[1]
