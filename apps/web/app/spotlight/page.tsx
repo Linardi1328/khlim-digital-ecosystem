@@ -546,7 +546,9 @@ function SpotlightArchiveContent() {
               <h3>{t("spotlight.representatives.galleryTitle")}</h3>
               <p>{t("spotlight.achievements.milestonesDesc")}</p>
             </div>
-            <VerifiedMilestoneGallery stories={verifiedRepresentativeMilestones} />
+            <VerifiedMilestoneGallery
+              stories={verifiedRepresentativeMilestones}
+            />
             <p className="verified-milestone-context">
               {t("spotlight.representatives.namesPending")}
             </p>
