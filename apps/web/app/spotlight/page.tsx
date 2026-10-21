@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- Local WebP club photos must retain their natural aspect ratios. */
+
 import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -488,12 +490,7 @@ function SpotlightArchiveContent() {
               return (
                 <figure key={item.id} className="spotlight-gallery-card">
                   <div
-                    className="spotlight-gallery-image-wrapper"
-                    style={{
-                      position: "relative",
-                      height: 300,
-                      background: "#18181b",
-                    }}
+                    className={`spotlight-gallery-image-wrapper${showImage ? " spotlight-gallery-image-wrapper--photo" : ""}`}
                   >
                     {showImage ? (
                       <a
@@ -501,14 +498,14 @@ function SpotlightArchiveContent() {
                         target="_blank"
                         rel="noopener noreferrer"
                         aria-label={item.photoLabel}
-                        style={{ position: "absolute", inset: 0 }}
+                        className="spotlight-gallery-photo-link"
                       >
-                        <Image
+                        <img
                           src={item.imageUrl}
                           alt={item.photoLabel}
-                          fill
-                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                          style={{ objectFit: "cover", objectPosition: "center" }}
+                          className="spotlight-gallery-photo"
+                          loading="lazy"
+                          decoding="async"
                         />
                       </a>
                     ) : (
