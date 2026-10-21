@@ -17,8 +17,16 @@ test("club gallery is independent of live editorial API and rights-gated", async
   assert.match(page, /id="club-event-gallery"/);
   assert.match(page, /const showImage = canRenderYouthMedia\(item\)/);
   assert.match(page, /href=\{item\.imageUrl\}/);
-  assert.match(page, /objectFit: "cover"/);
-  assert.match(page, /objectPosition: "center"/);
+  assert.match(page, /className="spotlight-gallery-photo"/);
+  assert.match(page, /className="spotlight-gallery-photo-link"/);
+  assert.doesNotMatch(page, /height: 300/);
+
+  const styles = await readFile(
+    new URL("apps/web/app/editorial.css", root),
+    "utf8",
+  );
+  assert.match(styles, /\.spotlight-gallery-photo\s*\{\s*height: auto;/);
+  assert.match(styles, /\.spotlight-gallery-photo-link,/);
   assert.doesNotMatch(page, /isStagingMediaReview && \(/);
   assert.match(page, /fetchPublishedAchievements\(\)/);
   assert.match(page, /fetchPublishedSpotlights\(\)/);
