@@ -1,6 +1,5 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element -- Approved local WebP gallery photos must use their natural dimensions without cropping. */
 import type { AchievementStory } from "../../lib/editorial-content";
 import { canRenderYouthMedia } from "../../lib/editorial-content";
 import { useI18n } from "../../lib/i18n-context";
