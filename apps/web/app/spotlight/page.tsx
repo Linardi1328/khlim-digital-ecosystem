@@ -325,7 +325,7 @@ function SpotlightArchiveContent() {
               <h3>{t("spotlight.achievements.errorTitle")}</h3>
               <p>{t("spotlight.achievements.errorBody")}</p>
             </div>
-          ) : achievements.length === 0 ? (
+          ) : achievements.length === 0 && isStagingMediaReview ? null : achievements.length === 0 ? (
             <div className="spotlight-empty-state" role="status">
               <div
                 className="home-club-distinction-banner"
@@ -512,7 +512,7 @@ function SpotlightArchiveContent() {
                       className="spotlight-gallery-image-wrapper"
                       style={{
                         backgroundImage: showImage
-                          ? `linear-gradient(180deg, rgba(9, 9, 11, 0.04), rgba(9, 9, 11, 0.72)), url("${item.imageUrl}")`
+                          ? `linear-gradient(180deg, rgba(9, 9, 11, 0.02), rgba(9, 9, 11, 0.2)), url("${item.imageUrl}")`
                           : "linear-gradient(135deg, #18181b, #27272a)",
                       }}
                       role="img"
