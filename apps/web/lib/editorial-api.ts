@@ -3,9 +3,9 @@ import {
   type AchievementStory,
   type PlayerSpotlightArticle,
 } from "./editorial-content";
-// Browser requests stay on the protected web preview origin. A server route
-// forwards approved editorial reads to the protected staging API using OIDC.
-const API = "/api/editorial";
+const API = (
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001/v1"
+).replace(/\/+$/, "");
 const GRADIENT = "linear-gradient(135deg, #18181b, #3f2d0b 58%, #0f172a)";
 type Entry = {
   id: string;
@@ -75,14 +75,14 @@ async function get(path: string) {
   return response.json() as Promise<Entry[]>;
 }
 export async function fetchPublishedAchievements() {
-  return (await get("/achievements")).map(toAchievement);
+  return (await get("/editorial/achievements")).map(toAchievement);
 }
 export async function fetchPublishedSpotlights() {
-  return (await get("/player-spotlights")).map(toSpotlight);
+  return (await get("/editorial/player-spotlights")).map(toSpotlight);
 }
 export async function fetchPublishedSpotlight(slug: string) {
   const response = await fetch(
-    `${API}/player-spotlights/${encodeURIComponent(slug)}`,
+    `${API}/editorial/player-spotlights/${encodeURIComponent(slug)}`,
     { cache: "no-store" },
   );
   if (!response.ok) return null;
