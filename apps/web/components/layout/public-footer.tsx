@@ -97,13 +97,14 @@ function PublicFooterView({
               fontStyle: "normal",
             }}
           >
-            <strong style={{ color: "#FFFFFF" }}>{business.legalName}</strong>
-            {business.registrationNumber ? (
-              <div>
-                {t("compliance.footer.companyNumberLabel")}:{" "}
-                {business.registrationNumber}
-              </div>
-            ) : null}
+            <strong style={{ color: "#FFFFFF" }}>
+              {business.legalName
+                .replace(/Sdn\.?\s+Bhd\.?$/i, "Sdn. Bhd")
+                .trim()}
+              {business.registrationNumber.match(/\(([^)]+)\)/)?.[1]
+                ? ` (${business.registrationNumber.match(/\(([^)]+)\)/)?.[1]})`
+                : ""}
+            </strong>
             {business.businessAddress ? (
               <div>{business.businessAddress}</div>
             ) : null}
