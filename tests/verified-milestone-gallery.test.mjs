@@ -83,9 +83,7 @@ test("home and Spotlight use distinct photo groups", async () => {
     "utf8",
   );
   assert.match(styles, /\.verified-milestone-photo\s*\{\s*object-fit: contain;/);
-  assert.match(
-    styles,
-    /\.verified-milestone-media\s*\{[\s\S]*?aspect-ratio: 4 \/ 3;/,
-  );
+  const uniformMedia = /\.verified-milestone-media\s*\{[\s\S]*?aspect-ratio: 4 \/ 3;/;
+  assert.match(styles, uniformMedia);
   assert.doesNotMatch(styles, /height: clamp\(220px, 23vw, 320px\)/);
 });
