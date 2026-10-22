@@ -86,7 +86,7 @@ test("Admin sections preserve the operations and access-control domains", async 
 
   for (const label of [
     "Dashboard", "Programmes", "Offerings", "Membership Plans",
-    "Memberships", "Athletes", "Guardians", "Payments", "Venues",
+    "Memberships", "Athletes", "Guardians", "Payments", "Venues & Courts",
     "Scheduling", "Editorial Studio", "Notifications", "Accounts & Access",
     "Staff", "Audit Log", "Settings",
   ]) {
