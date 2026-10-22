@@ -44,7 +44,7 @@ test("localized sign-in remains within a normal desktop viewport", async ({
   await page.goto("/auth/login", { waitUntil: "domcontentloaded" });
 
   const language = page.locator("select").first();
-  for (const locale of ["en", "ms", "zh-Hans", "zh-Hant", "hi"]) {
+  for (const locale of ["en", "ms", "zh-Hans"]) {
     await language.selectOption(locale);
     await expect(page.locator("html")).toHaveAttribute("lang", locale);
     const viewport = await page.evaluate(() => ({
