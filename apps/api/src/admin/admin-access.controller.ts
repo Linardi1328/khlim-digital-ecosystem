@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from "@nestjs/common";
+import { Controller, ForbiddenException, Get, Query } from "@nestjs/common";
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -6,6 +6,7 @@ import {
   ApiTags,
 } from "@nestjs/swagger";
 import type { AuthenticatedUserContext } from "../auth/authenticated-user";
+import { AcademyLeadsService } from "../academy/academy-leads.service";
 import { RequireAnyRole, RequireMfa } from "../auth/authorization.decorators";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { AdminObservabilityService } from "./admin-observability.service";
@@ -20,6 +21,12 @@ const STAFF_ROLES = [
   "COACH",
   "EVENT_STAFF",
 ] as const;
+
+const LEAD_REPORT_ROLES = new Set<string>([
+  "SUPER_ADMIN",
+  "MANAGEMENT",
+  "ACADEMY_ADMIN",
+]);
 
 const REPORT_ROLES = [
   "SUPER_ADMIN",
@@ -37,6 +44,7 @@ export class AdminAccessController {
   constructor(
     private readonly admin: AdminService,
     private readonly observability: AdminObservabilityService,
+    private readonly leads: AcademyLeadsService,
   ) {}
 
   @Get("session")
@@ -52,6 +60,34 @@ export class AdminAccessController {
   @ApiOperation({ summary: "Get the current academy operations overview" })
   getOverview(@CurrentUser() actor: AuthenticatedUserContext) {
     return this.admin.getOverview(actor);
+  }
+
+  @Get("dashboard-snapshot")
+  @RequireMfa()
+  @ApiOperation({
+    summary:
+      "Fetch one role-scoped Admin dashboard snapshot without a second browser round trip",
+  })
+  async getDashboardSnapshot(@CurrentUser() actor: AuthenticatedUserContext) {
+    const mayViewLeads = actor.roles.some((role) =>
+      LEAD_REPORT_ROLES.has(role),
+    );
+    const organizationId = actor.organization?.id;
+
+    // Match the existing Academy Leads endpoint: never return lead data
+    // without an authenticated, organization-scoped, MFA-verified role.
+    if (mayViewLeads && !organizationId) {
+      throw new ForbiddenException("Organization context is required");
+    }
+
+    const [overview, leadSummary] = await Promise.all([
+      this.admin.getOverview(actor),
+      mayViewLeads && organizationId
+        ? this.leads.getAdminLeadSummary(organizationId)
+        : Promise.resolve(null),
+    ]);
+
+    return { overview, leadSummary };
   }
 
   @Get("reports/operations")
