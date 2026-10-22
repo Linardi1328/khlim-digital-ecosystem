@@ -99,7 +99,7 @@ test("desktop nine-section navigation reaches every operations tab", async ({
     }
     await expect(page).toHaveURL(new RegExp(path === "/" ? "/$" : path + "$"));
     await expect(
-      page.getByLabel("How to use " + tab),
+      page.getByLabel("Help for " + tab),
     ).toBeVisible();
   }
 });
