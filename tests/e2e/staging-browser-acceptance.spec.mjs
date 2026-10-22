@@ -395,15 +395,9 @@ test.describe("RIC-65 Browser Registration Acceptance & Staging UX Rehearsal", (
     const menuButton = page.locator(".mobile-menu-btn");
     if (await menuButton.isVisible()) {
       await menuButton.click();
-      await page
-        .getByRole("dialog")
-        .locator('a[href*="/academy"]')
-        .click();
+      await page.getByRole("dialog").locator('a[href*="/academy"]').click();
     } else {
-      await page
-        .locator('header a[href*="/academy"]:visible')
-        .first()
-        .click();
+      await page.locator('header a[href*="/academy"]:visible').first().click();
     }
 
     await expect(page).toHaveURL(/\/academy\?source=holiday_clinic_2026/);
