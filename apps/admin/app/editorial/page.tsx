@@ -29,6 +29,12 @@ type Entry = {
   aiAssisted: boolean;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
 };
+type ModerationItem = {
+  id: string;
+  moderationState: "READY" | "BLOCKED" | "LIVE";
+  moderationBlockers: string[];
+};
+
 const empty = {
   type: "PLAYER_SPOTLIGHT" as "ACHIEVEMENT" | "PLAYER_SPOTLIGHT",
   slug: "",
@@ -59,26 +65,52 @@ async function api(path: string, init?: RequestInit) {
   return response.json();
 }
 
+export async function clearEditorialDraftImage(
+  id: string,
+  apiFetch: (path: string, init?: RequestInit) => Promise<unknown> = api,
+) {
+  return apiFetch(`/admin/editorial/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ imageUrl: null }),
+  });
+}
+
 export default function EditorialStudioPage() {
   const { hasRole } = useAdminAuth();
   const [entries, setEntries] = useState<Entry[]>([]);
+  const [moderationItems, setModerationItems] = useState<ModerationItem[]>([]);
   const [form, setForm] = useState({ ...empty });
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
   const managementCanModerate = hasRole(["SUPER_ADMIN", "MANAGEMENT"]);
 
   const load = async () => {
     try {
-      setEntries(await api("/admin/editorial"));
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
+      const data = await api("/admin/editorial");
+      setEntries(data);
+      if (managementCanModerate) {
+        try {
+          const mod = await api("/admin/editorial/moderation");
+          setModerationItems(mod);
+        } catch {
+          // moderation queue endpoint may require active session/MFA
+        }
+      }
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error ? loadError.message : String(loadError),
+      );
     }
   };
   useEffect(() => {
     void load();
-  }, []);
+  }, [managementCanModerate]);
   const set = (key: keyof typeof form, value: string | boolean) =>
     setForm((current) => ({ ...current, [key]: value }));
   async function generateDraft() {
+    setError("");
+    setMessage("");
     try {
       const draft = await api("/admin/editorial/player-spotlights/draft", {
         method: "POST",
@@ -99,11 +131,15 @@ export default function EditorialStudioPage() {
       setMessage(
         "AI-assisted draft generated from supplied facts. Review it before saving.",
       );
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
+    } catch (draftError) {
+      setError(
+        draftError instanceof Error ? draftError.message : String(draftError),
+      );
     }
   }
   async function save() {
+    setError("");
+    setMessage("");
     try {
       const payload = {
         type: form.type,
@@ -138,10 +174,54 @@ export default function EditorialStudioPage() {
           : "Draft saved. Verify facts and photo rights before publication review.",
       );
       await load();
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error ? saveError.message : String(saveError),
+      );
     }
   }
+  async function removeImage(entry: Entry) {
+    if (entry.status !== "DRAFT") {
+      setError(
+        "Only draft editorial content can be modified. Published content is locked.",
+      );
+      return;
+    }
+    setBusyId(entry.id);
+    setError("");
+    setMessage("");
+    try {
+      await clearEditorialDraftImage(entry.id, api);
+      setMessage(
+        "Image removed from draft. Media is cleared for publication review.",
+      );
+      await load();
+    } catch (removeError) {
+      setError(
+        removeError instanceof Error
+          ? removeError.message
+          : String(removeError),
+      );
+    } finally {
+      setBusyId(null);
+    }
+  }
+  const getReviewState = (entry: Entry) => {
+    if (entry.status === "PUBLISHED") {
+      return "Published content is locked from editing until Management unpublishes it.";
+    }
+    const modItem = moderationItems.find((m) => m.id === entry.id);
+    if (modItem && modItem.moderationBlockers?.length > 0) {
+      return modItem.moderationBlockers.join("; ");
+    }
+    if (entry.imageUrl) {
+      return "Attached images must be cleared before publication; youth media rights are not verified.";
+    }
+    if (entry.factsVerified) {
+      return "Ready for Management moderation and publication review.";
+    }
+    return "Complete staff verification before this draft can be published.";
+  };
   const field = (label: string, key: keyof typeof form, placeholder = "") => (
     <label>
       {label}
@@ -178,6 +258,17 @@ export default function EditorialStudioPage() {
             </Link>
           )}
         </div>
+
+        {message && (
+          <div className="status-card" role="status">
+            {message}
+          </div>
+        )}
+        {error && (
+          <div className="error-card" role="alert">
+            {error}
+          </div>
+        )}
 
         <div className="editorial-grid">
           <section className="editorial-panel">
@@ -248,7 +339,6 @@ export default function EditorialStudioPage() {
               Facts and photo rights verified by KHLIM staff
             </label>
             <Button onClick={save}>Save draft</Button>
-            {message && <p role="status">{message}</p>}
           </section>
           <section>
             <h2>Saved content</h2>
@@ -265,14 +355,28 @@ export default function EditorialStudioPage() {
                     ? "Facts verified"
                     : "Verification required"}
                 </p>
-                <div className="review-state">
-                  {entry.status === "PUBLISHED"
-                    ? "Published content is locked from editing until Management unpublishes it."
-                    : entry.factsVerified
-                      ? "Ready for Management moderation and publication review."
-                      : "Complete staff verification before this draft can be published."}
-                </div>
+                {entry.imageUrl ? (
+                  <p className="photo-info">
+                    Attached photo: {entry.photoLabel || "Draft image"} (URL
+                    present)
+                  </p>
+                ) : (
+                  <p className="photo-info photo-cleared">
+                    Photo: {entry.photoLabel || "Text only"} (No image attached)
+                  </p>
+                )}
+                <div className="review-state">{getReviewState(entry)}</div>
                 <div className="actions">
+                  {entry.status === "DRAFT" && Boolean(entry.imageUrl) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void removeImage(entry)}
+                      isLoading={busyId === entry.id}
+                    >
+                      Remove image
+                    </Button>
+                  )}
                   {managementCanModerate && (
                     <Link className="moderation-link" href="/moderation">
                       Review in Moderation
@@ -355,6 +459,32 @@ export default function EditorialStudioPage() {
           .actions {
             justify-content: flex-start;
             flex-wrap: wrap;
+          }
+          .status-card,
+          .error-card {
+            margin-bottom: 20px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            line-height: 1.45;
+          }
+          .status-card {
+            border: 1px solid #bbf7d0;
+            background: #f0fdf4;
+            color: #166534;
+          }
+          .error-card {
+            border: 1px solid #fecaca;
+            background: #fef2f2;
+            color: #991b1b;
+          }
+          .photo-info {
+            font-size: 0.8125rem;
+            color: #475569;
+            margin: 6px 0;
+          }
+          .photo-cleared {
+            color: #059669;
           }
           .review-state {
             margin: 10px 0 12px;
