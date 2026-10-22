@@ -148,10 +148,12 @@ test("mobile sheet portal covers full viewport and unconstrains overlay on 375px
       height: window.innerHeight,
     }));
     expect(box).not.toBeNull();
-    expect(box.x).toBe(0);
-    expect(box.y).toBe(0);
-    expect(box.height).toBeGreaterThanOrEqual(layoutViewport.height - 1);
-    expect(box.width).toBeGreaterThanOrEqual(layoutViewport.width - 1);
+    // Mobile Chromium can offset fixed overlays slightly in page coordinates.
+    // Check that all four edges still cover the layout viewport.
+    expect(box.x).toBeLessThanOrEqual(1);
+    expect(box.y).toBeLessThanOrEqual(1);
+    expect(box.x + box.width).toBeGreaterThanOrEqual(layoutViewport.width - 1);
+    expect(box.y + box.height).toBeGreaterThanOrEqual(layoutViewport.height - 1);
 
     // Verify body scroll lock while open
     await expect
