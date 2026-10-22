@@ -112,7 +112,9 @@ test("homepage showcases verified honours and unnamed representatives", async ({
   ).toHaveCount(0);
 });
 
-test("photos use natural ratios without side gaps", async ({ page }) => {
+test("gallery photographs use consistent 4:3 frames without cropping", async ({
+  page,
+}) => {
   const samples = [
     ["/", "#achievements .verified-milestone-photo"],
     ["/", "#player-spotlight .verified-milestone-photo"],
@@ -129,26 +131,33 @@ test("photos use natural ratios without side gaps", async ({ page }) => {
     }
     const photo = page.locator(selector).first();
     await photo.scrollIntoViewIfNeeded();
-    const imageLoaded = () =>
-      photo.evaluate((image) => image.complete && image.naturalWidth > 0);
-    await expect.poll(imageLoaded).toBe(true);
+    await expect
+      .poll(() =>
+        photo.evaluate((image) => image.complete && image.naturalWidth > 0),
+      )
+      .toBe(true);
 
     const dimensions = await photo.evaluate((image) => {
+      const frame = image.closest(
+        ".verified-milestone-media, .spotlight-gallery-image-wrapper",
+      );
+      if (!frame) throw new Error("Image is missing a media frame");
+      const frameBox = frame.getBoundingClientRect();
       const photoBox = image.getBoundingClientRect();
-      const containerBox = image.parentElement.getBoundingClientRect();
       return {
-        photoWidth: photoBox.width,
-        photoHeight: photoBox.height,
-        containerWidth: containerBox.width,
-        naturalRatio: image.naturalWidth / image.naturalHeight,
+        frameRatio: frameBox.width / frameBox.height,
+        fullWidth: Math.abs(frameBox.width - photoBox.width) < 2,
+        objectFit: getComputedStyle(image).objectFit,
+        naturalWidth: image.naturalWidth,
+        naturalHeight: image.naturalHeight,
       };
     });
 
-    const widthGap = dimensions.containerWidth - dimensions.photoWidth;
-    const displayedRatio = dimensions.photoWidth / dimensions.photoHeight;
-    const ratioDifference = Math.abs(displayedRatio - dimensions.naturalRatio);
-    expect(Math.abs(widthGap)).toBeLessThan(2);
-    expect(ratioDifference).toBeLessThan(0.015);
+    expect(Math.abs(dimensions.frameRatio - 4 / 3)).toBeLessThan(0.02);
+    expect(dimensions.fullWidth).toBe(true);
+    expect(dimensions.objectFit).toBe("contain");
+    expect(dimensions.naturalWidth).toBeGreaterThan(0);
+    expect(dimensions.naturalHeight).toBeGreaterThan(0);
   }
 });
 
