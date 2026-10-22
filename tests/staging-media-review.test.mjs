@@ -26,7 +26,10 @@ test("club gallery is independent of live editorial API and rights-gated", async
     "utf8",
   );
   assert.match(styles, /\.spotlight-gallery-photo\s*\{\s*object-fit: contain;/);
-  assert.match(styles, /\.spotlight-gallery-image-wrapper\s*\{[\s\S]*?aspect-ratio: 4 \/ 3;/);
+  assert.match(
+    styles,
+    /\.spotlight-gallery-image-wrapper\s*\{[\s\S]*?aspect-ratio: 4 \/ 3;/,
+  );
   assert.match(styles, /\.spotlight-gallery-photo-link,/);
   assert.doesNotMatch(page, /isStagingMediaReview && \(/);
   assert.match(page, /fetchPublishedAchievements\(\)/);
