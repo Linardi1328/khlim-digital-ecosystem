@@ -65,7 +65,7 @@ export function AdminSectionNavigation() {
       )}
 
       <details className="admin-section-help">
-        <summary aria-label={"How to use " + page.label}>
+        <summary aria-label={"Help for " + page.label}>
           <span aria-hidden="true">ⓘ</span> How to use {page.label}
         </summary>
         <div className="admin-section-help-content">
