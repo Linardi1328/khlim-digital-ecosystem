@@ -82,11 +82,11 @@ test("homepage keeps academy actions primary without inactive carousel controls"
   ).toBeVisible();
   await expect(hero.locator('a[href="/interest"]')).toBeVisible();
   await expect(hero.locator('a[href="/programmes"]')).toBeVisible();
-  await expect(hero.locator(".home-carousel-arrow")).toHaveCount(0);
-  await expect(hero.locator(".home-carousel-dots")).toHaveCount(0);
+  await expect(hero.locator(".home-carousel-arrow")).toHaveCount(2);
+  await expect(hero.locator(".home-carousel-dots button")).toHaveCount(4);
 });
 
-test("homepage exposes achievements and a publication-safe Player Spotlight preview", async ({
+test("homepage showcases verified honours and unnamed representatives", async ({
   page,
 }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
@@ -97,20 +97,59 @@ test("homepage exposes achievements and a publication-safe Player Spotlight prev
   await expect(
     page.getByRole("heading", { name: "When KHLIM players make the news." }),
   ).toBeVisible();
-  await expect(
-    page.getByText("AI-assisted example, not a real player claim."),
-  ).toBeVisible();
 
-  await page.getByRole("link", { name: "Preview article format →" }).click();
-  await expect(page).toHaveURL(
-    /\/spotlight\/editorial-preview-player-achievement$/,
+  const honours = page.locator("#achievements .verified-milestone-card");
+  const representatives = page.locator(
+    "#player-spotlight .verified-milestone-card",
   );
+  await expect(honours).toHaveCount(3);
+  await expect(representatives).toHaveCount(3);
   await expect(
-    page.getByText("Editorial preview — not a real player result."),
-  ).toBeVisible();
+    page.locator("#player-spotlight .verified-milestone-context"),
+  ).toContainText("Individual player names and profiles will be added");
   await expect(
-    page.getByText("Facts first. Storytelling second."),
-  ).toBeVisible();
+    page.getByRole("link", { name: "Preview article format →" }),
+  ).toHaveCount(0);
+});
+
+test("photos use natural ratios without side gaps", async ({ page }) => {
+  const samples = [
+    ["/", "#achievements .verified-milestone-photo"],
+    ["/", "#player-spotlight .verified-milestone-photo"],
+    ["/spotlight", "#verified-team-honours .verified-milestone-photo"],
+    ["/spotlight", "#representative-milestones .verified-milestone-photo"],
+    ["/spotlight", "#club-event-gallery .spotlight-gallery-photo"],
+  ];
+
+  let currentRoute = "";
+  for (const [route, selector] of samples) {
+    if (route !== currentRoute) {
+      await page.goto(route, { waitUntil: "domcontentloaded" });
+      currentRoute = route;
+    }
+    const photo = page.locator(selector).first();
+    await photo.scrollIntoViewIfNeeded();
+    const imageLoaded = () =>
+      photo.evaluate((image) => image.complete && image.naturalWidth > 0);
+    await expect.poll(imageLoaded).toBe(true);
+
+    const dimensions = await photo.evaluate((image) => {
+      const photoBox = image.getBoundingClientRect();
+      const containerBox = image.parentElement.getBoundingClientRect();
+      return {
+        photoWidth: photoBox.width,
+        photoHeight: photoBox.height,
+        containerWidth: containerBox.width,
+        naturalRatio: image.naturalWidth / image.naturalHeight,
+      };
+    });
+
+    const widthGap = dimensions.containerWidth - dimensions.photoWidth;
+    const displayedRatio = dimensions.photoWidth / dimensions.photoHeight;
+    const ratioDifference = Math.abs(displayedRatio - dimensions.naturalRatio);
+    expect(Math.abs(widthGap)).toBeLessThan(2);
+    expect(ratioDifference).toBeLessThan(0.015);
+  }
 });
 
 test("language choice persists after reload and restores document language", async ({
@@ -151,11 +190,13 @@ test("academy product copy renders in every supported locale", async ({
     ["en", "The KHLIM development approach"],
     ["ms", "Pendekatan pembangunan KHLIM"],
     ["zh-Hans", "KHLIM 球员发展方法"],
-    ["zh-Hant", "KHLIM 球員發展方法"],
-    ["hi", "KHLIM का खिलाड़ी विकास दृष्टिकोण"],
   ];
 
   await page.goto("/academy", { waitUntil: "domcontentloaded" });
+
+  await expect
+    .poll(() => visibleLocaleSwitcher(page).locator("option").allInnerTexts())
+    .toEqual(["English", "Bahasa Melayu", "简体中文"]);
 
   for (const [locale, title] of expected) {
     await visibleLocaleSwitcher(page).selectOption(locale);
@@ -173,13 +214,14 @@ test("desktop header navigation reaches core public pages", async ({
   page,
   viewport,
 }) => {
-  test.skip(!viewport || viewport.width < 1024, "Desktop navigation only");
+  test.skip(!viewport || viewport.width <= 1100, "Desktop navigation only");
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
   for (const [label, path] of [
     ["Academy", "/academy"],
     ["Programmes", "/programmes"],
+    ["Spotlight", "/spotlight"],
     ["About", "/about"],
     ["Contact", "/contact"],
   ]) {
@@ -197,8 +239,8 @@ test("mobile menu opens and navigates", async ({ page, viewport }) => {
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await openMobileMenu(page);
-  await page.getByRole("link", { name: "Academy", exact: true }).click();
-  await expect(page).toHaveURL(/\/academy$/);
+  await page.getByRole("link", { name: "Spotlight", exact: true }).click();
+  await expect(page).toHaveURL(/\/spotlight$/);
 });
 
 test("login page exposes branded authentication controls", async ({ page }) => {

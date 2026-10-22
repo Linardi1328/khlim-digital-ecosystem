@@ -7,7 +7,10 @@ import {
   getQueryCampaignSource,
   resolveCampaignSource,
 } from "../../lib/campaign-source";
-import { getPublicBusinessDetails } from "../../lib/business-details";
+import {
+  formatRegisteredBusinessName,
+  getPublicBusinessDetails,
+} from "../../lib/business-details";
 import { useI18n } from "../../lib/i18n-context";
 import { PublicFooter } from "../../components/layout/public-footer";
 import { PublicHeader } from "../../components/layout/public-header";
@@ -120,14 +123,8 @@ function ContactContent() {
                     fontSize: "1rem",
                   }}
                 >
-                  {business.legalName}
+                  {formatRegisteredBusinessName(business)}
                 </div>
-                {business.registrationNumber ? (
-                  <div>
-                    {t("compliance.footer.companyNumberLabel")}:{" "}
-                    <span>{business.registrationNumber}</span>
-                  </div>
-                ) : null}
                 {business.businessAddress ? (
                   <div>{business.businessAddress}</div>
                 ) : null}

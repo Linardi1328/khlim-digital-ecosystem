@@ -1,12 +1,19 @@
 "use client";
 
-import React from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "../../lib/i18n-context";
 import {
+  formatRegisteredBusinessName,
   getMissingCommerceBusinessFields,
   getPublicBusinessDetails,
 } from "../../lib/business-details";
+import {
+  buildUrlWithSource,
+  getQueryCampaignSource,
+  resolveCampaignSource,
+} from "../../lib/campaign-source";
 import { BrandLogo } from "./brand-logo";
 
 const footerLinkStyle: React.CSSProperties = {
@@ -14,7 +21,11 @@ const footerLinkStyle: React.CSSProperties = {
   textDecoration: "none",
 };
 
-export function PublicFooter() {
+function PublicFooterView({
+  campaignSource,
+}: {
+  campaignSource: string | null;
+}) {
   const { t } = useI18n();
   const business = getPublicBusinessDetails();
   const missingBusinessFields = getMissingCommerceBusinessFields(business);
@@ -87,13 +98,9 @@ export function PublicFooter() {
               fontStyle: "normal",
             }}
           >
-            <strong style={{ color: "#FFFFFF" }}>{business.legalName}</strong>
-            {business.registrationNumber ? (
-              <div>
-                {t("compliance.footer.companyNumberLabel")}:{" "}
-                {business.registrationNumber}
-              </div>
-            ) : null}
+            <strong style={{ color: "#FFFFFF" }}>
+              {formatRegisteredBusinessName(business)}
+            </strong>
             {business.businessAddress ? (
               <div>{business.businessAddress}</div>
             ) : null}
@@ -143,13 +150,22 @@ export function PublicFooter() {
               fontSize: "0.875rem",
             }}
           >
-            <Link href="/programmes" style={footerLinkStyle}>
+            <Link
+              href={buildUrlWithSource("/programmes", campaignSource)}
+              style={footerLinkStyle}
+            >
               {t("footer.currentOfferings")}
             </Link>
-            <Link href="/enrol" style={footerLinkStyle}>
+            <Link
+              href={buildUrlWithSource("/enrol", campaignSource)}
+              style={footerLinkStyle}
+            >
               {t("footer.academyEnrolment")}
             </Link>
-            <Link href="/academy" style={footerLinkStyle}>
+            <Link
+              href={buildUrlWithSource("/academy", campaignSource)}
+              style={footerLinkStyle}
+            >
               {t("footer.academyApproach")}
             </Link>
           </div>
@@ -174,16 +190,28 @@ export function PublicFooter() {
               fontSize: "0.875rem",
             }}
           >
-            <Link href="/academy" style={footerLinkStyle}>
+            <Link
+              href={buildUrlWithSource("/academy", campaignSource)}
+              style={footerLinkStyle}
+            >
               {t("footer.developmentApproach")}
             </Link>
-            <Link href="/programmes" style={footerLinkStyle}>
+            <Link
+              href={buildUrlWithSource("/programmes", campaignSource)}
+              style={footerLinkStyle}
+            >
               {t("footer.venuesTerms")}
             </Link>
-            <Link href="/about" style={footerLinkStyle}>
+            <Link
+              href={buildUrlWithSource("/about", campaignSource)}
+              style={footerLinkStyle}
+            >
               {t("nav.about")}
             </Link>
-            <Link href="/contact" style={footerLinkStyle}>
+            <Link
+              href={buildUrlWithSource("/contact", campaignSource)}
+              style={footerLinkStyle}
+            >
               {t("nav.contact")}
             </Link>
           </div>
@@ -243,5 +271,38 @@ export function PublicFooter() {
         <div>{t("footer.description")}</div>
       </div>
     </footer>
+  );
+}
+
+function PublicFooterWithSearchParams({
+  initialSource,
+}: {
+  initialSource: string | null;
+}) {
+  const searchParams = useSearchParams();
+  const queryCampaign = useMemo(
+    () => getQueryCampaignSource(searchParams),
+    [searchParams],
+  );
+  const [storedCampaign, setStoredCampaign] = useState<string | null>(null);
+
+  useEffect(() => {
+    setStoredCampaign(resolveCampaignSource(searchParams));
+  }, [searchParams]);
+
+  const activeSource = initialSource ?? queryCampaign ?? storedCampaign;
+
+  return <PublicFooterView campaignSource={activeSource} />;
+}
+
+export function PublicFooter({
+  campaignSource: initialSource = null,
+}: {
+  campaignSource?: string | null;
+} = {}) {
+  return (
+    <Suspense fallback={<PublicFooterView campaignSource={initialSource} />}>
+      <PublicFooterWithSearchParams initialSource={initialSource} />
+    </Suspense>
   );
 }

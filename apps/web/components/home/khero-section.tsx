@@ -8,6 +8,11 @@ import { Button } from "../ui/button";
 
 const posters = [
   {
+    id: "meet",
+    src: "/media/khero/meet-khero.webp",
+    altKey: "home.khero.poster.meet",
+  },
+  {
     id: "meaning",
     src: "/media/khero/khero-meaning.webp",
     altKey: "home.khero.poster.meaning",
@@ -17,22 +22,10 @@ const posters = [
     src: "/media/khero/khero-way.webp",
     altKey: "home.khero.poster.way",
   },
-  {
-    id: "meet",
-    src: "/media/khero/meet-khero.webp",
-    altKey: "home.khero.poster.meet",
-  },
-  {
-    id: "coming",
-    src: "/media/khero/coming-soon.webp",
-    altKey: "home.khero.poster.coming",
-  },
 ] as const;
 
 export function KheroSection() {
   const { t } = useI18n();
-  const mediaRightsConfirmed =
-    process.env.NEXT_PUBLIC_KHERO_MEDIA_RIGHTS_CONFIRMED === "1";
 
   return (
     <section className="home-khero-section" aria-labelledby="home-khero-title">
@@ -48,37 +41,195 @@ export function KheroSection() {
             key={poster.id}
             className={`home-khero-poster home-khero-poster-${index + 1}`}
           >
-            {mediaRightsConfirmed ? (
-              <Image
-                src={poster.src}
-                alt={t(poster.altKey)}
-                fill
-                sizes="(max-width: 640px) 50vw, (max-width: 900px) 50vw, 25vw"
-                priority={index === 0}
-              />
-            ) : (
-              <div
-                role="img"
-                aria-label={t(poster.altKey)}
-                data-media-rights="pending"
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  display: "grid",
-                  placeItems: "center",
-                  padding: 18,
-                  textAlign: "center",
-                  background: "#27272A",
-                  color: "#E4E4E7",
-                  fontSize: "0.8125rem",
-                  fontWeight: 700,
-                }}
-              >
-                {t("compliance.khero.mediaPendingRights")}
-              </div>
-            )}
+            <Image
+              src={poster.src}
+              alt={t(poster.altKey)}
+              fill
+              sizes="(max-width: 640px) 100vw, (max-width: 900px) 50vw, 33vw"
+              priority={index === 0}
+              style={{ objectFit: "cover" }}
+            />
           </figure>
         ))}
+      </div>
+
+      {/* Accessible multilingual transcript and values cards for KHero posters */}
+      <div
+        className="home-khero-transcripts"
+        style={{ marginTop: 32, marginBottom: 16 }}
+      >
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <h3
+            style={{
+              fontSize: "clamp(1.15rem, 2vw, 1.35rem)",
+              fontWeight: 800,
+              color: "#18181b",
+              margin: "0 0 6px",
+            }}
+          >
+            {t("home.khero.transcripts.title")}
+          </h3>
+          <p
+            style={{
+              fontSize: "0.875rem",
+              color: "#71717a",
+              margin: 0,
+              maxWidth: 620,
+              marginLeft: "auto",
+              marginRight: "auto",
+              lineHeight: 1.5,
+            }}
+          >
+            {t("home.khero.transcripts.subtitle")}
+          </p>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+            gap: 16,
+          }}
+        >
+          {/* Meet Khero Transcript */}
+          <div
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e4e4e7",
+              borderRadius: 12,
+              padding: 20,
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <span
+              style={{
+                color: "#b45309",
+                fontSize: "0.75rem",
+                fontWeight: 800,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                marginBottom: 4,
+              }}
+            >
+              {t("home.khero.poster.meet")}
+            </span>
+            <strong
+              style={{ fontSize: "0.95rem", color: "#18181b", marginBottom: 4 }}
+            >
+              {t("home.khero.poster.meet.tagline")}
+            </strong>
+            <span
+              style={{ fontSize: "0.75rem", color: "#71717a", marginBottom: 8 }}
+            >
+              {t("home.khero.poster.meet.details")}
+            </span>
+            <p
+              style={{
+                fontSize: "0.825rem",
+                color: "#52525b",
+                lineHeight: 1.55,
+                margin: 0,
+              }}
+            >
+              {t("home.khero.poster.meet.story")}
+            </p>
+          </div>
+
+          {/* Khero Meaning Transcript */}
+          <div
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e4e4e7",
+              borderRadius: 12,
+              padding: 20,
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <span
+              style={{
+                color: "#b45309",
+                fontSize: "0.75rem",
+                fontWeight: 800,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                marginBottom: 4,
+              }}
+            >
+              {t("home.khero.poster.meaning")}
+            </span>
+            <strong
+              style={{ fontSize: "0.95rem", color: "#18181b", marginBottom: 4 }}
+            >
+              {t("home.khero.poster.meaning.tagline")}
+            </strong>
+            <span
+              style={{ fontSize: "0.75rem", color: "#71717a", marginBottom: 8 }}
+            >
+              {t("home.khero.poster.meaning.origin")}
+            </span>
+            <p
+              style={{
+                fontSize: "0.825rem",
+                color: "#52525b",
+                lineHeight: 1.55,
+                margin: 0,
+              }}
+            >
+              {t("home.khero.poster.meaning.values")}
+            </p>
+          </div>
+
+          {/* The Khero Way Transcript */}
+          <div
+            style={{
+              background: "#ffffff",
+              border: "1px solid #e4e4e7",
+              borderRadius: 12,
+              padding: 20,
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <span
+              style={{
+                color: "#b45309",
+                fontSize: "0.75rem",
+                fontWeight: 800,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                marginBottom: 4,
+              }}
+            >
+              {t("home.khero.poster.way")}
+            </span>
+            <strong
+              style={{ fontSize: "0.95rem", color: "#18181b", marginBottom: 4 }}
+            >
+              {t("home.khero.poster.way.tagline")}
+            </strong>
+            <span
+              style={{ fontSize: "0.75rem", color: "#71717a", marginBottom: 8 }}
+            >
+              {t("home.khero.poster.way.motto")}
+            </span>
+            <ul
+              style={{
+                margin: 0,
+                paddingLeft: 16,
+                color: "#52525b",
+                fontSize: "0.8rem",
+                lineHeight: 1.5,
+              }}
+            >
+              <li>{t("home.khero.poster.way.p1")}</li>
+              <li>{t("home.khero.poster.way.p2")}</li>
+              <li>{t("home.khero.poster.way.p3")}</li>
+              <li>{t("home.khero.poster.way.p4")}</li>
+            </ul>
+          </div>
+        </div>
       </div>
 
       <div className="home-khero-points" id="khero-points">

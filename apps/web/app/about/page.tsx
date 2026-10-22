@@ -2,6 +2,7 @@
 
 import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import {
   buildUrlWithSource,
@@ -48,9 +49,26 @@ function AboutContent() {
         }}
       >
         <div style={{ textAlign: "center", marginBottom: "48px" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              marginBottom: "16px",
+            }}
+          >
+            <Image
+              src="/media/brand/khlim-laurel-crest.webp"
+              alt={t("brand.name")}
+              width={80}
+              height={80}
+              style={{ objectFit: "contain" }}
+              priority
+            />
+          </div>
           <Badge variant="brand" size="md">
             {t("about.eyebrow")}
           </Badge>
+
           <h1
             style={{
               fontSize: "2.75rem",

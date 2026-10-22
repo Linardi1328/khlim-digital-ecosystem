@@ -19,7 +19,10 @@ test("mobile public header keeps language, tagline, and primary account actions 
   assert.match(header, /public-header-brand-tagline/);
   assert.match(header, /public-header-mobile-quick-actions/);
   assert.match(header, /href="\/auth\/login"/);
-  assert.match(header, /href="\/enrol"/);
+  assert.match(
+    header,
+    /href=\{buildUrlWithSource\("\/enrol",\s*campaignSource\)\}|href="\/enrol"/,
+  );
   assert.match(styles, /@media \(max-width: 640px\)/);
   assert.match(styles, /\.locale\s*\{\s*display:\s*block\s*!important;/);
   assert.match(

@@ -10,7 +10,6 @@ import React, {
 import {
   type SupportedLocale,
   DEFAULT_LOCALE,
-  SUPPORTED_LOCALES,
   resolveLocale,
   translate,
   type MessageKey,
@@ -18,6 +17,18 @@ import {
   formatDate as baseFormatDate,
   formatTime as baseFormatTime,
 } from "@khlim/i18n";
+
+export const PUBLIC_LOCALES: readonly SupportedLocale[] = [
+  "en",
+  "ms",
+  "zh-Hans",
+];
+
+export function isPublicLocale(
+  loc: string,
+): loc is (typeof PUBLIC_LOCALES)[number] {
+  return (PUBLIC_LOCALES as readonly string[]).includes(loc);
+}
 
 interface I18nContextValue {
   locale: SupportedLocale;
@@ -47,7 +58,10 @@ export function I18nProvider({
   children: ReactNode;
   initialLocale?: SupportedLocale;
 }) {
-  const [locale, setLocaleState] = useState<SupportedLocale>(initialLocale);
+  const initial = isPublicLocale(initialLocale)
+    ? initialLocale
+    : DEFAULT_LOCALE;
+  const [locale, setLocaleState] = useState<SupportedLocale>(initial);
 
   useEffect(() => {
     const saved =
@@ -56,12 +70,20 @@ export function I18nProvider({
         : null;
     if (saved) {
       const resolved = resolveLocale(saved);
-      setLocaleState(resolved);
-      document.documentElement.lang = resolved;
+      const effective = isPublicLocale(resolved) ? resolved : DEFAULT_LOCALE;
+      setLocaleState(effective);
+      document.documentElement.lang = effective;
+      if (effective !== saved) {
+        localStorage.setItem("khlim_locale", effective);
+        document.cookie = `khlim_locale=${encodeURIComponent(effective)}; Path=/; Max-Age=31536000; SameSite=Lax`;
+      }
     }
   }, []);
 
-  const setLocale = (newLocale: SupportedLocale) => {
+  const setLocale = (requestedLocale: SupportedLocale) => {
+    const newLocale = isPublicLocale(requestedLocale)
+      ? requestedLocale
+      : DEFAULT_LOCALE;
     setLocaleState(newLocale);
     if (typeof window !== "undefined") {
       localStorage.setItem("khlim_locale", newLocale);
@@ -104,7 +126,7 @@ export function I18nProvider({
         formatCurrency,
         formatDate,
         formatTime,
-        supportedLocales: SUPPORTED_LOCALES,
+        supportedLocales: PUBLIC_LOCALES,
       }}
     >
       {children}
@@ -123,7 +145,7 @@ export function useI18n(): I18nContextValue {
         baseFormatCurrency(amount, currency, DEFAULT_LOCALE),
       formatDate: (d, opt) => baseFormatDate(d, DEFAULT_LOCALE, opt),
       formatTime: (d, opt) => baseFormatTime(d, DEFAULT_LOCALE, opt),
-      supportedLocales: SUPPORTED_LOCALES,
+      supportedLocales: PUBLIC_LOCALES,
     };
   }
   return ctx;
