@@ -140,12 +140,18 @@ test("mobile sheet portal covers full viewport and unconstrains overlay on 375px
     await expect(page.locator("header .sheet-overlay")).toHaveCount(0);
     await expect(page.locator("body > .sheet-overlay")).toHaveCount(1);
 
-    // Verify overlay spans entire viewport height and width (unconstrained by header)
+    // A mobile-emulated layout viewport can differ slightly from setViewportSize.
+    // Verify the overlay covers the real layout viewport without being constrained.
     const box = await overlay.boundingBox();
+    const layoutViewport = await page.evaluate(() => ({
+      width: window.innerWidth,
+      height: window.innerHeight,
+    }));
     expect(box).not.toBeNull();
+    expect(box.x).toBe(0);
     expect(box.y).toBe(0);
-    expect(box.height).toBe(vp.height);
-    expect(box.width).toBe(vp.width);
+    expect(box.height).toBeGreaterThanOrEqual(layoutViewport.height - 1);
+    expect(box.width).toBeGreaterThanOrEqual(layoutViewport.width - 1);
 
     // Verify body scroll lock while open
     await expect
