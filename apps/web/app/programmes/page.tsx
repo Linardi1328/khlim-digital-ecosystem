@@ -155,6 +155,7 @@ function ProgrammesContent() {
           </Card>
         ) : (
           <div
+            className="khlim-programmes-catalogue"
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
@@ -162,7 +163,7 @@ function ProgrammesContent() {
             }}
           >
             {visible.map((offering) => (
-              <Card key={offering.id}>
+              <Card key={offering.id} className="khlim-offering-card">
                 <CardHeader>
                   <div
                     style={{
