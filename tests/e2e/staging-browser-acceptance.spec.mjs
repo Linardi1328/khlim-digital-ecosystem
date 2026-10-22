@@ -355,7 +355,7 @@ test.describe("RIC-65 Browser Registration Acceptance & Staging UX Rehearsal", (
 
     // Assert initial rendered header and footer navigation links carry the initial campaign
     const headerInterestLink = page
-      .locator('header a[href*="/interest"]')
+      .locator('header a[href*="/interest"]:visible')
       .first();
     const footerProgrammesLink = page
       .locator('footer a[href*="/programmes"]')
@@ -391,17 +391,26 @@ test.describe("RIC-65 Browser Registration Acceptance & Staging UX Rehearsal", (
       true,
     );
 
-    // 3. Navigate client-side to /academy via header link
-    const headerAcademyLink = page
-      .locator('header a[href*="/academy"]')
-      .first();
-    await headerAcademyLink.click();
+    // 3. Navigate through the visible desktop link or the mobile/tablet sheet.
+    const menuButton = page.locator(".mobile-menu-btn");
+    if (await menuButton.isVisible()) {
+      await menuButton.click();
+      await page
+        .getByRole("dialog")
+        .locator('a[href*="/academy"]')
+        .click();
+    } else {
+      await page
+        .locator('header a[href*="/academy"]:visible')
+        .first()
+        .click();
+    }
 
     await expect(page).toHaveURL(/\/academy\?source=holiday_clinic_2026/);
 
     // Header and footer on the new page continue carrying the active campaign
     await expect(
-      page.locator('header a[href*="/interest"]').first(),
+      page.locator('header a[href*="/interest"]:visible').first(),
     ).toHaveAttribute("href", "/interest?source=holiday_clinic_2026");
     await expect(
       page.locator('footer a[href*="/programmes"]').first(),
