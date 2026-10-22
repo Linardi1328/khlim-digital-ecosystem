@@ -10,31 +10,28 @@ import { parseDemoMytDateRange } from "../apps/admin/lib/campaign-date-range.ts"
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 
-test("AdminSidebar contains 3x3 Campaign navigation item with active route logic", () => {
+test("Admin navigation preserves campaign deep links inside the Growth & Leads workspace", () => {
+  const navigationPath = path.join(
+    root,
+    "apps/admin/components/layout/admin-sections.ts",
+  );
   const sidebarPath = path.join(
     root,
     "apps/admin/components/layout/AdminSidebar.tsx",
   );
-  const content = fs.readFileSync(sidebarPath, "utf-8");
+  const navigation = fs.readFileSync(navigationPath, "utf-8");
+  const sidebar = fs.readFileSync(sidebarPath, "utf-8");
 
+  assert.ok(navigation.includes('label: "Growth & Leads"'));
+  assert.ok(navigation.includes('href: "/insights/campaigns"'));
+  assert.ok(navigation.includes('label: "3x3 Campaign"'));
+  assert.ok(navigation.includes('href: "/leads"'));
   assert.ok(
-    content.includes('href: "/insights/campaigns"'),
-    "Sidebar should link to /insights/campaigns",
+    navigation.includes("page.href.length > best.page.href.length"),
+    "Longest-prefix routing must prevent Overview's /insights route swallowing the campaign",
   );
-  assert.ok(
-    content.includes('label: "3x3 Campaign"'),
-    "Sidebar item should be labeled '3x3 Campaign'",
-  );
-  assert.ok(
-    content.includes('badge: "24 Oct"'),
-    "Sidebar item should include '24 Oct' badge",
-  );
-  assert.ok(
-    content.includes(
-      'if (href === "/insights") return pathname === "/insights";',
-    ),
-    "isRouteActive should isolate /insights so /insights/campaigns is uniquely matched",
-  );
+  assert.ok(sidebar.includes("ADMIN_SECTIONS.filter("));
+  assert.ok(sidebar.includes('aria-label="Admin sections"'));
 });
 
 test("Admin leads page reads initial source query param for 3x3-oct24 deep linking", () => {
