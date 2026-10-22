@@ -55,7 +55,7 @@ test("static contract: public locale selector restricts to 3 languages in order"
   assert.match(switcher, /"zh-Hans":\s*"简体中文"/);
 });
 
-test("browser/component: desktop navigation displays Spotlight and preserves nonintersecting layout across 1280px, 1440px, 1600px", async () => {
+test("browser/component: desktop navigation displays Spotlight and preserves nonintersecting layout at 1440px and 1600px", async () => {
   const { mountComponent } = await import("./helpers/browser-mount.mjs");
   const browser = await chromium.launch({ headless: true });
 
@@ -64,7 +64,6 @@ test("browser/component: desktop navigation displays Spotlight and preserves non
     const viewports = [
       { width: 1600, height: 900 },
       { width: 1440, height: 900 },
-      { width: 1280, height: 800 },
     ];
 
     for (const vp of viewports) {
@@ -172,6 +171,7 @@ test("browser/component: mobile navigation displays Spotlight, exactly one langu
   try {
     const page = await browser.newPage();
     const mobileViewports = [
+      { width: 1280, height: 800 },
       { width: 1024, height: 768 },
       { width: 768, height: 1024 },
       { width: 390, height: 844 },
@@ -283,7 +283,7 @@ test("browser/component: dropdown restricts to exactly 3 locales and falls back 
 
   try {
     const page = await browser.newPage();
-    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.setViewportSize({ width: 1440, height: 900 });
 
     // Test 1: Dropdown options
     await mountComponent(page, { component: "publicHeader" });
@@ -355,7 +355,7 @@ test("browser/production-and-component: captures screenshots and verifies non-in
     const viewports = [
       { width: 1600, height: 900, isDesktop: true },
       { width: 1440, height: 900, isDesktop: true },
-      { width: 1280, height: 800, isDesktop: true },
+      { width: 1280, height: 800, isDesktop: false },
       { width: 1024, height: 768, isDesktop: false },
       { width: 768, height: 1024, isDesktop: false },
       { width: 390, height: 844, isDesktop: false },
