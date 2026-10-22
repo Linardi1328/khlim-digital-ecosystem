@@ -46,7 +46,9 @@ export default function NotificationsAdminPage() {
         cache: "no-store",
       });
       if (!response.ok) {
-        throw new Error("Notification history could not be loaded (" + response.status + ").");
+        throw new Error(
+          "Notification history could not be loaded (" + response.status + ").",
+        );
       }
       const data: unknown = await response.json();
       if (!Array.isArray(data)) {
@@ -54,7 +56,11 @@ export default function NotificationsAdminPage() {
       }
       setItems(data as SentNotification[]);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Notification history could not be loaded.");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Notification history could not be loaded.",
+      );
     }
   }, [isDemoMode, isAuthenticated, mfaSatisfied]);
 
@@ -86,8 +92,9 @@ export default function NotificationsAdminPage() {
       });
       if (!response.ok) {
         setMessage(
-          "Could not send notification (" + response.status +
-          "). Staff MFA and a real recipient audience are required.",
+          "Could not send notification (" +
+            response.status +
+            "). Staff MFA and a real recipient audience are required.",
         );
         return;
       }
@@ -96,11 +103,15 @@ export default function NotificationsAdminPage() {
       setBody("");
       setTarget("");
       setMessage(
-        "Notification sent to " + (created._count?.receipts ?? 0) + " recipient(s).",
+        "Notification sent to " +
+          (created._count?.receipts ?? 0) +
+          " recipient(s).",
       );
       await load();
     } catch {
-      setMessage("Unable to reach the notification service. Verify whether the send persisted before retrying.");
+      setMessage(
+        "Unable to reach the notification service. Verify whether the send persisted before retrying.",
+      );
     }
   }
 

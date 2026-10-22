@@ -34,17 +34,20 @@ const {
 test("KHLIM sidebar has nine workspaces while preserving all 21 original page URLs", () => {
   assert.equal(ADMIN_SECTIONS.length, 9);
   const names = ADMIN_SECTIONS.map((section) => section.label);
-  assert.deepEqual([...names], [
-    "Overview",
-    "Growth & Leads",
-    "Academy Setup",
-    "Members & Families",
-    "Training Operations",
-    "Finance",
-    "Content Management",
-    "Communications",
-    "Team & Administration",
-  ]);
+  assert.deepEqual(
+    [...names],
+    [
+      "Overview",
+      "Growth & Leads",
+      "Academy Setup",
+      "Members & Families",
+      "Training Operations",
+      "Finance",
+      "Content Management",
+      "Communications",
+      "Team & Administration",
+    ],
+  );
   const urls = ADMIN_SECTIONS.flatMap((section) =>
     section.pages.map((page) => page.href),
   );
@@ -60,20 +63,22 @@ test("campaign deep links remain under Growth instead of overlapping Overview", 
   assert.equal(campaign.section.label, "Growth & Leads");
   assert.equal(campaign.page.label, "3x3 Campaign");
   assert.equal(getAdminSectionForPath("/insights").section.label, "Overview");
-  assert.equal(getAdminSectionForPath("/insights/campaigns/audit").section.label, "Growth & Leads");
+  assert.equal(
+    getAdminSectionForPath("/insights/campaigns/audit").section.label,
+    "Growth & Leads",
+  );
   assert.equal(getAdminSectionForPath("/dashboard").section.label, "Overview");
   assert.equal(getAdminSectionForPath("/unknown"), null);
 });
 
 test("section tabs preserve existing work-view restrictions", () => {
-  const coachSections = ADMIN_SECTIONS
-    .filter((section) => canViewAdminSection(section, "COACH"))
-    .map((section) => section.label);
-  assert.deepEqual([...coachSections], [
-    "Overview",
-    "Members & Families",
-    "Training Operations",
-  ]);
+  const coachSections = ADMIN_SECTIONS.filter((section) =>
+    canViewAdminSection(section, "COACH"),
+  ).map((section) => section.label);
+  assert.deepEqual(
+    [...coachSections],
+    ["Overview", "Members & Families", "Training Operations"],
+  );
   const finance = getAdminSectionForPath("/payments");
   assert.equal(canViewAdminPage(finance.page, "COACH"), false);
   assert.equal(canViewAdminPage(finance.page, "FINANCE_ADMIN"), true);
@@ -86,8 +91,12 @@ test("section tabs preserve existing work-view restrictions", () => {
   assert.equal(canViewAdminPage(moderation.page, "ACADEMY_ADMIN"), false);
   assert.equal(canViewAdminPage(moderation.page, "MANAGEMENT"), true);
 
-  assert.equal(ADMIN_SECTIONS.filter((section) =>
-    canViewAdminSection(section, "SUPER_ADMIN")).length, 9);
+  assert.equal(
+    ADMIN_SECTIONS.filter((section) =>
+      canViewAdminSection(section, "SUPER_ADMIN"),
+    ).length,
+    9,
+  );
 });
 
 test("every Admin page includes purpose, workflow and safeguarding instructions", () => {

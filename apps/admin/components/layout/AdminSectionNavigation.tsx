@@ -29,7 +29,10 @@ export function AdminSectionNavigation() {
   if (!canViewAdminPage(page, role)) return null;
 
   return (
-    <section className="admin-section-frame" aria-label={section.label + " workspace"}>
+    <section
+      className="admin-section-frame"
+      aria-label={section.label + " workspace"}
+    >
       <header className="admin-section-heading">
         <div className="admin-section-symbol" aria-hidden="true">
           {section.icon}
@@ -42,9 +45,13 @@ export function AdminSectionNavigation() {
       </header>
 
       {availablePages.length > 1 && (
-        <nav className="admin-section-tabs" aria-label={section.label + " pages"}>
+        <nav
+          className="admin-section-tabs"
+          aria-label={section.label + " pages"}
+        >
           {availablePages.map((candidate) => {
-            const selected = matchesAdminPath(pathname, candidate.href) &&
+            const selected =
+              matchesAdminPath(pathname, candidate.href) &&
               page.href === candidate.href;
             return (
               <Link

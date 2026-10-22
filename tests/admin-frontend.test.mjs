@@ -76,7 +76,9 @@ test("Admin console implements all required reusable UI components", async () =>
 test("Admin sections preserve the operations and access-control domains", async () => {
   const sidebar = await read("apps/admin/components/layout/AdminSidebar.tsx");
   const sections = await read("apps/admin/components/layout/admin-sections.ts");
-  const tabs = await read("apps/admin/components/layout/AdminSectionNavigation.tsx");
+  const tabs = await read(
+    "apps/admin/components/layout/AdminSectionNavigation.tsx",
+  );
 
   assert.match(sidebar, /ADMIN_SECTIONS\.filter/);
   assert.match(sidebar, /canViewAdminSection/);
@@ -85,10 +87,22 @@ test("Admin sections preserve the operations and access-control domains", async 
   assert.match(tabs, /How to use/);
 
   for (const label of [
-    "Dashboard", "Programmes", "Offerings", "Membership Plans",
-    "Memberships", "Athletes", "Guardians", "Payments", "Venues & Courts",
-    "Scheduling", "Editorial Studio", "Notifications", "Accounts & Access",
-    "Staff", "Audit Log", "Settings",
+    "Dashboard",
+    "Programmes",
+    "Offerings",
+    "Membership Plans",
+    "Memberships",
+    "Athletes",
+    "Guardians",
+    "Payments",
+    "Venues & Courts",
+    "Scheduling",
+    "Editorial Studio",
+    "Notifications",
+    "Accounts & Access",
+    "Staff",
+    "Audit Log",
+    "Settings",
   ]) {
     assert.match(sections, new RegExp(`label:\\s*"${label}"`));
   }
