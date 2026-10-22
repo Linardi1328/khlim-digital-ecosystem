@@ -705,3 +705,25 @@ body {
     transform: none !important;
   }
 }
+
+/* Equal-height Academy offering tiles across Home and the catalogue.
+   CTA controls remain anchored to the same row despite variable copy length. */
+.home-programme-grid .khlim-offering-card,
+.khlim-programmes-catalogue .khlim-offering-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.home-programme-grid .khlim-offering-card > div:nth-child(2),
+.khlim-programmes-catalogue .khlim-offering-card > div:nth-child(2) {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.home-programme-grid .khlim-offering-card > div:last-child,
+.khlim-programmes-catalogue .khlim-offering-card > div:last-child {
+  margin-top: auto;
+}
