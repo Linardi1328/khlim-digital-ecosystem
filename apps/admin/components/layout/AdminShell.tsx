@@ -365,9 +365,9 @@ function MfaGate() {
         ) : (
           <div>
             <p className="admin-access-form-hint">
-                Two-factor authentication is not set up yet. Connect an
-                authenticator app to secure your account.
-              </p>
+              Two-factor authentication is not set up yet. Connect an
+              authenticator app to secure your account.
+            </p>
             <button
               type="button"
               disabled={busy}
