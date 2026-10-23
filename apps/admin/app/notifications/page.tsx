@@ -4,7 +4,8 @@ import React, { useCallback, useEffect, useState } from "react";
 import { AdminShell } from "../../components/layout/AdminShell";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Button } from "../../components/ui/Button";
-import { getAdminAccessToken } from "../../lib/admin-api";
+import { adminApi, getAdminAccessToken } from "../../lib/admin-api";
+import type { GuardianItem } from "../../lib/types";
 import { useAdminAuth } from "../../lib/auth-context";
 
 const API = (
@@ -30,6 +31,10 @@ export default function NotificationsAdminPage() {
   const [type, setType] = useState("ANNOUNCEMENT");
   const [audience, setAudience] = useState("ALL_GUARDIANS");
   const [target, setTarget] = useState("");
+  const [guardianQuery, setGuardianQuery] = useState("");
+  const [guardians, setGuardians] = useState<GuardianItem[]>([]);
+  const [guardianLoading, setGuardianLoading] = useState(false);
+  const [guardianError, setGuardianError] = useState("");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [message, setMessage] = useState("");
@@ -67,6 +72,42 @@ export default function NotificationsAdminPage() {
   useEffect(() => {
     void load();
   }, [load]);
+  useEffect(() => {
+    let active = true;
+    if (audience !== "USER" || isDemoMode || !isAuthenticated || !mfaSatisfied) {
+      setGuardians([]);
+      return () => { active = false; };
+    }
+    setGuardianLoading(true);
+    setGuardianError("");
+    void adminApi
+      .listGuardians()
+      .then((rows) => {
+        if (active) setGuardians(rows.filter((item) => item.accountStatus === "ACTIVE"));
+      })
+      .catch(() => {
+        if (active) setGuardianError("Guardian lookup is unavailable. No recipient has been selected.");
+      })
+      .finally(() => {
+        if (active) setGuardianLoading(false);
+      });
+    return () => { active = false; };
+  }, [audience, isDemoMode, isAuthenticated, mfaSatisfied]);
+
+  const selectedGuardian = guardians.find((guardian) => guardian.id === target);
+  const searchText = guardianQuery.trim().toLocaleLowerCase();
+  const guardianMatches = searchText.length >= 2 && !selectedGuardian
+    ? guardians
+        .filter((guardian) => guardian.displayName.toLocaleLowerCase().includes(searchText))
+        .slice(0, 8)
+    : [];
+  function maskedEmail(value: string) {
+    const at = value.indexOf("@");
+    if (at <= 0) return "Email not provided";
+    const [name, domain] = [value.slice(0, at), value.slice(at + 1)];
+    return `${name[0]}***@${domain}`;
+  }
+
 
   async function send(event: React.FormEvent) {
     event.preventDefault();
@@ -80,6 +121,10 @@ export default function NotificationsAdminPage() {
       return;
     }
 
+    if (audience === "USER" && !selectedGuardian) {
+      setMessage("Select a verified guardian from the search results first.");
+      return;
+    }
     const payload: Record<string, unknown> = { type, audience, title, body };
     if (audience === "OFFERING") payload.programmeOfferingId = target;
     if (audience === "USER") payload.userId = target;
@@ -102,6 +147,7 @@ export default function NotificationsAdminPage() {
       setTitle("");
       setBody("");
       setTarget("");
+      setGuardianQuery("");
       setMessage(
         "Notification sent to " +
           (created._count?.receipts ?? 0) +
@@ -143,8 +189,7 @@ export default function NotificationsAdminPage() {
             <h2>Compose a family notification</h2>
             <p>
               Choose the message category and recipient audience carefully.
-              Sending writes a real notification; there is no draft preview in
-              this form.
+              Sending creates an in-app notification for the selected audience. Email delivery is not currently enabled, and there is no draft preview.
             </p>
           </div>
           <div className="admin-form-grid">
@@ -169,40 +214,91 @@ export default function NotificationsAdminPage() {
               <select
                 id="notice-audience"
                 value={audience}
-                onChange={(e) => setAudience(e.target.value)}
+                onChange={(e) => {
+                  setAudience(e.target.value);
+                  setTarget("");
+                  setGuardianQuery("");
+                }}
               >
                 <option value="ALL_GUARDIANS">All registered guardians</option>
                 <option value="OFFERING">Guardians in one offering</option>
-                <option value="USER">One individual user</option>
+                <option value="USER">One specific guardian</option>
               </select>
               <span className="admin-form-hint">
                 Confirm the audience before sending to avoid contacting
                 unrelated families.
               </span>
             </div>
-            {audience !== "ALL_GUARDIANS" && (
+            {audience === "OFFERING" && (
               <div className="admin-form-field admin-form-field-wide">
-                <label htmlFor="notice-target">
-                  {audience === "OFFERING"
-                    ? "Programme offering ID"
-                    : "Recipient user ID"}{" "}
-                  *
-                </label>
+                <label htmlFor="notice-target">Programme offering ID *</label>
                 <input
                   id="notice-target"
                   required
-                  placeholder={
-                    audience === "OFFERING"
-                      ? "Paste the approved offering identifier"
-                      : "Paste the verified user identifier"
-                  }
+                  placeholder="Paste an approved offering identifier"
                   value={target}
                   onChange={(e) => setTarget(e.target.value)}
                 />
-                <span className="admin-form-hint">
-                  Use the identifier from the appropriate Academy record. Never
-                  enter a player's name or a free-text email instead.
+                <span className="admin-form-hint">Only guardians linked to the chosen programme will receive this notification.</span>
+              </div>
+            )}
+            {audience === "USER" && (
+              <div className="admin-form-field admin-form-field-wide">
+                <label htmlFor="notice-guardian-name">Find a guardian by name *</label>
+                <input
+                  id="notice-guardian-name"
+                  type="search"
+                  value={guardianQuery}
+                  autoComplete="off"
+                  placeholder="Type at least 2 letters of the guardian's name"
+                  onChange={(event) => {
+                    setGuardianQuery(event.target.value);
+                    setTarget("");
+                  }}
+                  required={!target}
+                  aria-describedby="notice-guardian-help"
+                />
+                <span id="notice-guardian-help" className="admin-form-hint">
+                  Select an existing active KHLIM guardian. The system uses their verified account ID to address the notification.
                 </span>
+                {guardianLoading && <span role="status">Loading eligible guardians…</span>}
+                {guardianError && <p className="admin-status-message" role="alert">{guardianError}</p>}
+                {selectedGuardian && (
+                  <div className="guardian-selection" role="status">
+                    <div>
+                      <strong>Selected: {selectedGuardian.displayName}</strong>
+                      <small>{maskedEmail(selectedGuardian.email)} · {selectedGuardian.managedAthletes.length} linked athlete(s)</small>
+                    </div>
+                    <button type="button" onClick={() => { setTarget(""); setGuardianQuery(""); }}>
+                      Change
+                    </button>
+                  </div>
+                )}
+                {!selectedGuardian && searchText.length >= 2 && !guardianLoading && !guardianError && (
+                  <div className="guardian-search-results" aria-label="Guardian search results">
+                    {guardianMatches.length > 0 ? (
+                      <ul>
+                        {guardianMatches.map((guardian) => (
+                          <li key={guardian.id}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTarget(guardian.id);
+                                setGuardianQuery(guardian.displayName);
+                              }}
+                            >
+                              <span><strong>{guardian.displayName}</strong><small>{maskedEmail(guardian.email)} · {guardian.managedAthletes.length} linked athlete(s)</small></span>
+                              <span className="guardian-search-select">Select</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p role="status">No matching active guardians found. Try a different name.</p>
+                    )}
+                  </div>
+                )}
+                <p className="admin-form-hint">This sends an in-app notification only. Outbound email is not yet enabled.</p>
               </div>
             )}
             <div className="admin-form-field admin-form-field-wide">
@@ -233,12 +329,12 @@ export default function NotificationsAdminPage() {
             </div>
             <div className="admin-form-actions admin-form-field-wide">
               <Button type="submit" variant="primary">
-                Send notification to selected audience
+                Send in-app notification
               </Button>
             </div>
           </div>
           <small style={{ display: "block", marginTop: 13, color: "#64748b" }}>
-            Sends are persistent and require a verified staff account with MFA.
+            Notifications are persistent, not emails, and require a verified staff account with MFA.
             Use test recipients only in isolated non-production environments.
           </small>
         </form>
