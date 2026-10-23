@@ -38,9 +38,8 @@ function StaffSignIn() {
   }
 
   return (
-    <div className="admin-access-gate">
-      <main className="admin-access-main">
-        <form className="admin-access-card" onSubmit={submit}>
+    <main className="admin-access-gate">
+      <form className="admin-access-card" onSubmit={submit}>
         <div className="admin-access-brand">
           <div className="admin-access-logo-frame">
             <img
@@ -168,10 +167,9 @@ function StaffSignIn() {
           Authorised KHLIM staff only. Two-factor authentication protects
           sensitive academy records.
         </p>
-        </form>
-      </main>
+      </form>
       <AdminFooter compact />
-    </div>
+    </main>
   );
 }
 
@@ -250,8 +248,8 @@ function MfaGate() {
   const busy = isLoading || working || checkingFactors;
 
   return (
-    <div className="admin-access-gate">
-      <main className="admin-access-card">
+    <main className="admin-access-gate">
+      <div className="admin-access-card">
         <div className="admin-access-brand">
           <div className="admin-access-logo-frame">
             <img
@@ -423,9 +421,9 @@ function MfaGate() {
         >
           Sign out
         </button>
-      </main>
+      </div>
       <AdminFooter compact />
-    </div>
+    </main>
   );
 }
 
