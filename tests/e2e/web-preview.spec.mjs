@@ -255,7 +255,10 @@ test("mobile menu opens and navigates", async ({ page, viewport }) => {
   await expect(menuButton).toHaveCSS("border-top-color", "rgb(161, 161, 170)");
 
   await openMobileMenu(page);
-  await page.getByRole("dialog").getByRole("link", { name: "Spotlight", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("link", { name: "Spotlight", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/spotlight$/);
   await openMobileMenu(page);
 
