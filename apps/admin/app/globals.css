@@ -681,3 +681,66 @@ a:focus-visible {
     flex-wrap: wrap;
   }
 }
+
+/* Release polish: uniform native dropdown indicators and keyboard treatment.
+   Scope to Admin workspace so authentication/MFA controls retain their layout. */
+.admin-page-main select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2352525B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-position: right 13px center;
+  background-repeat: no-repeat;
+  background-size: 16px 16px;
+  padding-right: 42px;
+  min-height: 44px;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+.admin-page-main :is(input, select, textarea) {
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.admin-page-main :is(input, select, textarea):not(:disabled):hover {
+  border-color: #94a3b8;
+}
+.admin-page-main :is(input, select, textarea):focus-visible {
+  border-color: #b45309;
+  outline: 2px solid #b45309;
+  outline-offset: 2px;
+}
+.admin-page-main select:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+.admin-nav-chevron {
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  transform-origin: center;
+}
+.admin-nav-section-button:focus-visible,
+.admin-nav-subpage:focus-visible {
+  outline: 2px solid #fbbf24;
+  outline-offset: -2px;
+}
+.admin-nav-subpage {
+  transition: background-color 140ms ease, color 140ms ease;
+}
+.admin-page-main :is(.admin-form-panel, .editorial-draft-panel, .admin-section-frame) {
+  max-width: 100%;
+}
+@media (forced-colors: active) {
+  .admin-page-main select {
+    appearance: auto;
+    background-image: none;
+    padding-right: 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-nav-chevron,
+  .admin-nav-subpage,
+  .admin-page-main :is(input, select, textarea) {
+    transition: none;
+  }
+}
