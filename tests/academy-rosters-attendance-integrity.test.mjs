@@ -269,4 +269,3 @@ test("attendance rejects a foreign-tenant session before writes", async () => {
     false,
   );
 });
-
