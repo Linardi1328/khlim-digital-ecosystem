@@ -16,7 +16,9 @@ import {
 } from "../../lib/supabase-auth";
 import { ADMIN_DEMO_NOTICE } from "../../lib/demo-mode";
 import { AdminSidebar } from "./AdminSidebar";
+import { AdminSectionNavigation } from "./AdminSectionNavigation";
 import { AdminHeader } from "./AdminHeader";
+import { AdminFooter } from "./AdminFooter";
 import { Drawer } from "../ui/Drawer";
 
 export interface AdminShellProps {
@@ -38,24 +40,25 @@ function StaffSignIn() {
   return (
     <main className="admin-access-gate">
       <form className="admin-access-card" onSubmit={submit}>
-        <img
-          src="/khs-academy-logo.webp"
-          alt="KHLIM Sports Academy"
-          width={68}
-          height={80}
-          style={{
-            width: 68,
-            height: 80,
-            objectFit: "contain",
-            display: "block",
-            margin: "0 auto 12px",
-          }}
-        />
-        <h1>KHLIM Operations Console</h1>
-        <p>
-          Sign in with your approved staff account. Admin access is checked
-          against KHLIM roles on every session.
-        </p>
+        <div className="admin-access-brand">
+          <div className="admin-access-logo-frame">
+            <img
+              src="/brand/khs-academy-crest.png"
+              alt="KHS Academy official crest"
+              width={108}
+              height={124}
+            />
+          </div>
+          <span>KHS ACADEMY</span>
+        </div>
+        <header className="admin-access-heading">
+          <p className="admin-access-eyebrow">Secure staff sign-in</p>
+          <h1>KHLIM Admin Console</h1>
+          <p className="admin-access-description">
+            Sign in with your approved staff account to manage academy
+            operations.
+          </p>
+        </header>
 
         <label
           htmlFor="admin-email"
@@ -160,11 +163,12 @@ function StaffSignIn() {
           {isLoading ? "Checking staff access…" : "Sign in to Admin Console"}
         </button>
 
-        <p className="admin-access-note">
-          This console is for authorised KHLIM staff only. Privileged operations
-          also require multi-factor authentication.
+        <p className="admin-access-note admin-access-security-note">
+          Authorised KHLIM staff only. Two-factor authentication protects
+          sensitive academy records.
         </p>
       </form>
+      <AdminFooter compact />
     </main>
   );
 }
@@ -246,24 +250,25 @@ function MfaGate() {
   return (
     <main className="admin-access-gate">
       <div className="admin-access-card">
-        <img
-          src="/khs-academy-logo.webp"
-          alt="KHLIM Sports Academy"
-          width={68}
-          height={80}
-          style={{
-            width: 68,
-            height: 80,
-            objectFit: "contain",
-            display: "block",
-            margin: "0 auto 12px",
-          }}
-        />
-        <h1>MFA verification required</h1>
-        <p>
-          Your staff password was accepted, but KHLIM admin operations require
-          multi-factor assurance level 2 before the console can open.
-        </p>
+        <div className="admin-access-brand">
+          <div className="admin-access-logo-frame">
+            <img
+              src="/brand/khs-academy-crest.png"
+              alt="KHS Academy official crest"
+              width={108}
+              height={124}
+            />
+          </div>
+          <span>KHS ACADEMY</span>
+        </div>
+        <header className="admin-access-heading">
+          <p className="admin-access-eyebrow">MFA verification required</p>
+          <h1>Verify your identity</h1>
+          <p className="admin-access-description">
+            Enter the six-digit code from your authenticator app to continue
+            securely.
+          </p>
+        </header>
 
         {checkingFactors ? (
           <p className="admin-access-note">Checking MFA setup…</p>
@@ -305,8 +310,8 @@ function MfaGate() {
                 </details>
               </div>
             ) : (
-              <p className="admin-access-note">
-                Enter the six-digit code from your registered authenticator app.
+              <p className="admin-access-form-hint">
+                Open the authenticator app linked to your KHLIM staff account.
               </p>
             )}
 
@@ -359,9 +364,9 @@ function MfaGate() {
           </form>
         ) : (
           <div>
-            <p className="admin-access-note">
-              No verified authenticator is enrolled for this staff account. Set
-              one up before continuing.
+            <p className="admin-access-form-hint">
+              Two-factor authentication is not set up yet. Connect an
+              authenticator app to secure your account.
             </p>
             <button
               type="button"
@@ -399,7 +404,7 @@ function MfaGate() {
           </p>
         )}
 
-        <p className="admin-access-note">
+        <p className="admin-access-note admin-access-security-note">
           No privileged admin data is shown before MFA succeeds.
         </p>
         <button
@@ -417,6 +422,7 @@ function MfaGate() {
           Sign out
         </button>
       </div>
+      <AdminFooter compact />
     </main>
   );
 }
@@ -488,6 +494,7 @@ export function AdminShell({ children }: AdminShellProps) {
         />
 
         <main
+          className="admin-page-main"
           style={{
             flex: 1,
             padding: "28px 28px 60px",
@@ -497,8 +504,10 @@ export function AdminShell({ children }: AdminShellProps) {
             boxSizing: "border-box",
           }}
         >
+          <AdminSectionNavigation />
           {children}
         </main>
+        <AdminFooter />
       </div>
     </div>
   );

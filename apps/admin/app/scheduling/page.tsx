@@ -1,10 +1,18 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AdminShell } from "../../components/layout/AdminShell";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Button } from "../../components/ui/Button";
-import { getAdminAccessToken } from "../../lib/admin-api";
+import { adminApi, getAdminAccessToken } from "../../lib/admin-api";
+import type { OfferingItem } from "../../lib/types";
+import { useAdminAuth } from "../../lib/auth-context";
+import {
+  getSessionRoster,
+  recordSessionAttendance,
+  type SessionRoster,
+  type AttendanceMark,
+} from "../../lib/admin-academy-roster-api";
 
 const API = (
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001/v1"
@@ -23,13 +31,6 @@ type Session = {
   cancellationReason: string | null;
   _count?: { attendances: number };
 };
-type Attendance = {
-  id: string;
-  athleteId: string;
-  athleteName: string;
-  status: "PRESENT" | "ABSENT" | "EXCUSED" | "LATE";
-  notes: string | null;
-};
 const authHeaders = () => ({
   "Content-Type": "application/json",
   Authorization: `Bearer ${getAdminAccessToken() || ""}`,
@@ -47,58 +48,129 @@ const emptyForm = {
 
 export default function SchedulingPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [offerings, setOfferings] = useState<OfferingItem[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [selected, setSelected] = useState<Session | null>(null);
-  const [attendance, setAttendance] = useState<Attendance[]>([]);
-  const [attendeeName, setAttendeeName] = useState("");
-  const [attendeeStatus, setAttendeeStatus] =
-    useState<Attendance["status"]>("PRESENT");
+  const { isAuthenticated, mfaSatisfied, isDemoMode, user } = useAdminAuth();
+  const [roster, setRoster] = useState<SessionRoster | null>(null);
+  const [rosterBusy, setRosterBusy] = useState(false);
+  const [savingAthlete, setSavingAthlete] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+  const creatingRef = useRef(false);
+  const rosterRequestId = useRef(0);
+  const staffContextRequestId = useRef(0);
 
   const load = useCallback(async () => {
+    const requestId = staffContextRequestId.current;
     const response = await fetch(`${API}/admin/scheduling/sessions`, {
       headers: authHeaders(),
       cache: "no-store",
     });
     if (!response.ok) throw new Error(`Scheduling API ${response.status}`);
-    setSessions(await response.json());
+    const result = (await response.json()) as Session[];
+    if (requestId === staffContextRequestId.current) setSessions(result);
   }, []);
-  const loadAttendance = useCallback(async (session: Session) => {
-    const response = await fetch(
-      `${API}/admin/scheduling/sessions/${session.id}/attendance`,
-      { headers: authHeaders(), cache: "no-store" },
-    );
-    if (response.ok) setAttendance(await response.json());
+  const loadRoster = useCallback(async (session: Session) => {
+    const requestId = ++rosterRequestId.current;
+    setRosterBusy(true);
+    try {
+      const result = await getSessionRoster(session.id);
+      if (rosterRequestId.current === requestId) setRoster(result);
+    } catch (error) {
+      if (rosterRequestId.current !== requestId) return;
+      setRoster(null);
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to load the session roster.",
+      );
+    } finally {
+      if (rosterRequestId.current === requestId) setRosterBusy(false);
+    }
   }, []);
 
   useEffect(() => {
-    void load().catch(() =>
-      setMessage("Connect a staff session to manage scheduling."),
-    );
-  }, [load]);
+    const requestId = ++staffContextRequestId.current;
+    if (!isAuthenticated || !mfaSatisfied || isDemoMode) {
+      ++rosterRequestId.current;
+      setSelected(null);
+      setRoster(null);
+      setRosterBusy(false);
+      setSessions([]);
+      setOfferings([]);
+      return;
+    }
+    void Promise.all([
+      load(),
+      adminApi.listOfferings().then((rows) => {
+        if (requestId === staffContextRequestId.current) {
+          setOfferings(rows);
+        }
+      }),
+    ]).catch(() => {
+      if (requestId === staffContextRequestId.current) {
+        setMessage(
+          "Could not load training sessions or eligible offerings. Check staff access.",
+        );
+      }
+    });
+    return () => {
+      ++staffContextRequestId.current;
+    };
+  }, [isAuthenticated, mfaSatisfied, isDemoMode, user?.id, load]);
 
   async function createSession(event: React.FormEvent) {
     event.preventDefault();
-    setMessage("");
-    const response = await fetch(`${API}/admin/scheduling/sessions`, {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify({
-        ...form,
-        programmeOfferingId: form.programmeOfferingId || null,
-        startsAt: new Date(form.startsAt).toISOString(),
-        endsAt: new Date(form.endsAt).toISOString(),
-      }),
-    });
-    if (!response.ok) {
+    if (creatingRef.current) return;
+    if (!isAuthenticated || !mfaSatisfied || isDemoMode) {
       setMessage(
-        `Could not create session (${response.status}). Staff MFA is required.`,
+        "Staff authentication and MFA are required to create sessions.",
       );
       return;
     }
-    setForm(emptyForm);
-    setMessage("Session created and persisted.");
-    await load();
+    creatingRef.current = true;
+    setIsCreating(true);
+    setMessage("");
+    try {
+      // datetime-local has no zone: interpret the values as Malaysian local time.
+      const startsAt = new Date(`${form.startsAt}+08:00`);
+      const endsAt = new Date(`${form.endsAt}+08:00`);
+      if (
+        !Number.isFinite(startsAt.getTime()) ||
+        !Number.isFinite(endsAt.getTime()) ||
+        endsAt <= startsAt
+      ) {
+        setMessage(
+          "Enter a valid Malaysia-time range with the end after the start.",
+        );
+        return;
+      }
+      const response = await fetch(`${API}/admin/scheduling/sessions`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          ...form,
+          programmeOfferingId: form.programmeOfferingId || null,
+          startsAt: startsAt.toISOString(),
+          endsAt: endsAt.toISOString(),
+        }),
+      });
+      if (!response.ok) {
+        setMessage(`Could not create session (${response.status}).`);
+        return;
+      }
+      setForm(emptyForm);
+      setMessage("Session created and persisted.");
+      await load();
+    } catch {
+      setMessage(
+        "The session could not be confirmed. Check whether it was saved before retrying.",
+      );
+    } finally {
+      creatingRef.current = false;
+      setIsCreating(false);
+    }
   }
 
   async function cancelSession(session: Session) {
@@ -127,49 +199,31 @@ export default function SchedulingPage() {
     if (response.ok) await load();
   }
 
-  async function addAttendance(event: React.FormEvent) {
-    event.preventDefault();
-    if (!selected || !attendeeName.trim()) return;
-    const response = await fetch(
-      `${API}/admin/scheduling/sessions/${selected.id}/attendance`,
-      {
-        method: "PUT",
-        headers: authHeaders(),
-        body: JSON.stringify({
-          athleteName: attendeeName,
-          status: attendeeStatus,
-        }),
-      },
-    );
-    if (!response.ok) {
-      setMessage(`Could not mark attendance (${response.status}).`);
-      return;
+  async function changeAttendance(athleteId: string, status: AttendanceMark) {
+    if (!selected || savingAthlete) return;
+    setSavingAthlete(athleteId);
+    setMessage("");
+    try {
+      await recordSessionAttendance(selected.id, athleteId, status);
+      await loadRoster(selected);
+      await load();
+      setMessage("Attendance saved to the Academy database.");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Attendance was not saved. Refresh and retry.",
+      );
+    } finally {
+      setSavingAthlete(null);
     }
-    setAttendeeName("");
-    await loadAttendance(selected);
-    await load();
   }
 
-  async function changeAttendance(
-    record: Attendance,
-    status: Attendance["status"],
-  ) {
-    if (!selected) return;
-    const response = await fetch(
-      `${API}/admin/scheduling/sessions/${selected.id}/attendance`,
-      {
-        method: "PUT",
-        headers: authHeaders(),
-        body: JSON.stringify({
-          athleteId: record.athleteId,
-          athleteName: record.athleteName,
-          status,
-          notes: record.notes,
-        }),
-      },
-    );
-    if (response.ok) await loadAttendance(selected);
-  }
+  const currentSelectedSession = sessions.find(
+    (session) => session.id === selected?.id,
+  );
+  const selectedSessionCancelled =
+    (currentSelectedSession?.status ?? selected?.status) === "CANCELLED";
 
   return (
     <AdminShell>
@@ -190,73 +244,148 @@ export default function SchedulingPage() {
             {message}
           </p>
         )}
-        <form
-          onSubmit={createSession}
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
-            gap: 10,
-            padding: 16,
-            background: "white",
-            border: "1px solid #E2E8F0",
-            borderRadius: 12,
-          }}
-        >
-          <input
-            required
-            placeholder="Event / session title"
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-          />
-          <input
-            type="datetime-local"
-            required
-            value={form.startsAt}
-            onChange={(e) => setForm({ ...form, startsAt: e.target.value })}
-          />
-          <input
-            type="datetime-local"
-            required
-            value={form.endsAt}
-            onChange={(e) => setForm({ ...form, endsAt: e.target.value })}
-          />
-          <input
-            required
-            placeholder="Venue"
-            value={form.venueName}
-            onChange={(e) => setForm({ ...form, venueName: e.target.value })}
-          />
-          <input
-            placeholder="Court"
-            value={form.courtName}
-            onChange={(e) => setForm({ ...form, courtName: e.target.value })}
-          />
-          <input
-            placeholder="Coach"
-            value={form.coachName}
-            onChange={(e) => setForm({ ...form, coachName: e.target.value })}
-          />
-          <input
-            placeholder="Programme offering UUID (optional)"
-            value={form.programmeOfferingId}
-            onChange={(e) =>
-              setForm({ ...form, programmeOfferingId: e.target.value })
-            }
-          />
-          <input
-            placeholder="Notes"
-            value={form.notes}
-            onChange={(e) => setForm({ ...form, notes: e.target.value })}
-          />
-          <Button type="submit" variant="primary">
-            Create session
-          </Button>
+        <form onSubmit={createSession} className="admin-form-panel">
+          <div className="admin-form-panel-header">
+            <h2>Create training session</h2>
+            <p>
+              Choose the registered offering first. Dates and times use Malaysia
+              local time (MYT). Only authorised staff can save sessions.
+            </p>
+          </div>
+          <div className="admin-form-grid">
+            <div className="admin-form-field admin-form-field-wide">
+              <label htmlFor="training-offering">
+                Programme offering <span aria-hidden="true">*</span>
+              </label>
+              <select
+                id="training-offering"
+                name="programmeOfferingId"
+                required
+                value={form.programmeOfferingId}
+                onChange={(e) =>
+                  setForm({ ...form, programmeOfferingId: e.target.value })
+                }
+              >
+                <option value="">Choose an active programme offering</option>
+                {offerings
+                  .filter((offering) => offering.status === "OPEN")
+                  .map((offering) => (
+                    <option key={offering.id} value={offering.id}>
+                      {offering.name}
+                    </option>
+                  ))}
+              </select>
+              <span className="admin-form-hint">
+                Selecting an offering links the session to enrolled players.
+                Open an offering in Academy Setup if none are available.
+              </span>
+            </div>
+            <div className="admin-form-field admin-form-field-wide">
+              <label htmlFor="training-title">Training session name *</label>
+              <input
+                id="training-title"
+                name="title"
+                required
+                placeholder="e.g. U12 Saturday skills training"
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+              />
+            </div>
+            <div className="admin-form-field">
+              <label htmlFor="training-start">
+                Start date and time (MYT) *
+              </label>
+              <input
+                id="training-start"
+                name="startsAt"
+                type="datetime-local"
+                required
+                value={form.startsAt}
+                onChange={(e) => setForm({ ...form, startsAt: e.target.value })}
+              />
+            </div>
+            <div className="admin-form-field">
+              <label htmlFor="training-end">End date and time (MYT) *</label>
+              <input
+                id="training-end"
+                name="endsAt"
+                type="datetime-local"
+                required
+                min={form.startsAt || undefined}
+                value={form.endsAt}
+                onChange={(e) => setForm({ ...form, endsAt: e.target.value })}
+              />
+            </div>
+            <div className="admin-form-field">
+              <label htmlFor="training-venue">
+                Venue / training location *
+              </label>
+              <input
+                id="training-venue"
+                name="venueName"
+                required
+                placeholder="e.g. TIS Puchong"
+                value={form.venueName}
+                onChange={(e) =>
+                  setForm({ ...form, venueName: e.target.value })
+                }
+              />
+            </div>
+            <div className="admin-form-field">
+              <label htmlFor="training-court">Court (optional)</label>
+              <input
+                id="training-court"
+                name="courtName"
+                placeholder="e.g. Court 1"
+                value={form.courtName}
+                onChange={(e) =>
+                  setForm({ ...form, courtName: e.target.value })
+                }
+              />
+            </div>
+            <div className="admin-form-field">
+              <label htmlFor="training-coach">
+                Coach display name (optional)
+              </label>
+              <input
+                id="training-coach"
+                name="coachName"
+                placeholder="e.g. Coach Ahmad"
+                value={form.coachName}
+                onChange={(e) =>
+                  setForm({ ...form, coachName: e.target.value })
+                }
+              />
+              <span className="admin-form-hint">
+                Display name only; this does not grant the coach attendance
+                access. Verified coach assignments are a separate security
+                requirement.
+              </span>
+            </div>
+            <div className="admin-form-field">
+              <label htmlFor="training-notes">Session notes (optional)</label>
+              <textarea
+                id="training-notes"
+                name="notes"
+                rows={3}
+                placeholder="Equipment, drills, or general operational notes (no medical details)"
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              />
+            </div>
+            <div className="admin-form-actions admin-form-field-wide">
+              <Button type="submit" variant="primary" isLoading={isCreating}>
+                Create training session
+              </Button>
+            </div>
+          </div>
         </form>
 
         <div style={{ display: "grid", gap: 12, marginTop: 18 }}>
           {sessions.length === 0 ? (
             <p>
-              No sessions yet. Create a fake event above to test the workflow.
+              No training sessions found. Create a session only after confirming
+              its offering, coach, court and time.
             </p>
           ) : (
             sessions.map((session) => (
@@ -280,8 +409,17 @@ export default function SchedulingPage() {
                   <div>
                     <strong>{session.title}</strong>
                     <div>
-                      {new Date(session.startsAt).toLocaleString()} —{" "}
-                      {new Date(session.endsAt).toLocaleTimeString()}
+                      {new Date(session.startsAt).toLocaleString("en-MY", {
+                        timeZone: "Asia/Kuala_Lumpur",
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })}{" "}
+                      —{" "}
+                      {new Date(session.endsAt).toLocaleTimeString("en-MY", {
+                        timeZone: "Asia/Kuala_Lumpur",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </div>
                     <small>
                       {session.venueName}
@@ -305,9 +443,13 @@ export default function SchedulingPage() {
                   <Button
                     variant="outline"
                     size="sm"
+                    disabled={Boolean(savingAthlete)}
                     onClick={() => {
+                      ++rosterRequestId.current;
                       setSelected(session);
-                      void loadAttendance(session);
+                      setRoster(null);
+                      setRosterBusy(false);
+                      void loadRoster(session);
                     }}
                   >
                     Attendance ({session._count?.attendances ?? 0})
@@ -347,60 +489,75 @@ export default function SchedulingPage() {
             }}
           >
             <h2>Attendance · {selected.title}</h2>
-            <form
-              onSubmit={addAttendance}
-              style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
-            >
-              <input
-                aria-label="Attendee name"
-                placeholder="Fake or real attendee name"
-                value={attendeeName}
-                onChange={(e) => setAttendeeName(e.target.value)}
-              />
-              <select
-                value={attendeeStatus}
-                onChange={(e) =>
-                  setAttendeeStatus(e.target.value as Attendance["status"])
-                }
-              >
-                <option>PRESENT</option>
-                <option>LATE</option>
-                <option>ABSENT</option>
-                <option>EXCUSED</option>
-              </select>
-              <Button type="submit" variant="primary">
-                Add attendance
-              </Button>
-            </form>
-            <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
-              {attendance.map((record) => (
-                <div
-                  key={record.id}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    gap: 10,
-                  }}
-                >
-                  <span>{record.athleteName}</span>
-                  <select
-                    value={record.status}
-                    onChange={(e) =>
-                      void changeAttendance(
-                        record,
-                        e.target.value as Attendance["status"],
-                      )
-                    }
-                  >
-                    <option>PRESENT</option>
-                    <option>LATE</option>
-                    <option>ABSENT</option>
-                    <option>EXCUSED</option>
-                  </select>
+            <p style={{ color: "#d4d4d8", fontSize: 14 }}>
+              Only ACTIVE members of this session's offering are eligible.
+              Unmarked players are not automatically counted absent.
+            </p>
+            {rosterBusy && <p role="status">Loading enrolled players…</p>}
+            {!rosterBusy &&
+              roster?.sessionId === selected.id &&
+              roster.players.length === 0 && (
+                <p role="status">
+                  No eligible players. Check the session's offering and active
+                  memberships; staff cannot add arbitrary attendee names.
+                </p>
+              )}
+            {!rosterBusy &&
+              roster?.sessionId === selected.id &&
+              roster.players.length > 0 && (
+                <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+                  {roster.players.map((player) => (
+                    <div
+                      key={player.athleteId}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: 12,
+                        padding: "10px 0",
+                        borderBottom: "1px solid #3f3f46",
+                      }}
+                    >
+                      <strong>{player.athleteName}</strong>
+                      <label
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        <span style={{ fontSize: 12 }}>Attendance</span>
+                        <select
+                          aria-label={`Attendance for ${player.athleteName}`}
+                          value={player.attendanceStatus}
+                          disabled={
+                            Boolean(savingAthlete) || selectedSessionCancelled
+                          }
+                          onChange={(e) =>
+                            void changeAttendance(
+                              player.athleteId,
+                              e.target.value as AttendanceMark,
+                            )
+                          }
+                        >
+                          <option value="UNMARKED" disabled>
+                            Not marked
+                          </option>
+                          <option value="PRESENT">Present</option>
+                          <option value="LATE">Late</option>
+                          <option value="ABSENT">Absent</option>
+                          <option value="EXCUSED">Excused</option>
+                        </select>
+                      </label>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              )}
+            <p style={{ color: "#d4d4d8", fontSize: 12 }}>
+              Make-up bookings are not yet enabled. Record an excused absence
+              and ask Academy Management to review a replacement session.
+            </p>
           </section>
         )}
       </div>

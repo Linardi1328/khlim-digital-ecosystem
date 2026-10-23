@@ -14,6 +14,9 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   helperText?: ReactNode;
 }
 
+const selectChevron =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2352525B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")";
+
 export function Select({
   label,
   options,
@@ -63,13 +66,19 @@ export function Select({
           width: "100%",
           minWidth: 0,
           maxWidth: "100%",
-          padding: "8px 12px",
+          padding: "10px 40px 10px 12px",
           fontSize: "0.875rem",
           borderRadius: "8px",
           border: error ? "1px solid #DC2626" : "1px solid #CBD5E1",
           backgroundColor: props.disabled ? "#F1F5F9" : "#FFFFFF",
+          backgroundImage: selectChevron,
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: "right 13px center",
+          backgroundSize: "16px 16px",
+          appearance: "none",
+          WebkitAppearance: "none",
+          minHeight: "44px",
           color: props.disabled ? "#64748B" : "#0F172A",
-          outline: "none",
           ...style,
         }}
         {...props}

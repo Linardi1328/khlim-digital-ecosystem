@@ -112,15 +112,19 @@ export class SchedulingController {
     return this.scheduling.completeSession(organizationId(user), id);
   }
 
+  @Get("admin/scheduling/sessions/:id/roster")
+  @RequireAnyRole("SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN")
+  @RequireMfa()
+  roster(
+    @CurrentUser() user: AuthenticatedUserContext,
+    @Param("id") id: string,
+  ) {
+    return this.scheduling.listSessionRoster(organizationId(user), id);
+  }
+
   @Get("admin/scheduling/sessions/:id/attendance")
-  @RequireAnyRole(
-    "SUPER_ADMIN",
-    "MANAGEMENT",
-    "ACADEMY_ADMIN",
-    "HEAD_COACH",
-    "COACH",
-    "EVENT_STAFF",
-  )
+  @RequireAnyRole("SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN")
+  @RequireMfa()
   attendance(
     @CurrentUser() user: AuthenticatedUserContext,
     @Param("id") id: string,
@@ -129,14 +133,8 @@ export class SchedulingController {
   }
 
   @Put("admin/scheduling/sessions/:id/attendance")
-  @RequireAnyRole(
-    "SUPER_ADMIN",
-    "MANAGEMENT",
-    "ACADEMY_ADMIN",
-    "HEAD_COACH",
-    "COACH",
-    "EVENT_STAFF",
-  )
+  @RequireAnyRole("SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN")
+  @RequireMfa()
   markAttendance(
     @CurrentUser() user: AuthenticatedUserContext,
     @Param("id") id: string,

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { usePathname } from "next/navigation";
 import { useAdminAuth } from "../../lib/auth-context";
 import type { StaffRole } from "../../lib/types";
+import { getAdminSectionForPath } from "./admin-sections";
 
 export interface AdminHeaderProps {
   onToggleSidebar?: () => void;
@@ -28,27 +29,8 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
   const availableWorkViews = isDemoMode ? DEMO_ROLES : (user?.roles ?? []);
   const canSwitchWorkView = Boolean(role && availableWorkViews.length > 1);
 
-  const getSectionTitle = () => {
-    if (pathname === "/" || pathname === "/dashboard") {
-      return "Operations Dashboard";
-    }
-    if (pathname.startsWith("/programmes")) return "Programmes Catalogue";
-    if (pathname.startsWith("/offerings")) return "Programme Offerings";
-    if (pathname.startsWith("/plans")) return "Membership Plans";
-    if (pathname.startsWith("/memberships")) return "Active Memberships";
-    if (pathname.startsWith("/athletes")) return "Athletes Directory";
-    if (pathname.startsWith("/guardians")) return "Guardians Directory";
-    if (pathname.startsWith("/payments")) return "Payment Operations";
-    if (pathname.startsWith("/venues")) return "Venues & Courts";
-    if (pathname.startsWith("/scheduling")) return "Scheduling & Sessions";
-    if (pathname.startsWith("/editorial")) return "Editorial Studio";
-    if (pathname.startsWith("/notifications")) return "Notifications";
-    if (pathname.startsWith("/users")) return "Accounts & Access";
-    if (pathname.startsWith("/staff")) return "Staff & Roles";
-    if (pathname.startsWith("/audit")) return "Audit Trail";
-    if (pathname.startsWith("/settings")) return "Settings";
-    return "Operations Console";
-  };
+  const activeWorkspace = getAdminSectionForPath(pathname);
+  const sectionTitle = activeWorkspace?.section.label ?? "Operations Console";
 
   return (
     <header
@@ -96,7 +78,7 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
 
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: "1rem", fontWeight: 800, color: "#0F172A" }}>
-            {getSectionTitle()}
+            {sectionTitle}
           </div>
           <div
             className="hide-on-mobile"

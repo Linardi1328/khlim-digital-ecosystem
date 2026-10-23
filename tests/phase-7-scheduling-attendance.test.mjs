@@ -30,10 +30,13 @@ test("guardian portal schedule is relationship and membership scoped", async () 
   assert.doesNotMatch(portal, /later platform capability/);
 });
 
-test("Admin Scheduling supports fake events and manual attendance testing", async () => {
+test("Admin Scheduling uses verified athlete roster and deliberate attendance actions", async () => {
   const page = await read("apps/admin/app/scheduling/page.tsx");
-  assert.match(page, /Create session/);
-  assert.match(page, /Fake or real attendee name/);
+  assert.match(page, /Create training session/);
+  assert.match(page, /getSessionRoster/);
+  assert.match(page, /recordSessionAttendance/);
+  assert.match(page, /Not marked/);
+  assert.doesNotMatch(page, /Fake or real attendee name/);
   assert.match(page, /Cancellation reason/);
   assert.match(page, /Attendance/);
 });
