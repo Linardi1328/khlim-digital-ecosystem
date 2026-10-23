@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AdminShell } from "../../components/layout/AdminShell";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Button } from "../../components/ui/Button";
@@ -56,6 +56,9 @@ export default function SchedulingPage() {
   const [rosterBusy, setRosterBusy] = useState(false);
   const [savingAthlete, setSavingAthlete] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+  const creatingRef = useRef(false);
+  const rosterRequestId = useRef(0);
 
   const load = useCallback(async () => {
     const response = await fetch(`${API}/admin/scheduling/sessions`, {
@@ -66,11 +69,13 @@ export default function SchedulingPage() {
     setSessions(await response.json());
   }, []);
   const loadRoster = useCallback(async (session: Session) => {
+    const requestId = ++rosterRequestId.current;
     setRosterBusy(true);
     try {
       const result = await getSessionRoster(session.id);
-      setRoster(result);
+      if (rosterRequestId.current === requestId) setRoster(result);
     } catch (error) {
+      if (rosterRequestId.current !== requestId) return;
       setRoster(null);
       setMessage(
         error instanceof Error
@@ -78,12 +83,16 @@ export default function SchedulingPage() {
           : "Unable to load the session roster.",
       );
     } finally {
-      setRosterBusy(false);
+      if (rosterRequestId.current === requestId) setRosterBusy(false);
     }
   }, []);
 
   useEffect(() => {
     if (!isAuthenticated || !mfaSatisfied || isDemoMode) {
+      ++rosterRequestId.current;
+      setSelected(null);
+      setRoster(null);
+      setRosterBusy(false);
       setSessions([]);
       setOfferings([]);
       return;
@@ -100,26 +109,53 @@ export default function SchedulingPage() {
 
   async function createSession(event: React.FormEvent) {
     event.preventDefault();
-    setMessage("");
-    const response = await fetch(`${API}/admin/scheduling/sessions`, {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify({
-        ...form,
-        programmeOfferingId: form.programmeOfferingId || null,
-        startsAt: new Date(form.startsAt).toISOString(),
-        endsAt: new Date(form.endsAt).toISOString(),
-      }),
-    });
-    if (!response.ok) {
-      setMessage(
-        `Could not create session (${response.status}). Staff MFA is required.`,
-      );
+    if (creatingRef.current) return;
+    if (!isAuthenticated || !mfaSatisfied || isDemoMode) {
+      setMessage("Staff authentication and MFA are required to create sessions.");
       return;
     }
-    setForm(emptyForm);
-    setMessage("Session created and persisted.");
-    await load();
+    creatingRef.current = true;
+    setIsCreating(true);
+    setMessage("");
+    try {
+      // datetime-local has no zone: interpret the values as Malaysian local time.
+      const startsAt = new Date(`${form.startsAt}+08:00`);
+      const endsAt = new Date(`${form.endsAt}+08:00`);
+      if (
+        !Number.isFinite(startsAt.getTime()) ||
+        !Number.isFinite(endsAt.getTime()) ||
+        endsAt <= startsAt
+      ) {
+        setMessage(
+          "Enter a valid Malaysia-time range with the end after the start.",
+        );
+        return;
+      }
+      const response = await fetch(`${API}/admin/scheduling/sessions`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          ...form,
+          programmeOfferingId: form.programmeOfferingId || null,
+          startsAt: startsAt.toISOString(),
+          endsAt: endsAt.toISOString(),
+        }),
+      });
+      if (!response.ok) {
+        setMessage(`Could not create session (${response.status}).`);
+        return;
+      }
+      setForm(emptyForm);
+      setMessage("Session created and persisted.");
+      await load();
+    } catch {
+      setMessage(
+        "The session could not be confirmed. Check whether it was saved before retrying.",
+      );
+    } finally {
+      creatingRef.current = false;
+      setIsCreating(false);
+    }
   }
 
   async function cancelSession(session: Session) {
@@ -202,6 +238,7 @@ export default function SchedulingPage() {
               </label>
               <select
                 id="training-offering"
+                name="programmeOfferingId"
                 required
                 value={form.programmeOfferingId}
                 onChange={(e) =>
@@ -226,6 +263,7 @@ export default function SchedulingPage() {
               <label htmlFor="training-title">Training session name *</label>
               <input
                 id="training-title"
+                name="title"
                 required
                 placeholder="e.g. U12 Saturday skills training"
                 value={form.title}
@@ -238,6 +276,7 @@ export default function SchedulingPage() {
               </label>
               <input
                 id="training-start"
+                name="startsAt"
                 type="datetime-local"
                 required
                 value={form.startsAt}
@@ -248,6 +287,7 @@ export default function SchedulingPage() {
               <label htmlFor="training-end">End date and time (MYT) *</label>
               <input
                 id="training-end"
+                name="endsAt"
                 type="datetime-local"
                 required
                 min={form.startsAt || undefined}
@@ -261,6 +301,7 @@ export default function SchedulingPage() {
               </label>
               <input
                 id="training-venue"
+                name="venueName"
                 required
                 placeholder="e.g. TIS Puchong"
                 value={form.venueName}
@@ -273,6 +314,7 @@ export default function SchedulingPage() {
               <label htmlFor="training-court">Court (optional)</label>
               <input
                 id="training-court"
+                name="courtName"
                 placeholder="e.g. Court 1"
                 value={form.courtName}
                 onChange={(e) =>
@@ -286,6 +328,7 @@ export default function SchedulingPage() {
               </label>
               <input
                 id="training-coach"
+                name="coachName"
                 placeholder="e.g. Coach Ahmad"
                 value={form.coachName}
                 onChange={(e) =>
@@ -302,6 +345,7 @@ export default function SchedulingPage() {
               <label htmlFor="training-notes">Session notes (optional)</label>
               <textarea
                 id="training-notes"
+                name="notes"
                 rows={3}
                 placeholder="Equipment, drills, or general operational notes (no medical details)"
                 value={form.notes}
@@ -309,7 +353,7 @@ export default function SchedulingPage() {
               />
             </div>
             <div className="admin-form-actions admin-form-field-wide">
-              <Button type="submit" variant="primary">
+              <Button type="submit" variant="primary" isLoading={isCreating}>
                 Create training session
               </Button>
             </div>
@@ -344,8 +388,16 @@ export default function SchedulingPage() {
                   <div>
                     <strong>{session.title}</strong>
                     <div>
-                      {new Date(session.startsAt).toLocaleString()} —{" "}
-                      {new Date(session.endsAt).toLocaleTimeString()}
+                      {new Date(session.startsAt).toLocaleString("en-MY", {
+                        timeZone: "Asia/Kuala_Lumpur",
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })} —{" "}
+                      {new Date(session.endsAt).toLocaleTimeString("en-MY", {
+                        timeZone: "Asia/Kuala_Lumpur",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </div>
                     <small>
                       {session.venueName}
@@ -370,8 +422,10 @@ export default function SchedulingPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => {
+                      ++rosterRequestId.current;
                       setSelected(session);
                       setRoster(null);
+                      setRosterBusy(false);
                       void loadRoster(session);
                     }}
                   >
@@ -417,13 +471,13 @@ export default function SchedulingPage() {
               Unmarked players are not automatically counted absent.
             </p>
             {rosterBusy && <p role="status">Loading enrolled players…</p>}
-            {!rosterBusy && roster && roster.players.length === 0 && (
+            {!rosterBusy && roster?.sessionId === selected.id && roster.players.length === 0 && (
               <p role="status">
                 No eligible players. Check the session's offering and active
                 memberships; staff cannot add arbitrary attendee names.
               </p>
             )}
-            {!rosterBusy && roster && roster.players.length > 0 && (
+            {!rosterBusy && roster?.sessionId === selected.id && roster.players.length > 0 && (
               <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
                 {roster.players.map((player) => (
                   <div
