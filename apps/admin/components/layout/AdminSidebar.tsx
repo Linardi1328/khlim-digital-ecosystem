@@ -1,12 +1,13 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAdminAuth } from "../../lib/auth-context";
 import {
   ADMIN_SECTIONS,
   canViewAdminSection,
+  canViewAdminPage,
   getAdminSectionForPath,
 } from "./admin-sections";
 
@@ -25,6 +26,13 @@ export function AdminSidebar({
   const { role } = useAdminAuth();
 
   const activeSection = getAdminSectionForPath(pathname)?.section;
+  const [expandedSection, setExpandedSection] = useState<string | null>(
+    activeSection?.href ?? null,
+  );
+
+  useEffect(() => {
+    if (activeSection) setExpandedSection(activeSection.href);
+  }, [pathname, activeSection?.href]);
 
   return (
     <aside
@@ -130,51 +138,111 @@ export function AdminSidebar({
 
       <nav
         aria-label="Admin sections"
+        className="admin-sidebar-nav"
         style={{
           flex: 1,
           overflowY: "auto",
           padding: "12px 8px",
           display: "flex",
           flexDirection: "column",
-          gap: "2px",
+          gap: 2,
         }}
       >
         {ADMIN_SECTIONS.filter((section) =>
           canViewAdminSection(section, role),
         ).map((section) => {
+          const pages = section.pages.filter((page) => canViewAdminPage(page, role));
           const active = activeSection?.href === section.href;
-          return (
-            <Link
-              key={section.href}
-              href={section.href}
-              onClick={onNavigate}
-              aria-current={active ? "page" : undefined}
-              prefetch={false}
-              title={isCollapsed ? section.label : undefined}
-              style={{
-                minHeight: 44,
-                boxSizing: "border-box",
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                padding: isCollapsed ? "8px 0" : "8px 12px",
-                justifyContent: isCollapsed ? "center" : "flex-start",
-                borderRadius: "8px",
-                fontSize: "0.875rem",
-                fontWeight: active ? 700 : 500,
-                color: active ? "#FFFFFF" : "#D4D4D8",
-                backgroundColor: active ? "#27272A" : "transparent",
-                borderLeft: active
-                  ? "3px solid #F59E0B"
-                  : "3px solid transparent",
-                textDecoration: "none",
-              }}
-            >
+          const expanded = expandedSection === section.href;
+          const hasSubpages = pages.length > 1;
+          const rowStyle: React.CSSProperties = {
+            minHeight: 44,
+            boxSizing: "border-box",
+            display: "flex",
+            alignItems: "center",
+            width: "100%",
+            gap: 12,
+            padding: isCollapsed ? "8px 0" : "8px 12px",
+            justifyContent: isCollapsed ? "center" : "flex-start",
+            borderRadius: 8,
+            fontSize: ".875rem",
+            fontWeight: active ? 750 : 550,
+            color: active ? "#FFFFFF" : "#D4D4D8",
+            backgroundColor: active ? "#27272A" : "transparent",
+            borderLeft: active ? "3px solid #F59E0B" : "3px solid transparent",
+            textDecoration: "none",
+          };
+          const contents = (
+            <>
               <span style={{ fontSize: "1.125rem" }} aria-hidden="true">
                 {section.icon}
               </span>
-              {!isCollapsed && <span style={{ flex: 1 }}>{section.label}</span>}
-            </Link>
+              {!isCollapsed && (
+                <>
+                  <span style={{ flex: 1, textAlign: "left" }}>{section.label}</span>
+                  {hasSubpages && (
+                    <span aria-hidden="true" className={expanded ? "admin-nav-chevron admin-nav-chevron-open" : "admin-nav-chevron"}>
+                      ▾
+                    </span>
+                  )}
+                </>
+              )}
+            </>
+          );
+
+          return (
+            <div key={section.href} className="admin-nav-group">
+              {hasSubpages && !isCollapsed ? (
+                <button
+                  type="button"
+                  className="admin-nav-section-button"
+                  style={rowStyle}
+                  aria-expanded={expanded}
+                  aria-controls={`admin-subpages-${section.href.replaceAll("/", "-") || "overview"}`}
+                  onClick={() =>
+                    setExpandedSection((previous) =>
+                      previous === section.href ? null : section.href,
+                    )
+                  }
+                >
+                  {contents}
+                </button>
+              ) : (
+                <Link
+                  href={section.href}
+                  onClick={onNavigate}
+                  aria-current={!hasSubpages && active ? "page" : undefined}
+                  prefetch={false}
+                  title={isCollapsed ? section.label : undefined}
+                  style={rowStyle}
+                >
+                  {contents}
+                </Link>
+              )}
+              {hasSubpages && !isCollapsed && expanded && (
+                <div
+                  id={`admin-subpages-${section.href.replaceAll("/", "-") || "overview"}`}
+                  className="admin-nav-subpages"
+                >
+                  {pages.map((page) => {
+                    const selected = pathname === page.href ||
+                      (page.href !== "/" && pathname.startsWith(page.href + "/"));
+                    return (
+                      <Link
+                        key={page.href}
+                        href={page.href}
+                        prefetch={false}
+                        onClick={onNavigate}
+                        aria-current={selected ? "page" : undefined}
+                        className={selected ? "admin-nav-subpage admin-nav-subpage-current" : "admin-nav-subpage"}
+                      >
+                        {page.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           );
         })}
       </nav>
