@@ -32,7 +32,7 @@ test("guardian portal schedule is relationship and membership scoped", async () 
 
 test("Admin Scheduling uses verified athlete roster and deliberate attendance actions", async () => {
   const page = await read("apps/admin/app/scheduling/page.tsx");
-  assert.match(page, /Create session/);
+  assert.match(page, /Create training session/);
   assert.match(page, /getSessionRoster/);
   assert.match(page, /recordSessionAttendance/);
   assert.match(page, /Not marked/);
