@@ -193,8 +193,8 @@ test("coach work view hides privileged workspaces and tabs", async ({
     ).toHaveCount(0);
   }
   await expect(page.getByText("Restricted Financial Ledger")).toBeVisible();
-  await sidebar.getByRole("button", { name: "Overview", exact: true }).click();
-  await sidebar.getByRole("link", { name: "Dashboard", exact: true }).click();
+  // For restricted roles Overview has only Dashboard, so it is a direct link.
+  await sidebar.getByRole("link", { name: "Overview", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByText("Finance roles only").first()).toBeVisible();
   await expect(
