@@ -36,6 +36,7 @@ jobs:
         run: |
           "$(go env GOPATH)/bin/betterleaks" git . \
             --log-opts="${BASE_SHA}..${HEAD_SHA}" \
+            --config betterleaks.toml \
             --redact \
             --verbose \
             --platform github
