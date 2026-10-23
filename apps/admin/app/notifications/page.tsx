@@ -5,7 +5,7 @@ import { AdminShell } from "../../components/layout/AdminShell";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Button } from "../../components/ui/Button";
 import { adminApi, getAdminAccessToken } from "../../lib/admin-api";
-import type { GuardianItem } from "../../lib/types";
+import type { GuardianItem, OfferingItem } from "../../lib/types";
 import { useAdminAuth } from "../../lib/auth-context";
 
 const API = (
@@ -35,6 +35,10 @@ export default function NotificationsAdminPage() {
   const [guardians, setGuardians] = useState<GuardianItem[]>([]);
   const [guardianLoading, setGuardianLoading] = useState(false);
   const [guardianError, setGuardianError] = useState("");
+  const [offerings, setOfferings] = useState<OfferingItem[]>([]);
+  const [offeringsLoading, setOfferingsLoading] = useState(false);
+  const [offeringsError, setOfferingsError] = useState("");
+  const [offeringSearch, setOfferingSearch] = useState("");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [message, setMessage] = useState("");
@@ -107,6 +111,68 @@ export default function NotificationsAdminPage() {
     };
   }, [audience, isDemoMode, isAuthenticated, mfaSatisfied]);
 
+  // Load offerings only for this audience and only after a real MFA session.
+  // Hide drafts/closed offerings; the server still validates organization
+  // ownership and derives the actual notification recipients at send time.
+  useEffect(() => {
+    let active = true;
+    if (
+      audience !== "OFFERING" ||
+      isDemoMode ||
+      !isAuthenticated ||
+      !mfaSatisfied
+    ) {
+      setOfferings([]);
+      setOfferingsLoading(false);
+      setOfferingsError("");
+      return () => {
+        active = false;
+      };
+    }
+    setOfferingsLoading(true);
+    setOfferingsError("");
+    setOfferings([]);
+    void adminApi
+      .listOfferings()
+      .then((rows) => {
+        if (active) {
+          setOfferings(
+            rows
+              .filter((item) => item.status === "OPEN")
+              .sort((a, b) =>
+                `${a.programmeName} ${a.name}`.localeCompare(
+                  `${b.programmeName} ${b.name}`,
+                ),
+              ),
+          );
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setOfferingsError(
+            "Published offerings could not be loaded. Please try again after checking staff access.",
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setOfferingsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [audience, isDemoMode, isAuthenticated, mfaSatisfied]);
+
+  const selectedOffering = offerings.find(
+    (offering) => offering.id === target && offering.status === "OPEN",
+  );
+  const offeringSearchTerm = offeringSearch.trim().toLocaleLowerCase();
+  const visibleOfferings = offeringSearchTerm
+    ? offerings.filter((offering) =>
+        [offering.name, offering.programmeName, offering.venueName ?? ""]
+          .some((value) => value.toLocaleLowerCase().includes(offeringSearchTerm)),
+      )
+    : offerings;
+
   const selectedGuardian = guardians.find((guardian) => guardian.id === target);
   const searchText = guardianQuery.trim().toLocaleLowerCase();
   const guardianMatches =
@@ -140,6 +206,16 @@ export default function NotificationsAdminPage() {
       setMessage("Select a verified guardian from the search results first.");
       return;
     }
+    if (audience === "OFFERING" && !selectedOffering) {
+      setMessage("Select a published programme offering before sending.");
+      return;
+    }
+    if (audience === "OFFERING") {
+      const approved = window.confirm(
+        `Send this in-app notification to the guardians linked to "${selectedOffering?.name}"? This action cannot be undone.`,
+      );
+      if (!approved) return;
+    }
     const payload: Record<string, unknown> = { type, audience, title, body };
     if (audience === "OFFERING") payload.programmeOfferingId = target;
     if (audience === "USER") payload.userId = target;
@@ -163,6 +239,7 @@ export default function NotificationsAdminPage() {
       setBody("");
       setTarget("");
       setGuardianQuery("");
+      setOfferingSearch("");
       setMessage(
         "Notification sent to " +
           (created._count?.receipts ?? 0) +
@@ -235,6 +312,7 @@ export default function NotificationsAdminPage() {
                   setAudience(e.target.value);
                   setTarget("");
                   setGuardianQuery("");
+                  setOfferingSearch("");
                 }}
               >
                 <option value="ALL_GUARDIANS">All registered guardians</option>
@@ -248,17 +326,96 @@ export default function NotificationsAdminPage() {
             </div>
             {audience === "OFFERING" && (
               <div className="admin-form-field admin-form-field-wide">
-                <label htmlFor="notice-target">Programme offering ID *</label>
+                <label htmlFor="notice-offering-search">
+                  Find a published offering
+                </label>
                 <input
+                  id="notice-offering-search"
+                  type="search"
+                  placeholder="Search by offering, programme or venue"
+                  autoComplete="off"
+                  value={offeringSearch}
+                  onChange={(event) => setOfferingSearch(event.target.value)}
+                  aria-describedby="notice-offering-help"
+                />
+                <label htmlFor="notice-target">
+                  Select programme offering *
+                </label>
+                <select
                   id="notice-target"
                   required
-                  placeholder="Paste an approved offering identifier"
-                  value={target}
-                  onChange={(e) => setTarget(e.target.value)}
-                />
+                  value={selectedOffering?.id ?? ""}
+                  disabled={offeringsLoading || Boolean(offeringsError) || offerings.length === 0}
+                  onChange={(event) => setTarget(event.target.value)}
+                  aria-describedby="notice-offering-help"
+                >
+                  <option value="">
+                    {offeringsLoading
+                      ? "Loading published offerings…"
+                      : "Choose a published offering"}
+                  </option>
+                  {visibleOfferings.map((offering) => (
+                    <option key={offering.id} value={offering.id}>
+                      {offering.programmeName} — {offering.name}
+                      {offering.venueName ? ` · ${offering.venueName}` : ""}
+                      {offering.startsOn ? ` · ${offering.startsOn}` : ""}
+                    </option>
+                  ))}
+                  {selectedOffering &&
+                    !visibleOfferings.some((offering) => offering.id === selectedOffering.id) && (
+                      <option value={selectedOffering.id}>
+                        {selectedOffering.programmeName} — {selectedOffering.name} (selected)
+                      </option>
+                    )}
+                </select>
+                <span id="notice-offering-help" className="admin-form-hint">
+                  Choose an OPEN (published) offering. Its ID is selected automatically.
+                  The server resolves linked guardians from active or pending memberships
+                  and removes duplicate recipients before creating the notification.
+                </span>
+                {offeringsLoading && (
+                  <span role="status">Loading published programme offerings…</span>
+                )}
+                {offeringsError && (
+                  <p role="alert" className="admin-status-message">
+                    {offeringsError}
+                  </p>
+                )}
+                {!offeringsLoading && !offeringsError && offerings.length === 0 && (
+                  <p role="status" className="admin-status-message">
+                    No published offerings found. Publish an offering in Academy Setup first.
+                  </p>
+                )}
+                {!offeringsLoading && !offeringsError &&
+                  offerings.length > 0 && visibleOfferings.length === 0 && (
+                    <span role="status" className="admin-form-hint">
+                      No offerings match this search. Clear the search to view all published offerings.
+                    </span>
+                  )}
+                {selectedOffering && (
+                  <div className="guardian-selection" role="status">
+                    <div>
+                      <strong>Selected: {selectedOffering.name}</strong>
+                      <small>
+                        {selectedOffering.programmeName}
+                        {selectedOffering.venueName ? ` · ${selectedOffering.venueName}` : ""}
+                        {" · "}{selectedOffering.enrolledCount} enrolled player(s)
+                      </small>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTarget("");
+                        setOfferingSearch("");
+                      }}
+                    >
+                      Change
+                    </button>
+                  </div>
+                )}
                 <span className="admin-form-hint">
-                  Only guardians linked to the chosen programme will receive
-                  this notification.
+                  Recipient count is determined at send time. Enrolled players are not
+                  the same as unique guardians. This sends an in-app notice, not email.
                 </span>
               </div>
             )}
