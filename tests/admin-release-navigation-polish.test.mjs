@@ -43,3 +43,20 @@ test("Staff sign-in and MFA have centered, bounded, responsive card layouts", as
   assert.match(css, /@media \(max-width: 480px\)\s*\{/);
   assert.match(css, /\.admin-access-card \[role="alert"\]/);
 });
+
+test("KHS branding appears on Admin, staff login, and MFA with a shared footer", async () => {
+  const shell = await read("apps/admin/components/layout/AdminShell.tsx");
+  const footer = await read("apps/admin/components/layout/AdminFooter.tsx");
+  const css = await read("apps/admin/app/globals.css");
+
+  assert.equal((shell.match(/className="admin-access-brand"/g) ?? []).length, 2);
+  assert.equal((shell.match(/<AdminFooter compact \/>/g) ?? []).length, 2);
+  assert.match(shell, /<AdminFooter \/>/);
+  assert.match(shell, /KHLIM SPORTS ACADEMY/);
+  assert.match(footer, /<footer[\s\S]*?aria-label="KHLIM Admin footer"/);
+  assert.match(footer, /\/khs-academy-logo\.webp/);
+  assert.match(footer, /KHLIM Basketball Sdn\. Bhd\./);
+  assert.match(css, /\.admin-access-brand img\s*\{/);
+  assert.match(css, /\.admin-footer--access\s*\{/);
+  assert.match(css, /\.admin-footer-inner\s*\{/);
+});

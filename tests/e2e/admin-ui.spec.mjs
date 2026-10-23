@@ -55,6 +55,27 @@ for (const path of adminRoutes) {
   });
 }
 
+test("workspace footer displays the KHS logo and company identity", async ({
+  page,
+}) => {
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const footer = page.getByRole("contentinfo", { name: "KHLIM Admin footer" });
+  await expect(footer).toBeVisible();
+  await expect(footer).toContainText("KHLIM Basketball Sdn. Bhd.");
+  const logo = footer.locator('img[src="/khs-academy-logo.webp"]');
+  await expect(logo).toBeVisible();
+  await expect
+    .poll(() =>
+      logo.evaluate(
+        (image) =>
+          image instanceof HTMLImageElement &&
+          image.complete &&
+          image.naturalWidth > 0,
+      ),
+    )
+    .toBe(true);
+});
+
 test("desktop nine-section navigation reaches every operations tab", async ({
   page,
   viewport,

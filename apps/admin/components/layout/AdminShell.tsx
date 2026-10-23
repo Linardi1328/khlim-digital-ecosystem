@@ -18,6 +18,7 @@ import { ADMIN_DEMO_NOTICE } from "../../lib/demo-mode";
 import { AdminSidebar } from "./AdminSidebar";
 import { AdminSectionNavigation } from "./AdminSectionNavigation";
 import { AdminHeader } from "./AdminHeader";
+import { AdminFooter } from "./AdminFooter";
 import { Drawer } from "../ui/Drawer";
 
 export interface AdminShellProps {
@@ -39,19 +40,15 @@ function StaffSignIn() {
   return (
     <main className="admin-access-gate">
       <form className="admin-access-card" onSubmit={submit}>
-        <img
-          src="/khs-academy-logo.webp"
-          alt="KHLIM Sports Academy"
-          width={68}
-          height={80}
-          style={{
-            width: 68,
-            height: 80,
-            objectFit: "contain",
-            display: "block",
-            margin: "0 auto 12px",
-          }}
-        />
+        <div className="admin-access-brand">
+          <img
+            src="/khs-academy-logo.webp"
+            alt="KHLIM Sports Academy"
+            width={68}
+            height={80}
+          />
+          <span>KHLIM SPORTS ACADEMY</span>
+        </div>
         <h1>KHLIM Operations Console</h1>
         <p>
           Sign in with your approved staff account. Admin access is checked
@@ -166,6 +163,7 @@ function StaffSignIn() {
           also require multi-factor authentication.
         </p>
       </form>
+      <AdminFooter compact />
     </main>
   );
 }
@@ -247,19 +245,15 @@ function MfaGate() {
   return (
     <main className="admin-access-gate">
       <div className="admin-access-card">
-        <img
-          src="/khs-academy-logo.webp"
-          alt="KHLIM Sports Academy"
-          width={68}
-          height={80}
-          style={{
-            width: 68,
-            height: 80,
-            objectFit: "contain",
-            display: "block",
-            margin: "0 auto 12px",
-          }}
-        />
+        <div className="admin-access-brand">
+          <img
+            src="/khs-academy-logo.webp"
+            alt="KHLIM Sports Academy"
+            width={68}
+            height={80}
+          />
+          <span>KHLIM SPORTS ACADEMY</span>
+        </div>
         <h1>MFA verification required</h1>
         <p>
           Your staff password was accepted, but KHLIM admin operations require
@@ -418,6 +412,7 @@ function MfaGate() {
           Sign out
         </button>
       </div>
+      <AdminFooter compact />
     </main>
   );
 }
@@ -502,6 +497,7 @@ export function AdminShell({ children }: AdminShellProps) {
           <AdminSectionNavigation />
           {children}
         </main>
+        <AdminFooter />
       </div>
     </div>
   );
