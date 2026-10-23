@@ -188,7 +188,7 @@ export default function NotificationsAdminPage() {
           <small style={{ display: "block", marginTop: 13, color: "#64748b" }}>
             Sends are persistent and require a verified staff account with MFA. Use test recipients only in isolated non-production environments.
           </small>
-        </form> </form>
+        </form>
         <section style={{ marginTop: 24 }}>
           <h2>Recent sends</h2>
           <div style={{ display: "grid", gap: 10 }}>
