@@ -70,8 +70,8 @@ test("Admin roster and attendance remain isolated to verified staff privileges",
 
 test("roster fetch leaves missing and cross-tenant 404 errors intact", async () => {
   const client = await read("apps/admin/lib/admin-academy-roster-api.ts");
-  assert.match(client, /adminApiClient\\.get<OfferingRoster>/);
-  assert.doesNotMatch(client, /adminApi\\.listMemberships\\(\\)/);
+  assert.match(client, /adminApiClient\.get<OfferingRoster>/);
+  assert.doesNotMatch(client, /adminApi\.listMemberships\(\)/);
   assert.doesNotMatch(client, /source: "membership-read-only"/);
   assert.doesNotMatch(client, /guardianEmail|dateOfBirth|paymentIndicator/);
 });
