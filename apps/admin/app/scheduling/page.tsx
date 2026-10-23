@@ -4,7 +4,8 @@ import React, { useCallback, useEffect, useState } from "react";
 import { AdminShell } from "../../components/layout/AdminShell";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Button } from "../../components/ui/Button";
-import { getAdminAccessToken } from "../../lib/admin-api";
+import { adminApi, getAdminAccessToken } from "../../lib/admin-api";
+import type { OfferingItem } from "../../lib/types";
 import { useAdminAuth } from "../../lib/auth-context";
 import {
   getSessionRoster,
@@ -47,6 +48,7 @@ const emptyForm = {
 
 export default function SchedulingPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [offerings, setOfferings] = useState<OfferingItem[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [selected, setSelected] = useState<Session | null>(null);
   const { isAuthenticated, mfaSatisfied, isDemoMode } = useAdminAuth();
@@ -83,10 +85,11 @@ export default function SchedulingPage() {
   useEffect(() => {
     if (!isAuthenticated || !mfaSatisfied || isDemoMode) {
       setSessions([]);
+      setOfferings([]);
       return;
     }
-    void load().catch(() =>
-      setMessage("Connect a staff session with MFA to manage scheduling."),
+    void Promise.all([load(), adminApi.listOfferings().then(setOfferings)]).catch(
+      () => setMessage("Could not load training sessions or eligible offerings. Check staff access."),
     );
   }, [isAuthenticated, mfaSatisfied, isDemoMode, load]);
 
@@ -179,68 +182,61 @@ export default function SchedulingPage() {
             {message}
           </p>
         )}
-        <form
-          onSubmit={createSession}
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))",
-            gap: 10,
-            padding: 16,
-            background: "white",
-            border: "1px solid #E2E8F0",
-            borderRadius: 12,
-          }}
-        >
-          <input
-            required
-            placeholder="Event / session title"
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-          />
-          <input
-            type="datetime-local"
-            required
-            value={form.startsAt}
-            onChange={(e) => setForm({ ...form, startsAt: e.target.value })}
-          />
-          <input
-            type="datetime-local"
-            required
-            value={form.endsAt}
-            onChange={(e) => setForm({ ...form, endsAt: e.target.value })}
-          />
-          <input
-            required
-            placeholder="Venue"
-            value={form.venueName}
-            onChange={(e) => setForm({ ...form, venueName: e.target.value })}
-          />
-          <input
-            placeholder="Court"
-            value={form.courtName}
-            onChange={(e) => setForm({ ...form, courtName: e.target.value })}
-          />
-          <input
-            placeholder="Coach"
-            value={form.coachName}
-            onChange={(e) => setForm({ ...form, coachName: e.target.value })}
-          />
-          <input
-            placeholder="Programme offering UUID (optional)"
-            value={form.programmeOfferingId}
-            onChange={(e) =>
-              setForm({ ...form, programmeOfferingId: e.target.value })
-            }
-          />
-          <input
-            placeholder="Notes"
-            value={form.notes}
-            onChange={(e) => setForm({ ...form, notes: e.target.value })}
-          />
-          <Button type="submit" variant="primary">
-            Create session
-          </Button>
-        </form>
+        <form onSubmit={createSession} className="admin-form-panel">
+          <div className="admin-form-panel-header">
+            <h2>Create training session</h2>
+            <p>Choose the registered offering first. Dates and times use Malaysia local time (MYT). Only authorised staff can save sessions.</p>
+          </div>
+          <div className="admin-form-grid">
+            <div className="admin-form-field admin-form-field-wide">
+              <label htmlFor="training-offering">Programme offering <span aria-hidden="true">*</span></label>
+              <select
+                id="training-offering"
+                required
+                value={form.programmeOfferingId}
+                onChange={(e) => setForm({ ...form, programmeOfferingId: e.target.value })}
+              >
+                <option value="">Choose an active programme offering</option>
+                {offerings.filter((offering) => offering.status === "OPEN").map((offering) => (
+                  <option key={offering.id} value={offering.id}>{offering.name}</option>
+                ))}
+              </select>
+              <span className="admin-form-hint">Selecting an offering links the session to enrolled players. Open an offering in Academy Setup if none are available.</span>
+            </div>
+            <div className="admin-form-field admin-form-field-wide">
+              <label htmlFor="training-title">Training session name *</label>
+              <input id="training-title" required placeholder="e.g. U12 Saturday skills training" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+            </div>
+            <div className="admin-form-field">
+              <label htmlFor="training-start">Start date and time (MYT) *</label>
+              <input id="training-start" type="datetime-local" required value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} />
+            </div>
+            <div className="admin-form-field">
+              <label htmlFor="training-end">End date and time (MYT) *</label>
+              <input id="training-end" type="datetime-local" required min={form.startsAt || undefined} value={form.endsAt} onChange={(e) => setForm({ ...form, endsAt: e.target.value })} />
+            </div>
+            <div className="admin-form-field">
+              <label htmlFor="training-venue">Venue / training location *</label>
+              <input id="training-venue" required placeholder="e.g. TIS Puchong" value={form.venueName} onChange={(e) => setForm({ ...form, venueName: e.target.value })} />
+            </div>
+            <div className="admin-form-field">
+              <label htmlFor="training-court">Court (optional)</label>
+              <input id="training-court" placeholder="e.g. Court 1" value={form.courtName} onChange={(e) => setForm({ ...form, courtName: e.target.value })} />
+            </div>
+            <div className="admin-form-field">
+              <label htmlFor="training-coach">Coach display name (optional)</label>
+              <input id="training-coach" placeholder="e.g. Coach Ahmad" value={form.coachName} onChange={(e) => setForm({ ...form, coachName: e.target.value })} />
+              <span className="admin-form-hint">Display name only; this does not grant the coach attendance access. Verified coach assignments are a separate security requirement.</span>
+            </div>
+            <div className="admin-form-field">
+              <label htmlFor="training-notes">Session notes (optional)</label>
+              <textarea id="training-notes" rows={3} placeholder="Equipment, drills, or general operational notes (no medical details)" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            </div>
+            <div className="admin-form-actions admin-form-field-wide">
+              <Button type="submit" variant="primary">Create training session</Button>
+            </div>
+          </div>
+        </form> </form>
 
         <div style={{ display: "grid", gap: 12, marginTop: 18 }}>
           {sessions.length === 0 ? (
