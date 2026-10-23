@@ -1,0 +1,36 @@
+name: Editorial and guardian form formatter (temporary)
+on:
+  push:
+    branches:
+      - antigravity/admin-integrated-ux-rosters-20261023
+    paths:
+      - .github/workflows/temporary-editorial-guardian-format.yml
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: antigravity/admin-integrated-ux-rosters-20261023
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Run existing workspace formatter
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.0 --activate
+          pnpm install --frozen-lockfile
+          pnpm exec prettier --write apps/admin/app/editorial/page.tsx apps/admin/app/notifications/page.tsx apps/admin/app/globals.css tests/admin-editorial-guardian-ux.test.mjs tests/e2e/admin-ui.spec.mjs
+          git diff --check
+      - name: Commit formatting only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- apps/admin/app/editorial/page.tsx apps/admin/app/notifications/page.tsx apps/admin/app/globals.css tests/admin-editorial-guardian-ux.test.mjs tests/e2e/admin-ui.spec.mjs
+          if ! git diff --cached --quiet; then
+            git commit -m "style(admin): format Editorial Studio and guardian lookup"
+            git push origin HEAD:antigravity/admin-integrated-ux-rosters-20261023
+          fi
