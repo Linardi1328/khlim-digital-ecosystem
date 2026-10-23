@@ -6,6 +6,7 @@ const AUTH = "http://127.0.0.1:4000";
 const allowOrigin = {
   "access-control-allow-origin": "*",
   "access-control-allow-headers": "authorization,apikey,content-type",
+  "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
   "content-type": "application/json",
 };
 const json = (route, data, status = 200) =>
@@ -151,6 +152,7 @@ test("late roster A cannot overwrite B, and attendance uses canonical athlete ID
     _count: { attendances: 0 },
   }));
   let resolveA;
+  let sawLateA = false;
   const delayedA = new Promise((resolve) => { resolveA = resolve; });
   const writes = [];
   let attendance = "UNMARKED";
@@ -161,6 +163,7 @@ test("late roster A cannot overwrite B, and attendance uses canonical athlete ID
     if (path === "/v1/admin/operations-data/offerings") return json(route, []);
     if (path.endsWith(`/${sessionA}/roster`)) {
       await delayedA;
+      sawLateA = true;
       return json(route, {
         sessionId: sessionA,
         programmeOfferingId: "offering-a",
@@ -187,6 +190,8 @@ test("late roster A cannot overwrite B, and attendance uses canonical athlete ID
   await page.getByText("Session B", { exact: true }).locator("xpath=ancestor::article").getByRole("button", { name: /Attendance/ }).click();
   await expect(page.getByText("Player B")).toBeVisible();
   resolveA();
+  await expect.poll(() => sawLateA).toBe(true);
+  await expect(page.getByText("Player B")).toBeVisible();
   await expect(page.getByText("Player A")).toHaveCount(0);
   const select = page.getByRole("combobox", { name: "Attendance for Player B" });
   await expect(select.locator('option[value="UNMARKED"]')).toHaveText("Not marked");
