@@ -489,6 +489,7 @@ export function AdminShell({ children }: AdminShellProps) {
         />
 
         <main
+          className="admin-page-main"
           style={{
             flex: 1,
             padding: "28px 28px 60px",
