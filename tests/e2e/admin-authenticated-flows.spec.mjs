@@ -57,6 +57,56 @@ async function openAdminView(page, path) {
   await page.getByRole("button", { name: "Sign in to Admin Console" }).click();
 }
 
+test("staff login and MFA show readable KHS branding on mobile", async ({
+  page,
+}) => {
+  await installSyntheticStaff(page, (route) => json(route, []), false);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const card = page.locator(".admin-access-card");
+  const crest = card.locator('img[src="/khs-academy-logo.webp"]');
+  await expect(
+    card.getByRole("heading", { name: "KHLIM Admin Console" }),
+  ).toBeVisible();
+  await expect(crest).toBeVisible();
+  await expect
+    .poll(() =>
+      crest.evaluate(
+        (image) =>
+          image instanceof HTMLImageElement &&
+          image.complete &&
+          image.naturalWidth > 0,
+      ),
+    )
+    .toBe(true);
+  const bounds = await card.boundingBox();
+  expect(bounds).not.toBeNull();
+  expect(bounds.width).toBeLessThanOrEqual(370);
+  await expect(
+    page.getByRole("contentinfo", { name: "KHLIM Admin footer" }),
+  ).toBeVisible();
+
+  await page.getByLabel("Staff email").fill("qa@example.test");
+  await page
+    .getByLabel("Password", { exact: true })
+    .fill(`qa-${crypto.randomUUID()}`);
+  await page.getByRole("button", { name: "Sign in to Admin Console" }).click();
+  await expect(page.getByText("MFA verification required")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Verify your identity" }),
+  ).toBeVisible();
+  await expect(page.locator(".admin-access-brand img")).toBeVisible();
+  await expect(
+    page.getByRole("contentinfo", { name: "KHLIM Admin footer" }),
+  ).toBeVisible();
+  const hasOverflow = await page.evaluate(
+    () =>
+      document.documentElement.scrollWidth >
+      document.documentElement.clientWidth + 2,
+  );
+  expect(hasOverflow).toBe(false);
+});
+
 test("live-mode notification sender is single-flight and reports real API failures", async ({
   page,
 }) => {

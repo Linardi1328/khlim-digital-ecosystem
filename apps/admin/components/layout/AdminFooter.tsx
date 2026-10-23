@@ -8,7 +8,14 @@ export function AdminFooter({ compact = false }: { compact?: boolean }) {
     >
       <div className="admin-footer-inner">
         <div className="admin-footer-brand">
-          <img src="/khs-academy-logo.webp" alt="" width={30} height={36} />
+          <div className="admin-footer-logo-frame">
+            <img
+              src="/khs-academy-logo.webp"
+              alt="KHLIM Sports Academy crest"
+              width={36}
+              height={42}
+            />
+          </div>
           <div className="admin-footer-brand-text">
             <strong>KHLIM Sports Academy</strong>
             <span>Operations Console</span>
