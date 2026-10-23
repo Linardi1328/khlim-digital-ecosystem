@@ -201,3 +201,36 @@
     gap: 4px !important;
   }
 }
+
+/* Clear, calm navigation hierarchy for keyboard and pointer users. */
+.navLink {
+  border-radius: 7px;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+.navLink:hover,
+.navLink:focus-visible {
+  color: #18181b;
+  background: #f4f4f5;
+}
+.navLinkActive,
+.navLinkActive:hover {
+  color: #92400e;
+  background: #fffbeb;
+  font-weight: 750;
+}
+.mobileMenuBtn {
+  color: #27272a;
+  background: transparent;
+  border: 1px solid #e4e4e7;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+.mobileMenuBtn:hover {
+  background: #f4f4f5;
+  border-color: #a1a1aa;
+}
+@media (prefers-reduced-motion: reduce) {
+  .navLink,
+  .mobileMenuBtn {
+    transition: none;
+  }
+}

@@ -165,7 +165,7 @@ function HomeContent() {
           ) : (
             <div className="home-programme-grid">
               {offerings.slice(0, 6).map((offering) => (
-                <Card key={offering.id}>
+                <Card key={offering.id} className="khlim-offering-card">
                   <CardHeader>
                     <Badge variant="brand" size="sm">
                       {ageLabel(offering, t)}

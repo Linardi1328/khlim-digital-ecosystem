@@ -2,7 +2,7 @@
 
 import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useI18n } from "../../lib/i18n-context";
 import { useAuth } from "../../lib/auth-context";
 import { BrandLogo } from "./brand-logo";
@@ -23,6 +23,7 @@ function PublicHeaderView({
 }) {
   const { t } = useI18n();
   const { isAuthenticated } = useAuth();
+  const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
@@ -110,7 +111,10 @@ function PublicHeaderView({
             <Link
               key={link.href}
               href={link.href}
-              className={`desktop-nav-link ${styles.navLink}`}
+              className={`desktop-nav-link ${styles.navLink}${pathname === link.href.split("?")[0] ? ` ${styles.navLinkActive}` : ""}`}
+              aria-current={
+                pathname === link.href.split("?")[0] ? "page" : undefined
+              }
             >
               {link.label}
             </Link>
@@ -156,8 +160,6 @@ function PublicHeaderView({
               minHeight: "44px",
               alignItems: "center",
               justifyContent: "center",
-              background: "transparent",
-              border: "1px solid #E4E4E7",
               borderRadius: "6px",
               padding: "6px 10px",
               fontSize: "1.25rem",
@@ -166,7 +168,20 @@ function PublicHeaderView({
             }}
             className={`mobile-menu-btn ${styles.mobileMenuBtn}`}
           >
-            ☰
+            <svg
+              viewBox="0 0 24 24"
+              width="21"
+              height="21"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
           </button>
         </div>
       </div>
@@ -229,13 +244,22 @@ function PublicHeaderView({
               key={link.href}
               href={link.href}
               onClick={() => setMobileMenuOpen(false)}
+              className={
+                pathname === link.href.split("?")[0]
+                  ? styles.navLinkActive
+                  : undefined
+              }
+              aria-current={
+                pathname === link.href.split("?")[0] ? "page" : undefined
+              }
               style={{
                 minHeight: "44px",
                 display: "flex",
                 alignItems: "center",
                 fontSize: "1.125rem",
-                fontWeight: 600,
-                color: "#18181B",
+                fontWeight: pathname === link.href.split("?")[0] ? 750 : 600,
+                color:
+                  pathname === link.href.split("?")[0] ? "#92400e" : "#18181B",
                 textDecoration: "none",
                 padding: "8px 0",
                 borderBottom: "1px solid #F4F4F5",

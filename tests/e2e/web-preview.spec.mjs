@@ -112,7 +112,9 @@ test("homepage showcases verified honours and unnamed representatives", async ({
   ).toHaveCount(0);
 });
 
-test("photos use natural ratios without side gaps", async ({ page }) => {
+test("gallery photographs use consistent 4:3 frames without cropping", async ({
+  page,
+}) => {
   const samples = [
     ["/", "#achievements .verified-milestone-photo"],
     ["/", "#player-spotlight .verified-milestone-photo"],
@@ -129,26 +131,35 @@ test("photos use natural ratios without side gaps", async ({ page }) => {
     }
     const photo = page.locator(selector).first();
     await photo.scrollIntoViewIfNeeded();
-    const imageLoaded = () =>
-      photo.evaluate((image) => image.complete && image.naturalWidth > 0);
-    await expect.poll(imageLoaded).toBe(true);
+    await expect
+      .poll(() =>
+        photo.evaluate((image) => image.complete && image.naturalWidth > 0),
+      )
+      .toBe(true);
 
     const dimensions = await photo.evaluate((image) => {
+      const frame = image.closest(
+        ".verified-milestone-media, .spotlight-gallery-image-wrapper",
+      );
+      if (!frame) throw new Error("Image is missing a media frame");
+      const frameBox = frame.getBoundingClientRect();
       const photoBox = image.getBoundingClientRect();
-      const containerBox = image.parentElement.getBoundingClientRect();
       return {
-        photoWidth: photoBox.width,
-        photoHeight: photoBox.height,
-        containerWidth: containerBox.width,
-        naturalRatio: image.naturalWidth / image.naturalHeight,
+        frameRatio: frameBox.width / frameBox.height,
+        fullWidth: Math.abs(frameBox.width - photoBox.width) < 2,
+        fullHeight: Math.abs(frameBox.height - photoBox.height) < 2,
+        objectFit: getComputedStyle(image).objectFit,
+        naturalWidth: image.naturalWidth,
+        naturalHeight: image.naturalHeight,
       };
     });
 
-    const widthGap = dimensions.containerWidth - dimensions.photoWidth;
-    const displayedRatio = dimensions.photoWidth / dimensions.photoHeight;
-    const ratioDifference = Math.abs(displayedRatio - dimensions.naturalRatio);
-    expect(Math.abs(widthGap)).toBeLessThan(2);
-    expect(ratioDifference).toBeLessThan(0.015);
+    expect(Math.abs(dimensions.frameRatio - 4 / 3)).toBeLessThan(0.02);
+    expect(dimensions.fullWidth).toBe(true);
+    expect(dimensions.fullHeight).toBe(true);
+    expect(dimensions.objectFit).toBe("contain");
+    expect(dimensions.naturalWidth).toBeGreaterThan(0);
+    expect(dimensions.naturalHeight).toBeGreaterThan(0);
   }
 });
 
@@ -238,9 +249,68 @@ test("mobile menu opens and navigates", async ({ page, viewport }) => {
   test.skip(!viewport || viewport.width > 500, "Mobile navigation only");
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
+  const menuButton = page.locator(".mobile-menu-btn");
+  await menuButton.hover();
+  await expect(menuButton).toHaveCSS("background-color", "rgb(244, 244, 245)");
+  await expect(menuButton).toHaveCSS("border-top-color", "rgb(161, 161, 170)");
+
   await openMobileMenu(page);
-  await page.getByRole("link", { name: "Spotlight", exact: true }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("link", { name: "Spotlight", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/spotlight$/);
+  await openMobileMenu(page);
+
+  const activeLink = page
+    .getByRole("dialog")
+    .getByRole("link", { name: "Spotlight", exact: true });
+  await expect(activeLink).toHaveAttribute("aria-current", "page");
+  await expect(activeLink).toHaveCSS("background-color", "rgb(255, 251, 235)");
+  await expect(activeLink).toHaveCSS("color", "rgb(146, 64, 14)");
+});
+
+test("public navigation highlights its current page even with tracking queries", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/programmes?utm_source=academy", {
+    waitUntil: "domcontentloaded",
+  });
+  const current = page
+    .locator(".desktop-nav")
+    .getByRole("link", { name: "Programmes" });
+  await expect(current).toHaveAttribute("aria-current", "page");
+  await expect(page.locator('.desktop-nav a[aria-current="page"]')).toHaveCount(
+    1,
+  );
+
+  await current.focus();
+  const styles = await current.evaluate((element) => {
+    const computed = getComputedStyle(element);
+    return {
+      outlineStyle: computed.outlineStyle,
+      outlineWidth: computed.outlineWidth,
+    };
+  });
+  expect(styles.outlineStyle).not.toBe("none");
+  expect(styles.outlineWidth).not.toBe("0px");
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const transition = await current.evaluate(
+    (element) => getComputedStyle(element).transitionDuration,
+  );
+  expect(transition.split(",").every((value) => parseFloat(value) === 0)).toBe(
+    true,
+  );
+
+  await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
+  await expect(visibleLocaleSwitcher(page)).toBeVisible();
+  await current.focus();
+  const forcedOutline = await current.evaluate(
+    (element) => getComputedStyle(element).outlineStyle,
+  );
+  expect(forcedOutline).not.toBe("none");
 });
 
 test("login page exposes branded authentication controls", async ({ page }) => {
