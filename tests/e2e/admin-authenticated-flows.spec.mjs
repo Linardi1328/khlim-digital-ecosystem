@@ -48,7 +48,7 @@ async function installSyntheticStaff(page, apiHandler, mfaSatisfied = true) {
   });
 }
 
-async function login(page, path) {
+async function openAdminView(page, path) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await page.getByLabel("Staff email").fill("qa@example.test");
   await page.getByLabel("Password", { exact: true }).fill("synthetic-password");
@@ -89,7 +89,7 @@ test("live-mode notification sender is single-flight and reports real API failur
     }
     return json(route, []);
   });
-  await login(page, "/notifications");
+  await openAdminView(page, "/notifications");
   await expect(page.getByText("Compose a family notification")).toBeVisible();
   await page.locator("#notice-audience").selectOption("OFFERING");
   await page.locator("#notice-target").selectOption("offering-a");
@@ -136,7 +136,7 @@ test("live-mode notification sender is single-flight and reports real API failur
 
 test("AAL1 staff cannot access notification composer", async ({ page }) => {
   await installSyntheticStaff(page, (route) => json(route, []), false);
-  await login(page, "/notifications");
+  await openAdminView(page, "/notifications");
   await expect(page.getByText("MFA verification required")).toBeVisible();
   await expect(page.getByText("Compose a family notification")).toHaveCount(0);
 });
@@ -215,7 +215,7 @@ test("late roster A cannot overwrite B, and attendance uses canonical athlete ID
     }
     return json(route, []);
   });
-  await login(page, "/scheduling");
+  await openAdminView(page, "/scheduling");
   await expect(page.getByText("Session A", { exact: true })).toBeVisible();
   await page
     .getByText("Session A", { exact: true })
