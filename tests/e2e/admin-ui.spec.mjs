@@ -90,7 +90,10 @@ test("desktop nine-section navigation reaches every operations tab", async ({
   ];
 
   for (const [section, tab, path] of sections) {
-    const disclosure = sidebar.getByRole("button", { name: section, exact: true });
+    const disclosure = sidebar.getByRole("button", {
+      name: section,
+      exact: true,
+    });
     if (await disclosure.count()) {
       if ((await disclosure.getAttribute("aria-expanded")) !== "true") {
         await disclosure.click();
@@ -112,9 +115,13 @@ test("mobile drawer opens a section and its related tabs", async ({
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Open navigation menu" }).click();
   await expect(page.getByText("Operations Menu")).toBeVisible();
-  const mobileSidebar = page.getByRole("navigation", { name: "Admin sections" });
+  const mobileSidebar = page.getByRole("navigation", {
+    name: "Admin sections",
+  });
   await mobileSidebar.getByRole("button", { name: "Academy Setup" }).click();
-  await mobileSidebar.getByRole("link", { name: "Offerings", exact: true }).click();
+  await mobileSidebar
+    .getByRole("link", { name: "Offerings", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/offerings$/);
 });
 

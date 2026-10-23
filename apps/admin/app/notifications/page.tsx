@@ -134,17 +134,31 @@ export default function NotificationsAdminPage() {
             {message}
           </p>
         )}
-        <form onSubmit={send} className="admin-form-panel" style={{ maxWidth: 850 }}>
+        <form
+          onSubmit={send}
+          className="admin-form-panel"
+          style={{ maxWidth: 850 }}
+        >
           <div className="admin-form-panel-header">
             <h2>Compose a family notification</h2>
-            <p>Choose the message category and recipient audience carefully. Sending writes a real notification; there is no draft preview in this form.</p>
+            <p>
+              Choose the message category and recipient audience carefully.
+              Sending writes a real notification; there is no draft preview in
+              this form.
+            </p>
           </div>
           <div className="admin-form-grid">
             <div className="admin-form-field">
               <label htmlFor="notice-type">Notification category *</label>
-              <select id="notice-type" value={type} onChange={(e) => setType(e.target.value)}>
+              <select
+                id="notice-type"
+                value={type}
+                onChange={(e) => setType(e.target.value)}
+              >
                 <option value="ANNOUNCEMENT">General announcement</option>
-                <option value="SCHEDULE_CHANGE">Training schedule change</option>
+                <option value="SCHEDULE_CHANGE">
+                  Training schedule change
+                </option>
                 <option value="BILLING">Billing notice</option>
                 <option value="EDITORIAL">Academy news / editorial</option>
                 <option value="SYSTEM">System notification</option>
@@ -152,41 +166,80 @@ export default function NotificationsAdminPage() {
             </div>
             <div className="admin-form-field">
               <label htmlFor="notice-audience">Send to *</label>
-              <select id="notice-audience" value={audience} onChange={(e) => setAudience(e.target.value)}>
+              <select
+                id="notice-audience"
+                value={audience}
+                onChange={(e) => setAudience(e.target.value)}
+              >
                 <option value="ALL_GUARDIANS">All registered guardians</option>
                 <option value="OFFERING">Guardians in one offering</option>
                 <option value="USER">One individual user</option>
               </select>
-              <span className="admin-form-hint">Confirm the audience before sending to avoid contacting unrelated families.</span>
+              <span className="admin-form-hint">
+                Confirm the audience before sending to avoid contacting
+                unrelated families.
+              </span>
             </div>
             {audience !== "ALL_GUARDIANS" && (
               <div className="admin-form-field admin-form-field-wide">
-                <label htmlFor="notice-target">{audience === "OFFERING" ? "Programme offering ID" : "Recipient user ID"} *</label>
+                <label htmlFor="notice-target">
+                  {audience === "OFFERING"
+                    ? "Programme offering ID"
+                    : "Recipient user ID"}{" "}
+                  *
+                </label>
                 <input
                   id="notice-target"
                   required
-                  placeholder={audience === "OFFERING" ? "Paste the approved offering identifier" : "Paste the verified user identifier"}
+                  placeholder={
+                    audience === "OFFERING"
+                      ? "Paste the approved offering identifier"
+                      : "Paste the verified user identifier"
+                  }
                   value={target}
                   onChange={(e) => setTarget(e.target.value)}
                 />
-                <span className="admin-form-hint">Use the identifier from the appropriate Academy record. Never enter a player's name or a free-text email instead.</span>
+                <span className="admin-form-hint">
+                  Use the identifier from the appropriate Academy record. Never
+                  enter a player's name or a free-text email instead.
+                </span>
               </div>
             )}
             <div className="admin-form-field admin-form-field-wide">
               <label htmlFor="notice-title">Notification title *</label>
-              <input id="notice-title" required maxLength={180} placeholder="e.g. Saturday training venue update" value={title} onChange={(e) => setTitle(e.target.value)} />
+              <input
+                id="notice-title"
+                required
+                maxLength={180}
+                placeholder="e.g. Saturday training venue update"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
             </div>
             <div className="admin-form-field admin-form-field-wide">
               <label htmlFor="notice-message">Message to families *</label>
-              <textarea id="notice-message" required rows={5} placeholder="Write a clear notice with the relevant date, location and next steps." value={body} onChange={(e) => setBody(e.target.value)} />
-              <span className="admin-form-hint">Avoid unnecessary minor, guardian or medical details in announcements.</span>
+              <textarea
+                id="notice-message"
+                required
+                rows={5}
+                placeholder="Write a clear notice with the relevant date, location and next steps."
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+              />
+              <span className="admin-form-hint">
+                Avoid unnecessary minor, guardian or medical details in
+                announcements.
+              </span>
             </div>
             <div className="admin-form-actions admin-form-field-wide">
-              <Button type="submit" variant="primary">Send notification to selected audience</Button>
+              <Button type="submit" variant="primary">
+                Send notification to selected audience
+              </Button>
             </div>
           </div>
           <small style={{ display: "block", marginTop: 13, color: "#64748b" }}>
-            Sends are persistent and require a verified staff account with MFA. Use test recipients only in isolated non-production environments.
+            Sends are persistent and require a verified staff account with MFA.
+            Use test recipients only in isolated non-production environments.
           </small>
         </form>
         <section style={{ marginTop: 24 }}>

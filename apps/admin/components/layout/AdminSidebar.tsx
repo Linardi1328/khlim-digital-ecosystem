@@ -151,7 +151,9 @@ export function AdminSidebar({
         {ADMIN_SECTIONS.filter((section) =>
           canViewAdminSection(section, role),
         ).map((section) => {
-          const pages = section.pages.filter((page) => canViewAdminPage(page, role));
+          const pages = section.pages.filter((page) =>
+            canViewAdminPage(page, role),
+          );
           const active = activeSection?.href === section.href;
           const expanded = expandedSection === section.href;
           const hasSubpages = pages.length > 1;
@@ -179,9 +181,18 @@ export function AdminSidebar({
               </span>
               {!isCollapsed && (
                 <>
-                  <span style={{ flex: 1, textAlign: "left" }}>{section.label}</span>
+                  <span style={{ flex: 1, textAlign: "left" }}>
+                    {section.label}
+                  </span>
                   {hasSubpages && (
-                    <span aria-hidden="true" className={expanded ? "admin-nav-chevron admin-nav-chevron-open" : "admin-nav-chevron"}>
+                    <span
+                      aria-hidden="true"
+                      className={
+                        expanded
+                          ? "admin-nav-chevron admin-nav-chevron-open"
+                          : "admin-nav-chevron"
+                      }
+                    >
                       ▾
                     </span>
                   )}
@@ -225,8 +236,10 @@ export function AdminSidebar({
                   className="admin-nav-subpages"
                 >
                   {pages.map((page) => {
-                    const selected = pathname === page.href ||
-                      (page.href !== "/" && pathname.startsWith(page.href + "/"));
+                    const selected =
+                      pathname === page.href ||
+                      (page.href !== "/" &&
+                        pathname.startsWith(page.href + "/"));
                     return (
                       <Link
                         key={page.href}
@@ -234,7 +247,11 @@ export function AdminSidebar({
                         prefetch={false}
                         onClick={onNavigate}
                         aria-current={selected ? "page" : undefined}
-                        className={selected ? "admin-nav-subpage admin-nav-subpage-current" : "admin-nav-subpage"}
+                        className={
+                          selected
+                            ? "admin-nav-subpage admin-nav-subpage-current"
+                            : "admin-nav-subpage"
+                        }
                       >
                         {page.label}
                       </Link>
