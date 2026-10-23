@@ -265,9 +265,9 @@ test("public navigation highlights its current page even with tracking queries",
     .locator(".desktop-nav")
     .getByRole("link", { name: "Programmes" });
   await expect(current).toHaveAttribute("aria-current", "page");
-  await expect(
-    page.locator('.desktop-nav a[aria-current="page"]'),
-  ).toHaveCount(1);
+  await expect(page.locator('.desktop-nav a[aria-current="page"]')).toHaveCount(
+    1,
+  );
 
   await current.focus();
   const styles = await current.evaluate((element) => {
@@ -284,7 +284,9 @@ test("public navigation highlights its current page even with tracking queries",
   const transition = await current.evaluate(
     (element) => getComputedStyle(element).transitionDuration,
   );
-  expect(transition.split(",").every((value) => parseFloat(value) === 0)).toBe(true);
+  expect(transition.split(",").every((value) => parseFloat(value) === 0)).toBe(
+    true,
+  );
 
   await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
   await expect(visibleLocaleSwitcher(page)).toBeVisible();
