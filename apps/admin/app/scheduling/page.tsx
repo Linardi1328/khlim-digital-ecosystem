@@ -437,6 +437,7 @@ export default function SchedulingPage() {
                   <Button
                     variant="outline"
                     size="sm"
+                    disabled={Boolean(savingAthlete)}
                     onClick={() => {
                       ++rosterRequestId.current;
                       setSelected(session);
@@ -526,7 +527,8 @@ export default function SchedulingPage() {
                           value={player.attendanceStatus}
                           disabled={
                             Boolean(savingAthlete) ||
-                            selected.status === "CANCELLED"
+                            (sessions.find((session) => session.id === selected.id)
+                              ?.status ?? selected.status) === "CANCELLED"
                           }
                           onChange={(e) =>
                             void changeAttendance(

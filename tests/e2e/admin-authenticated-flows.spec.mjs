@@ -51,7 +51,9 @@ async function installSyntheticStaff(page, apiHandler, mfaSatisfied = true) {
 async function openAdminView(page, path) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await page.getByLabel("Staff email").fill("qa@example.test");
-  await page.getByLabel("Password", { exact: true }).fill(`qa-${crypto.randomUUID()}`);
+  await page
+    .getByLabel("Password", { exact: true })
+    .fill(`qa-${crypto.randomUUID()}`);
   await page.getByRole("button", { name: "Sign in to Admin Console" }).click();
 }
 
