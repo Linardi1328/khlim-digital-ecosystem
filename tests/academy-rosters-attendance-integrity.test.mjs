@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { test } from "node:test";
 import { createRequire } from "node:module";
 
@@ -262,4 +264,24 @@ test("attendance rejects a foreign-tenant session before writes", async () => {
     /Training session not found/,
   );
   assert.equal(records.some(([name]) => name === "attendanceWrite"), false);
+});
+
+test("temporary Prettier diagnosis", () => {
+  const filename = "tests/academy-rosters-attendance-integrity.test.mjs";
+  const source = readFileSync(filename, "utf8");
+  const result = spawnSync(
+    "pnpm",
+    ["exec", "prettier", "--stdin-filepath", filename],
+    { input: source, encoding: "utf8" },
+  );
+  if (result.status !== 0) throw new Error(result.stderr);
+  const expected = result.stdout.split("\n");
+  const actual = source.split("\n");
+  let first = 0;
+  while (first < actual.length && actual[first] === expected[first]) first++;
+  console.log("PRETTIER_DIAGNOSIS", JSON.stringify({
+    first,
+    actual: actual.slice(Math.max(0, first - 4), first + 12),
+    expected: expected.slice(Math.max(0, first - 4), first + 12),
+  }));
 });
