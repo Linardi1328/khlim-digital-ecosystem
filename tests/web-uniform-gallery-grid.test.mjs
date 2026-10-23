@@ -7,11 +7,14 @@ const css = await readFile(
   "utf8",
 );
 
+const normalizedCss = css.replace(/\s+/g, " ");
+
 function block(selector) {
-  const at = css.indexOf(selector + " {");
+  const normalized = selector.replace(/\s+/g, " ");
+  const at = normalizedCss.indexOf(normalized + " {");
   assert.ok(at >= 0, `Missing CSS selector: ${selector}`);
-  const end = css.indexOf("}", at);
-  return css.slice(at, end + 1);
+  const end = normalizedCss.indexOf("}", at);
+  return normalizedCss.slice(at, end + 1);
 }
 
 test("club gallery cards use a uniform 4:3 media frame", () => {
