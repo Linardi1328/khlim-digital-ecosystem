@@ -559,6 +559,7 @@ export default function NotificationsAdminPage() {
               <input
                 id="notice-title"
                 required
+                disabled={isSending}
                 maxLength={180}
                 placeholder="e.g. Saturday training venue update"
                 value={title}
@@ -570,6 +571,7 @@ export default function NotificationsAdminPage() {
               <textarea
                 id="notice-message"
                 required
+                disabled={isSending}
                 rows={5}
                 placeholder="Write a clear notice with the relevant date, location and next steps."
                 value={body}

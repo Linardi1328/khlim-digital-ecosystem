@@ -51,7 +51,7 @@ export default function SchedulingPage() {
   const [offerings, setOfferings] = useState<OfferingItem[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [selected, setSelected] = useState<Session | null>(null);
-  const { isAuthenticated, mfaSatisfied, isDemoMode } = useAdminAuth();
+  const { isAuthenticated, mfaSatisfied, isDemoMode, user } = useAdminAuth();
   const [roster, setRoster] = useState<SessionRoster | null>(null);
   const [rosterBusy, setRosterBusy] = useState(false);
   const [savingAthlete, setSavingAthlete] = useState<string | null>(null);
@@ -59,14 +59,17 @@ export default function SchedulingPage() {
   const [isCreating, setIsCreating] = useState(false);
   const creatingRef = useRef(false);
   const rosterRequestId = useRef(0);
+  const staffContextRequestId = useRef(0);
 
   const load = useCallback(async () => {
+    const requestId = staffContextRequestId.current;
     const response = await fetch(`${API}/admin/scheduling/sessions`, {
       headers: authHeaders(),
       cache: "no-store",
     });
     if (!response.ok) throw new Error(`Scheduling API ${response.status}`);
-    setSessions(await response.json());
+    const result = (await response.json()) as Session[];
+    if (requestId === staffContextRequestId.current) setSessions(result);
   }, []);
   const loadRoster = useCallback(async (session: Session) => {
     const requestId = ++rosterRequestId.current;
@@ -88,6 +91,7 @@ export default function SchedulingPage() {
   }, []);
 
   useEffect(() => {
+    const requestId = ++staffContextRequestId.current;
     if (!isAuthenticated || !mfaSatisfied || isDemoMode) {
       ++rosterRequestId.current;
       setSelected(null);
@@ -99,13 +103,22 @@ export default function SchedulingPage() {
     }
     void Promise.all([
       load(),
-      adminApi.listOfferings().then(setOfferings),
-    ]).catch(() =>
-      setMessage(
-        "Could not load training sessions or eligible offerings. Check staff access.",
-      ),
-    );
-  }, [isAuthenticated, mfaSatisfied, isDemoMode, load]);
+      adminApi.listOfferings().then((rows) => {
+        if (requestId === staffContextRequestId.current) {
+          setOfferings(rows);
+        }
+      }),
+    ]).catch(() => {
+      if (requestId === staffContextRequestId.current) {
+        setMessage(
+          "Could not load training sessions or eligible offerings. Check staff access.",
+        );
+      }
+    });
+    return () => {
+      ++staffContextRequestId.current;
+    };
+  }, [isAuthenticated, mfaSatisfied, isDemoMode, user?.id, load]);
 
   async function createSession(event: React.FormEvent) {
     event.preventDefault();
