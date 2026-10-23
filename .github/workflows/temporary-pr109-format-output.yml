@@ -1,0 +1,50 @@
+name: Temporary PR109 Format Output
+
+on:
+  push:
+    branches:
+      - antigravity/admin-integrated-ux-rosters-20261023
+
+permissions:
+  contents: read
+
+jobs:
+  format-output:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: "24"
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.0 --activate
+      - name: Install dependency graph without credentials
+        run: pnpm install --frozen-lockfile
+      - name: Emit exact formatted source for reviewed files
+        run: |
+          set -euo pipefail
+          for file in \
+            apps/admin/app/athletes/page.tsx \
+            apps/admin/app/editorial/page.tsx \
+            apps/admin/app/offerings/page.tsx \
+            apps/admin/app/notifications/page.tsx \
+            apps/admin/app/scheduling/page.tsx \
+            apps/admin/components/layout/AdminSectionNavigation.tsx \
+            apps/admin/components/layout/AdminSidebar.tsx \
+            apps/api/src/scheduling/scheduling.service.ts \
+            tests/academy-rosters-attendance-integrity.test.mjs \
+            tests/admin-release-navigation-polish.test.mjs \
+            tests/e2e/admin-ui.spec.mjs \
+            tests/e2e/admin-authenticated-flows.spec.mjs \
+            tests/integration/pre-alpha-admin-http-integration.test.mjs \
+            playwright.admin.auth.config.mjs \
+            .github/workflows/admin-ui-e2e.yml; do
+            printf 'FORMATTED_START:%s\n' "$file"
+            pnpm exec prettier "$file" | base64 -w0
+            printf '\nFORMATTED_END:%s\n' "$file"
+          done
