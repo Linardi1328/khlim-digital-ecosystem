@@ -373,3 +373,21 @@ test("Notifications offers guardian-name lookup, not manual recipient ID entry",
   await expect(page.getByText(/in-app notification only/)).toBeVisible();
   await expect(page.getByLabel("Recipient user ID")).toHaveCount(0);
 });
+
+
+test("Notifications uses searchable published offerings instead of a typed ID", async ({
+  page,
+}) => {
+  await page.goto("/notifications", { waitUntil: "domcontentloaded" });
+  await page.locator("#notice-audience").selectOption("OFFERING");
+  await expect(page.getByLabel("Find a published offering")).toBeVisible();
+  await expect(page.getByLabel(/Select programme offering/)).toBeVisible();
+  await expect(page.locator("#notice-target")).toHaveAttribute("required", "");
+  await expect(page.getByPlaceholder("Paste an approved offering identifier")).toHaveCount(0);
+  await expect(page.getByText(/in-app notice, not email/)).toBeVisible();
+  await page.getByLabel("Find a published offering").fill("u12");
+  await expect(page.getByLabel("Find a published offering")).toHaveValue("u12");
+  await page.locator("#notice-audience").selectOption("USER");
+  await expect(page.getByLabel("Find a guardian by name")).toBeVisible();
+  await expect(page.getByLabel(/Select programme offering/)).toHaveCount(0);
+});
