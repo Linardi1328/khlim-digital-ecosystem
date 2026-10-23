@@ -321,3 +321,51 @@ test("3x3 demo campaign lead metrics respect the selected MYT acquisition window
   await applyDates("2026-10-20", "2026-10-23");
   await expect(confirmedLeads.getByText("0", { exact: true })).toBeVisible();
 });
+
+
+test("Editorial Studio labels never collide with their inputs at each viewport", async ({
+  page,
+}) => {
+  await page.goto("/editorial", { waitUntil: "domcontentloaded" });
+  const panel = page.locator(".editorial-draft-panel");
+  await expect(panel.getByRole("heading", { name: "New editorial draft" })).toBeVisible();
+  await expect(page.getByLabel("Player name")).toBeVisible();
+  await expect(page.getByLabel("URL slug")).toBeVisible();
+  await expect(page.getByLabel("Development note")).toBeVisible();
+
+  const measurements = await panel.locator(".editorial-draft-field").evaluateAll((fields) =>
+    fields.map((field) => {
+      const label = field.querySelector("label");
+      const control = field.querySelector("input,select,textarea");
+      if (!label || !control) return { ok: false, reason: "missing label/control" };
+      const a = label.getBoundingClientRect();
+      const b = control.getBoundingClientRect();
+      const container = field.getBoundingClientRect();
+      return {
+        ok:
+          b.top >= a.bottom - 2 &&
+          b.left >= container.left - 2 &&
+          b.right <= container.right + 2 &&
+          b.width >= 80,
+        reason: label.textContent,
+      };
+    }),
+  );
+  expect(measurements.length).toBeGreaterThan(5);
+  expect(measurements.filter((item) => !item.ok)).toEqual([]);
+
+  await page.getByLabel("Content type").selectOption("ACHIEVEMENT");
+  await expect(page.getByLabel("Year / season")).toBeVisible();
+  await page.getByLabel("Content type").selectOption("PLAYER_SPOTLIGHT");
+  await expect(page.getByLabel("Article paragraphs")).toBeVisible();
+});
+
+test("Notifications offers guardian-name lookup, not manual recipient ID entry", async ({
+  page,
+}) => {
+  await page.goto("/notifications", { waitUntil: "domcontentloaded" });
+  await page.locator("#notice-audience").selectOption("USER");
+  await expect(page.getByLabel("Find a guardian by name")).toBeVisible();
+  await expect(page.getByText(/in-app notification only/)).toBeVisible();
+  await expect(page.getByLabel("Recipient user ID")).toHaveCount(0);
+});
