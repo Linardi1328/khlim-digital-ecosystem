@@ -396,6 +396,7 @@ export default function OfferingsPage() {
             placeholder="Search offerings by name, venue, programme..."
           />
           <Select
+            label="Offering status"
             aria-label="Filter by offering status"
             value={statusFilter}
             onChange={(event) => {
@@ -411,6 +412,7 @@ export default function OfferingsPage() {
             ]}
           />
           <Select
+            label="Programme"
             aria-label="Filter by programme"
             value={programmeFilter}
             onChange={(event) => {
