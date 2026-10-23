@@ -112,7 +112,9 @@ function PublicHeaderView({
               key={link.href}
               href={link.href}
               className={`desktop-nav-link ${styles.navLink}${pathname === link.href.split("?")[0] ? ` ${styles.navLinkActive}` : ""}`}
-              aria-current={pathname === link.href.split("?")[0] ? "page" : undefined}
+              aria-current={
+                pathname === link.href.split("?")[0] ? "page" : undefined
+              }
             >
               {link.label}
             </Link>
@@ -244,7 +246,9 @@ function PublicHeaderView({
               key={link.href}
               href={link.href}
               onClick={() => setMobileMenuOpen(false)}
-              aria-current={pathname === link.href.split("?")[0] ? "page" : undefined}
+              aria-current={
+                pathname === link.href.split("?")[0] ? "page" : undefined
+              }
               style={{
                 minHeight: "44px",
                 display: "flex",
