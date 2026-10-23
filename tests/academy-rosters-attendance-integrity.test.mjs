@@ -64,6 +64,14 @@ function service(overrides = {}) {
     },
   };
   Object.assign(prisma.client, overrides);
+  prisma.client.$transaction = async (callback) =>
+    callback({
+      ...prisma.client,
+      $queryRaw: async (fragments, ...params) => {
+        records.push(["sessionLock", { sql: fragments.join("?"), params }]);
+        return session.organizationId === ORG ? [{ id: SESSION }] : [];
+      },
+    });
   return { sut: new SchedulingService(prisma), records, prisma, session };
 }
 
@@ -108,6 +116,13 @@ test("attendance uses canonical server name, not submitted text", async () => {
   assert.equal(result.athleteName, "Registered Player");
   assert.equal(result.status, "LATE");
   assert.equal(result.notes, "Transport delay");
+  assert.deepEqual(
+    records.slice(0, 3).map(([name]) => name),
+    ["sessionLock", "sessionLookup", "membershipValidation"],
+  );
+  assert.match(records[0][1].sql, /FOR UPDATE/);
+  assert.match(records[0][1].sql, /organization_id/);
+  assert.deepEqual(records[0][1].params, [SESSION, ORG]);
   const membershipQuery = records.find(
     ([name]) => name === "membershipValidation",
   )[1];
@@ -213,4 +228,38 @@ test("malformed attendance payloads fail with HTTP 400 validation errors", async
       (error) => error?.status === 400,
     );
   }
+});
+
+test("attendance rejects cancellation completed before the session lock", async () => {
+  const { sut, prisma, session, records } = service();
+  const originalTransaction = prisma.client.$transaction;
+  prisma.client.$transaction = (callback) =>
+    originalTransaction(async (transaction) => {
+      transaction.$queryRaw = async () => {
+        session.status = "CANCELLED";
+        records.push(["sessionLock", { cancelledBeforeLock: true }]);
+        return [{ id: SESSION }];
+      };
+      return callback(transaction);
+    });
+  await assert.rejects(
+    sut.markAttendance(ORG, SESSION, { athleteId: ATHLETE, status: "PRESENT" }),
+    /active, offering-linked session/,
+  );
+  assert.equal(records.some(([name]) => name === "attendanceWrite"), false);
+});
+
+test("attendance rejects missing or cross-tenant session before any write", async () => {
+  const { sut, prisma, records } = service();
+  const originalTransaction = prisma.client.$transaction;
+  prisma.client.$transaction = (callback) =>
+    originalTransaction(async (transaction) => {
+      transaction.$queryRaw = async () => [];
+      return callback(transaction);
+    });
+  await assert.rejects(
+    sut.markAttendance(ORG, SESSION, { athleteId: ATHLETE, status: "PRESENT" }),
+    /Training session not found/,
+  );
+  assert.equal(records.some(([name]) => name === "attendanceWrite"), false);
 });
