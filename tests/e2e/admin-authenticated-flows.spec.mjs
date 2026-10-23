@@ -165,7 +165,6 @@ test("late roster A cannot overwrite B, and attendance uses canonical athlete ID
     _count: { attendances: 0 },
   }));
   let resolveA;
-  let sawLateA = false;
   const delayedA = new Promise((resolve) => {
     resolveA = resolve;
   });
@@ -181,7 +180,6 @@ test("late roster A cannot overwrite B, and attendance uses canonical athlete ID
     if (path === "/v1/admin/operations-data/offerings") return json(route, []);
     if (path.endsWith(`/${sessionA}/roster`)) {
       await delayedA;
-      sawLateA = true;
       return json(route, {
         sessionId: sessionA,
         programmeOfferingId: "offering-a",
@@ -219,6 +217,9 @@ test("late roster A cannot overwrite B, and attendance uses canonical athlete ID
   });
   await openAdminView(page, "/scheduling");
   await expect(page.getByText("Session A", { exact: true })).toBeVisible();
+  const lateAResponse = page.waitForResponse((response) =>
+    response.url().includes(`/${sessionA}/roster`),
+  );
   await page
     .getByText("Session A", { exact: true })
     .locator("xpath=ancestor::article")
@@ -231,7 +232,8 @@ test("late roster A cannot overwrite B, and attendance uses canonical athlete ID
     .click();
   await expect(page.getByText("Player B")).toBeVisible();
   resolveA();
-  await expect.poll(() => sawLateA).toBe(true);
+  await lateAResponse;
+  await page.evaluate(() => new Promise(requestAnimationFrame));
   await expect(page.getByText("Player B")).toBeVisible();
   await expect(page.getByText("Player A")).toHaveCount(0);
   const select = page.getByRole("combobox", {
