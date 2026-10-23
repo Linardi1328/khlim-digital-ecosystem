@@ -335,7 +335,10 @@ export default function NotificationsAdminPage() {
                   placeholder="Search by offering, programme or venue"
                   autoComplete="off"
                   value={offeringSearch}
-                  onChange={(event) => setOfferingSearch(event.target.value)}
+                  onChange={(event) => {
+                    setOfferingSearch(event.target.value);
+                    setTarget("");
+                  }}
                   aria-describedby="notice-offering-help"
                 />
                 <label htmlFor="notice-target">
@@ -361,12 +364,6 @@ export default function NotificationsAdminPage() {
                       {offering.startsOn ? ` · ${offering.startsOn}` : ""}
                     </option>
                   ))}
-                  {selectedOffering &&
-                    !visibleOfferings.some((offering) => offering.id === selectedOffering.id) && (
-                      <option value={selectedOffering.id}>
-                        {selectedOffering.programmeName} — {selectedOffering.name} (selected)
-                      </option>
-                    )}
                 </select>
                 <span id="notice-offering-help" className="admin-form-hint">
                   Choose an OPEN (published) offering. Its ID is selected automatically.
