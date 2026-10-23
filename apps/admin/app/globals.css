@@ -461,3 +461,130 @@ a:focus-visible {
     padding: 18px 14px 40px !important;
   }
 }
+
+
+/* Editorial Studio: explicit structure, not styled-JSX descendant selectors.
+   Legacy helper-produced labels were rendering inline and overlapping controls. */
+.editorial-draft-panel {
+  min-width: 0;
+  padding: clamp(16px, 2.5vw, 28px) !important;
+}
+.editorial-draft-heading {
+  margin-bottom: 20px;
+}
+.editorial-draft-heading h2 {
+  margin: 0 0 6px;
+  font-size: 1.2rem;
+  letter-spacing: -0.025em;
+}
+.editorial-draft-heading p {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: #64748b;
+}
+.editorial-draft-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 16px;
+  align-items: start;
+}
+.editorial-draft-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+.editorial-draft-field-wide {
+  grid-column: 1 / -1;
+}
+.editorial-draft-field > label {
+  display: block;
+  margin: 0;
+  font-size: 0.83rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #334155;
+}
+.editorial-draft-field :is(input:not([type="checkbox"]), textarea, select) {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  padding: 11px 12px;
+  background: #fff;
+  color: #18181b;
+  line-height: 1.45;
+}
+.editorial-draft-field textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+.editorial-draft-hint {
+  display: block;
+  font-size: 0.76rem;
+  color: #64748b;
+  line-height: 1.5;
+}
+.editorial-draft-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 14px;
+}
+.editorial-draft-action button {
+  flex: 0 0 auto;
+}
+.editorial-draft-action .editorial-draft-hint {
+  flex: 1 1 230px;
+}
+.editorial-draft-verify {
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+.editorial-draft-verify > label {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin: 0;
+  cursor: pointer;
+  font-weight: 650;
+  color: #334155;
+  line-height: 1.5;
+}
+.editorial-draft-verify input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  margin: 2px 0 0;
+}
+.editorial-draft-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px 18px;
+  flex-wrap: wrap;
+  padding-top: 18px;
+  border-top: 1px solid #e2e8f0;
+}
+.editorial-draft-message {
+  padding: 12px 14px;
+  border-radius: 9px;
+  background: #fef3c7;
+  color: #92400e;
+  line-height: 1.5;
+}
+@media (max-width: 640px) {
+  .editorial-draft-form { grid-template-columns: minmax(0, 1fr); }
+  .editorial-draft-panel { padding: 16px !important; }
+  .editorial-draft-action button { width: 100%; }
+}
