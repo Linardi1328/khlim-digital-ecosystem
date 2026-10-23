@@ -149,7 +149,11 @@ export default function EditorialStudioPage() {
     wide = false,
   ) => (
     <div
-      className={wide ? "editorial-draft-field editorial-draft-field-wide" : "editorial-draft-field"}
+      className={
+        wide
+          ? "editorial-draft-field editorial-draft-field-wide"
+          : "editorial-draft-field"
+      }
       key={key}
     >
       <label htmlFor={`editorial-${key}`}>{label}</label>
@@ -190,10 +194,16 @@ export default function EditorialStudioPage() {
         </div>
 
         <div className="editorial-grid">
-          <section className="editorial-panel editorial-draft-panel" aria-labelledby="editorial-draft-heading">
+          <section
+            className="editorial-panel editorial-draft-panel"
+            aria-labelledby="editorial-draft-heading"
+          >
             <div className="editorial-draft-heading">
               <h2 id="editorial-draft-heading">New editorial draft</h2>
-              <p>Start with confirmed facts. KHLIM staff must review every AI-assisted suggestion before saving.</p>
+              <p>
+                Start with confirmed facts. KHLIM staff must review every
+                AI-assisted suggestion before saving.
+              </p>
             </div>
             <div className="editorial-draft-form">
               <div className="editorial-draft-field editorial-draft-field-wide">
@@ -210,12 +220,28 @@ export default function EditorialStudioPage() {
 
               {form.type === "PLAYER_SPOTLIGHT" ? (
                 <>
-                  {field("Player name", "playerName", "Name approved for publication")}
+                  {field(
+                    "Player name",
+                    "playerName",
+                    "Name approved for publication",
+                  )}
                   {field("URL slug", "slug", "e.g. player-name-event")}
-                  {field("Achievement", "achievement", "e.g. Gold medal or team selection", true)}
-                  {field("Achievement date", "achievedOnLabel", "e.g. 23 October 2026", true)}
+                  {field(
+                    "Achievement",
+                    "achievement",
+                    "e.g. Gold medal or team selection",
+                    true,
+                  )}
+                  {field(
+                    "Achievement date",
+                    "achievedOnLabel",
+                    "e.g. 23 October 2026",
+                    true,
+                  )}
                   <div className="editorial-draft-field editorial-draft-field-wide">
-                    <label htmlFor="editorial-development-note">Development note</label>
+                    <label htmlFor="editorial-development-note">
+                      Development note
+                    </label>
                     <textarea
                       id="editorial-development-note"
                       rows={4}
@@ -223,25 +249,45 @@ export default function EditorialStudioPage() {
                       value={form.developmentNote}
                       onChange={(e) => set("developmentNote", e.target.value)}
                     />
-                    <span className="editorial-draft-hint">Use only staff-approved facts; avoid private details about a minor.</span>
+                    <span className="editorial-draft-hint">
+                      Use only staff-approved facts; avoid private details about
+                      a minor.
+                    </span>
                   </div>
                 </>
               ) : (
                 field("Year / season", "yearLabel", "e.g. 2026 Season", true)
               )}
 
-              {field("Event name", "eventName", "Name of competition or club event", true)}
+              {field(
+                "Event name",
+                "eventName",
+                "Name of competition or club event",
+                true,
+              )}
 
               {form.type === "PLAYER_SPOTLIGHT" && (
                 <div className="editorial-draft-action editorial-draft-field-wide">
-                  <Button type="button" variant="outline" onClick={generateDraft}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={generateDraft}
+                  >
                     Generate AI-assisted draft
                   </Button>
-                  <span className="editorial-draft-hint">Fills the headline, summary and article from the supplied facts. Review the output before saving.</span>
+                  <span className="editorial-draft-hint">
+                    Fills the headline, summary and article from the supplied
+                    facts. Review the output before saving.
+                  </span>
                 </div>
               )}
 
-              {field("Headline / title", "title", "Public-facing article title", true)}
+              {field(
+                "Headline / title",
+                "title",
+                "Public-facing article title",
+                true,
+              )}
 
               <div className="editorial-draft-field editorial-draft-field-wide">
                 <label htmlFor="editorial-summary">Summary</label>
@@ -267,8 +313,18 @@ export default function EditorialStudioPage() {
                 </div>
               )}
 
-              {field("Photo description", "photoLabel", "Describe the approved photo", true)}
-              {field("Approved photo URL (optional)", "imageUrl", "https://...", true)}
+              {field(
+                "Photo description",
+                "photoLabel",
+                "Describe the approved photo",
+                true,
+              )}
+              {field(
+                "Approved photo URL (optional)",
+                "imageUrl",
+                "https://...",
+                true,
+              )}
 
               <div className="editorial-draft-verify editorial-draft-field-wide">
                 <label htmlFor="editorial-facts-verified">
@@ -283,10 +339,22 @@ export default function EditorialStudioPage() {
               </div>
 
               <div className="editorial-draft-footer editorial-draft-field-wide">
-                <Button type="button" onClick={save}>Save draft</Button>
-                <span className="editorial-draft-hint">Saving does not publish. Management must review approved content separately.</span>
+                <Button type="button" onClick={save}>
+                  Save draft
+                </Button>
+                <span className="editorial-draft-hint">
+                  Saving does not publish. Management must review approved
+                  content separately.
+                </span>
               </div>
-              {message && <p className="editorial-draft-message editorial-draft-field-wide" role="status">{message}</p>}
+              {message && (
+                <p
+                  className="editorial-draft-message editorial-draft-field-wide"
+                  role="status"
+                >
+                  {message}
+                </p>
+              )}
             </div>
           </section>
           <section>

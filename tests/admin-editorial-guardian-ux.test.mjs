@@ -10,9 +10,15 @@ test("Editorial Studio fields are fully labeled and do not rely on inline legacy
   const styles = await read("apps/admin/app/globals.css");
   assert.match(page, /className="editorial-draft-form"/);
   assert.match(page, /htmlFor=\{`editorial-\$\{key\}`\}/);
-  assert.match(page, /className="editorial-draft-field editorial-draft-field-wide"/);
+  assert.match(
+    page,
+    /className="editorial-draft-field editorial-draft-field-wide"/,
+  );
   for (const label of [
-    "Content type", "Development note", "Summary", "Article paragraphs",
+    "Content type",
+    "Development note",
+    "Summary",
+    "Article paragraphs",
     "Facts and photo rights verified by KHLIM staff",
   ]) {
     assert.ok(page.includes(label), label);
@@ -25,7 +31,9 @@ test("Editorial Studio fields are fully labeled and do not rely on inline legacy
 
 test("Named guardian selection maps an existing active guardian to USER audience userId", async () => {
   const page = await read("apps/admin/app/notifications/page.tsx");
-  const backend = await read("apps/api/src/notifications/notifications.service.ts");
+  const backend = await read(
+    "apps/api/src/notifications/notifications.service.ts",
+  );
   assert.match(page, /adminApi\s*\.listGuardians\(\)/);
   assert.match(page, /item\.accountStatus === "ACTIVE"/);
   assert.match(page, /guardian\.displayName\.toLocaleLowerCase\(\)/);
@@ -33,6 +41,9 @@ test("Named guardian selection maps an existing active guardian to USER audience
   assert.match(page, /if \(audience === "USER"\) payload\.userId = target/);
   assert.match(page, /if \(audience === "USER" && !selectedGuardian\)/);
   assert.match(page, /in-app notification only/);
-  assert.match(backend, /requireOrganizationRecipient\(organizationId, userId\)/);
+  assert.match(
+    backend,
+    /requireOrganizationRecipient\(organizationId, userId\)/,
+  );
   assert.match(backend, /receipts: \{ create: recipients\.map/);
 });

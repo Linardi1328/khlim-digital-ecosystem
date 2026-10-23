@@ -74,40 +74,55 @@ export default function NotificationsAdminPage() {
   }, [load]);
   useEffect(() => {
     let active = true;
-    if (audience !== "USER" || isDemoMode || !isAuthenticated || !mfaSatisfied) {
+    if (
+      audience !== "USER" ||
+      isDemoMode ||
+      !isAuthenticated ||
+      !mfaSatisfied
+    ) {
       setGuardians([]);
-      return () => { active = false; };
+      return () => {
+        active = false;
+      };
     }
     setGuardianLoading(true);
     setGuardianError("");
     void adminApi
       .listGuardians()
       .then((rows) => {
-        if (active) setGuardians(rows.filter((item) => item.accountStatus === "ACTIVE"));
+        if (active)
+          setGuardians(rows.filter((item) => item.accountStatus === "ACTIVE"));
       })
       .catch(() => {
-        if (active) setGuardianError("Guardian lookup is unavailable. No recipient has been selected.");
+        if (active)
+          setGuardianError(
+            "Guardian lookup is unavailable. No recipient has been selected.",
+          );
       })
       .finally(() => {
         if (active) setGuardianLoading(false);
       });
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [audience, isDemoMode, isAuthenticated, mfaSatisfied]);
 
   const selectedGuardian = guardians.find((guardian) => guardian.id === target);
   const searchText = guardianQuery.trim().toLocaleLowerCase();
-  const guardianMatches = searchText.length >= 2 && !selectedGuardian
-    ? guardians
-        .filter((guardian) => guardian.displayName.toLocaleLowerCase().includes(searchText))
-        .slice(0, 8)
-    : [];
+  const guardianMatches =
+    searchText.length >= 2 && !selectedGuardian
+      ? guardians
+          .filter((guardian) =>
+            guardian.displayName.toLocaleLowerCase().includes(searchText),
+          )
+          .slice(0, 8)
+      : [];
   function maskedEmail(value: string) {
     const at = value.indexOf("@");
     if (at <= 0) return "Email not provided";
     const [name, domain] = [value.slice(0, at), value.slice(at + 1)];
     return `${name[0]}***@${domain}`;
   }
-
 
   async function send(event: React.FormEvent) {
     event.preventDefault();
@@ -189,7 +204,9 @@ export default function NotificationsAdminPage() {
             <h2>Compose a family notification</h2>
             <p>
               Choose the message category and recipient audience carefully.
-              Sending creates an in-app notification for the selected audience. Email delivery is not currently enabled, and there is no draft preview.
+              Sending creates an in-app notification for the selected audience.
+              Email delivery is not currently enabled, and there is no draft
+              preview.
             </p>
           </div>
           <div className="admin-form-grid">
@@ -239,12 +256,17 @@ export default function NotificationsAdminPage() {
                   value={target}
                   onChange={(e) => setTarget(e.target.value)}
                 />
-                <span className="admin-form-hint">Only guardians linked to the chosen programme will receive this notification.</span>
+                <span className="admin-form-hint">
+                  Only guardians linked to the chosen programme will receive
+                  this notification.
+                </span>
               </div>
             )}
             {audience === "USER" && (
               <div className="admin-form-field admin-form-field-wide">
-                <label htmlFor="notice-guardian-name">Find a guardian by name *</label>
+                <label htmlFor="notice-guardian-name">
+                  Find a guardian by name *
+                </label>
                 <input
                   id="notice-guardian-name"
                   type="search"
@@ -259,46 +281,84 @@ export default function NotificationsAdminPage() {
                   aria-describedby="notice-guardian-help"
                 />
                 <span id="notice-guardian-help" className="admin-form-hint">
-                  Select an existing active KHLIM guardian. The system uses their verified account ID to address the notification.
+                  Select an existing active KHLIM guardian. The system uses
+                  their verified account ID to address the notification.
                 </span>
-                {guardianLoading && <span role="status">Loading eligible guardians…</span>}
-                {guardianError && <p className="admin-status-message" role="alert">{guardianError}</p>}
+                {guardianLoading && (
+                  <span role="status">Loading eligible guardians…</span>
+                )}
+                {guardianError && (
+                  <p className="admin-status-message" role="alert">
+                    {guardianError}
+                  </p>
+                )}
                 {selectedGuardian && (
                   <div className="guardian-selection" role="status">
                     <div>
                       <strong>Selected: {selectedGuardian.displayName}</strong>
-                      <small>{maskedEmail(selectedGuardian.email)} · {selectedGuardian.managedAthletes.length} linked athlete(s)</small>
+                      <small>
+                        {maskedEmail(selectedGuardian.email)} ·{" "}
+                        {selectedGuardian.managedAthletes.length} linked
+                        athlete(s)
+                      </small>
                     </div>
-                    <button type="button" onClick={() => { setTarget(""); setGuardianQuery(""); }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTarget("");
+                        setGuardianQuery("");
+                      }}
+                    >
                       Change
                     </button>
                   </div>
                 )}
-                {!selectedGuardian && searchText.length >= 2 && !guardianLoading && !guardianError && (
-                  <div className="guardian-search-results" aria-label="Guardian search results">
-                    {guardianMatches.length > 0 ? (
-                      <ul>
-                        {guardianMatches.map((guardian) => (
-                          <li key={guardian.id}>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setTarget(guardian.id);
-                                setGuardianQuery(guardian.displayName);
-                              }}
-                            >
-                              <span><strong>{guardian.displayName}</strong><small>{maskedEmail(guardian.email)} · {guardian.managedAthletes.length} linked athlete(s)</small></span>
-                              <span className="guardian-search-select">Select</span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p role="status">No matching active guardians found. Try a different name.</p>
-                    )}
-                  </div>
-                )}
-                <p className="admin-form-hint">This sends an in-app notification only. Outbound email is not yet enabled.</p>
+                {!selectedGuardian &&
+                  searchText.length >= 2 &&
+                  !guardianLoading &&
+                  !guardianError && (
+                    <div
+                      className="guardian-search-results"
+                      aria-label="Guardian search results"
+                    >
+                      {guardianMatches.length > 0 ? (
+                        <ul>
+                          {guardianMatches.map((guardian) => (
+                            <li key={guardian.id}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setTarget(guardian.id);
+                                  setGuardianQuery(guardian.displayName);
+                                }}
+                              >
+                                <span>
+                                  <strong>{guardian.displayName}</strong>
+                                  <small>
+                                    {maskedEmail(guardian.email)} ·{" "}
+                                    {guardian.managedAthletes.length} linked
+                                    athlete(s)
+                                  </small>
+                                </span>
+                                <span className="guardian-search-select">
+                                  Select
+                                </span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p role="status">
+                          No matching active guardians found. Try a different
+                          name.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                <p className="admin-form-hint">
+                  This sends an in-app notification only. Outbound email is not
+                  yet enabled.
+                </p>
               </div>
             )}
             <div className="admin-form-field admin-form-field-wide">
@@ -334,8 +394,9 @@ export default function NotificationsAdminPage() {
             </div>
           </div>
           <small style={{ display: "block", marginTop: 13, color: "#64748b" }}>
-            Notifications are persistent, not emails, and require a verified staff account with MFA.
-            Use test recipients only in isolated non-production environments.
+            Notifications are persistent, not emails, and require a verified
+            staff account with MFA. Use test recipients only in isolated
+            non-production environments.
           </small>
         </form>
         <section style={{ marginTop: 24 }}>

@@ -462,7 +462,6 @@ a:focus-visible {
   }
 }
 
-
 /* Editorial Studio: explicit structure, not styled-JSX descendant selectors.
    Legacy helper-produced labels were rendering inline and overlapping controls. */
 .editorial-draft-panel {
@@ -584,11 +583,16 @@ a:focus-visible {
   line-height: 1.5;
 }
 @media (max-width: 640px) {
-  .editorial-draft-form { grid-template-columns: minmax(0, 1fr); }
-  .editorial-draft-panel { padding: 16px !important; }
-  .editorial-draft-action button { width: 100%; }
+  .editorial-draft-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .editorial-draft-panel {
+    padding: 16px !important;
+  }
+  .editorial-draft-action button {
+    width: 100%;
+  }
 }
-
 
 /* Specific guardian announcement recipient picker (existing guarded API). */
 .guardian-search-results {
@@ -637,20 +641,20 @@ a:focus-visible {
 .guardian-selection small {
   display: block;
   color: #64748b;
-  font-size: .77rem;
+  font-size: 0.77rem;
   line-height: 1.35;
 }
 .guardian-search-select {
   flex: 0 0 auto;
   color: #92400e;
   font-weight: 750;
-  font-size: .8rem;
+  font-size: 0.8rem;
 }
 .guardian-search-results > p {
   margin: 0;
   padding: 15px;
   color: #64748b;
-  font-size: .85rem;
+  font-size: 0.85rem;
 }
 .guardian-selection {
   display: flex;
@@ -673,5 +677,7 @@ a:focus-visible {
   cursor: pointer;
 }
 @media (max-width: 420px) {
-  .guardian-selection { flex-wrap: wrap; }
+  .guardian-selection {
+    flex-wrap: wrap;
+  }
 }
