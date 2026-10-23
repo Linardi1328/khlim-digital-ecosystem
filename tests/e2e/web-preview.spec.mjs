@@ -285,6 +285,14 @@ test("public navigation highlights its current page even with tracking queries",
     (element) => getComputedStyle(element).transitionDuration,
   );
   expect(transition.split(",").every((value) => parseFloat(value) === 0)).toBe(true);
+
+  await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
+  await expect(visibleLocaleSwitcher(page)).toBeVisible();
+  await current.focus();
+  const forcedOutline = await current.evaluate(
+    (element) => getComputedStyle(element).outlineStyle,
+  );
+  expect(forcedOutline).not.toBe("none");
 });
 
 test("login page exposes branded authentication controls", async ({ page }) => {
