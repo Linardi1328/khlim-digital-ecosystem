@@ -11,10 +11,8 @@ test("Public header has active, accessible navigation and a vector mobile menu",
     "apps/web/components/layout/public-header.module.css",
   );
   assert.match(header, /usePathname/);
-  assert.match(
-    header,
-    /aria-current=\{pathname === link\.href\.split\("\?"\)\[0\]/,
-  );
+  assert.match(header, /aria-current=/);
+  assert.match(header, /pathname === link\.href\.split\("\?"\)\[0\]/);
   assert.match(header, /<svg[\s\S]*?<path d="M4 6h16M4 12h16M4 18h16" \/>/);
   assert.doesNotMatch(header, />\s*☰\s*</);
   assert.match(styles, /\.navLinkActive/);
