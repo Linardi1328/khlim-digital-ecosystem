@@ -24,7 +24,10 @@ test("Admin has matching vector chevrons and no font-dependent dropdown glyph", 
 test("Admin inputs keep label and keyboard focus affordances", async () => {
   const css = await read("apps/admin/app/globals.css");
   const notifications = await read("apps/admin/app/notifications/page.tsx");
-  assert.match(css, /\.admin-page-main :is\(input, select, textarea\):focus-visible/);
+  assert.match(
+    css,
+    /\.admin-page-main :is\(input, select, textarea\):focus-visible/,
+  );
   assert.match(notifications, /htmlFor="notice-audience"/);
   assert.match(notifications, /htmlFor="notice-target"/);
   assert.match(notifications, /id="notice-target"/);
