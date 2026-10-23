@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { ApiError } from "@khlim/api-client";
 import { AdminShell } from "../../components/layout/AdminShell";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { DataTable, type Column } from "../../components/ui/DataTable";
@@ -131,10 +132,12 @@ export default function OfferingsPage() {
       .catch((error: unknown) => {
         if (active) {
           setRosterError(
-            getErrorMessage(
-              error,
-              "Could not load the enrolled player roster.",
-            ),
+            error instanceof ApiError && error.status === 404
+              ? "Could not load the enrolled player roster."
+              : getErrorMessage(
+                  error,
+                  "Could not load the enrolled player roster.",
+                ),
           );
         }
       })
