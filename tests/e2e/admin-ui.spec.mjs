@@ -63,7 +63,7 @@ test("desktop nine-section navigation reaches every operations tab", async ({
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
   const sidebar = page.getByRole("navigation", { name: "Admin sections" });
-  await expect(sidebar.getByRole("link")).toHaveCount(9);
+  await expect(sidebar.locator(".admin-nav-group")).toHaveCount(9);
 
   const sections = [
     ["Overview", "Dashboard", "/"],
@@ -90,12 +90,14 @@ test("desktop nine-section navigation reaches every operations tab", async ({
   ];
 
   for (const [section, tab, path] of sections) {
-    await sidebar.getByRole("link", { name: section, exact: true }).click();
-    if (path !== "/payments" && path !== "/notifications") {
-      await page
-        .getByRole("navigation", { name: section + " pages" })
-        .getByRole("link", { name: tab, exact: true })
-        .click();
+    const disclosure = sidebar.getByRole("button", { name: section, exact: true });
+    if (await disclosure.count()) {
+      if ((await disclosure.getAttribute("aria-expanded")) !== "true") {
+        await disclosure.click();
+      }
+      await sidebar.getByRole("link", { name: tab, exact: true }).click();
+    } else {
+      await sidebar.getByRole("link", { name: section, exact: true }).click();
     }
     await expect(page).toHaveURL(new RegExp(path === "/" ? "/$" : path + "$"));
     await expect(page.getByLabel("Help for " + tab)).toBeVisible();
@@ -110,15 +112,9 @@ test("mobile drawer opens a section and its related tabs", async ({
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Open navigation menu" }).click();
   await expect(page.getByText("Operations Menu")).toBeVisible();
-  await page
-    .getByRole("navigation", { name: "Admin sections" })
-    .getByRole("link", { name: "Academy Setup", exact: true })
-    .click();
-  await expect(page).toHaveURL(/\/programmes$/);
-  await page
-    .getByRole("navigation", { name: "Academy Setup pages" })
-    .getByRole("link", { name: "Offerings", exact: true })
-    .click();
+  const mobileSidebar = page.getByRole("navigation", { name: "Admin sections" });
+  await mobileSidebar.getByRole("button", { name: "Academy Setup" }).click();
+  await mobileSidebar.getByRole("link", { name: "Offerings", exact: true }).click();
   await expect(page).toHaveURL(/\/offerings$/);
 });
 
@@ -190,7 +186,8 @@ test("coach work view hides privileged workspaces and tabs", async ({
     ).toHaveCount(0);
   }
   await expect(page.getByText("Restricted Financial Ledger")).toBeVisible();
-  await sidebar.getByRole("link", { name: "Overview", exact: true }).click();
+  await sidebar.getByRole("button", { name: "Overview", exact: true }).click();
+  await sidebar.getByRole("link", { name: "Dashboard", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByText("Finance roles only").first()).toBeVisible();
   await expect(
