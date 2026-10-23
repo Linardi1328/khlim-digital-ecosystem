@@ -142,15 +142,25 @@ export default function EditorialStudioPage() {
       setMessage(error instanceof Error ? error.message : String(error));
     }
   }
-  const field = (label: string, key: keyof typeof form, placeholder = "") => (
-    <label>
-      {label}
+  const field = (
+    label: string,
+    key: keyof typeof form,
+    placeholder = "",
+    wide = false,
+  ) => (
+    <div
+      className={wide ? "editorial-draft-field editorial-draft-field-wide" : "editorial-draft-field"}
+      key={key}
+    >
+      <label htmlFor={`editorial-${key}`}>{label}</label>
       <input
+        id={`editorial-${key}`}
+        type="text"
         value={String(form[key])}
         placeholder={placeholder}
         onChange={(e) => set(key, e.target.value)}
       />
-    </label>
+    </div>
   );
   return (
     <AdminShell>
@@ -180,75 +190,104 @@ export default function EditorialStudioPage() {
         </div>
 
         <div className="editorial-grid">
-          <section className="editorial-panel">
-            <h2>New editorial draft</h2>
-            <label>
-              Content type
-              <select
-                value={form.type}
-                onChange={(e) => set("type", e.target.value)}
-              >
-                <option value="PLAYER_SPOTLIGHT">Player Spotlight</option>
-                <option value="ACHIEVEMENT">Club Achievement</option>
-              </select>
-            </label>
-            {form.type === "PLAYER_SPOTLIGHT" ? (
-              <>
-                {field("Player name", "playerName")}
-                {field("URL slug", "slug", "player-name-event")}
-                {field(
-                  "Achievement",
-                  "achievement",
-                  "Gold medal / selection / milestone",
-                )}
-                {field("Achievement date", "achievedOnLabel")}
-                <label>
-                  Development note
-                  <textarea
-                    value={form.developmentNote}
-                    onChange={(e) => set("developmentNote", e.target.value)}
-                  />
-                </label>
-              </>
-            ) : (
-              field("Year / season label", "yearLabel")
-            )}
-            {field("Event name", "eventName")}
-            {form.type === "PLAYER_SPOTLIGHT" && (
-              <Button variant="outline" onClick={generateDraft}>
-                Generate AI-assisted draft
-              </Button>
-            )}
-            {field("Headline / title", "title")}
-            <label>
-              Summary
-              <textarea
-                value={form.summary}
-                onChange={(e) => set("summary", e.target.value)}
-              />
-            </label>
-            {form.type === "PLAYER_SPOTLIGHT" && (
-              <label>
-                Article paragraphs
+          <section className="editorial-panel editorial-draft-panel" aria-labelledby="editorial-draft-heading">
+            <div className="editorial-draft-heading">
+              <h2 id="editorial-draft-heading">New editorial draft</h2>
+              <p>Start with confirmed facts. KHLIM staff must review every AI-assisted suggestion before saving.</p>
+            </div>
+            <div className="editorial-draft-form">
+              <div className="editorial-draft-field editorial-draft-field-wide">
+                <label htmlFor="editorial-content-type">Content type</label>
+                <select
+                  id="editorial-content-type"
+                  value={form.type}
+                  onChange={(e) => set("type", e.target.value)}
+                >
+                  <option value="PLAYER_SPOTLIGHT">Player Spotlight</option>
+                  <option value="ACHIEVEMENT">Club Achievement</option>
+                </select>
+              </div>
+
+              {form.type === "PLAYER_SPOTLIGHT" ? (
+                <>
+                  {field("Player name", "playerName", "Name approved for publication")}
+                  {field("URL slug", "slug", "e.g. player-name-event")}
+                  {field("Achievement", "achievement", "e.g. Gold medal or team selection", true)}
+                  {field("Achievement date", "achievedOnLabel", "e.g. 23 October 2026", true)}
+                  <div className="editorial-draft-field editorial-draft-field-wide">
+                    <label htmlFor="editorial-development-note">Development note</label>
+                    <textarea
+                      id="editorial-development-note"
+                      rows={4}
+                      placeholder="Verified milestones and context for the article."
+                      value={form.developmentNote}
+                      onChange={(e) => set("developmentNote", e.target.value)}
+                    />
+                    <span className="editorial-draft-hint">Use only staff-approved facts; avoid private details about a minor.</span>
+                  </div>
+                </>
+              ) : (
+                field("Year / season", "yearLabel", "e.g. 2026 Season", true)
+              )}
+
+              {field("Event name", "eventName", "Name of competition or club event", true)}
+
+              {form.type === "PLAYER_SPOTLIGHT" && (
+                <div className="editorial-draft-action editorial-draft-field-wide">
+                  <Button type="button" variant="outline" onClick={generateDraft}>
+                    Generate AI-assisted draft
+                  </Button>
+                  <span className="editorial-draft-hint">Fills the headline, summary and article from the supplied facts. Review the output before saving.</span>
+                </div>
+              )}
+
+              {field("Headline / title", "title", "Public-facing article title", true)}
+
+              <div className="editorial-draft-field editorial-draft-field-wide">
+                <label htmlFor="editorial-summary">Summary</label>
                 <textarea
-                  rows={10}
-                  value={form.articleParagraphs}
-                  onChange={(e) => set("articleParagraphs", e.target.value)}
+                  id="editorial-summary"
+                  rows={4}
+                  placeholder="A short overview suitable for the public website."
+                  value={form.summary}
+                  onChange={(e) => set("summary", e.target.value)}
                 />
-              </label>
-            )}
-            {field("Photo description", "photoLabel")}
-            {field("Approved photo URL (optional)", "imageUrl")}
-            <label className="check">
-              <input
-                type="checkbox"
-                checked={form.factsVerified}
-                onChange={(e) => set("factsVerified", e.target.checked)}
-              />{" "}
-              Facts and photo rights verified by KHLIM staff
-            </label>
-            <Button onClick={save}>Save draft</Button>
-            {message && <p role="status">{message}</p>}
+              </div>
+
+              {form.type === "PLAYER_SPOTLIGHT" && (
+                <div className="editorial-draft-field editorial-draft-field-wide">
+                  <label htmlFor="editorial-article">Article paragraphs</label>
+                  <textarea
+                    id="editorial-article"
+                    rows={8}
+                    placeholder="Use blank lines to separate paragraphs."
+                    value={form.articleParagraphs}
+                    onChange={(e) => set("articleParagraphs", e.target.value)}
+                  />
+                </div>
+              )}
+
+              {field("Photo description", "photoLabel", "Describe the approved photo", true)}
+              {field("Approved photo URL (optional)", "imageUrl", "https://...", true)}
+
+              <div className="editorial-draft-verify editorial-draft-field-wide">
+                <label htmlFor="editorial-facts-verified">
+                  <input
+                    id="editorial-facts-verified"
+                    type="checkbox"
+                    checked={form.factsVerified}
+                    onChange={(e) => set("factsVerified", e.target.checked)}
+                  />
+                  <span>Facts and photo rights verified by KHLIM staff</span>
+                </label>
+              </div>
+
+              <div className="editorial-draft-footer editorial-draft-field-wide">
+                <Button type="button" onClick={save}>Save draft</Button>
+                <span className="editorial-draft-hint">Saving does not publish. Management must review approved content separately.</span>
+              </div>
+              {message && <p className="editorial-draft-message editorial-draft-field-wide" role="status">{message}</p>}
+            </div>
           </section>
           <section>
             <h2>Saved content</h2>
@@ -331,7 +370,7 @@ export default function EditorialStudioPage() {
           }
           .editorial-grid {
             display: grid;
-            grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+            grid-template-columns: minmax(0, 1fr);
             gap: 24px;
           }
           .editorial-panel,
@@ -365,37 +404,10 @@ export default function EditorialStudioPage() {
             font-size: 0.8125rem;
             line-height: 1.45;
           }
-          label {
-            display: block;
-            font-size: 0.85rem;
-            font-weight: 650;
-            color: #334155;
-            margin: 12px 0;
-          }
-          input,
-          textarea,
-          select {
-            box-sizing: border-box;
-            width: 100%;
-            margin-top: 6px;
-            padding: 10px;
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
-            font: inherit;
-          }
-          input,
-          select {
-            min-height: 44px;
-          }
-          .check {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-          }
-          .check input {
-            width: auto;
-            min-height: auto;
-            margin: 0;
+          @media (min-width: 1600px) {
+            .editorial-grid {
+              grid-template-columns: minmax(0, 1.55fr) minmax(310px, 0.65fr);
+            }
           }
           @media (max-width: 900px) {
             .moderation-rule,
