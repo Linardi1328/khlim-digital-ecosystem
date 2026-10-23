@@ -27,7 +27,7 @@ test("Named guardian selection maps an existing active guardian to USER audience
   const page = await read("apps/admin/app/notifications/page.tsx");
   const backend = await read("apps/api/src/notifications/notifications.service.ts");
   assert.match(page, /adminApi\s*\.listGuardians\(\)/);
-  assert.match(page, /guardian\.accountStatus === "ACTIVE"/);
+  assert.match(page, /item\.accountStatus === "ACTIVE"/);
   assert.match(page, /guardian\.displayName\.toLocaleLowerCase\(\)/);
   assert.match(page, /setTarget\(guardian\.id\)/);
   assert.match(page, /if \(audience === "USER"\) payload\.userId = target/);
