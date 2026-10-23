@@ -1,5 +1,4 @@
-import { ApiError } from "@khlim/api-client";
-import { adminApi, adminApiClient } from "./admin-api";
+import { adminApiClient } from "./admin-api";
 import { ADMIN_DEMO_MODE } from "./demo-mode";
 
 export type AttendanceMark = "PRESENT" | "LATE" | "ABSENT" | "EXCUSED";
@@ -41,42 +40,14 @@ function requireLiveStaffMode() {
 
 export async function getOfferingRoster(
   offeringId: string,
-  offeringName = "Selected offering",
-  capacity = 0,
 ): Promise<OfferingRoster> {
   requireLiveStaffMode();
-  try {
-    const roster = await adminApiClient.get<OfferingRoster>(
-      `/admin/operations-data/offerings/${encodeURIComponent(offeringId)}/roster`,
-    );
-    return { ...roster, source: "roster-api" };
-  } catch (error) {
-    // Compatibility for this Preview only: current production API has an
-    // authorized organization-scoped memberships read endpoint, but not the
-    // new offering-specific read model yet. Never bypass auth/role failures.
-    if (!(error instanceof ApiError) || error.status !== 404) throw error;
-
-    const memberships = (await adminApi.listMemberships()).filter(
-      (membership) =>
-        membership.programmeOfferingId === offeringId &&
-        ["ACTIVE", "PENDING", "SUSPENDED"].includes(membership.status),
-    );
-    return {
-      offeringId,
-      offeringName,
-      capacity,
-      source: "membership-read-only",
-      members: memberships.slice(0, 200).map((membership) => ({
-        membershipId: membership.id,
-        athleteId: membership.athleteId,
-        athleteName: membership.athleteName,
-        membershipStatus: membership.status as
-          "ACTIVE" | "PENDING" | "SUSPENDED",
-        membershipPlanName: membership.planName,
-      })),
-      truncated: memberships.length > 200,
-    };
-  }
+  // The API's 404 covers missing or cross-organization offerings as well as
+  // absent legacy routes. Preserve it instead of returning a false empty roster.
+  const roster = await adminApiClient.get<OfferingRoster>(
+    `/admin/operations-data/offerings/${encodeURIComponent(offeringId)}/roster`,
+  );
+  return { ...roster, source: "roster-api" };
 }
 
 export function getSessionRoster(sessionId: string): Promise<SessionRoster> {

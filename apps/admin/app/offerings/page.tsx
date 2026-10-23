@@ -124,7 +124,7 @@ export default function OfferingsPage() {
       };
     }
     setRosterBusy(true);
-    void getOfferingRoster(offering.id, offering.name, offering.capacity)
+    void getOfferingRoster(offering.id)
       .then((result) => {
         if (active) setRoster(result);
       })
