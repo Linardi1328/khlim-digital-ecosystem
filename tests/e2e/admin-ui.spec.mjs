@@ -124,7 +124,7 @@ test("desktop nine-section navigation reaches every operations tab", async ({
       await sidebar.getByRole("link", { name: section, exact: true }).click();
     }
     await expect(page).toHaveURL(new RegExp(path === "/" ? "/$" : path + "$"));
-    await expect(page.getByLabel("Help for " + tab)).toBeVisible();
+    await expect(page.getByText("How to use " + tab)).toBeVisible();
   }
 });
 
@@ -211,6 +211,9 @@ test("coach work view hides privileged workspaces and tabs", async ({
   ]) {
     await expect(
       sidebar.getByRole("link", { name: restrictedSection, exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      sidebar.getByRole("button", { name: restrictedSection, exact: true }),
     ).toHaveCount(0);
   }
   await expect(page.getByText("Restricted Financial Ledger")).toBeVisible();

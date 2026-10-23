@@ -17,6 +17,8 @@ test("Admin has matching vector chevrons and no font-dependent dropdown glyph", 
   assert.match(css, /\.admin-page-main select\s*\{/);
   assert.match(css, /background-repeat: no-repeat/);
   assert.match(css, /@media \(forced-colors: active\)/);
+  assert.match(css, /appearance: auto !important/);
+  assert.match(css, /background-image: none !important/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(css, /\.admin-nav-section-button:focus-visible/);
 });

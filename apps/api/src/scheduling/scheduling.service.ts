@@ -133,7 +133,11 @@ export class SchedulingService {
     input: AttendanceInput,
   ) {
     const session = await this.requireSession(organizationId, id);
-    const athleteId = input.athleteId?.trim();
+    if (!input || typeof input !== "object") {
+      throw new BadRequestException("Attendance payload must be an object");
+    }
+    const athleteId =
+      typeof input.athleteId === "string" ? input.athleteId.trim() : "";
     if (
       !athleteId ||
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
@@ -163,6 +167,9 @@ export class SchedulingService {
       throw new BadRequestException(
         "Athlete does not hold an active membership in this session's offering",
       );
+    }
+    if (input.notes != null && typeof input.notes !== "string") {
+      throw new BadRequestException("Attendance notes must be text");
     }
     const notes = input.notes?.trim() || null;
     if (notes && notes.length > 1000) {

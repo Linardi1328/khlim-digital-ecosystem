@@ -15,7 +15,7 @@ const { AdminOperationsDataService } =
   await import("../apps/api/dist/admin/admin-operations-data.service.js");
 const { AdminOperationsDataController } =
   await import("../apps/api/dist/admin/admin-operations-data.controller.js");
-const { MFA_REQUIRED_KEY } =
+const { MFA_REQUIRED_KEY, REQUIRED_ROLES_KEY } =
   await import("../apps/api/dist/auth/auth.constants.js");
 
 const ORG = "00000000-0000-4000-8000-000000000001";
@@ -179,4 +179,38 @@ test("roster and attendance endpoints require MFA", () => {
     Reflect.getMetadata(MFA_REQUIRED_KEY, AdminOperationsDataController),
     true,
   );
+});
+
+test("sensitive roster and attendance routes exclude coaches and event staff", () => {
+  const approved = ["SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN"];
+  for (const method of ["roster", "attendance", "markAttendance"]) {
+    const roles = Reflect.getMetadata(
+      REQUIRED_ROLES_KEY,
+      SchedulingController.prototype[method],
+    );
+    assert.deepEqual(roles, approved, method);
+    assert.equal(roles.includes("COACH"), false, method);
+    assert.equal(roles.includes("EVENT_STAFF"), false, method);
+  }
+  assert.deepEqual(
+    Reflect.getMetadata(
+      REQUIRED_ROLES_KEY,
+      AdminOperationsDataController.prototype.getOfferingRoster,
+    ),
+    approved,
+  );
+});
+
+test("malformed attendance payloads fail with HTTP 400 validation errors", async () => {
+  const { sut } = service();
+  for (const payload of [
+    { athleteId: 123, status: "PRESENT" },
+    { athleteId: ATHLETE, status: "PRESENT", notes: 5 },
+    null,
+  ]) {
+    await assert.rejects(
+      sut.markAttendance(ORG, SESSION, payload),
+      (error) => error?.status === 400,
+    );
+  }
 });
