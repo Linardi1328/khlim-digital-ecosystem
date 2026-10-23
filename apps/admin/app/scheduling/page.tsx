@@ -531,7 +531,9 @@ export default function SchedulingPage() {
                         <select
                           aria-label={`Attendance for ${player.athleteName}`}
                           value={player.attendanceStatus}
-                          disabled={Boolean(savingAthlete) || selectedSessionCancelled}
+                          disabled={
+                            Boolean(savingAthlete) || selectedSessionCancelled
+                          }
                           onChange={(e) =>
                             void changeAttendance(
                               player.athleteId,
