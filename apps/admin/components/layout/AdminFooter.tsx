@@ -5,7 +5,7 @@ export function AdminFooter({ compact = false }: { compact?: boolean }) {
     <footer
       className={`admin-footer${compact ? " admin-footer--access" : ""}`}
       aria-label="KHLIM Admin footer"
-      role="contentinfo"
+      role={compact ? undefined : "contentinfo"}
     >
       <div className="admin-footer-inner">
         <div className="admin-footer-brand">

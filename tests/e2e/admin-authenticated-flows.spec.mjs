@@ -83,7 +83,7 @@ test("staff login and MFA show readable KHS branding on mobile", async ({
   expect(bounds).not.toBeNull();
   expect(bounds.width).toBeLessThanOrEqual(370);
   await expect(
-    page.getByRole("contentinfo", { name: "KHLIM Admin footer" }),
+    page.locator('footer.admin-footer--access[aria-label="KHLIM Admin footer"]'),
   ).toBeVisible();
 
   await page.getByLabel("Staff email").fill("qa@example.test");
@@ -97,7 +97,7 @@ test("staff login and MFA show readable KHS branding on mobile", async ({
   ).toBeVisible();
   await expect(page.locator(".admin-access-brand img")).toBeVisible();
   await expect(
-    page.getByRole("contentinfo", { name: "KHLIM Admin footer" }),
+    page.locator('footer.admin-footer--access[aria-label="KHLIM Admin footer"]'),
   ).toBeVisible();
   const hasOverflow = await page.evaluate(
     () =>
