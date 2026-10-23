@@ -212,7 +212,7 @@ export default function NotificationsAdminPage() {
     }
     if (audience === "OFFERING") {
       const approved = window.confirm(
-        `Send this in-app notification to the guardians linked to "${selectedOffering?.name}"? This action cannot be undone.`,
+        `Send this in-app notification to family accounts linked to "${selectedOffering?.name}"? This action cannot be undone.`,
       );
       if (!approved) return;
     }
@@ -370,8 +370,8 @@ export default function NotificationsAdminPage() {
                 </select>
                 <span id="notice-offering-help" className="admin-form-hint">
                   Choose an OPEN (published) offering. Its ID is selected automatically.
-                  The server resolves linked guardians from active or pending memberships
-                  and removes duplicate recipients before creating the notification.
+                  The server resolves linked guardians and membership purchasers from
+                  active or pending memberships, then removes duplicate recipients.
                 </span>
                 {offeringsLoading && (
                   <span role="status">Loading published programme offerings…</span>
@@ -415,7 +415,7 @@ export default function NotificationsAdminPage() {
                 )}
                 <span className="admin-form-hint">
                   Recipient count is determined at send time. Enrolled players are not
-                  the same as unique guardians. This sends an in-app notice, not email.
+                  the same as unique recipients. This sends an in-app notice, not email.
                 </span>
               </div>
             )}
