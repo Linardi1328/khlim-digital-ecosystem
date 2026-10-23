@@ -32,3 +32,14 @@ test("Admin inputs keep label and keyboard focus affordances", async () => {
   assert.match(notifications, /htmlFor="notice-target"/);
   assert.match(notifications, /id="notice-target"/);
 });
+
+test("Staff sign-in and MFA have centered, bounded, responsive card layouts", async () => {
+  const css = await read("apps/admin/app/globals.css");
+  const shell = await read("apps/admin/components/layout/AdminShell.tsx");
+  assert.match(shell, /className="admin-access-gate"/);
+  assert.match(shell, /className="admin-access-card"/);
+  assert.match(css, /\.admin-access-gate\s*\{[^}]*place-items: center;/s);
+  assert.match(css, /\.admin-access-card\s*\{[^}]*max-width: 480px;/s);
+  assert.match(css, /@media \(max-width: 480px\)\s*\{/);
+  assert.match(css, /\.admin-access-card \[role="alert"\]/);
+});
