@@ -257,12 +257,9 @@ function PublicHeaderView({
                 display: "flex",
                 alignItems: "center",
                 fontSize: "1.125rem",
-                fontWeight:
-                  pathname === link.href.split("?")[0] ? 750 : 600,
+                fontWeight: pathname === link.href.split("?")[0] ? 750 : 600,
                 color:
-                  pathname === link.href.split("?")[0]
-                    ? "#92400e"
-                    : "#18181B",
+                  pathname === link.href.split("?")[0] ? "#92400e" : "#18181B",
                 textDecoration: "none",
                 padding: "8px 0",
                 borderBottom: "1px solid #F4F4F5",
