@@ -124,7 +124,7 @@ export default function OfferingsPage() {
       };
     }
     setRosterBusy(true);
-    void getOfferingRoster(id)
+    void getOfferingRoster(id, selectedOffering.name, selectedOffering.capacity)
       .then((result) => {
         if (active) setRoster(result);
       })
@@ -144,7 +144,7 @@ export default function OfferingsPage() {
     return () => {
       active = false;
     };
-  }, [selectedOffering?.id]);
+  }, [selectedOffering?.id, selectedOffering?.name, selectedOffering?.capacity]);
 
   const filtered = offerings.filter((offering) => {
     const query = search.trim().toLowerCase();
@@ -505,6 +505,12 @@ export default function OfferingsPage() {
                 {rosterError && <p role="alert">{rosterError}</p>}
                 {roster && (
                   <>
+                    {roster.source === "membership-read-only" && (
+                      <p style={{ color: "#52525b", fontSize: 12 }}>
+                        Read-only roster from existing authorized membership records.
+                        Attendance booking is not active in this Preview.
+                      </p>
+                    )}
                     {roster.truncated && (
                       <p role="status">
                         Showing the first 200 memberships. Contact management
