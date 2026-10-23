@@ -236,7 +236,7 @@ export default function SchedulingPage() {
               <Button type="submit" variant="primary">Create training session</Button>
             </div>
           </div>
-        </form> </form>
+        </form>
 
         <div style={{ display: "grid", gap: 12, marginTop: 18 }}>
           {sessions.length === 0 ? (
