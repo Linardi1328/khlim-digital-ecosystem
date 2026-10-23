@@ -111,7 +111,9 @@ export default function SchedulingPage() {
     event.preventDefault();
     if (creatingRef.current) return;
     if (!isAuthenticated || !mfaSatisfied || isDemoMode) {
-      setMessage("Staff authentication and MFA are required to create sessions.");
+      setMessage(
+        "Staff authentication and MFA are required to create sessions.",
+      );
       return;
     }
     creatingRef.current = true;
@@ -392,7 +394,8 @@ export default function SchedulingPage() {
                         timeZone: "Asia/Kuala_Lumpur",
                         dateStyle: "medium",
                         timeStyle: "short",
-                      })} —{" "}
+                      })}{" "}
+                      —{" "}
                       {new Date(session.endsAt).toLocaleTimeString("en-MY", {
                         timeZone: "Asia/Kuala_Lumpur",
                         hour: "2-digit",
@@ -471,59 +474,67 @@ export default function SchedulingPage() {
               Unmarked players are not automatically counted absent.
             </p>
             {rosterBusy && <p role="status">Loading enrolled players…</p>}
-            {!rosterBusy && roster?.sessionId === selected.id && roster.players.length === 0 && (
-              <p role="status">
-                No eligible players. Check the session's offering and active
-                memberships; staff cannot add arbitrary attendee names.
-              </p>
-            )}
-            {!rosterBusy && roster?.sessionId === selected.id && roster.players.length > 0 && (
-              <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-                {roster.players.map((player) => (
-                  <div
-                    key={player.athleteId}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      flexWrap: "wrap",
-                      gap: 12,
-                      padding: "10px 0",
-                      borderBottom: "1px solid #3f3f46",
-                    }}
-                  >
-                    <strong>{player.athleteName}</strong>
-                    <label
-                      style={{ display: "flex", alignItems: "center", gap: 8 }}
+            {!rosterBusy &&
+              roster?.sessionId === selected.id &&
+              roster.players.length === 0 && (
+                <p role="status">
+                  No eligible players. Check the session's offering and active
+                  memberships; staff cannot add arbitrary attendee names.
+                </p>
+              )}
+            {!rosterBusy &&
+              roster?.sessionId === selected.id &&
+              roster.players.length > 0 && (
+                <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+                  {roster.players.map((player) => (
+                    <div
+                      key={player.athleteId}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: 12,
+                        padding: "10px 0",
+                        borderBottom: "1px solid #3f3f46",
+                      }}
                     >
-                      <span style={{ fontSize: 12 }}>Attendance</span>
-                      <select
-                        aria-label={`Attendance for ${player.athleteName}`}
-                        value={player.attendanceStatus}
-                        disabled={
-                          Boolean(savingAthlete) ||
-                          selected.status === "CANCELLED"
-                        }
-                        onChange={(e) =>
-                          void changeAttendance(
-                            player.athleteId,
-                            e.target.value as AttendanceMark,
-                          )
-                        }
+                      <strong>{player.athleteName}</strong>
+                      <label
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
                       >
-                        <option value="UNMARKED" disabled>
-                          Not marked
-                        </option>
-                        <option value="PRESENT">Present</option>
-                        <option value="LATE">Late</option>
-                        <option value="ABSENT">Absent</option>
-                        <option value="EXCUSED">Excused</option>
-                      </select>
-                    </label>
-                  </div>
-                ))}
-              </div>
-            )}
+                        <span style={{ fontSize: 12 }}>Attendance</span>
+                        <select
+                          aria-label={`Attendance for ${player.athleteName}`}
+                          value={player.attendanceStatus}
+                          disabled={
+                            Boolean(savingAthlete) ||
+                            selected.status === "CANCELLED"
+                          }
+                          onChange={(e) =>
+                            void changeAttendance(
+                              player.athleteId,
+                              e.target.value as AttendanceMark,
+                            )
+                          }
+                        >
+                          <option value="UNMARKED" disabled>
+                            Not marked
+                          </option>
+                          <option value="PRESENT">Present</option>
+                          <option value="LATE">Late</option>
+                          <option value="ABSENT">Absent</option>
+                          <option value="EXCUSED">Excused</option>
+                        </select>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
             <p style={{ color: "#d4d4d8", fontSize: 12 }}>
               Make-up bookings are not yet enabled. Record an excused absence
               and ask Academy Management to review a replacement session.

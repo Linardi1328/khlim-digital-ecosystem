@@ -342,7 +342,6 @@ test(
         },
       );
 
-
       await t.test(
         "roster and attendance endpoints reject coaches, event staff, and low-MFA academy staff",
         async () => {
@@ -361,7 +360,11 @@ test(
             });
             assertError(lowAal, 403, /MFA assurance level 2 is required/);
           }
-          for (const token of ["target-aal2", "event-staff-aal2", "academy-aal1"]) {
+          for (const token of [
+            "target-aal2",
+            "event-staff-aal2",
+            "academy-aal1",
+          ]) {
             const response = await jsonRequest(
               baseUrl,
               `/v1/admin/scheduling/sessions/${sessionId}/attendance`,

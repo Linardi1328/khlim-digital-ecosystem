@@ -248,7 +248,9 @@ export default function NotificationsAdminPage() {
           typeof errorPayload.message === "string"
             ? errorPayload.message
             : null;
-        setMessage(serverMessage || `Could not send notification (${response.status}).`);
+        setMessage(
+          serverMessage || `Could not send notification (${response.status}).`,
+        );
         return;
       }
       const created = await response.json();

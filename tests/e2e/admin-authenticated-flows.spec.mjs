@@ -94,7 +94,9 @@ test("live-mode notification sender is single-flight and reports real API failur
   await page.locator("#notice-audience").selectOption("OFFERING");
   await page.locator("#notice-target").selectOption("offering-a");
   await page.locator("#notice-title").fill("Synthetic court change");
-  await page.locator("#notice-message").fill("Synthetic message, not delivered.");
+  await page
+    .locator("#notice-message")
+    .fill("Synthetic message, not delivered.");
 
   page.once("dialog", (dialog) => dialog.dismiss());
   await page.getByRole("button", { name: "Send in-app notification" }).click();
@@ -106,10 +108,17 @@ test("live-mode notification sender is single-flight and reports real API failur
   await page.locator("#notice-target").selectOption("offering-a");
 
   page.once("dialog", (dialog) => dialog.accept());
-  await page.locator("form").first().evaluate((form) => {
-    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-  });
+  await page
+    .locator("form")
+    .first()
+    .evaluate((form) => {
+      form.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      );
+      form.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      );
+    });
   await expect.poll(() => sends.length).toBe(1);
   expect(sends[0].audience).toBe("OFFERING");
   expect(sends[0].programmeOfferingId).toBe("offering-a");
@@ -120,7 +129,9 @@ test("live-mode notification sender is single-flight and reports real API failur
   await page.locator("#notice-message").fill("Synthetic failure message.");
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Send in-app notification" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Recipient is not accessible" })).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Recipient is not accessible" }),
+  ).toBeVisible();
 });
 
 test("AAL1 staff cannot access notification composer", async ({ page }) => {
@@ -153,11 +164,16 @@ test("late roster A cannot overwrite B, and attendance uses canonical athlete ID
   }));
   let resolveA;
   let sawLateA = false;
-  const delayedA = new Promise((resolve) => { resolveA = resolve; });
+  const delayedA = new Promise((resolve) => {
+    resolveA = resolve;
+  });
   const writes = [];
   let attendance = "UNMARKED";
   await installSyntheticStaff(page, async (route, path) => {
-    if (path === "/v1/admin/scheduling/sessions" && route.request().method() === "GET") {
+    if (
+      path === "/v1/admin/scheduling/sessions" &&
+      route.request().method() === "GET"
+    ) {
       return json(route, sessions);
     }
     if (path === "/v1/admin/operations-data/offerings") return json(route, []);
@@ -167,17 +183,32 @@ test("late roster A cannot overwrite B, and attendance uses canonical athlete ID
       return json(route, {
         sessionId: sessionA,
         programmeOfferingId: "offering-a",
-        players: [{ athleteId: "athlete-a", athleteName: "Player A", attendanceStatus: "UNMARKED" }],
+        players: [
+          {
+            athleteId: "athlete-a",
+            athleteName: "Player A",
+            attendanceStatus: "UNMARKED",
+          },
+        ],
       });
     }
     if (path.endsWith(`/${sessionB}/roster`)) {
       return json(route, {
         sessionId: sessionB,
         programmeOfferingId: "offering-a",
-        players: [{ athleteId: athleteB, athleteName: "Player B", attendanceStatus: attendance }],
+        players: [
+          {
+            athleteId: athleteB,
+            athleteName: "Player B",
+            attendanceStatus: attendance,
+          },
+        ],
       });
     }
-    if (path.endsWith(`/${sessionB}/attendance`) && route.request().method() === "PUT") {
+    if (
+      path.endsWith(`/${sessionB}/attendance`) &&
+      route.request().method() === "PUT"
+    ) {
       writes.push(route.request().postDataJSON());
       attendance = "PRESENT";
       return json(route, { status: "PRESENT" });
@@ -186,15 +217,27 @@ test("late roster A cannot overwrite B, and attendance uses canonical athlete ID
   });
   await login(page, "/scheduling");
   await expect(page.getByText("Session A", { exact: true })).toBeVisible();
-  await page.getByText("Session A", { exact: true }).locator("xpath=ancestor::article").getByRole("button", { name: /Attendance/ }).click();
-  await page.getByText("Session B", { exact: true }).locator("xpath=ancestor::article").getByRole("button", { name: /Attendance/ }).click();
+  await page
+    .getByText("Session A", { exact: true })
+    .locator("xpath=ancestor::article")
+    .getByRole("button", { name: /Attendance/ })
+    .click();
+  await page
+    .getByText("Session B", { exact: true })
+    .locator("xpath=ancestor::article")
+    .getByRole("button", { name: /Attendance/ })
+    .click();
   await expect(page.getByText("Player B")).toBeVisible();
   resolveA();
   await expect.poll(() => sawLateA).toBe(true);
   await expect(page.getByText("Player B")).toBeVisible();
   await expect(page.getByText("Player A")).toHaveCount(0);
-  const select = page.getByRole("combobox", { name: "Attendance for Player B" });
-  await expect(select.locator('option[value="UNMARKED"]')).toHaveText("Not marked");
+  const select = page.getByRole("combobox", {
+    name: "Attendance for Player B",
+  });
+  await expect(select.locator('option[value="UNMARKED"]')).toHaveText(
+    "Not marked",
+  );
   await select.selectOption("PRESENT");
   await expect.poll(() => writes.length).toBe(1);
   expect(writes[0]).toEqual({ athleteId: athleteB, status: "PRESENT" });
