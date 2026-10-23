@@ -277,3 +277,146 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .admin-section-tabs { padding-left: 9px; padding-right: 9px; }
   .admin-section-help-content { grid-template-columns: 1fr; gap: 12px; }
 }
+
+
+/* Consistent Admin density, labeling and layout across all 21 routed pages. */
+.admin-page-main {
+  min-width: 0;
+}
+.admin-page-main > div > div {
+  min-width: 0;
+}
+.admin-page-main form:not(.admin-access-card) {
+  min-width: 0;
+}
+.admin-page-main input:not([type="checkbox"]):not([type="radio"]),
+.admin-page-main select,
+.admin-page-main textarea {
+  min-height: 44px;
+  max-width: 100%;
+  min-width: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  padding: 10px 12px;
+  background-color: #fff;
+  color: #18181b;
+}
+.admin-page-main textarea {
+  min-height: 112px;
+  line-height: 1.5;
+  resize: vertical;
+}
+.admin-page-main input:disabled,
+.admin-page-main select:disabled,
+.admin-page-main textarea:disabled {
+  background: #f4f4f5;
+  color: #71717a;
+}
+.admin-page-main :is(h1, h2, h3, p) {
+  overflow-wrap: anywhere;
+}
+.admin-form-panel {
+  padding: 22px;
+  border: 1px solid #e4e4e7;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 3px 14px -11px rgb(24 24 27 / 25%);
+}
+.admin-form-panel-header {
+  margin: 0 0 16px;
+}
+.admin-form-panel-header h2 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+  letter-spacing: -.015em;
+}
+.admin-form-panel-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: .84rem;
+  line-height: 1.55;
+}
+.admin-form-grid {
+  display: grid;
+  gap: 17px 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.admin-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+.admin-form-field > label {
+  color: #334155;
+  font-size: .83rem;
+  font-weight: 700;
+}
+.admin-form-field > .admin-form-hint {
+  color: #64748b;
+  font-size: .75rem;
+  line-height: 1.45;
+}
+.admin-form-field-wide { grid-column: 1 / -1; }
+.admin-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 15px;
+  border-top: 1px solid #f1f5f9;
+}
+.admin-form-actions button { width: auto; }
+.admin-nav-section-button {
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+.admin-nav-section-button:hover,
+.admin-sidebar-nav a:hover {
+  background-color: #35353b !important;
+  color: #fff !important;
+}
+.admin-nav-chevron {
+  display: inline-flex;
+  color: #a1a1aa;
+  transition: transform .16s ease;
+}
+.admin-nav-chevron-open { transform: rotate(180deg); }
+.admin-nav-subpages {
+  display: grid;
+  gap: 2px;
+  margin: 2px 3px 9px 23px;
+  padding-left: 12px;
+  border-left: 1px solid #52525b;
+}
+.admin-nav-subpage {
+  display: flex;
+  align-items: center;
+  min-height: 39px;
+  padding: 8px 11px;
+  border-radius: 7px;
+  color: #cbd5e1;
+  font-size: .81rem;
+  line-height: 1.3;
+}
+.admin-nav-subpage-current {
+  color: #fbbf24;
+  background: #343438;
+  font-weight: 750;
+}
+.admin-status-message {
+  padding: 12px 14px;
+  margin: 0 0 18px;
+  border: 1px solid #fde68a;
+  background: #fffbeb;
+  border-radius: 9px;
+  color: #92400e;
+  font-size: .86rem;
+}
+@media (max-width: 768px) {
+  .admin-form-grid { grid-template-columns: 1fr; }
+  .admin-form-panel { padding: 16px; }
+  .admin-page-main { padding: 18px 14px 40px !important; }
+}
