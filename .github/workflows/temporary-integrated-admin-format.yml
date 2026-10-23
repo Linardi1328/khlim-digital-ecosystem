@@ -1,0 +1,39 @@
+name: Integrated Admin scoped formatter (temporary)
+on:
+  push:
+    branches:
+      - antigravity/admin-integrated-ux-rosters-20261023
+    paths:
+      - .github/workflows/temporary-integrated-admin-format.yml
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: antigravity/admin-integrated-ux-rosters-20261023
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install formatter
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.0 --activate
+          pnpm install --frozen-lockfile
+      - name: Apply project Prettier rules to changed source
+        run: |
+          pnpm exec prettier --write apps/admin/app/scheduling/page.tsx apps/admin/app/notifications/page.tsx apps/admin/app/globals.css apps/admin/components/layout/AdminSidebar.tsx apps/admin/components/layout/AdminShell.tsx apps/api/src/scheduling/scheduling.controller.ts tests/admin-integrated-ux-20261023.test.mjs tests/e2e/admin-ui.spec.mjs
+          git diff --check
+      - name: Commit formatting only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- apps/admin/app/scheduling/page.tsx apps/admin/app/notifications/page.tsx apps/admin/app/globals.css apps/admin/components/layout/AdminSidebar.tsx apps/admin/components/layout/AdminShell.tsx apps/api/src/scheduling/scheduling.controller.ts tests/admin-integrated-ux-20261023.test.mjs tests/e2e/admin-ui.spec.mjs
+          if ! git diff --cached --quiet; then
+            git commit -m "style(admin): normalize integrated preview formatting"
+            git push origin HEAD:antigravity/admin-integrated-ux-rosters-20261023
+          fi
