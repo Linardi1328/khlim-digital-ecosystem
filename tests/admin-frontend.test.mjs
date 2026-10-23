@@ -25,10 +25,12 @@ test("Admin surfaces use the official KHLIM Sports Academy logo", async () => {
   const sidebar = await read("apps/admin/components/layout/AdminSidebar.tsx");
   const layout = await read("apps/admin/app/layout.tsx");
 
-  await access(new URL("apps/admin/public/khs-academy-logo.webp", root));
-  assert.match(shell, /\/khs-academy-logo\.webp/);
-  assert.match(sidebar, /\/khs-academy-logo\.webp/);
-  assert.match(layout, /\/khs-academy-logo\.webp/);
+  await access(new URL("apps/admin/public/brand/khs-academy-crest.png", root));
+  await access(new URL("apps/admin/public/brand/khs-academy-wordmark.png", root));
+  await access(new URL("apps/admin/public/brand/khlim-corporate-logo.png", root));
+  assert.match(shell, /\/brand\/khs-academy-crest\.png/);
+  assert.match(sidebar, /\/brand\/khs-academy-crest\.png/);
+  assert.match(layout, /\/brand\/khlim-corporate-logo\.png/);
 });
 
 test("Admin console implements all required reusable UI components", async () => {

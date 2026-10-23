@@ -11,14 +11,14 @@ export function AdminFooter({ compact = false }: { compact?: boolean }) {
         <div className="admin-footer-brand">
           <div className="admin-footer-logo-frame">
             <img
-              src="/khs-academy-logo.webp"
-              alt="KHLIM Sports Academy crest"
-              width={36}
-              height={42}
+              src="/brand/khs-academy-wordmark.png"
+              alt="KHS Academy official wordmark"
+              width={100}
+              height={61}
             />
           </div>
           <div className="admin-footer-brand-text">
-            <strong>KHLIM Sports Academy</strong>
+            <strong>KHS Academy</strong>
             <span>Operations Console</span>
           </div>
         </div>

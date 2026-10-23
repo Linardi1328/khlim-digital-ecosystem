@@ -43,13 +43,13 @@ function StaffSignIn() {
         <div className="admin-access-brand">
           <div className="admin-access-logo-frame">
             <img
-              src="/khs-academy-logo.webp"
-              alt="KHLIM Sports Academy crest"
+              src="/brand/khs-academy-crest.png"
+              alt="KHS Academy official crest"
               width={108}
               height={124}
             />
           </div>
-          <span>KHLIM SPORTS ACADEMY</span>
+          <span>KHS ACADEMY</span>
         </div>
         <header className="admin-access-heading">
           <p className="admin-access-eyebrow">Secure staff sign-in</p>
@@ -253,13 +253,13 @@ function MfaGate() {
         <div className="admin-access-brand">
           <div className="admin-access-logo-frame">
             <img
-              src="/khs-academy-logo.webp"
-              alt="KHLIM Sports Academy crest"
+              src="/brand/khs-academy-crest.png"
+              alt="KHS Academy official crest"
               width={108}
               height={124}
             />
           </div>
-          <span>KHLIM SPORTS ACADEMY</span>
+          <span>KHS ACADEMY</span>
         </div>
         <header className="admin-access-heading">
           <p className="admin-access-eyebrow">MFA verification required</p>

@@ -64,7 +64,7 @@ test("staff login and MFA show readable KHS branding on mobile", async ({
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/", { waitUntil: "domcontentloaded" });
   const card = page.locator(".admin-access-card");
-  const crest = card.locator('img[src="/khs-academy-logo.webp"]');
+  const crest = card.locator('img[src="/brand/khs-academy-crest.png"]');
   await expect(
     card.getByRole("heading", { name: "KHLIM Admin Console" }),
   ).toBeVisible();

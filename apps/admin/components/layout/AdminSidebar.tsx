@@ -78,7 +78,7 @@ export function AdminSidebar({
           }}
         >
           <img
-            src="/khs-academy-logo.webp"
+            src="/brand/khs-academy-crest.png"
             alt=""
             aria-hidden="true"
             width={37}

@@ -7,8 +7,8 @@ export const metadata: Metadata = {
   title: "KHLIM Admin Operations Console",
   description: "KHLIM Digital Sports Ecosystem Operations & Management",
   icons: {
-    icon: "/khs-academy-logo.webp",
-    apple: "/khs-academy-logo.webp",
+    icon: "/brand/khlim-corporate-logo.png",
+    apple: "/brand/khs-academy-crest.png",
   },
 };
 

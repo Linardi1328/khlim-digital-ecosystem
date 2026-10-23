@@ -57,9 +57,9 @@ test("KHS branding appears on Admin, staff login, and MFA with a shared footer",
   );
   assert.equal((shell.match(/<AdminFooter compact \/>/g) ?? []).length, 2);
   assert.match(shell, /<AdminFooter \/>/);
-  assert.match(shell, /KHLIM SPORTS ACADEMY/);
+  assert.match(shell, /KHS ACADEMY/);
   assert.match(footer, /<footer[\s\S]*?aria-label="KHLIM Admin footer"/);
-  assert.match(footer, /\/khs-academy-logo\.webp/);
+  assert.match(footer, /\/brand\/khs-academy-wordmark\.png/);
   assert.match(footer, /KHLIM Basketball Sdn\. Bhd\./);
   assert.match(css, /\.admin-access-brand img\s*\{/);
   assert.match(css, /\.admin-footer--access\s*\{/);

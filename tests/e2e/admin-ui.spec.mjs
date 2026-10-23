@@ -62,7 +62,7 @@ test("workspace footer displays the KHS logo and company identity", async ({
   const footer = page.getByRole("contentinfo", { name: "KHLIM Admin footer" });
   await expect(footer).toBeVisible();
   await expect(footer).toContainText("KHLIM Basketball Sdn. Bhd.");
-  const logo = footer.locator('img[src="/khs-academy-logo.webp"]');
+  const logo = footer.locator('img[src="/brand/khs-academy-wordmark.png"]');
   await expect(logo).toBeVisible();
   await expect
     .poll(() =>
