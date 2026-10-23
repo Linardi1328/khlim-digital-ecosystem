@@ -147,6 +147,7 @@ test("gallery photographs use consistent 4:3 frames without cropping", async ({
       return {
         frameRatio: frameBox.width / frameBox.height,
         fullWidth: Math.abs(frameBox.width - photoBox.width) < 2,
+        fullHeight: Math.abs(frameBox.height - photoBox.height) < 2,
         objectFit: getComputedStyle(image).objectFit,
         naturalWidth: image.naturalWidth,
         naturalHeight: image.naturalHeight,
@@ -155,6 +156,7 @@ test("gallery photographs use consistent 4:3 frames without cropping", async ({
 
     expect(Math.abs(dimensions.frameRatio - 4 / 3)).toBeLessThan(0.02);
     expect(dimensions.fullWidth).toBe(true);
+    expect(dimensions.fullHeight).toBe(true);
     expect(dimensions.objectFit).toBe("contain");
     expect(dimensions.naturalWidth).toBeGreaterThan(0);
     expect(dimensions.naturalHeight).toBeGreaterThan(0);
@@ -250,6 +252,39 @@ test("mobile menu opens and navigates", async ({ page, viewport }) => {
   await openMobileMenu(page);
   await page.getByRole("link", { name: "Spotlight", exact: true }).click();
   await expect(page).toHaveURL(/\/spotlight$/);
+});
+
+test("public navigation highlights its current page even with tracking queries", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/programmes?utm_source=academy", {
+    waitUntil: "domcontentloaded",
+  });
+  const current = page
+    .locator(".desktop-nav")
+    .getByRole("link", { name: "Programmes" });
+  await expect(current).toHaveAttribute("aria-current", "page");
+  await expect(
+    page.locator('.desktop-nav a[aria-current="page"]'),
+  ).toHaveCount(1);
+
+  await current.focus();
+  const styles = await current.evaluate((element) => {
+    const computed = getComputedStyle(element);
+    return {
+      outlineStyle: computed.outlineStyle,
+      outlineWidth: computed.outlineWidth,
+    };
+  });
+  expect(styles.outlineStyle).not.toBe("none");
+  expect(styles.outlineWidth).not.toBe("0px");
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const transition = await current.evaluate(
+    (element) => getComputedStyle(element).transitionDuration,
+  );
+  expect(transition.split(",").every((value) => parseFloat(value) === 0)).toBe(true);
 });
 
 test("login page exposes branded authentication controls", async ({ page }) => {
