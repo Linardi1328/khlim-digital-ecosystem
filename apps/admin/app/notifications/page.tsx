@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AdminShell } from "../../components/layout/AdminShell";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Button } from "../../components/ui/Button";
@@ -42,11 +42,17 @@ export default function NotificationsAdminPage() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [message, setMessage] = useState("");
+  const [historyError, setHistoryError] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const sendInFlight = useRef(false);
+  const historyRequestId = useRef(0);
   const load = useCallback(async () => {
+    const requestId = ++historyRequestId.current;
     // Never fetch private staff data before an authorized MFA session is ready.
     // Demo mode is intentionally isolated from live notification endpoints.
     if (isDemoMode || !isAuthenticated || !mfaSatisfied) {
       setItems([]);
+      setHistoryError("");
       return;
     }
     try {
@@ -63,9 +69,12 @@ export default function NotificationsAdminPage() {
       if (!Array.isArray(data)) {
         throw new Error("Notification history returned an unexpected format.");
       }
+      if (requestId !== historyRequestId.current) return;
       setItems(data as SentNotification[]);
+      setHistoryError("");
     } catch (error) {
-      setMessage(
+      if (requestId !== historyRequestId.current) return;
+      setHistoryError(
         error instanceof Error
           ? error.message
           : "Notification history could not be loaded.",
@@ -193,6 +202,7 @@ export default function NotificationsAdminPage() {
 
   async function send(event: React.FormEvent) {
     event.preventDefault();
+    if (sendInFlight.current) return;
     setMessage("");
     if (isDemoMode) {
       setMessage("Demo mode does not send real notifications.");
@@ -221,6 +231,8 @@ export default function NotificationsAdminPage() {
     if (audience === "OFFERING") payload.programmeOfferingId = target;
     if (audience === "USER") payload.userId = target;
 
+    sendInFlight.current = true;
+    setIsSending(true);
     try {
       const response = await fetch(`${API}/admin/notifications`, {
         method: "POST",
@@ -228,11 +240,15 @@ export default function NotificationsAdminPage() {
         body: JSON.stringify(payload),
       });
       if (!response.ok) {
-        setMessage(
-          "Could not send notification (" +
-            response.status +
-            "). Staff MFA and a real recipient audience are required.",
-        );
+        const errorPayload: unknown = await response.json().catch(() => null);
+        const serverMessage =
+          errorPayload &&
+          typeof errorPayload === "object" &&
+          "message" in errorPayload &&
+          typeof errorPayload.message === "string"
+            ? errorPayload.message
+            : null;
+        setMessage(serverMessage || `Could not send notification (${response.status}).`);
         return;
       }
       const created = await response.json();
@@ -251,6 +267,9 @@ export default function NotificationsAdminPage() {
       setMessage(
         "Unable to reach the notification service. Verify whether the send persisted before retrying.",
       );
+    } finally {
+      sendInFlight.current = false;
+      setIsSending(false);
     }
   }
 
@@ -560,7 +579,7 @@ export default function NotificationsAdminPage() {
               </span>
             </div>
             <div className="admin-form-actions admin-form-field-wide">
-              <Button type="submit" variant="primary">
+              <Button type="submit" variant="primary" isLoading={isSending}>
                 Send in-app notification
               </Button>
             </div>
@@ -573,6 +592,11 @@ export default function NotificationsAdminPage() {
         </form>
         <section style={{ marginTop: 24 }}>
           <h2>Recent sends</h2>
+          {historyError && (
+            <p role="alert" className="admin-status-message">
+              {historyError}
+            </p>
+          )}
           <div style={{ display: "grid", gap: 10 }}>
             {items.map((item) => (
               <article
