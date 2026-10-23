@@ -160,8 +160,6 @@ function PublicHeaderView({
               minHeight: "44px",
               alignItems: "center",
               justifyContent: "center",
-              background: "transparent",
-              border: "1px solid #E4E4E7",
               borderRadius: "6px",
               padding: "6px 10px",
               fontSize: "1.25rem",
@@ -246,6 +244,11 @@ function PublicHeaderView({
               key={link.href}
               href={link.href}
               onClick={() => setMobileMenuOpen(false)}
+              className={
+                pathname === link.href.split("?")[0]
+                  ? styles.navLinkActive
+                  : undefined
+              }
               aria-current={
                 pathname === link.href.split("?")[0] ? "page" : undefined
               }
@@ -254,8 +257,12 @@ function PublicHeaderView({
                 display: "flex",
                 alignItems: "center",
                 fontSize: "1.125rem",
-                fontWeight: 600,
-                color: "#18181B",
+                fontWeight:
+                  pathname === link.href.split("?")[0] ? 750 : 600,
+                color:
+                  pathname === link.href.split("?")[0]
+                    ? "#92400e"
+                    : "#18181B",
                 textDecoration: "none",
                 padding: "8px 0",
                 borderBottom: "1px solid #F4F4F5",

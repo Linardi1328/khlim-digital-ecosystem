@@ -249,9 +249,22 @@ test("mobile menu opens and navigates", async ({ page, viewport }) => {
   test.skip(!viewport || viewport.width > 500, "Mobile navigation only");
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
+  const menuButton = page.locator(".mobile-menu-btn");
+  await menuButton.hover();
+  await expect(menuButton).toHaveCSS("background-color", "rgb(244, 244, 245)");
+  await expect(menuButton).toHaveCSS("border-top-color", "rgb(161, 161, 170)");
+
   await openMobileMenu(page);
-  await page.getByRole("link", { name: "Spotlight", exact: true }).click();
+  await page.getByRole("dialog").getByRole("link", { name: "Spotlight", exact: true }).click();
   await expect(page).toHaveURL(/\/spotlight$/);
+  await openMobileMenu(page);
+
+  const activeLink = page
+    .getByRole("dialog")
+    .getByRole("link", { name: "Spotlight", exact: true });
+  await expect(activeLink).toHaveAttribute("aria-current", "page");
+  await expect(activeLink).toHaveCSS("background-color", "rgb(255, 251, 235)");
+  await expect(activeLink).toHaveCSS("color", "rgb(146, 64, 14)");
 });
 
 test("public navigation highlights its current page even with tracking queries", async ({
