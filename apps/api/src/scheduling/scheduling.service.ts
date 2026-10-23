@@ -132,7 +132,6 @@ export class SchedulingService {
     id: string,
     input: AttendanceInput,
   ) {
-    const session = await this.requireSession(organizationId, id);
     if (!input || typeof input !== "object") {
       throw new BadRequestException("Attendance payload must be an object");
     }
@@ -149,25 +148,6 @@ export class SchedulingService {
     if (!["PRESENT", "ABSENT", "EXCUSED", "LATE"].includes(input.status)) {
       throw new BadRequestException("Unsupported attendance status");
     }
-    if (!session.programmeOfferingId || session.status === "CANCELLED") {
-      throw new BadRequestException(
-        "Attendance requires an active, offering-linked session",
-      );
-    }
-    const membership = await this.prisma.client.membership.findFirst({
-      where: {
-        organizationId,
-        programmeOfferingId: session.programmeOfferingId,
-        athleteId,
-        status: "ACTIVE",
-      },
-      select: { athlete: { select: { displayName: true } } },
-    });
-    if (!membership) {
-      throw new BadRequestException(
-        "Athlete does not hold an active membership in this session's offering",
-      );
-    }
     if (input.notes != null && typeof input.notes !== "string") {
       throw new BadRequestException("Attendance notes must be text");
     }
@@ -175,21 +155,64 @@ export class SchedulingService {
     if (notes && notes.length > 1000) {
       throw new BadRequestException("Attendance notes are too long");
     }
-    return this.prisma.client.attendanceRecord.upsert({
-      where: { sessionId_athleteId: { sessionId: id, athleteId } },
-      create: {
-        sessionId: id,
-        athleteId,
-        athleteName: membership.athlete.displayName,
-        status: input.status,
-        notes,
-      },
-      update: {
-        athleteName: membership.athlete.displayName,
-        status: input.status,
-        notes,
-        markedAt: new Date(),
-      },
+
+    // Lock the organization-owned session before reading its status. Cancellation
+    // updates lock the same row, so attendance cannot commit after cancellation.
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(organizationId)) {
+      throw new NotFoundException("Training session not found");
+    }
+    return this.prisma.client.$transaction(async (transaction) => {
+      const locked = await transaction.$queryRaw<Array<{ id: string }>>`
+        SELECT id
+        FROM training_sessions
+        WHERE id = ${id}::uuid
+          AND organization_id = ${organizationId}::uuid
+        FOR UPDATE
+      `;
+      if (locked.length === 0) {
+        throw new NotFoundException("Training session not found");
+      }
+      const session = await transaction.trainingSession.findFirst({
+        where: { id, organizationId },
+      });
+      if (!session) {
+        throw new NotFoundException("Training session not found");
+      }
+      if (!session.programmeOfferingId || session.status === "CANCELLED") {
+        throw new BadRequestException(
+          "Attendance requires an active, offering-linked session",
+        );
+      }
+      const membership = await transaction.membership.findFirst({
+        where: {
+          organizationId,
+          programmeOfferingId: session.programmeOfferingId,
+          athleteId,
+          status: "ACTIVE",
+        },
+        select: { athlete: { select: { displayName: true } } },
+      });
+      if (!membership) {
+        throw new BadRequestException(
+          "Athlete does not hold an active membership in this session's offering",
+        );
+      }
+      return transaction.attendanceRecord.upsert({
+        where: { sessionId_athleteId: { sessionId: id, athleteId } },
+        create: {
+          sessionId: id,
+          athleteId,
+          athleteName: membership.athlete.displayName,
+          status: input.status,
+          notes,
+        },
+        update: {
+          athleteName: membership.athlete.displayName,
+          status: input.status,
+          notes,
+          markedAt: new Date(),
+        },
+      });
     });
   }
 
