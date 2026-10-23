@@ -56,12 +56,11 @@ export async function getOfferingRoster(
     // new offering-specific read model yet. Never bypass auth/role failures.
     if (!(error instanceof ApiError) || error.status !== 404) throw error;
 
-    const memberships = (await adminApi.listMemberships())
-      .filter(
-        (membership) =>
-          membership.programmeOfferingId === offeringId &&
-          ["ACTIVE", "PENDING", "SUSPENDED"].includes(membership.status),
-      );
+    const memberships = (await adminApi.listMemberships()).filter(
+      (membership) =>
+        membership.programmeOfferingId === offeringId &&
+        ["ACTIVE", "PENDING", "SUSPENDED"].includes(membership.status),
+    );
     return {
       offeringId,
       offeringName,
@@ -71,7 +70,8 @@ export async function getOfferingRoster(
         membershipId: membership.id,
         athleteId: membership.athleteId,
         athleteName: membership.athleteName,
-        membershipStatus: membership.status as "ACTIVE" | "PENDING" | "SUSPENDED",
+        membershipStatus: membership.status as
+          "ACTIVE" | "PENDING" | "SUSPENDED",
         membershipPlanName: membership.planName,
       })),
       truncated: memberships.length > 200,

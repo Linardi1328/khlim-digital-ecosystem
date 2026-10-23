@@ -144,7 +144,11 @@ export default function OfferingsPage() {
     return () => {
       active = false;
     };
-  }, [selectedOffering?.id, selectedOffering?.name, selectedOffering?.capacity]);
+  }, [
+    selectedOffering?.id,
+    selectedOffering?.name,
+    selectedOffering?.capacity,
+  ]);
 
   const filtered = offerings.filter((offering) => {
     const query = search.trim().toLowerCase();
@@ -507,8 +511,9 @@ export default function OfferingsPage() {
                   <>
                     {roster.source === "membership-read-only" && (
                       <p style={{ color: "#52525b", fontSize: 12 }}>
-                        Read-only roster from existing authorized membership records.
-                        Attendance booking is not active in this Preview.
+                        Read-only roster from existing authorized membership
+                        records. Attendance booking is not active in this
+                        Preview.
                       </p>
                     )}
                     {roster.truncated && (
