@@ -219,6 +219,12 @@ export default function SchedulingPage() {
     }
   }
 
+  const currentSelectedSession = sessions.find(
+    (session) => session.id === selected?.id,
+  );
+  const selectedSessionCancelled =
+    (currentSelectedSession?.status ?? selected?.status) === "CANCELLED";
+
   return (
     <AdminShell>
       <div>
@@ -525,11 +531,7 @@ export default function SchedulingPage() {
                         <select
                           aria-label={`Attendance for ${player.athleteName}`}
                           value={player.attendanceStatus}
-                          disabled={
-                            Boolean(savingAthlete) ||
-                            (sessions.find((session) => session.id === selected.id)
-                              ?.status ?? selected.status) === "CANCELLED"
-                          }
+                          disabled={Boolean(savingAthlete) || selectedSessionCancelled}
                           onChange={(e) =>
                             void changeAttendance(
                               player.athleteId,
