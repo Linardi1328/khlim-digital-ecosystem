@@ -230,7 +230,7 @@ test("malformed attendance payloads fail with HTTP 400 validation errors", async
   }
 });
 
-test("attendance rejects cancellation completed before the session lock", async () => {
+test("attendance rejects a session cancelled before its lock", async () => {
   const { sut, prisma, session, records } = service();
   const originalTransaction = prisma.client.$transaction;
   prisma.client.$transaction = (callback) =>
@@ -249,7 +249,7 @@ test("attendance rejects cancellation completed before the session lock", async 
   assert.equal(records.some(([name]) => name === "attendanceWrite"), false);
 });
 
-test("attendance rejects missing or cross-tenant session before any write", async () => {
+test("attendance rejects a foreign-tenant session before writes", async () => {
   const { sut, prisma, records } = service();
   const originalTransaction = prisma.client.$transaction;
   prisma.client.$transaction = (callback) =>

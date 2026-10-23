@@ -158,7 +158,14 @@ export class SchedulingService {
 
     // Lock the organization-owned session before reading its status. Cancellation
     // updates lock the same row, so attendance cannot commit after cancellation.
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(organizationId)) {
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        id,
+      ) ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        organizationId,
+      )
+    ) {
       throw new NotFoundException("Training session not found");
     }
     return this.prisma.client.$transaction(async (transaction) => {
