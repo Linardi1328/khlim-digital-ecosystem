@@ -57,7 +57,7 @@ test("Offering audience selects only published offering IDs from authorized reco
   assert.match(page, /audience !== "OFFERING"/);
   assert.match(page, /!isAuthenticated\s*\|\|\s*!mfaSatisfied/);
   assert.match(page, /item\.status === "OPEN"/);
-  assert.match(page, /item\.programmeName/);
+  assert.match(page, /offering\.programmeName/);
   assert.match(page, /offering\.name/);
   assert.match(page, /<select\s+id="notice-target"/);
   assert.match(page, /<option key=\{offering\.id\} value=\{offering\.id\}>/);
