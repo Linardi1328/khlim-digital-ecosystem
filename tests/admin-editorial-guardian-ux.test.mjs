@@ -47,3 +47,23 @@ test("Named guardian selection maps an existing active guardian to USER audience
   );
   assert.match(backend, /receipts: \{ create: recipients\.map/);
 });
+
+test("Offering audience selects only published offering IDs from authorized records", async () => {
+  const page = await read("apps/admin/app/notifications/page.tsx");
+  const backend = await read("apps/api/src/notifications/notifications.service.ts");
+  assert.match(page, /adminApi\s*\.listOfferings\(\)/);
+  assert.match(page, /audience !== "OFFERING"/);
+  assert.match(page, /!isAuthenticated\s*\|\|\s*!mfaSatisfied/);
+  assert.match(page, /item\.status === "OPEN"/);
+  assert.match(page, /item\.programmeName/);
+  assert.match(page, /offering\.name/);
+  assert.match(page, /<select\s+id="notice-target"/);
+  assert.match(page, /<option key=\{offering\.id\} value=\{offering\.id\}>/);
+  assert.match(page, /audience === "OFFERING" && !selectedOffering/);
+  assert.match(page, /payload\.programmeOfferingId = target/);
+  assert.match(page, /window\.confirm/);
+  assert.doesNotMatch(page, /Paste an approved offering identifier/);
+  assert.match(backend, /where: \{ id: programmeOfferingId, organizationId \}/);
+  assert.match(backend, /status: \{ in: \[\.\.\.recipientMembershipStatuses\] \}/);
+  assert.match(backend, /const ids = new Set<string>\(\)/);
+});
