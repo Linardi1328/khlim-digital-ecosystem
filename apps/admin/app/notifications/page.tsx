@@ -168,8 +168,9 @@ export default function NotificationsAdminPage() {
   const offeringSearchTerm = offeringSearch.trim().toLocaleLowerCase();
   const visibleOfferings = offeringSearchTerm
     ? offerings.filter((offering) =>
-        [offering.name, offering.programmeName, offering.venueName ?? ""]
-          .some((value) => value.toLocaleLowerCase().includes(offeringSearchTerm)),
+        [offering.name, offering.programmeName, offering.venueName ?? ""].some(
+          (value) => value.toLocaleLowerCase().includes(offeringSearchTerm),
+        ),
       )
     : offerings;
 
@@ -348,7 +349,11 @@ export default function NotificationsAdminPage() {
                   id="notice-target"
                   required
                   value={selectedOffering?.id ?? ""}
-                  disabled={offeringsLoading || Boolean(offeringsError) || offerings.length === 0}
+                  disabled={
+                    offeringsLoading ||
+                    Boolean(offeringsError) ||
+                    offerings.length === 0
+                  }
                   onChange={(event) => setTarget(event.target.value)}
                   aria-describedby="notice-offering-help"
                 >
@@ -366,27 +371,36 @@ export default function NotificationsAdminPage() {
                   ))}
                 </select>
                 <span id="notice-offering-help" className="admin-form-hint">
-                  Choose an OPEN (published) offering. Its ID is selected automatically.
-                  The server resolves linked guardians and membership purchasers from
-                  active or pending memberships, then removes duplicate recipients.
+                  Choose an OPEN (published) offering. Its ID is selected
+                  automatically. The server resolves linked guardians and
+                  membership purchasers from active or pending memberships, then
+                  removes duplicate recipients.
                 </span>
                 {offeringsLoading && (
-                  <span role="status">Loading published programme offerings…</span>
+                  <span role="status">
+                    Loading published programme offerings…
+                  </span>
                 )}
                 {offeringsError && (
                   <p role="alert" className="admin-status-message">
                     {offeringsError}
                   </p>
                 )}
-                {!offeringsLoading && !offeringsError && offerings.length === 0 && (
-                  <p role="status" className="admin-status-message">
-                    No published offerings found. Publish an offering in Academy Setup first.
-                  </p>
-                )}
-                {!offeringsLoading && !offeringsError &&
-                  offerings.length > 0 && visibleOfferings.length === 0 && (
+                {!offeringsLoading &&
+                  !offeringsError &&
+                  offerings.length === 0 && (
+                    <p role="status" className="admin-status-message">
+                      No published offerings found. Publish an offering in
+                      Academy Setup first.
+                    </p>
+                  )}
+                {!offeringsLoading &&
+                  !offeringsError &&
+                  offerings.length > 0 &&
+                  visibleOfferings.length === 0 && (
                     <span role="status" className="admin-form-hint">
-                      No offerings match this search. Clear the search to view all published offerings.
+                      No offerings match this search. Clear the search to view
+                      all published offerings.
                     </span>
                   )}
                 {selectedOffering && (
@@ -395,8 +409,11 @@ export default function NotificationsAdminPage() {
                       <strong>Selected: {selectedOffering.name}</strong>
                       <small>
                         {selectedOffering.programmeName}
-                        {selectedOffering.venueName ? ` · ${selectedOffering.venueName}` : ""}
-                        {" · "}{selectedOffering.enrolledCount} enrolled player(s)
+                        {selectedOffering.venueName
+                          ? ` · ${selectedOffering.venueName}`
+                          : ""}
+                        {" · "}
+                        {selectedOffering.enrolledCount} enrolled player(s)
                       </small>
                     </div>
                     <button
@@ -411,8 +428,9 @@ export default function NotificationsAdminPage() {
                   </div>
                 )}
                 <span className="admin-form-hint">
-                  Recipient count is determined at send time. Enrolled players are not
-                  the same as unique recipients. This sends an in-app notice, not email.
+                  Recipient count is determined at send time. Enrolled players
+                  are not the same as unique recipients. This sends an in-app
+                  notice, not email.
                 </span>
               </div>
             )}
