@@ -26,8 +26,12 @@ test("Admin surfaces use the official KHLIM Sports Academy logo", async () => {
   const layout = await read("apps/admin/app/layout.tsx");
 
   await access(new URL("apps/admin/public/brand/khs-academy-crest.png", root));
-  await access(new URL("apps/admin/public/brand/khs-academy-wordmark.png", root));
-  await access(new URL("apps/admin/public/brand/khlim-corporate-logo.png", root));
+  await access(
+    new URL("apps/admin/public/brand/khs-academy-wordmark.png", root),
+  );
+  await access(
+    new URL("apps/admin/public/brand/khlim-corporate-logo.png", root),
+  );
   assert.match(shell, /\/brand\/khs-academy-crest\.png/);
   assert.match(sidebar, /\/brand\/khs-academy-crest\.png/);
   assert.match(layout, /\/brand\/khlim-corporate-logo\.png/);
