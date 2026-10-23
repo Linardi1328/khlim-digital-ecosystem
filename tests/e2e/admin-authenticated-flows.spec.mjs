@@ -88,6 +88,7 @@ test("staff login and MFA show readable KHS branding on mobile", async ({
     "KHLIM Admin footer",
   );
   await expect(compactFooter).toBeVisible();
+  await expect(page.getByRole("contentinfo")).toHaveCount(0);
 
   await page.getByLabel("Staff email").fill("qa@example.test");
   await page
@@ -100,12 +101,68 @@ test("staff login and MFA show readable KHS branding on mobile", async ({
   ).toBeVisible();
   await expect(page.locator(".admin-access-brand img")).toBeVisible();
   await expect(compactFooter).toBeVisible();
+  await expect(page.getByRole("contentinfo")).toHaveCount(0);
   const hasOverflow = await page.evaluate(
     () =>
       document.documentElement.scrollWidth >
       document.documentElement.clientWidth + 2,
   );
   expect(hasOverflow).toBe(false);
+});
+
+test("authenticated Admin shell exposes its standard contentinfo footer", async ({
+  page,
+}) => {
+  await installSyntheticStaff(page, (route) => json(route, []));
+  await openAdminView(page, "/");
+  await expect(
+    page.getByRole("contentinfo", { name: "KHLIM Admin footer" }),
+  ).toBeVisible();
+});
+
+test("offering roster 404 shows an error rather than an empty membership roster", async ({
+  page,
+}) => {
+  const offeringId = "00000000-0000-4000-8000-000000000052";
+  await installSyntheticStaff(page, (route, path) => {
+    if (path === "/v1/admin/operations-data/offerings") {
+      return json(route, [
+        {
+          id: offeringId,
+          name: "Synthetic U12",
+          programmeId: "synthetic-programme",
+          programmeName: "Synthetic Academy",
+          venueName: "Synthetic Court",
+          startsOn: "2026-11-01",
+          endsOn: "2026-12-01",
+          status: "OPEN",
+          capacity: 20,
+          enrolledCount: 1,
+          availablePlaces: 19,
+        },
+      ]);
+    }
+    if (path.endsWith(`/offerings/${offeringId}/roster`)) {
+      return json(
+        route,
+        { message: "Could not load the enrolled player roster." },
+        404,
+      );
+    }
+    return json(route, []);
+  });
+  await openAdminView(page, "/offerings");
+  const row = page.getByRole("row", { name: /Synthetic U12/ });
+  await expect(row).toBeVisible();
+  await row.getByRole("button", { name: "View" }).click();
+  await expect(
+    page.getByRole("alert").filter({
+      hasText: "Could not load the enrolled player roster.",
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("No registered memberships found for this offering."),
+  ).toHaveCount(0);
 });
 
 test("live-mode notification sender is single-flight and reports real API failures", async ({
