@@ -67,3 +67,13 @@ test("Admin roster and attendance remain isolated to verified staff privileges",
   assert.match(offering, /getOfferingRoster/);
   assert.match(offering, /Registered players/);
 });
+
+test("roster compatibility reads memberships only on missing endpoint, never unauthorized", async () => {
+  const client = await read("apps/admin/lib/admin-academy-roster-api.ts");
+  assert.match(client, /error instanceof ApiError/);
+  assert.match(client, /error\.status !== 404/);
+  assert.match(client, /adminApi\.listMemberships\(\)/);
+  assert.match(client, /membership\.programmeOfferingId === offeringId/);
+  assert.match(client, /source: "membership-read-only"/);
+  assert.doesNotMatch(client, /guardianEmail|dateOfBirth|paymentIndicator/);
+});
