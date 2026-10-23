@@ -2,7 +2,7 @@
 
 import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useI18n } from "../../lib/i18n-context";
 import { useAuth } from "../../lib/auth-context";
 import { BrandLogo } from "./brand-logo";
@@ -23,6 +23,7 @@ function PublicHeaderView({
 }) {
   const { t } = useI18n();
   const { isAuthenticated } = useAuth();
+  const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
@@ -110,7 +111,8 @@ function PublicHeaderView({
             <Link
               key={link.href}
               href={link.href}
-              className={`desktop-nav-link ${styles.navLink}`}
+              className={`desktop-nav-link ${styles.navLink}${pathname === link.href.split("?")[0] ? ` ${styles.navLinkActive}` : ""}`}
+              aria-current={pathname === link.href.split("?")[0] ? "page" : undefined}
             >
               {link.label}
             </Link>
@@ -242,6 +244,7 @@ function PublicHeaderView({
               key={link.href}
               href={link.href}
               onClick={() => setMobileMenuOpen(false)}
+              aria-current={pathname === link.href.split("?")[0] ? "page" : undefined}
               style={{
                 minHeight: "44px",
                 display: "flex",
