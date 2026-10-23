@@ -244,12 +244,16 @@ export default function EditorialStudioPage() {
                     </label>
                     <textarea
                       id="editorial-development-note"
+                      aria-describedby="editorial-development-note-hint"
                       rows={4}
                       placeholder="Verified milestones and context for the article."
                       value={form.developmentNote}
                       onChange={(e) => set("developmentNote", e.target.value)}
                     />
-                    <span className="editorial-draft-hint">
+                    <span
+                      id="editorial-development-note-hint"
+                      className="editorial-draft-hint"
+                    >
                       Use only staff-approved facts; avoid private details about
                       a minor.
                     </span>

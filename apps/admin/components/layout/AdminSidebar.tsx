@@ -25,7 +25,8 @@ export function AdminSidebar({
   const pathname = usePathname();
   const { role } = useAdminAuth();
 
-  const activeSection = getAdminSectionForPath(pathname)?.section;
+  const activeWorkspace = getAdminSectionForPath(pathname);
+  const activeSection = activeWorkspace?.section;
   const [expandedSection, setExpandedSection] = useState<string | null>(
     activeSection?.href ?? null,
   );
@@ -248,10 +249,7 @@ export function AdminSidebar({
                   className="admin-nav-subpages"
                 >
                   {pages.map((page) => {
-                    const selected =
-                      pathname === page.href ||
-                      (page.href !== "/" &&
-                        pathname.startsWith(page.href + "/"));
+                    const selected = activeWorkspace?.page.href === page.href;
                     return (
                       <Link
                         key={page.href}

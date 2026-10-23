@@ -112,11 +112,11 @@ export default function OfferingsPage() {
   // personal profile with the offering list.
   useEffect(() => {
     let active = true;
-    const id = selectedOffering?.id;
+    const offering = selectedOffering;
     setRoster(null);
     setRosterError(null);
-    if (!id || ADMIN_DEMO_MODE) {
-      if (id && ADMIN_DEMO_MODE) {
+    if (!offering || ADMIN_DEMO_MODE) {
+      if (offering && ADMIN_DEMO_MODE) {
         setRosterError("Real player rosters are unavailable in demo mode.");
       }
       return () => {
@@ -124,7 +124,7 @@ export default function OfferingsPage() {
       };
     }
     setRosterBusy(true);
-    void getOfferingRoster(id, selectedOffering.name, selectedOffering.capacity)
+    void getOfferingRoster(offering.id, offering.name, offering.capacity)
       .then((result) => {
         if (active) setRoster(result);
       })

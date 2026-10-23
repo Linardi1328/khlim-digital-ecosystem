@@ -400,7 +400,7 @@ a:focus-visible {
   flex-wrap: nowrap;
   align-items: stretch;
   gap: 5px;
-  padding: 2px 14px 8px;
+  padding: 4px 14px 8px;
   overflow-x: auto;
   max-width: 100%;
   scrollbar-width: thin;
@@ -912,9 +912,10 @@ a:focus-visible {
 }
 @media (forced-colors: active) {
   .admin-page-main select {
-    appearance: auto;
-    background-image: none;
-    padding-right: 12px;
+    -webkit-appearance: menulist !important;
+    appearance: auto !important;
+    background-image: none !important;
+    padding-right: 12px !important;
   }
 }
 @media (prefers-reduced-motion: reduce) {
