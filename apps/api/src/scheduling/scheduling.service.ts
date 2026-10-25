@@ -3,7 +3,6 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { randomUUID } from "node:crypto";
 import { PrismaService } from "../database/prisma.service";
 
 type SessionInput = {
@@ -18,8 +17,7 @@ type SessionInput = {
 };
 
 type AttendanceInput = {
-  athleteId?: string;
-  athleteName: string;
+  athleteId: string;
   status: "PRESENT" | "ABSENT" | "EXCUSED" | "LATE";
   notes?: string | null;
 };
@@ -77,28 +75,112 @@ export class SchedulingService {
     });
   }
 
+  async listSessionRoster(organizationId: string, id: string) {
+    const session = await this.requireSession(organizationId, id);
+    if (!session.programmeOfferingId) {
+      return { sessionId: id, programmeOfferingId: null, players: [] };
+    }
+
+    // Small, bounded read model. Roster authority comes from ACTIVE
+    // memberships, not manually typed attendance names or browser state.
+    const [memberships, attendances] = await Promise.all([
+      this.prisma.client.membership.findMany({
+        where: {
+          organizationId,
+          programmeOfferingId: session.programmeOfferingId,
+          status: "ACTIVE",
+        },
+        select: {
+          athleteId: true,
+          athlete: { select: { displayName: true } },
+        },
+        orderBy: { athleteId: "asc" },
+      }),
+      this.prisma.client.attendanceRecord.findMany({
+        where: { sessionId: id },
+        select: { athleteId: true, status: true, markedAt: true },
+      }),
+    ]);
+    const byAthlete = new Map(
+      attendances.map((record) => [record.athleteId, record]),
+    );
+    const uniquePlayers = new Map(
+      memberships.map((membership) => [
+        membership.athleteId,
+        {
+          athleteId: membership.athleteId,
+          athleteName: membership.athlete.displayName,
+        },
+      ]),
+    );
+    return {
+      sessionId: id,
+      programmeOfferingId: session.programmeOfferingId,
+      players: [...uniquePlayers.values()]
+        .sort((a, b) => a.athleteName.localeCompare(b.athleteName))
+        .map((player) => ({
+          ...player,
+          attendanceStatus:
+            byAthlete.get(player.athleteId)?.status ?? "UNMARKED",
+          markedAt: byAthlete.get(player.athleteId)?.markedAt ?? null,
+        })),
+    };
+  }
+
   async markAttendance(
     organizationId: string,
     id: string,
     input: AttendanceInput,
   ) {
-    await this.requireSession(organizationId, id);
-    if (!input.athleteName?.trim())
-      throw new BadRequestException("Athlete name is required");
-    const athleteId = input.athleteId?.trim() || randomUUID();
+    const session = await this.requireSession(organizationId, id);
+    const athleteId = input.athleteId?.trim();
+    if (
+      !athleteId ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        athleteId,
+      )
+    ) {
+      throw new BadRequestException("A valid enrolled athlete ID is required");
+    }
+    if (!["PRESENT", "ABSENT", "EXCUSED", "LATE"].includes(input.status)) {
+      throw new BadRequestException("Unsupported attendance status");
+    }
+    if (!session.programmeOfferingId || session.status === "CANCELLED") {
+      throw new BadRequestException(
+        "Attendance requires an active, offering-linked session",
+      );
+    }
+    const membership = await this.prisma.client.membership.findFirst({
+      where: {
+        organizationId,
+        programmeOfferingId: session.programmeOfferingId,
+        athleteId,
+        status: "ACTIVE",
+      },
+      select: { athlete: { select: { displayName: true } } },
+    });
+    if (!membership) {
+      throw new BadRequestException(
+        "Athlete does not hold an active membership in this session's offering",
+      );
+    }
+    const notes = input.notes?.trim() || null;
+    if (notes && notes.length > 1000) {
+      throw new BadRequestException("Attendance notes are too long");
+    }
     return this.prisma.client.attendanceRecord.upsert({
       where: { sessionId_athleteId: { sessionId: id, athleteId } },
       create: {
         sessionId: id,
         athleteId,
-        athleteName: input.athleteName.trim(),
+        athleteName: membership.athlete.displayName,
         status: input.status,
-        notes: input.notes?.trim() || null,
+        notes,
       },
       update: {
-        athleteName: input.athleteName.trim(),
+        athleteName: membership.athlete.displayName,
         status: input.status,
-        notes: input.notes?.trim() || null,
+        notes,
         markedAt: new Date(),
       },
     });

@@ -797,6 +797,35 @@
         ]
       }
     },
+    "/v1/admin/operations-data/offerings/{id}/roster": {
+      "get": {
+        "operationId": "AdminOperationsDataController_getOfferingRoster",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "View eligible athlete profiles in one Academy offering",
+        "tags": [
+          "admin-operations-data"
+        ]
+      }
+    },
     "/v1/admin/operations-data/membership-plans": {
       "get": {
         "operationId": "AdminOperationsDataController_listMembershipPlans",
@@ -2071,6 +2100,34 @@
         ],
         "responses": {
           "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "tags": [
+          "scheduling"
+        ]
+      }
+    },
+    "/v1/admin/scheduling/sessions/{id}/roster": {
+      "get": {
+        "operationId": "SchedulingController_roster",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
             "description": ""
           }
         },
