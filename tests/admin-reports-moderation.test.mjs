@@ -9,7 +9,7 @@ async function read(path) {
 }
 
 test("admin navigation exposes role-gated reports and management moderation", async () => {
-  const sidebar = await read("apps/admin/components/layout/AdminSidebar.tsx");
+  const sidebar = await read("apps/admin/components/layout/admin-sections.ts");
 
   assert.match(sidebar, /href:\s*"\/reports"/);
   assert.match(sidebar, /label:\s*"Reports"/);

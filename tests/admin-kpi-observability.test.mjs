@@ -9,7 +9,7 @@ async function read(path) {
 }
 
 test("KPI and health navigation is limited to reporting roles", async () => {
-  const sidebar = await read("apps/admin/components/layout/AdminSidebar.tsx");
+  const sidebar = await read("apps/admin/components/layout/admin-sections.ts");
 
   assert.match(sidebar, /href:\s*"\/insights"/);
   assert.match(sidebar, /label:\s*"KPI & Health"/);
