@@ -1,4 +1,4 @@
-import { Controller, ForbiddenException, Get } from "@nestjs/common";
+import { Controller, ForbiddenException, Get, Param } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import type { AuthenticatedUserContext } from "../auth/authenticated-user";
 import { RequireAnyRole, RequireMfa } from "../auth/authorization.decorators";
@@ -59,6 +59,18 @@ export class AdminOperationsDataController {
   })
   listOfferings(@CurrentUser() user: AuthenticatedUserContext) {
     return this.operations.listOfferings(organizationId(user));
+  }
+
+  @Get("offerings/:id/roster")
+  @RequireAnyRole(...ACADEMY_MANAGEMENT_ROLES)
+  @ApiOperation({
+    summary: "View eligible athlete profiles in one Academy offering",
+  })
+  getOfferingRoster(
+    @CurrentUser() user: AuthenticatedUserContext,
+    @Param("id") id: string,
+  ) {
+    return this.operations.getOfferingRoster(organizationId(user), id);
   }
 
   @Get("membership-plans")
