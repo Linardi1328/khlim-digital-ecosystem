@@ -159,17 +159,16 @@ export class AdminService {
     );
 
     const [
-      activeMembers,
-      pendingMemberships,
+      membershipCounts,
       totalAthletes,
       offerings,
       payments,
     ] = await Promise.all([
-      this.prisma.client.membership.count({
-        where: { organizationId, status: "ACTIVE" },
-      }),
-      this.prisma.client.membership.count({
-        where: { organizationId, status: "PENDING" },
+      // Aggregate ACTIVE and PENDING in one bounded database query.
+      this.prisma.client.membership.groupBy({
+        by: ["status"],
+        where: { organizationId, status: { in: ["ACTIVE", "PENDING"] } },
+        _count: { _all: true },
       }),
       this.prisma.client.athleteProfile.count({
         where: { memberships: { some: { organizationId } } },
@@ -201,6 +200,12 @@ export class AdminService {
           })
         : Promise.resolve(null),
     ]);
+
+    const countByStatus = new Map(
+      membershipCounts.map((group) => [group.status, group._count._all]),
+    );
+    const activeMembers = countByStatus.get("ACTIVE") ?? 0;
+    const pendingMemberships = countByStatus.get("PENDING") ?? 0;
 
     const totalCapacity = offerings.reduce(
       (total, offering) => total + offering.capacity,
