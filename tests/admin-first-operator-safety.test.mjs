@@ -10,7 +10,6 @@ const { AdminOrganizationAccessService } = require(
 const ORG = "00000000-0000-4000-8000-000000000001";
 const ACTOR = "00000000-0000-4000-8000-000000000010";
 const TARGET = "00000000-0000-4000-8000-000000000011";
-const OTHER = "00000000-0000-4000-8000-000000000012";
 
 function fixture({
   actorRoles = ["SUPER_ADMIN"],
