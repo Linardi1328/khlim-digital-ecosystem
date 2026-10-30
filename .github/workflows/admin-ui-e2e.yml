@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   playwright:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
       NEXT_PUBLIC_ADMIN_DEMO_MODE: "true"
