@@ -38,10 +38,6 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Temporary Prettier diff for RIC-84 test
-        run: |
-          pnpm exec prettier tests/admin-first-operator-safety.test.mjs | diff -u tests/admin-first-operator-safety.test.mjs - || true
-
       - name: Verify developer bootstrap contract
         run: pnpm bootstrap:verify
 

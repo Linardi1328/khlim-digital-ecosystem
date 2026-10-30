@@ -80,9 +80,7 @@ function fixture({
   const tx = {
     $queryRaw: async (literals, ...params) => {
       log.push(["organizationLock", { query: literals.join("?"), params }]);
-      return organizationLockPresent && params[0] === ORG
-        ? [{ id: ORG }]
-        : [];
+      return organizationLockPresent && params[0] === ORG ? [{ id: ORG }] : [];
     },
     organizationMembership: member,
     organizationRoleAssignment: {
