@@ -38,6 +38,13 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
 
+      - name: Temporary exact Prettier diff diagnosis
+        run: |
+          for path in apps/api/src/admin/admin-organization-access.service.ts tests/admin-first-operator-safety.test.mjs; do
+            echo "FORMAT DIFF: $path"
+            pnpm exec prettier "$path" | diff -u "$path" - || true
+          done
+
       - name: Verify developer bootstrap contract
         run: pnpm bootstrap:verify
 
