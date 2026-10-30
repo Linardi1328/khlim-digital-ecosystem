@@ -18,6 +18,9 @@ function fixture({
   targetStatus = "ACTIVE",
   otherActiveSuperAdmin = true,
   targetExists = true,
+  preReadTargetRoles = targetRoles,
+  preReadTargetExists = targetExists,
+  organizationLockPresent = true,
 } = {}) {
   const log = [];
   const actor = {
@@ -26,7 +29,7 @@ function fixture({
     roles: ["SUPER_ADMIN"],
     authenticatorAssuranceLevel: "aal2",
   };
-  const user = (userId) => {
+  const user = (userId, live) => {
     if (userId === ACTOR) {
       return {
         id: "actor-membership",
@@ -35,11 +38,13 @@ function fixture({
         user: { email: actor.email },
       };
     }
-    if (userId === TARGET && targetExists) {
+    if (userId === TARGET && (live ? targetExists : preReadTargetExists)) {
       return {
         id: "target-membership",
         status: targetStatus,
-        roleAssignments: targetRoles.map((role) => ({ role })),
+        roleAssignments: (live ? targetRoles : preReadTargetRoles).map(
+          (role) => ({ role }),
+        ),
         user: { email: "target@example.test" },
       };
     }
@@ -49,7 +54,10 @@ function fixture({
     findUnique: async ({ where }) => {
       log.push(["membershipLookup", where]);
       return where.organizationId_userId.organizationId === ORG
-        ? user(where.organizationId_userId.userId)
+        ? user(
+            where.organizationId_userId.userId,
+            log.some(([name]) => name === "organizationLock"),
+          )
         : null;
     },
     findFirst: async ({ where }) => {
@@ -72,7 +80,9 @@ function fixture({
   const tx = {
     $queryRaw: async (literals, ...params) => {
       log.push(["organizationLock", { query: literals.join("?"), params }]);
-      return params[0] === ORG ? [{ id: ORG }] : [];
+      return organizationLockPresent && params[0] === ORG
+        ? [{ id: ORG }]
+        : [];
     },
     organizationMembership: member,
     organizationRoleAssignment: {
@@ -162,8 +172,14 @@ test("Super Admin can demote another administrator when active backup exists", a
   assert.ok(log.find(([name]) => name === "auditWrite"));
   assert.ok(log.find(([name]) => name === "otherAdminQuery"));
   const lock = log.find(([name]) => name === "organizationLock")[1];
-  assert.match(lock.query, /FOR UPDATE/);
+  assert.match(lock.query, /FOR NO KEY UPDATE/);
   assert.deepEqual(lock.params, [ORG]);
+  const start = log.findIndex(([name]) => name === "transactionStart");
+  const lockIndex = log.findIndex(([name]) => name === "organizationLock");
+  const liveMembershipLookup = log.findIndex(
+    ([name], index) => index > lockIndex && name === "membershipLookup",
+  );
+  assert.ok(start < lockIndex && lockIndex < liveMembershipLookup);
 });
 
 test("Super Admin can suspend another admin only with active backup", async () => {
@@ -207,4 +223,73 @@ test("missing organization member is not silently created or promoted", async ()
     /Organization member not found/,
   );
   noWrites(log);
+});
+
+test("a target promoted after initial lookup is protected by live roles", async () => {
+  const { sut, actor, log } = fixture({
+    actorRoles: ["MANAGEMENT"],
+    preReadTargetRoles: ["ACADEMY_ADMIN"],
+    targetRoles: ["SUPER_ADMIN"],
+  });
+  await assert.rejects(
+    sut.replaceStaffRoles(ORG, actor, TARGET, { roles: ["COACH"] }),
+    /Only a Super Admin can modify a Super Admin/,
+  );
+  await assert.rejects(
+    sut.updateMembershipStatus(ORG, actor, TARGET, { status: "SUSPENDED" }),
+    /Only a Super Admin can modify a Super Admin/,
+  );
+  noWrites(log);
+});
+
+test("target deletion after pre-read fails closed in both mutations", async () => {
+  const { sut, actor, log } = fixture({
+    preReadTargetExists: true,
+    targetExists: false,
+  });
+  await assert.rejects(
+    sut.replaceStaffRoles(ORG, actor, TARGET, { roles: ["COACH"] }),
+    /Organization member not found/,
+  );
+  await assert.rejects(
+    sut.updateMembershipStatus(ORG, actor, TARGET, { status: "SUSPENDED" }),
+    /Organization member not found/,
+  );
+  noWrites(log);
+});
+
+test("missing organization lock denies role and status changes", async () => {
+  const { sut, actor, log } = fixture({ organizationLockPresent: false });
+  await assert.rejects(
+    sut.replaceStaffRoles(ORG, actor, TARGET, { roles: ["COACH"] }),
+    /Organization access is unavailable/,
+  );
+  await assert.rejects(
+    sut.updateMembershipStatus(ORG, actor, TARGET, { status: "SUSPENDED" }),
+    /Organization access is unavailable/,
+  );
+  noWrites(log);
+});
+
+test("status update fails closed for revoked actor permissions", async () => {
+  const { sut, actor, log } = fixture({ actorStatus: "SUSPENDED" });
+  await assert.rejects(
+    sut.updateMembershipStatus(ORG, actor, TARGET, { status: "SUSPENDED" }),
+    /Staff permissions have changed/,
+  );
+  noWrites(log);
+});
+
+test("role and status audit record live rather than stale JWT roles", async () => {
+  const { sut, actor, log } = fixture({
+    actorRoles: ["MANAGEMENT"],
+    targetRoles: ["ACADEMY_ADMIN"],
+  });
+  await sut.replaceStaffRoles(ORG, actor, TARGET, { roles: ["COACH"] });
+  await sut.updateMembershipStatus(ORG, actor, TARGET, { status: "SUSPENDED" });
+  const events = log.filter(([name]) => name === "auditWrite");
+  assert.equal(events.length, 2);
+  for (const [, event] of events) {
+    assert.equal(event.data.actorRoles, "MANAGEMENT");
+  }
 });
