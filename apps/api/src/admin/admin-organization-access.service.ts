@@ -224,7 +224,9 @@ export class AdminOrganizationAccessService {
         roles.includes("SUPER_ADMIN") &&
         !liveActorRoles.includes("SUPER_ADMIN")
       ) {
-        throw new ForbiddenException("Only a Super Admin can assign Super Admin");
+        throw new ForbiddenException(
+          "Only a Super Admin can assign Super Admin",
+        );
       }
       if (
         liveTarget.status === "ACTIVE" &&
@@ -416,9 +418,7 @@ export class AdminOrganizationAccessService {
       membership?.roleAssignments.map((assignment) => assignment.role) ?? [];
     if (
       membership?.status !== "ACTIVE" ||
-      !liveRoles.some(
-        (role) => role === "SUPER_ADMIN" || role === "MANAGEMENT",
-      )
+      !liveRoles.some((role) => role === "SUPER_ADMIN" || role === "MANAGEMENT")
     ) {
       throw new ForbiddenException("Staff permissions have changed");
     }

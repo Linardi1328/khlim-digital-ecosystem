@@ -3,9 +3,9 @@ import { createRequire } from "node:module";
 import test from "node:test";
 
 const require = createRequire(import.meta.url);
-const { AdminOrganizationAccessService } = require(
-  "../apps/api/dist/admin/admin-organization-access.service.js",
-);
+const {
+  AdminOrganizationAccessService,
+} = require("../apps/api/dist/admin/admin-organization-access.service.js");
 
 const ORG = "00000000-0000-4000-8000-000000000001";
 const ACTOR = "00000000-0000-4000-8000-000000000010";
