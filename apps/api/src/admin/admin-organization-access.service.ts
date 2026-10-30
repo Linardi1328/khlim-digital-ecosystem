@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import {
   BadRequestException,
   ForbiddenException,
@@ -197,9 +198,46 @@ export class AdminOrganizationAccessService {
     }
 
     return this.prisma.client.$transaction(async (transaction) => {
+      const liveActorRoles = await this.requireLiveStaffMutator(
+        transaction,
+        organizationId,
+        actor,
+      );
+      const liveTarget = await this.requireLiveMembership(
+        transaction,
+        organizationId,
+        userId,
+      );
+      const liveTargetRoles = liveTarget.roleAssignments.map(
+        (assignment) => assignment.role,
+      );
+      if (
+        liveTargetRoles.includes("SUPER_ADMIN") &&
+        !liveActorRoles.includes("SUPER_ADMIN")
+      ) {
+        throw new ForbiddenException(
+          "Only a Super Admin can modify a Super Admin",
+        );
+      }
+
+      if (roles.includes("SUPER_ADMIN") && !liveActorRoles.includes("SUPER_ADMIN")) {
+        throw new ForbiddenException("Only a Super Admin can assign Super Admin");
+      }
+      if (
+        liveTarget.status === "ACTIVE" &&
+        liveTargetRoles.includes("SUPER_ADMIN") &&
+        !roles.includes("SUPER_ADMIN")
+      ) {
+        await this.requireAnotherActiveSuperAdmin(
+          transaction,
+          organizationId,
+          userId,
+        );
+      }
+
       await transaction.organizationRoleAssignment.deleteMany({
         where: {
-          organizationMembershipId: target.id,
+          organizationMembershipId: liveTarget.id,
           role: { in: [...ORGANIZATION_STAFF_ROLES] },
         },
       });
@@ -207,7 +245,7 @@ export class AdminOrganizationAccessService {
       if (roles.length > 0) {
         await transaction.organizationRoleAssignment.createMany({
           data: roles.map((role) => ({
-            organizationMembershipId: target.id,
+            organizationMembershipId: liveTarget.id,
             role: role as OrganizationStaffRole,
           })),
           skipDuplicates: true,
@@ -216,7 +254,7 @@ export class AdminOrganizationAccessService {
 
       const assignments = await transaction.organizationRoleAssignment.findMany(
         {
-          where: { organizationMembershipId: target.id },
+          where: { organizationMembershipId: liveTarget.id },
           select: { role: true },
           orderBy: { role: "asc" },
         },
@@ -230,11 +268,11 @@ export class AdminOrganizationAccessService {
           actorRoles: actor.roles.join(", ") || "STAFF",
           action: "ORGANIZATION_STAFF_ROLES_REPLACED",
           entityType: "ORGANIZATION_MEMBERSHIP",
-          entityId: target.id,
-          summary: `Organization staff roles for ${target.user.email ?? userId} changed from ${targetRoles.join(", ") || "none"} to ${roles.join(", ") || "none"}.`,
+          entityId: liveTarget.id,
+          summary: `Organization staff roles for ${liveTarget.user.email ?? userId} changed from ${liveTargetRoles.join(", ") || "none"} to ${roles.join(", ") || "none"}.`,
           metadata: {
             targetUserId: userId,
-            before: targetRoles,
+            before: liveTargetRoles,
             after: assignments.map((assignment) => assignment.role),
           },
         },
@@ -276,8 +314,42 @@ export class AdminOrganizationAccessService {
     }
 
     return this.prisma.client.$transaction(async (transaction) => {
+      const liveActorRoles = await this.requireLiveStaffMutator(
+        transaction,
+        organizationId,
+        actor,
+      );
+      const liveTarget = await this.requireLiveMembership(
+        transaction,
+        organizationId,
+        userId,
+      );
+      const liveTargetRoles = liveTarget.roleAssignments.map(
+        (assignment) => assignment.role,
+      );
+      if (
+        liveTargetRoles.includes("SUPER_ADMIN") &&
+        !liveActorRoles.includes("SUPER_ADMIN")
+      ) {
+        throw new ForbiddenException(
+          "Only a Super Admin can modify a Super Admin",
+        );
+      }
+
+      if (
+        liveTarget.status === "ACTIVE" &&
+        body.status !== "ACTIVE" &&
+        liveTargetRoles.includes("SUPER_ADMIN")
+      ) {
+        await this.requireAnotherActiveSuperAdmin(
+          transaction,
+          organizationId,
+          userId,
+        );
+      }
+
       const updated = await transaction.organizationMembership.update({
-        where: { id: target.id },
+        where: { id: liveTarget.id },
         data: { status: body.status },
         select: {
           userId: true,
@@ -294,11 +366,11 @@ export class AdminOrganizationAccessService {
           actorRoles: actor.roles.join(", ") || "STAFF",
           action: "ORGANIZATION_MEMBERSHIP_STATUS_UPDATED",
           entityType: "ORGANIZATION_MEMBERSHIP",
-          entityId: target.id,
-          summary: `Organization access for ${target.user.email ?? userId} changed from ${target.status} to ${updated.status}.`,
+          entityId: liveTarget.id,
+          summary: `Organization access for ${liveTarget.user.email ?? userId} changed from ${liveTarget.status} to ${updated.status}.`,
           metadata: {
             targetUserId: userId,
-            before: { status: target.status },
+            before: { status: liveTarget.status },
             after: { status: updated.status },
           },
         },
@@ -310,6 +382,87 @@ export class AdminOrganizationAccessService {
         updatedAt: updated.updatedAt,
       };
     });
+  }
+
+  // This parent-row lock serializes role/status edits to a single tenant.
+  // Re-read live authority after locking: JWT claims from request start may
+  // be stale if another administrator revoked this actor concurrently.
+  private async requireLiveStaffMutator(
+    transaction: Prisma.TransactionClient,
+    organizationId: string,
+    actor: AuthenticatedUserContext,
+  ): Promise<string[]> {
+    const locked = await transaction.$queryRaw<Array<{ id: string }>>`
+      SELECT id FROM organizations
+      WHERE id = ${organizationId}::uuid
+      FOR UPDATE
+    `;
+    if (locked.length !== 1) {
+      throw new ForbiddenException("Organization access is unavailable");
+    }
+    const membership = await transaction.organizationMembership.findUnique({
+      where: {
+        organizationId_userId: { organizationId, userId: actor.id },
+      },
+      select: {
+        status: true,
+        roleAssignments: { select: { role: true } },
+      },
+    });
+    const liveRoles =
+      membership?.roleAssignments.map((assignment) => assignment.role) ?? [];
+    if (
+      membership?.status !== "ACTIVE" ||
+      !liveRoles.some(
+        (role) => role === "SUPER_ADMIN" || role === "MANAGEMENT",
+      )
+    ) {
+      throw new ForbiddenException("Staff permissions have changed");
+    }
+    return liveRoles;
+  }
+
+  private async requireLiveMembership(
+    transaction: Prisma.TransactionClient,
+    organizationId: string,
+    userId: string,
+  ) {
+    const target = await transaction.organizationMembership.findUnique({
+      where: {
+        organizationId_userId: { organizationId, userId },
+      },
+      select: {
+        id: true,
+        status: true,
+        roleAssignments: { select: { role: true } },
+        user: { select: { email: true } },
+      },
+    });
+    if (!target) {
+      throw new NotFoundException("Organization member not found");
+    }
+    return target;
+  }
+
+  private async requireAnotherActiveSuperAdmin(
+    transaction: Prisma.TransactionClient,
+    organizationId: string,
+    userId: string,
+  ): Promise<void> {
+    const other = await transaction.organizationMembership.findFirst({
+      where: {
+        organizationId,
+        status: "ACTIVE",
+        userId: { not: userId },
+        roleAssignments: { some: { role: "SUPER_ADMIN" } },
+      },
+      select: { id: true },
+    });
+    if (!other) {
+      throw new ForbiddenException(
+        "The last active Super Admin cannot be removed or suspended",
+      );
+    }
   }
 
   private async requireMembership(organizationId: string, userId: string) {
