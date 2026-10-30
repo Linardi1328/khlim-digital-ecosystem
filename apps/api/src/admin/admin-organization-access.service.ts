@@ -270,7 +270,7 @@ export class AdminOrganizationAccessService {
           organizationId,
           actorUserId: actor.id,
           actorEmail: actor.email,
-          actorRoles: actor.roles.join(", ") || "STAFF",
+          actorRoles: liveActorRoles.join(", ") || "STAFF",
           action: "ORGANIZATION_STAFF_ROLES_REPLACED",
           entityType: "ORGANIZATION_MEMBERSHIP",
           entityId: liveTarget.id,
@@ -368,7 +368,7 @@ export class AdminOrganizationAccessService {
           organizationId,
           actorUserId: actor.id,
           actorEmail: actor.email,
-          actorRoles: actor.roles.join(", ") || "STAFF",
+          actorRoles: liveActorRoles.join(", ") || "STAFF",
           action: "ORGANIZATION_MEMBERSHIP_STATUS_UPDATED",
           entityType: "ORGANIZATION_MEMBERSHIP",
           entityId: liveTarget.id,
@@ -400,7 +400,7 @@ export class AdminOrganizationAccessService {
     const locked = await transaction.$queryRaw<Array<{ id: string }>>`
       SELECT id FROM organizations
       WHERE id = ${organizationId}::uuid
-      FOR UPDATE
+      FOR NO KEY UPDATE
     `;
     if (locked.length !== 1) {
       throw new ForbiddenException("Organization access is unavailable");
