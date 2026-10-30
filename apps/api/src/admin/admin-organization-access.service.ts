@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "../generated/prisma/client";
 import {
   BadRequestException,
   ForbiddenException,
@@ -220,7 +220,10 @@ export class AdminOrganizationAccessService {
         );
       }
 
-      if (roles.includes("SUPER_ADMIN") && !liveActorRoles.includes("SUPER_ADMIN")) {
+      if (
+        roles.includes("SUPER_ADMIN") &&
+        !liveActorRoles.includes("SUPER_ADMIN")
+      ) {
         throw new ForbiddenException("Only a Super Admin can assign Super Admin");
       }
       if (
