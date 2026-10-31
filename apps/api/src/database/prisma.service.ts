@@ -1,6 +1,7 @@
 import { Injectable, OnModuleDestroy } from "@nestjs/common";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client";
+import { probeDatabase } from "./health-probe";
 import {
   DEFAULT_ORGANIZATION_ID,
   MULTI_ORGANIZATION_RUNTIME_ENABLED,
@@ -67,6 +68,18 @@ function withOrganizationCompatibility(client: PrismaClient): PrismaClient {
 @Injectable()
 export class PrismaService implements OnModuleDestroy {
   private prismaClient: PrismaClient | null = null;
+  private healthProbe: ReturnType<typeof probeDatabase> | null = null;
+
+  probe() {
+    // Health traffic must not allocate one connection per concurrent request.
+    // Each request still reports/logs its own result, while sharing bounded work.
+    if (!this.healthProbe) {
+      this.healthProbe = probeDatabase(process.env.DATABASE_URL).finally(() => {
+        this.healthProbe = null;
+      });
+    }
+    return this.healthProbe;
+  }
 
   get client(): PrismaClient {
     if (!this.prismaClient) {
