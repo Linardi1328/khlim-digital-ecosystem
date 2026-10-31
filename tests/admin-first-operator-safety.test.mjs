@@ -242,12 +242,9 @@ test("a target promoted after initial lookup is protected by live roles", async 
 
   const statusCase = fixture(options);
   await assert.rejects(
-    statusCase.sut.updateMembershipStatus(
-      ORG,
-      statusCase.actor,
-      TARGET,
-      { status: "SUSPENDED" },
-    ),
+    statusCase.sut.updateMembershipStatus(ORG, statusCase.actor, TARGET, {
+      status: "SUSPENDED",
+    }),
     /Only a Super Admin can modify a Super Admin/,
   );
   noWrites(statusCase.log);
@@ -269,12 +266,9 @@ test("target deletion after pre-read fails closed in both mutations", async () =
 
   const statusCase = fixture(options);
   await assert.rejects(
-    statusCase.sut.updateMembershipStatus(
-      ORG,
-      statusCase.actor,
-      TARGET,
-      { status: "SUSPENDED" },
-    ),
+    statusCase.sut.updateMembershipStatus(ORG, statusCase.actor, TARGET, {
+      status: "SUSPENDED",
+    }),
     /Organization member not found/,
   );
   noWrites(statusCase.log);
