@@ -1,6 +1,10 @@
 import path from "node:path";
 import fs from "node:fs";
 import { createRequire } from "node:module";
+import {
+  createRetryableAsyncOnce,
+  getWorkerBundleDir,
+} from "./browser-bundle-cache.mjs";
 
 const require = createRequire(import.meta.url);
 const root = path.resolve(import.meta.dirname, "../..");
@@ -11,7 +15,15 @@ const webpack = require(
   ),
 ).webpack;
 
-let cachedBundle = null;
+const getBuiltBundle = createRetryableAsyncOnce(async () => {
+  try {
+    return await buildTestBundle();
+  } finally {
+    // The compiled bundle has already been read into memory; never leave
+    // per-worker build artifacts behind, even after compilation failure.
+    fs.rmSync(getWorkerBundleDir(root), { recursive: true, force: true });
+  }
+});
 const accessibilityCss = fs.readFileSync(
   path.join(root, "apps/web/app/accessibility.css"),
   "utf8",
@@ -30,9 +42,11 @@ const publicHeaderCss = fs.readFileSync(
 );
 
 export async function getTestBundle() {
-  if (cachedBundle) return cachedBundle;
+  return getBuiltBundle();
+}
 
-  const tempDir = path.join(root, "node_modules/.cache/browser-test-mount");
+async function buildTestBundle() {
+  const tempDir = getWorkerBundleDir(root);
   fs.mkdirSync(tempDir, { recursive: true });
 
   const loaderPath = path.join(tempDir, "ts-loader.cjs");
@@ -287,8 +301,7 @@ window.__mount = {
     });
   });
 
-  cachedBundle = fs.readFileSync(bundleFile, "utf8");
-  return cachedBundle;
+  return fs.readFileSync(bundleFile, "utf8");
 }
 
 export async function mountComponent(
