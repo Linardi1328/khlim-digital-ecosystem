@@ -157,7 +157,6 @@ export function createProbeOperation(connectionString: string): ProbeOperation {
     max: 1,
     connectionTimeoutMillis: PROBE_PHASE_TIMEOUT_MS,
     query_timeout: PROBE_PHASE_TIMEOUT_MS,
-    statement_timeout: PROBE_PHASE_TIMEOUT_MS,
     allowExitOnIdle: true,
   });
   const connections = new Set<PoolClient>();

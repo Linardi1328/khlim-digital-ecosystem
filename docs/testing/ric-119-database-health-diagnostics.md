@@ -101,7 +101,8 @@ code in the final result. Raw errors stay scoped to the short-lived operation.
 The probe keeps the original **2,000 ms** deadline; it does not increase it as a
 speculative fix. It uses the same PrismaClient -> PrismaPg -> pg execution path
 and `SELECT 1`, with a dedicated maximum-one-connection pool, bounded pg acquisition
-and query timeouts, and a server statement timeout. Connection-string parsing is
+and query timeouts. It does not inject server session/startup settings: these are
+not portable through transaction poolers. Connection-string parsing is
 performed before applying the limits so URL timeout fields cannot disable them.
 Credentials and TLS behavior are otherwise preserved, never rewritten in Vercel.
 
@@ -128,8 +129,8 @@ one. They do not contact either hosted database or apply migrations.
 
 | Check | Result |
 | --- | --- |
-| `pnpm test` | **327 passed**, 0 failed/skipped |
-| `node --test tests/database-health.test.mjs` (after API build) | **27 passed**, 0 failed/skipped |
+| `pnpm test` | **328 passed**, 0 failed/skipped |
+| `node --test tests/database-health.test.mjs` (after API build) | **28 passed**, 0 failed/skipped |
 | `pnpm test:pre-alpha` with database opt-in disabled | **23 passed, 13 existing opt-in skips**, 0 failed |
 | `pnpm lint` | PASS |
 | `pnpm format:check` | PASS |
@@ -142,10 +143,15 @@ New regression tests cover success, absent/malformed configuration, nested
 DNS/network/refusal/auth/TLS/timeout/query classifications, unknown/cyclic errors,
 redaction, one-event counting, no-provider failure, timer cleanup, a valid slow
 probe, real connection refusal before Prisma normalization, stalled handshake,
-stalled query disposal, concurrent sharing, minimal HTTP 200 contracts and
+stalled query disposal, successful Prisma wire-protocol queries without added
+server startup settings, concurrent sharing, minimal HTTP 200 contracts and
 production reference suppression. No assertion or existing test was weakened.
 
 ## Approval boundary and next verification
+
+This PR targets main; RIC-84 authentication changes remain in unmerged PR #110.
+Any diagnostic candidate must preserve that security implementation while adding
+these backend changes. Do not deploy this main-based branch over RIC-84 as-is.
 
 This PR is deploy-ready source and tests, **not a deployed diagnosis**. After
 independent review, request separate approval to deploy only an isolated RIC-84

@@ -425,6 +425,73 @@ test(
   },
 );
 
+test(
+  "a successful Prisma query stays healthy without injecting pooler-incompatible startup settings",
+  { timeout: 5000 },
+  async () => {
+    const sockets = new Set();
+    let startup = "";
+    const message = (tag, payload) => {
+      const size = Buffer.alloc(4);
+      size.writeInt32BE(payload.length + 4);
+      return Buffer.concat([Buffer.from(tag), size, payload]);
+    };
+    const server = createServer((socket) => {
+      sockets.add(socket);
+      let authenticated = false;
+      socket.on("data", (data) => {
+        if (!authenticated) {
+          authenticated = true;
+          startup = data.toString();
+          socket.write(
+            Buffer.from([82, 0, 0, 0, 8, 0, 0, 0, 0, 90, 0, 0, 0, 5, 73]),
+          );
+        } else if (data[0] === 81) {
+          // SELECT 1: one text-format int4 column, one row, command complete.
+          const column = Buffer.alloc(18);
+          column.writeInt32BE(23, 6);
+          column.writeInt16BE(4, 10);
+          column.writeInt32BE(-1, 12);
+          socket.write(
+            Buffer.concat([
+              message(
+                "T",
+                Buffer.concat([
+                  Buffer.from([0, 1]),
+                  Buffer.from("result\0"),
+                  column,
+                ]),
+              ),
+              message("D", Buffer.from([0, 1, 0, 0, 0, 1, 49])),
+              message("C", Buffer.from("SELECT 1\0")),
+              message("Z", Buffer.from("I")),
+            ]),
+          );
+        } else if (data[0] === 88) {
+          socket.end();
+        }
+      });
+      socket.on("close", () => sockets.delete(socket));
+    });
+    await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+    try {
+      const { port } = server.address();
+      const result = await probeDatabase(
+        `postgresql://synthetic:fixture@127.0.0.1:${port}/test`,
+      );
+      assert.equal(result.connected, true);
+      assert.equal(result.category, undefined);
+      assert.doesNotMatch(
+        startup,
+        /statement_timeout|query_timeout|connectionTimeoutMillis/,
+      );
+    } finally {
+      for (const socket of sockets) socket.destroy();
+      await new Promise((resolve) => server.close(resolve));
+    }
+  },
+);
+
 test("HTTP health retains 200 and minimal JSON for connected/disconnected/unconfigured states", async (t) => {
   apiRequire("reflect-metadata");
   const { Module } = apiRequire("@nestjs/common");
