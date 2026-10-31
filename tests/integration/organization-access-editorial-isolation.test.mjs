@@ -272,7 +272,9 @@ test(
 
 test(
   "reciprocal Super Admin suspension is serialized by the database lock",
-  { skip: enabled ? false : "Set KHLIM_TEST_DATABASE=1 to run database tests" },
+  {
+    skip: enabled ? false : "Set KHLIM_TEST_DATABASE=1 to run database tests",
+  },
   async () => {
     // Runs only against an explicitly opted-in test database. Unique synthetic
     // identities avoid modifying real staff or pre-existing organizations.
@@ -323,7 +325,10 @@ test(
           status: "SUSPENDED",
         }),
       ]);
-      assert.equal(results.filter((item) => item.status === "fulfilled").length, 1);
+      assert.equal(
+        results.filter((item) => item.status === "fulfilled").length,
+        1,
+      );
       const rejected = results.filter((item) => item.status === "rejected");
       assert.equal(rejected.length, 1);
       assert.equal(rejected[0].reason?.getStatus?.(), 403);
