@@ -11,7 +11,7 @@ const webpack = require(
   ),
 ).webpack;
 
-let cachedBundle = null;
+let cachedBundlePromise = null;
 const accessibilityCss = fs.readFileSync(
   path.join(root, "apps/web/app/accessibility.css"),
   "utf8",
@@ -30,9 +30,23 @@ const publicHeaderCss = fs.readFileSync(
 );
 
 export async function getTestBundle() {
-  if (cachedBundle) return cachedBundle;
+  // Multiple test files run in separate Node processes. Share one compile
+  // within each worker, but never let workers unlink each other's output.
+  if (!cachedBundlePromise) cachedBundlePromise = buildTestBundle();
+  try {
+    return await cachedBundlePromise;
+  } catch (error) {
+    cachedBundlePromise = null;
+    throw error;
+  }
+}
 
-  const tempDir = path.join(root, "node_modules/.cache/browser-test-mount");
+async function buildTestBundle() {
+  const tempDir = path.join(
+    root,
+    "node_modules/.cache/browser-test-mount",
+    String(process.pid),
+  );
   fs.mkdirSync(tempDir, { recursive: true });
 
   const loaderPath = path.join(tempDir, "ts-loader.cjs");
@@ -287,8 +301,7 @@ window.__mount = {
     });
   });
 
-  cachedBundle = fs.readFileSync(bundleFile, "utf8");
-  return cachedBundle;
+  return fs.readFileSync(bundleFile, "utf8");
 }
 
 export async function mountComponent(
