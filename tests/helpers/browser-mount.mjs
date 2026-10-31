@@ -1,7 +1,10 @@
 import path from "node:path";
 import fs from "node:fs";
 import { createRequire } from "node:module";
-import { createRetryableAsyncOnce, getWorkerBundleDir } from "./browser-bundle-cache.mjs";
+import {
+  createRetryableAsyncOnce,
+  getWorkerBundleDir,
+} from "./browser-bundle-cache.mjs";
 
 const require = createRequire(import.meta.url);
 const root = path.resolve(import.meta.dirname, "../..");
