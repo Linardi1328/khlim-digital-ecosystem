@@ -269,3 +269,81 @@ test(
     }
   },
 );
+
+test(
+  "reciprocal Super Admin suspension is serialized by the database lock",
+  { skip: enabled ? false : "Set KHLIM_TEST_DATABASE=1 to run database tests" },
+  async () => {
+    // Runs only against an explicitly opted-in test database. Unique synthetic
+    // identities avoid modifying real staff or pre-existing organizations.
+    const { randomUUID } = await import("node:crypto");
+    const prisma = new PrismaService();
+    const client = prisma.client;
+    const access = new AdminOrganizationAccessService(prisma);
+    const organizationId = randomUUID();
+    const userA = randomUUID();
+    const userB = randomUUID();
+    const actor = (id) => ({
+      id,
+      email: `${id}@example.test`,
+      roles: ["SUPER_ADMIN"],
+      authenticatorAssuranceLevel: "aal2",
+    });
+    try {
+      await client.organization.create({
+        data: {
+          id: organizationId,
+          slug: `synthetic-reciprocal-${organizationId.slice(0, 12)}`,
+          name: "Synthetic Reciprocal Admin Concurrency",
+        },
+      });
+      await client.user.createMany({
+        data: [userA, userB].map((id) => ({
+          id,
+          authProviderSubject: `synthetic-reciprocal-${id}`,
+          email: `${id}@example.test`,
+        })),
+      });
+      for (const userId of [userA, userB]) {
+        await client.organizationMembership.create({
+          data: {
+            organizationId,
+            userId,
+            status: "ACTIVE",
+            roleAssignments: { create: [{ role: "SUPER_ADMIN" }] },
+          },
+        });
+      }
+
+      const results = await Promise.allSettled([
+        access.updateMembershipStatus(organizationId, actor(userA), userB, {
+          status: "SUSPENDED",
+        }),
+        access.updateMembershipStatus(organizationId, actor(userB), userA, {
+          status: "SUSPENDED",
+        }),
+      ]);
+      assert.equal(results.filter((item) => item.status === "fulfilled").length, 1);
+      const rejected = results.filter((item) => item.status === "rejected");
+      assert.equal(rejected.length, 1);
+      assert.equal(rejected[0].reason?.getStatus?.(), 403);
+      assert.match(
+        rejected[0].reason?.message ?? "",
+        /Staff permissions have changed|last active Super Admin/,
+      );
+
+      const remaining = await client.organizationMembership.count({
+        where: {
+          organizationId,
+          status: "ACTIVE",
+          roleAssignments: { some: { role: "SUPER_ADMIN" } },
+        },
+      });
+      assert.equal(remaining, 1, "one active Super Admin must survive");
+    } finally {
+      // CI uses an ephemeral isolated PostgreSQL service. Immutable audit
+      // events intentionally remain in the test DB rather than being deleted.
+      await prisma.onModuleDestroy();
+    }
+  },
+);
