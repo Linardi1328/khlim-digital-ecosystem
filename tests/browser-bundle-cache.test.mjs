@@ -13,7 +13,7 @@ import {
 
 const execFileAsync = promisify(execFile);
 
-test("simultaneous bundle consumers reuse a single in-flight build", async () => {
+test("concurrent bundle consumers share one build", async () => {
   let calls = 0;
   let resolveBuild;
   const once = createRetryableAsyncOnce(() => {
@@ -48,8 +48,10 @@ test("failed fixture compilation can retry on the next request", async () => {
   assert.equal(builds, 2);
 });
 
-test("separate Node processes cannot overwrite each other's browser bundle", async () => {
-  const root = mkdtempSync(path.join(os.tmpdir(), "khlim-browser-worker-test-"));
+test("separate Node processes isolate browser bundle files", async () => {
+  const root = mkdtempSync(
+    path.join(os.tmpdir(), "khlim-browser-worker-test-"),
+  );
   try {
     const helperUrl = new URL(
       "./helpers/browser-bundle-cache.mjs",
