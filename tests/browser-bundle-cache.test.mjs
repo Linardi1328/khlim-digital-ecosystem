@@ -51,7 +51,10 @@ test("failed fixture compilation can retry on the next request", async () => {
 test("separate Node processes cannot overwrite each other's browser bundle", async () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "khlim-browser-worker-test-"));
   try {
-    const helperUrl = new URL("./helpers/browser-bundle-cache.mjs", import.meta.url).href;
+    const helperUrl = new URL(
+      "./helpers/browser-bundle-cache.mjs",
+      import.meta.url,
+    ).href;
     const script = `
 import { getWorkerBundleDir } from ${JSON.stringify(helperUrl)};
 import { mkdirSync, writeFileSync, readFileSync, rmSync } from "node:fs";
@@ -76,7 +79,10 @@ setTimeout(() => {
     assert.notEqual(one.stdout, two.stdout);
     assert.equal(one.stderr, "");
     assert.equal(two.stderr, "");
-    assert.notEqual(getWorkerBundleDir(root, 123), getWorkerBundleDir(root, 124));
+    assert.notEqual(
+      getWorkerBundleDir(root, 123),
+      getWorkerBundleDir(root, 124),
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
