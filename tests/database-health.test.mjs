@@ -425,13 +425,20 @@ test("expired query budget initiates disposal without waiting on stalled pool bo
   t.mock.timers.enable({ apis: ["setTimeout"] });
   let clock = 0;
   let closeCalled = false;
+  let rejectCleanup;
+  const unhandled = [];
+  const onUnhandled = (reason) => unhandled.push(reason);
+  process.on("unhandledRejection", onUnhandled);
+  t.after(() => process.off("unhandledRejection", onUnhandled));
   const pending = probeDatabase(
     URL,
     () => ({
       query: () => new Promise(() => {}),
       close: () => {
         closeCalled = true;
-        return new Promise(() => {});
+        return new Promise((_, reject) => {
+          rejectCleanup = reject;
+        });
       },
     }),
     () => clock,
@@ -443,6 +450,9 @@ test("expired query budget initiates disposal without waiting on stalled pool bo
   assert.equal(result.stage, "query");
   assert.equal(result.category, "probe_timeout");
   assert.equal(result.durationMs, PROBE_DEADLINE_MS);
+  rejectCleanup(new Error("late cleanup failure"));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(unhandled, [], "late cleanup rejection must be observed");
 });
 
 test(
@@ -514,6 +524,7 @@ test(
   async () => {
     const sockets = new Set();
     let startup = "";
+    let startupBuffer = Buffer.alloc(0);
     const message = (tag, payload) => {
       const size = Buffer.alloc(4);
       size.writeInt32BE(payload.length + 4);
@@ -524,8 +535,17 @@ test(
       let authenticated = false;
       socket.on("data", (data) => {
         if (!authenticated) {
+          // TCP can split the startup packet; inspect only the complete frame.
+          startupBuffer = Buffer.concat([startupBuffer, data]);
+          if (startupBuffer.length < 4) return;
+          const startupLength = startupBuffer.readUInt32BE(0);
+          if (startupLength < 8 || startupLength > 65536) {
+            socket.destroy();
+            return;
+          }
+          if (startupBuffer.length < startupLength) return;
+          startup = startupBuffer.subarray(0, startupLength).toString("utf8");
           authenticated = true;
-          startup = data.toString();
           socket.write(
             Buffer.from([82, 0, 0, 0, 8, 0, 0, 0, 0, 90, 0, 0, 0, 5, 73]),
           );
