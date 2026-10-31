@@ -324,6 +324,13 @@ test("real pg acquisition preserves ECONNREFUSED before Prisma normalizes it", a
 });
 
 test("concurrent health requests share one bounded operation and log once per failed request", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"] });
+  const previousUrl = process.env.DATABASE_URL;
+  process.env.DATABASE_URL = URL;
+  t.after(() => {
+    if (previousUrl === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = previousUrl;
+  });
   const probeModule = require("../apps/api/dist/database/health-probe.js");
   const {
     PrismaService,
@@ -355,11 +362,87 @@ test("concurrent health requests share one bounded operation and log once per fa
   });
   await Promise.all([first, second]);
   assert.equal(events, 2);
+  assert.equal((await controller.getHealth()).status, "error");
+  assert.equal(
+    calls,
+    1,
+    "sequential requests inside the TTL reuse bounded work",
+  );
+  assert.equal(events, 3, "cached failures still log exactly once per request");
+  t.mock.timers.tick(1001);
   const next = controller.getHealth();
   assert.equal(calls, 2);
   finish({ connected: true, durationMs: 1, stage: "query" });
   await next;
-  assert.equal(events, 2);
+  assert.equal(events, 3);
+  delete process.env.DATABASE_URL;
+  const missing = controller.getHealth();
+  assert.equal(calls, 3, "missing configuration cannot reuse cached success");
+  finish({
+    connected: false,
+    durationMs: 0,
+    stage: "configuration",
+    category: "missing_database_url",
+  });
+  assert.equal((await missing).status, "error");
+  assert.equal(events, 4);
+});
+
+test("stalled cleanup is bounded by the remaining overall deadline", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let clock = 0;
+  let closeCalled = false;
+  let enterCleanup;
+  const entered = new Promise((resolve) => {
+    enterCleanup = resolve;
+  });
+  const resultPromise = probeDatabase(
+    URL,
+    () => ({
+      query: async () => {
+        clock = 1500;
+      },
+      close: () => {
+        closeCalled = true;
+        enterCleanup();
+        return new Promise(() => {});
+      },
+    }),
+    () => clock,
+  );
+  await entered;
+  clock = PROBE_DEADLINE_MS;
+  t.mock.timers.tick(500);
+  const result = await resultPromise;
+  assert.equal(closeCalled, true);
+  assert.equal(result.connected, false);
+  assert.equal(result.stage, "cleanup");
+  assert.equal(result.category, "probe_timeout");
+  assert.equal(result.durationMs, PROBE_DEADLINE_MS);
+});
+
+test("expired query budget initiates disposal without waiting on stalled pool bookkeeping", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let clock = 0;
+  let closeCalled = false;
+  const pending = probeDatabase(
+    URL,
+    () => ({
+      query: () => new Promise(() => {}),
+      close: () => {
+        closeCalled = true;
+        return new Promise(() => {});
+      },
+    }),
+    () => clock,
+  );
+  clock = PROBE_DEADLINE_MS;
+  t.mock.timers.tick(PROBE_DEADLINE_MS);
+  const result = await pending;
+  assert.equal(closeCalled, true);
+  assert.equal(result.stage, "query");
+  assert.equal(result.category, "probe_timeout");
+  assert.equal(result.durationMs, PROBE_DEADLINE_MS);
 });
 
 test(

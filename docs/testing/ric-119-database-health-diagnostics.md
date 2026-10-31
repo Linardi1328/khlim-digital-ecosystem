@@ -106,18 +106,26 @@ not portable through transaction poolers. Connection-string parsing is
 performed before applying the limits so URL timeout fields cannot disable them.
 Credentials and TLS behavior are otherwise preserved, never rewritten in Vercel.
 
-The watchdog does not merely abandon a Promise.race: cleanup ends tracked clients
+The watchdog does not merely abandon a Promise.race: cleanup immediately ends tracked clients
 (pg destroys an active query's socket), disconnects that probe's Prisma instance,
 and ends its pool. A late successful connection is closed if cleanup already
 started. Connection and query stalls are separately tested against owned
 nonresponsive loopback peers, with explicit peer-close assertions. Setup failures,
-normal completion and rejection all clean up. No shared application client is
+normal completion and rejection all initiate cleanup. Cleanup waits only for the
+remaining overall deadline; slow pool bookkeeping can finish after the response
+without extending its budget. Rejections are observed, and driver connection
+timeouts plus late-client closure remain active. No shared application client is
 disconnected and normal application query limits are unchanged.
 
 Concurrent health requests share one in-flight operation within PrismaService,
-avoiding one new database connection for every parallel request. Each failed HTTP
+avoiding one new database connection for every parallel request. Settled results
+are cached for one second per instance to bound sequential connection churn. A
+configuration change invalidates cached results, including cached success when
+DATABASE_URL disappears. Each failed HTTP
 request still gets one sanitized event and the public result. The pool is disposed
-after each operation; warm HTTP observations therefore must not be described as
+after each operation. Cached event durations describe the underlying probe;
+separate physical samples require waiting beyond the one-second TTL. Warm HTTP
+observations therefore must not be described as
 proof of a warmed diagnostic connection. This endpoint diagnoses connection/query
 ability through Prisma, not the full application's shared-pool saturation or
 business data/schema correctness. `/v1/me` remains a separate validation gate.
@@ -129,8 +137,8 @@ one. They do not contact either hosted database or apply migrations.
 
 | Check | Result |
 | --- | --- |
-| `pnpm test` | **328 passed**, 0 failed/skipped |
-| `node --test tests/database-health.test.mjs` (after API build) | **28 passed**, 0 failed/skipped |
+| `pnpm test` | **330 passed**, 0 failed/skipped |
+| `node --test tests/database-health.test.mjs` (after API build) | **30 passed**, 0 failed/skipped |
 | `pnpm test:pre-alpha` with database opt-in disabled | **23 passed, 13 existing opt-in skips**, 0 failed |
 | `pnpm lint` | PASS |
 | `pnpm format:check` | PASS |
@@ -144,7 +152,8 @@ DNS/network/refusal/auth/TLS/timeout/query classifications, unknown/cyclic error
 redaction, one-event counting, no-provider failure, timer cleanup, a valid slow
 probe, real connection refusal before Prisma normalization, stalled handshake,
 stalled query disposal, successful Prisma wire-protocol queries without added
-server startup settings, concurrent sharing, minimal HTTP 200 contracts and
+server startup settings, concurrent/sequential sharing and cache invalidation,
+remaining-budget cleanup bounds, minimal HTTP 200 contracts and
 production reference suppression. No assertion or existing test was weakened.
 
 ## Approval boundary and next verification

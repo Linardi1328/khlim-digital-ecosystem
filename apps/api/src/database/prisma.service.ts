@@ -1,7 +1,7 @@
 import { Injectable, OnModuleDestroy } from "@nestjs/common";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client";
-import { probeDatabase } from "./health-probe";
+import { probeDatabase, type ProbeResult } from "./health-probe";
 import {
   DEFAULT_ORGANIZATION_ID,
   MULTI_ORGANIZATION_RUNTIME_ENABLED,
@@ -69,14 +69,41 @@ function withOrganizationCompatibility(client: PrismaClient): PrismaClient {
 export class PrismaService implements OnModuleDestroy {
   private prismaClient: PrismaClient | null = null;
   private healthProbe: ReturnType<typeof probeDatabase> | null = null;
+  private healthProbeUrl: string | undefined;
+  private cachedHealthProbe: {
+    databaseUrl: string | undefined;
+    result: ProbeResult;
+    expiresAt: number;
+  } | null = null;
 
-  probe() {
+  probe(): Promise<ProbeResult> {
     // Health traffic must not allocate one connection per concurrent request.
     // Each request still reports/logs its own result, while sharing bounded work.
+    const databaseUrl = process.env.DATABASE_URL;
+    const cached = this.cachedHealthProbe;
+    if (
+      cached &&
+      cached.databaseUrl === databaseUrl &&
+      cached.expiresAt > Date.now()
+    )
+      return Promise.resolve(cached.result);
+    if (this.healthProbe && this.healthProbeUrl !== databaseUrl)
+      return this.healthProbe.then(() => this.probe());
     if (!this.healthProbe) {
-      this.healthProbe = probeDatabase(process.env.DATABASE_URL).finally(() => {
-        this.healthProbe = null;
-      });
+      this.healthProbeUrl = databaseUrl;
+      this.healthProbe = probeDatabase(databaseUrl)
+        .then((result) => {
+          this.cachedHealthProbe = {
+            databaseUrl,
+            result,
+            expiresAt: Date.now() + 1000,
+          };
+          return result;
+        })
+        .finally(() => {
+          this.healthProbe = null;
+          this.healthProbeUrl = undefined;
+        });
     }
     return this.healthProbe;
   }

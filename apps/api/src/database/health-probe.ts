@@ -201,8 +201,9 @@ export function createProbeOperation(connectionString: string): ProbeOperation {
 export async function probeDatabase(
   databaseUrl: string | undefined,
   createOperation = createProbeOperation,
+  now = () => performance.now(),
 ): Promise<ProbeResult> {
-  const started = performance.now();
+  const started = now();
   let stage: Stage = "configuration";
   let operation: ProbeOperation | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -229,7 +230,7 @@ export async function probeDatabase(
           new Promise<never>((_, reject) => {
             timer = setTimeout(
               () => reject({ code: "KHLIM_PROBE_TIMEOUT" }),
-              PROBE_DEADLINE_MS,
+              Math.max(0, PROBE_DEADLINE_MS - (now() - started)),
             );
           }),
         ]);
@@ -241,19 +242,45 @@ export async function probeDatabase(
   } finally {
     clearTimeout(timer);
     if (operation) {
+      let cleanupTimer: ReturnType<typeof setTimeout> | undefined;
       try {
-        await operation.close();
+        // Initiate socket disposal even when the request budget has expired.
+        // Pool bookkeeping must not hold the response open beyond that budget.
+        const cleanup = operation.close();
+        const remainingMs = Math.max(0, PROBE_DEADLINE_MS - (now() - started));
+        if (!remainingMs) {
+          void cleanup.catch(() => {});
+          if (!failure) {
+            stage = "cleanup";
+            failure = {
+              category: "probe_timeout",
+              code: "KHLIM_PROBE_TIMEOUT",
+            };
+          }
+        } else {
+          await Promise.race([
+            cleanup,
+            new Promise<never>((_, reject) => {
+              cleanupTimer = setTimeout(
+                () => reject({ code: "KHLIM_PROBE_TIMEOUT" }),
+                remainingMs,
+              );
+            }),
+          ]);
+        }
       } catch (error) {
         if (!failure) {
           stage = "cleanup";
           failure = classifyProbeError(error);
         }
+      } finally {
+        clearTimeout(cleanupTimer);
       }
     }
   }
   return {
     connected: !failure,
-    durationMs: Math.max(0, Math.round(performance.now() - started)),
+    durationMs: Math.max(0, Math.round(now() - started)),
     stage,
     ...failure,
   };
