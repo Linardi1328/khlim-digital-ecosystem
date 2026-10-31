@@ -140,6 +140,8 @@ test("role changes fail closed for suspended actor despite stale JWT role", asyn
   noWrites(log);
 });
 
+// These mocked branches directly exercise the no-backup guard. The
+// database-backed reciprocal-admin regression verifies the real invariant.
 test("last active Super Admin cannot be stripped of that role", async () => {
   const { sut, actor, log } = fixture({ otherActiveSuperAdmin: false });
   await assert.rejects(
@@ -224,36 +226,58 @@ test("missing organization member is not silently created or promoted", async ()
 });
 
 test("a target promoted after initial lookup is protected by live roles", async () => {
-  const { sut, actor, log } = fixture({
+  const options = {
     actorRoles: ["MANAGEMENT"],
     preReadTargetRoles: ["ACADEMY_ADMIN"],
     targetRoles: ["SUPER_ADMIN"],
-  });
+  };
+  const roleCase = fixture(options);
   await assert.rejects(
-    sut.replaceStaffRoles(ORG, actor, TARGET, { roles: ["COACH"] }),
+    roleCase.sut.replaceStaffRoles(ORG, roleCase.actor, TARGET, {
+      roles: ["COACH"],
+    }),
     /Only a Super Admin can modify a Super Admin/,
   );
+  noWrites(roleCase.log);
+
+  const statusCase = fixture(options);
   await assert.rejects(
-    sut.updateMembershipStatus(ORG, actor, TARGET, { status: "SUSPENDED" }),
+    statusCase.sut.updateMembershipStatus(
+      ORG,
+      statusCase.actor,
+      TARGET,
+      { status: "SUSPENDED" },
+    ),
     /Only a Super Admin can modify a Super Admin/,
   );
-  noWrites(log);
+  noWrites(statusCase.log);
 });
 
 test("target deletion after pre-read fails closed in both mutations", async () => {
-  const { sut, actor, log } = fixture({
+  const options = {
     preReadTargetExists: true,
     targetExists: false,
-  });
+  };
+  const roleCase = fixture(options);
   await assert.rejects(
-    sut.replaceStaffRoles(ORG, actor, TARGET, { roles: ["COACH"] }),
+    roleCase.sut.replaceStaffRoles(ORG, roleCase.actor, TARGET, {
+      roles: ["COACH"],
+    }),
     /Organization member not found/,
   );
+  noWrites(roleCase.log);
+
+  const statusCase = fixture(options);
   await assert.rejects(
-    sut.updateMembershipStatus(ORG, actor, TARGET, { status: "SUSPENDED" }),
+    statusCase.sut.updateMembershipStatus(
+      ORG,
+      statusCase.actor,
+      TARGET,
+      { status: "SUSPENDED" },
+    ),
     /Organization member not found/,
   );
-  noWrites(log);
+  noWrites(statusCase.log);
 });
 
 test("missing organization lock denies role and status changes", async () => {
