@@ -1,8 +1,12 @@
 # RIC-119: database health diagnostics and preview investigation
 
 Issue: [RIC-119](https://linear.app/rbl-productions/issue/RIC-119/khlim-api-ric-84-diagnose-staging-db-disconnect-with-safe-prisma).
-Observed 31 October 2026 (MYT). Backend-only change, based on main
-`16e877863953366e3cbfedb10a7f06d6910b950d`.
+Observed 31 October 2026 (MYT). The original RIC-119 backend-only
+diagnostics were based on main `16e877863953366e3cbfedb10a7f06d6910b950d`.
+The isolated integration candidate combines RIC-84 security source
+`1793935894bf4bf3673eda3127b89cf24b73f8a3` and RIC-119 diagnostic source
+`ce6c31731f16c9fcb7bf20a639d2b34a8ec9a700` (PR #113, tested at
+`26ec6f070504bdadeb26bed15da3d1dfb13137a5`).
 
 ## Live evidence and limits
 
@@ -156,16 +160,51 @@ server startup settings, concurrent/sequential sharing and cache invalidation,
 remaining-budget cleanup bounds, minimal HTTP 200 contracts and
 production reference suppression. No assertion or existing test was weakened.
 
+## Diagnostic deployment and exact-head evidence (1 November 2026)
+
+An API-only Preview deployment was created manually at the RIC-84
+branch-scoped staging environment from integrated commit
+`f90bdecf3c660ec0dd3c191cd7303e08a4723dde`, whose file tree matches the
+12/12 CI-passing integration candidate `26ec6f0`. The immutable deployment is
+`dpl_4zRQmbrSfyZUf56XAkLbZewV92oW` at
+`https://khlim-digital-ecosystem-rbz6llf8i-rbl-productions.vercel.app`.
+The new deployment reached READY. Vercel initially assigned the mutable RIC-84
+branch alias to it; after read-only health and server-log evidence was captured,
+the alias was explicitly restored and verified against original immutable
+deployment `dpl_EcMfuoq7Gz38CdvgH7iFLmS9TsFF`.
+Use only immutable deployment URLs for comparisons.
+
+Three sanitized server-only error events showed category `invalid_database_url`,
+stage `configuration` and duration `0 ms`, with no allowlisted error code. The
+public health response remained HTTP 200 with `database.status=disconnected`.
+**This identifies the first failing stage, not the exact malformed value.**
+No database handshake, TLS authentication or SQL execution was attempted by the
+new diagnostic probe. Vercel reports a sensitive branch-specific DATABASE_URL
+record, but read-only inspection did not return its decrypted value.
+No secrets were printed, copied or changed, and no hosted database writes or
+migrations occurred.
+
+The original RIC-84 immutable Preview was still disconnected. The RIC-65
+immutable reference first returned disconnected after an idle period, then
+returned connected on three subsequent warm health requests. This remains a
+historical comparison only; do not change RIC-65.
+
 ## Approval boundary and next verification
 
-This PR targets main; RIC-84 authentication changes remain in unmerged PR #110.
-Any diagnostic candidate must preserve that security implementation while adding
-these backend changes. Do not deploy this main-based branch over RIC-84 as-is.
+Do not merge PR #110 or this combined candidate into production while the
+real-PostgreSQL reciprocal Super Admin concurrency regression and owner-approved
+authentication/staff acceptance gates remain incomplete. Never infer
+`/v1/me` success from a public health response.
 
-This PR is deploy-ready source and tests, **not a deployed diagnosis**. After
-independent review, request separate approval to deploy only an isolated RIC-84
-diagnostic preview. Keep RIC-65, production, credentials and Vercel settings intact.
-Then capture the new category/code/stage/duration for first and repeated health
-requests, and—with an approved synthetic session—separately establish Supabase
-Auth success and authorized `/v1/me` account loading. Never print session tokens.
-Only that evidence can justify a follow-up configuration or timeout change.
+The next authorized action is to verify and correct the *exact* branch-scoped
+RIC-84 DATABASE_URL syntax using approved operator access and a validated
+replacement value; do not rotate credentials or blindly change Vercel settings.
+A corrected configuration requires a **fresh immutable diagnostic deployment**
+and cold/warm health rechecks. With an approved synthetic identity and session,
+verify Supabase Auth separately from authorized `/v1/me` account loading.
+Never print tokens or raw connection strings.
+
+Future diagnostic previews should have isolated scope and preserve the original
+reference deployment and alias routing. If Git-based manual deployments assign a
+mutable branch alias automatically, record the mapping and restore the original
+target after collecting evidence; never silently overwrite RIC-65 or production.
