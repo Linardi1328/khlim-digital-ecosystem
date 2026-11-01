@@ -138,7 +138,9 @@ export interface ProbeOperation {
 
 // Report only an allowlisted structural fingerprint for otherwise unknown
 // failures. Error names, messages, stack traces and driver fields stay private.
-function unknownErrorShape(error: unknown): "type_error" | "aggregate_error" | "error" | "opaque" {
+function unknownErrorShape(
+  error: unknown,
+): "type_error" | "aggregate_error" | "error" | "opaque" {
   if (error instanceof TypeError) return "type_error";
   if (error instanceof AggregateError) return "aggregate_error";
   if (error instanceof Error) return "error";
