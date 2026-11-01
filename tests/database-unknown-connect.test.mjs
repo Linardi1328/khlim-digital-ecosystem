@@ -93,14 +93,7 @@ test("unknown errors distinguish pooler modes", async () => {
       "supabase_direct",
       "not_applicable",
     ],
-    [
-      "127.0.0.1",
-      5432,
-      "postgres",
-      true,
-      "other",
-      "not_applicable",
-    ],
+    ["127.0.0.1", 5432, "postgres", true, "other", "not_applicable"],
   ]) {
     const url = fixtureUrl({ host, port, user, hasPassword });
     const result = await probeDatabase(url, () =>
