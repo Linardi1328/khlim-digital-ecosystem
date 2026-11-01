@@ -2,6 +2,7 @@ import { Controller, Get, Optional } from "@nestjs/common";
 import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { Public } from "./auth/authorization.decorators";
 import { PrismaService } from "./database/prisma.service";
+import type { ProbeResult } from "./database/health-probe";
 
 export function extractDatabaseProjectRef(databaseUrl?: string): string | null {
   if (!databaseUrl) return null;
@@ -49,36 +50,41 @@ export class HealthController {
     const projectRef = isProduction
       ? null
       : extractDatabaseProjectRef(process.env.DATABASE_URL);
-    let databaseStatus = "unconfigured";
-
-    if (this.prisma) {
-      try {
-        let timer: NodeJS.Timeout;
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          timer = setTimeout(
-            () => reject(new Error("Database probe timeout")),
-            2000,
-          );
-        });
-        await Promise.race([
-          this.prisma.client.$queryRaw`SELECT 1`.finally(() =>
-            clearTimeout(timer),
-          ),
-          timeoutPromise,
-        ]);
-        databaseStatus = "connected";
-      } catch {
-        databaseStatus = "disconnected";
-      }
+    const probe: ProbeResult = this.prisma
+      ? await this.prisma.probe()
+      : {
+          connected: false,
+          durationMs: 0,
+          stage: "configuration",
+          category: "missing_database_support",
+        };
+    if (!probe.connected) {
+      process.stderr.write(
+        `${JSON.stringify({
+          timestamp: new Date().toISOString(),
+          level: "error",
+          service: "khlim-api",
+          event: "database.health_probe.failed",
+          durationMs: probe.durationMs,
+          stage: probe.stage,
+          category: probe.category,
+          ...(probe.code ? { code: probe.code } : {}),
+          // Diagnostic is a closed enum/boolean object, never a raw exception.
+          ...(probe.category === "unknown" && probe.diagnostic
+            ? { diagnostic: probe.diagnostic }
+            : {}),
+        })}\n`,
+      );
     }
-
-    const isHealthy =
-      databaseStatus === "connected" ||
-      (databaseStatus === "unconfigured" && !this.prisma);
+    const databaseStatus = !this.prisma
+      ? "unconfigured"
+      : probe.connected
+        ? "connected"
+        : "disconnected";
 
     return {
       service: "khlim-api",
-      status: isHealthy ? "ok" : "error",
+      status: probe.connected ? "ok" : "error",
       database: {
         status: databaseStatus,
         ...(projectRef ? { projectRef } : {}),
