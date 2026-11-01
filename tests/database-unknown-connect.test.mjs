@@ -61,7 +61,10 @@ test("unknown pool errors emit only allowlisted connection diagnostics", async (
     JSON.stringify({ events, result }),
     /synthetic private driver|UNRECOGNIZED_PRIVATE_CODE|syntheticproject|pooler.supabase.com/,
   );
-  assert.equal(JSON.stringify({ events, result }).includes(new URL(url).password), false);
+  assert.equal(
+    JSON.stringify({ events, result }).includes(new URL(url).password),
+    false,
+  );
 });
 
 test("unknown error diagnostics distinguish pooler modes safely", async () => {
