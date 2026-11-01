@@ -165,7 +165,7 @@ function connectionFingerprint(databaseUrl: string): {
         ? "supabase_direct"
         : "other",
     poolerUsername: isSharedPooler
-      ? /^postgres\.[a-z0-9]+$/.test(decodeURIComponent(url.username))
+      ? /^postgres\.[a-z0-9]+$/.test(url.username)
         ? "project_scoped"
         : "other"
       : "not_applicable",
