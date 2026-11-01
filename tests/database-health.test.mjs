@@ -118,6 +118,98 @@ test("classifier handles pg code-less timeouts, TLS adapter kinds, cycles and ho
   assert.deepEqual(classifyProbeError(error), { category: "unknown" });
 });
 
+test("unknown pg acquisition failures report only fixed pooler and error-shape labels", async (t) => {
+  const events = [];
+  t.mock.method(process.stderr, "write", (line) => {
+    events.push(JSON.parse(line));
+    return true;
+  });
+  const password = "test-only-secret-123";
+  const poolerUrl =
+    `postgresql://postgres.qxsjxcbfhxbvxigghhlq:${password}@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres`;
+  const driverError = new TypeError(`private driver error ${password}`);
+  driverError.code = "PRIVATE_NOT_ALLOWLISTED";
+  const failingOperation = () => ({
+    query: async () => {
+      throw driverError;
+    },
+    close: async () => {},
+    errorOrigin: () => "pg_pool",
+  });
+  const controller = new HealthController({
+    probe: () => probeDatabase(poolerUrl, failingOperation),
+  });
+  assert.deepEqual(await controller.getHealth(), {
+    service: "khlim-api",
+    status: "error",
+    database: { status: "disconnected" },
+  });
+  assert.equal(events.length, 1);
+  assert.equal(events[0].category, "unknown");
+  assert.equal(events[0].stage, "query");
+  assert.equal(events[0].code, undefined);
+  assert.deepEqual(events[0].diagnostic, {
+    origin: "pg_pool",
+    errorShape: "type_error",
+    connectionMode: "supavisor_transaction",
+    poolerUsername: "project_scoped",
+    passwordPresent: true,
+  });
+  assert.doesNotMatch(
+    JSON.stringify(events),
+    /test-only-secret|private driver|aws-0|postgresql:\/\/|qxsjxcb|PRIVATE_NOT_ALLOWLISTED/,
+  );
+});
+
+test("unknown errors distinguish transaction, session, direct and other endpoints without values", async () => {
+  const fixtures = [
+    [
+      "postgresql://postgres.example:secret@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres",
+      "supavisor_transaction",
+      "project_scoped",
+      true,
+    ],
+    [
+      "postgresql://postgres:secret@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres",
+      "supavisor_session",
+      "other",
+      true,
+    ],
+    [
+      "postgresql://postgres@db.example.supabase.co:5432/postgres",
+      "supabase_direct",
+      "not_applicable",
+      false,
+    ],
+    [
+      "postgresql://postgres:secret@127.0.0.1:5432/postgres",
+      "other",
+      "not_applicable",
+      true,
+    ],
+  ];
+  for (const [url, mode, username, hasPassword] of fixtures) {
+    const result = await probeDatabase(url, () => ({
+      query: async () => {
+        throw new Error(`sensitive failure ${url}`);
+      },
+      close: async () => {},
+    }));
+    assert.equal(result.category, "unknown");
+    assert.deepEqual(result.diagnostic, {
+      origin: "unavailable",
+      errorShape: "error",
+      connectionMode: mode,
+      poolerUsername: username,
+      passwordPresent: hasPassword,
+    });
+    assert.doesNotMatch(
+      JSON.stringify(result),
+      /secret|sensitive failure|postgresql:\/\/|example\.supabase|127\.0\.0\.1/,
+    );
+  }
+});
+
 test("2-second watchdog closes in-flight work instead of abandoning the Promise.race", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   let rejectQuery;
