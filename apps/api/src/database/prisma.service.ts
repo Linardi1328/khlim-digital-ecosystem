@@ -2,6 +2,7 @@ import { Injectable, OnModuleDestroy } from "@nestjs/common";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client";
 import { probeDatabase, type ProbeResult } from "./health-probe";
+import { pgClientConfigForApi } from "./pg-client-config";
 import {
   DEFAULT_ORGANIZATION_ID,
   MULTI_ORGANIZATION_RUNTIME_ENABLED,
@@ -116,7 +117,7 @@ export class PrismaService implements OnModuleDestroy {
         throw new Error("DATABASE_URL is required before database access");
       }
 
-      const adapter = new PrismaPg({ connectionString });
+      const adapter = new PrismaPg(pgClientConfigForApi(connectionString));
       const client = new PrismaClient({ adapter });
       this.prismaClient = withOrganizationCompatibility(client);
     }
