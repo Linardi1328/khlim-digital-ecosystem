@@ -241,6 +241,41 @@ variable changes or credential rotation were performed during the follow-up.
 The generic Preview/main-database isolation risk remains separately tracked
 under RIC-120.
 
+## RIC-84 staging Supabase CA trust candidate (2 November 2026)
+
+The operator supplied the **public**, PEM-encoded `prod-ca-2021.crt` from the
+staging SSL Configuration workflow. OpenSSL confirmed it is a self-signed
+CA-signing certificate for `Supabase Root 2021 CA`, valid from 28 April 2021
+to 26 April 2031. The SHA-256 **certificate** fingerprint is
+`80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA`.
+Supabase's published SSL guidance recommends supplying its CA and using
+full server identity verification. Self-signature verification alone does
+not independently authenticate a certificate's download provenance.
+
+The proposed implementation bundles this **public trust anchor only**;
+never database passwords, private keys, database URLs or user tokens.
+An explicit `KHLIM_RIC84_SUPABASE_CA_2021=1` flag must be configured
+for the **RIC-84 Preview branch only**, not generic Preview or production.
+When enabled, the pooler URL must target port 6543, a Supabase pooler
+hostname and exactly the staging project-scoped username
+`postgres.qxsjxcbfhxbvxigghhlq`. Any other project, port or
+production runtime fails closed. Both the real Prisma adapter and
+the isolated diagnostic probe parse the URL first, then require
+the pinned CA, `rejectUnauthorized=true` and TLS servername equal
+to the pooler hostname. This avoids the node-postgres trap where
+a connection string's `sslmode` can silently override a supplied
+TLS configuration. It does **not** weaken TLS verification.
+
+Existing `PGSSLMODE=require` remains scoped to RIC-84 Preview.
+No `DATABASE_URL` edit, password rotation, Supabase SSL setting change
+or production merge is part of this step. Acceptance requires exact-head
+CI/secret scan, one immutable API-only RIC-84 Preview with
+`database.projectRef=qxsjxcbfhxbvxigghhlq` and connected cold/warm
+`/v1/health`, plus checking normal application Prisma TLS behavior.
+Supabase Auth and authorized synthetic `/v1/me` are separate gates.
+The production release remains blocked until reciprocal administrator
+lock-contention testing and auth/operator approval are complete.
+
 ## Approval boundary and next verification
 
 Do not merge PR #110 or the integrated candidate into production while
