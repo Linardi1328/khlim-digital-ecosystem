@@ -27,7 +27,7 @@ function databaseUrl(options = {}) {
   return url;
 }
 
-test("public CA has expected fingerprint, signing purpose and validity", () => {
+test("pinned public CA has expected fingerprint and validity", () => {
   const ca = new X509Certificate(SUPABASE_ROOT_2021_CA_PEM);
   assert.equal(ca.ca, true);
   assert.equal(
@@ -52,26 +52,30 @@ test("staging SSL verifies the pinned CA and pooler hostname", () => {
   assert.ok(!JSON.stringify(config.ssl).includes(url.password));
 });
 
-test("staging trust override fails closed for wrong scope or production", () => {
+test("staging trust fails closed on wrong endpoints and production", () => {
   const url = databaseUrl();
-  const invalid = [
-    [url.toString(), { ...ENABLED, KHLIM_ENV: "production" }],
-    [
-      databaseUrl({ username: "postgres.anotherproject" }).toString(),
-      ENABLED,
-    ],
-    [databaseUrl({ port: 5432 }).toString(), ENABLED],
-    [databaseUrl({ host: "127.0.0.1" }).toString(), ENABLED],
+  const invalidUrls = [
+    databaseUrl({ username: "postgres.anotherproject" }),
+    databaseUrl({ port: 5432 }),
+    databaseUrl({ host: "127.0.0.1" }),
   ];
-  for (const [connectionString, env] of invalid) {
+  for (const invalidUrl of invalidUrls) {
     assert.throws(
-      () => pgClientConfigForApi(connectionString, env),
+      () => pgClientConfigForApi(invalidUrl.toString(), ENABLED),
       /RIC-84 staging CA trust scope mismatch/,
     );
   }
+  assert.throws(
+    () =>
+      pgClientConfigForApi(url.toString(), {
+        ...ENABLED,
+        KHLIM_ENV: "production",
+      }),
+    /RIC-84 staging CA trust scope mismatch/,
+  );
 });
 
-test("no branch opt-in leaves existing database connection parsing alone", () => {
+test("no opt-in preserves current database URL parsing", () => {
   const url = databaseUrl();
   const config = pgClientConfigForApi(url.toString(), {});
   assert.equal(config.host, HOST);
