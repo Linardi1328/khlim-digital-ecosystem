@@ -1,6 +1,6 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool, type PoolClient } from "pg";
-import { parseIntoClientConfig } from "pg-connection-string";
+import { pgClientConfigForApi } from "./pg-client-config";
 import { PrismaClient } from "../generated/prisma/client";
 
 export const PROBE_DEADLINE_MS = 2000;
@@ -203,9 +203,9 @@ class ProbePool extends Pool {
 // disconnect the shared application client or impose probe limits on its work.
 export function createProbeOperation(connectionString: string): ProbeOperation {
   const pool = new ProbePool({
-    // Parse first so URL timeout parameters cannot override probe bounds. All
-    // credentials/TLS/host settings still use pg's own connection-string parser.
-    ...parseIntoClientConfig(connectionString),
+    // Parse first so URL timeout parameters cannot override probe bounds.
+    // The staging-only pinned CA also applies to this isolated probe.
+    ...pgClientConfigForApi(connectionString),
     max: 1,
     connectionTimeoutMillis: PROBE_PHASE_TIMEOUT_MS,
     query_timeout: PROBE_PHASE_TIMEOUT_MS,
