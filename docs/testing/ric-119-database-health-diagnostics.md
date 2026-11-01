@@ -87,9 +87,15 @@ Each failed health request emits exactly one JSON-line server event:
 
 The actual event also has an ISO timestamp. Only `durationMs`, a fixed stage,
 a fixed category and an optional allowlisted stable code are derived from the
-probe. It never serializes exceptions, stack traces, messages, usernames, hosts,
-URLs, JWTs, tokens, SQL parameters or user records. No detailed diagnostics are
-added to the public response.
+probe. For otherwise `unknown` failures, it also emits a strictly bounded
+`diagnostic` object containing fixed enums only: `origin` (`pg_pool`,
+`prisma_adapter` or `unavailable`), `errorShape` (`type_error`,
+`aggregate_error`, `error` or `opaque`), `connectionMode` (transaction,
+session, direct or other), `poolerUsername` (project-scoped, other or
+not-applicable) and a boolean `passwordPresent`. Presence is **not proof of
+credential correctness**. The code never serializes exceptions, stack traces,
+messages, actual usernames, hosts, URLs, passwords, JWTs, tokens, SQL parameters
+or user records. No detailed diagnostics are added to the public response.
 
 Categories distinguish missing/invalid configuration or missing provider, DNS,
 unreachable network, refused connection, rejected authentication, TLS, timeout,
@@ -189,20 +195,73 @@ immutable reference first returned disconnected after an idle period, then
 returned connected on three subsequent warm health requests. This remains a
 historical comparison only; do not change RIC-65.
 
+## Later staging connection investigation (1 November 2026)
+
+The operator updated the branch-specific sensitive `DATABASE_URL` and confirmed
+they selected Supabase **Transaction pooler**. A subsequent immutable
+API-only Preview `dpl_9sXWwvDGySR2VdbZFyZGvB86L8Qy` at
+`fa64d329d4cfb41ff9b135ab2bf7d3401fc6f703` reached READY.
+Four sampled public health responses were HTTP 200 with `status=error`,
+`database.status=disconnected`, and project reference
+`qxsjxcbfhxbvxigghhlq` (correct *staging* project). The earlier
+`invalid_database_url` classification was cleared. Server-only events showed
+`stage=connect`, `category=unknown`, no stable error code, and 466–835 ms
+durations. The application did not report a two-second timeout.
+
+A clean-history diagnostic PR #116 passed 12/12 GitHub workflows and the Secret
+Scan. Its exact file tree was staged on RIC-84 as
+`01eff3c7de502e54aeaa06a831169efbe841cd80`; that commit passed
+14 GitHub checks, including CodeRabbit, but follow-up review threads remain
+open for documentation and proving actual database-row lock contention.
+An API-only immutable Preview `dpl_EfU4VSDyxSZ2R2wZH3Tyr9bAJHmX`
+(`https://khlim-digital-ecosystem-2bzswsdbh-rbl-productions.vercel.app`)
+reached READY and returned three disconnected health checks with the correct
+staging project reference. A sampled sanitized private failure event showed
+`stage=connect`, `category=unknown`, `origin=pg_pool`,
+`errorShape=error`, `connectionMode=supavisor_transaction`,
+`poolerUsername=project_scoped`, `passwordPresent=true`, no allowlisted
+code, and 776 ms duration. This does **not** validate the password or prove
+successful TLS/authentication.
+
+Supabase staging Pooler Logs in a narrow investigation window contained three
+`supavisor_logs` records with `mode=transaction`, `state=handshake`,
+`severity=error`; they originated from
+`Elixir.Supavisor.ClientHandler.Error.terminate_with_error/3`.
+Only fixed-field aggregates and allowlisted text-match counts were inspected:
+the event text contains the phrase `SSL connection`. This is consistent with
+a pooler-side handshake problem, but log-to-request correlation and the precise
+error condition are **not yet verified**. No credentials or raw error strings
+were copied into this runbook. A Supabase control-plane read-only `SELECT 1`
+confirmed the staging database itself responds.
+
+The RIC-84 mutable branch alias was verified still pointing to the original
+immutable Preview `dpl_EcMfuoq7Gz38CdvgH7iFLmS9TsFF`. The new diagnostic
+Preview has no aliases. No production promotion, migrations, DB writes, Vercel
+variable changes or credential rotation were performed during the follow-up.
+The generic Preview/main-database isolation risk remains separately tracked
+under RIC-120.
+
 ## Approval boundary and next verification
 
-Do not merge PR #110 or this combined candidate into production while the
-real-PostgreSQL reciprocal Super Admin concurrency regression and owner-approved
-authentication/staff acceptance gates remain incomplete. Never infer
-`/v1/me` success from a public health response.
+Do not merge PR #110 or the integrated candidate into production while
+the **database-locked reciprocal Super Admin concurrency assertion** and
+owner-approved authentication/staff acceptance gates remain incomplete. The
+existing real-PostgreSQL regression checks the invariant, but a separate lock
+holder/overlap test is still requested to prove contention and serialization.
+Never infer `/v1/me` success from a public health response.
 
-The next authorized action is to verify and correct the *exact* branch-scoped
-RIC-84 DATABASE_URL syntax using approved operator access and a validated
-replacement value; do not rotate credentials or blindly change Vercel settings.
-A corrected configuration requires a **fresh immutable diagnostic deployment**
-and cold/warm health rechecks. With an approved synthetic identity and session,
-verify Supabase Auth separately from authorized `/v1/me` account loading.
-Never print tokens or raw connection strings.
+The URL is now parseable and project-scoped correctly; **do not reclassify the
+later failure as invalid URL syntax**. The next action is a secure operator
+comparison of the staging Supabase Connect transaction-pooler **host/region,
+port 6543, project-scoped username and URL-encoded password** with the
+branch-specific Vercel variable, and investigation of the Supavisor handshake
+logs. Never paste the actual value, password or raw pooler logs into tickets or
+ChatGPT. Do not rotate or change credentials, SSL enforcement or connection
+parameters without evidence of the exact fault and an impact review of RIC-65.
+Any verified correction requires another **immutable API-only Preview**,
+cold/warm `/v1/health` checks, and sanitized private logs.
+With an approved synthetic identity and session, verify Supabase Auth separately
+from authorized `/v1/me` account loading.
 
 Future diagnostic previews should have isolated scope and preserve the original
 reference deployment and alias routing. If Git-based manual deployments assign a
