@@ -24,7 +24,7 @@ function failingOperation(error, origin) {
   };
 }
 
-test("unknown pool errors emit only allowlisted connection diagnostics", async (t) => {
+test("unknown pool errors emit fixed diagnostic labels", async (t) => {
   const events = [];
   t.mock.method(process.stderr, "write", (line) => {
     events.push(JSON.parse(line));
@@ -67,7 +67,7 @@ test("unknown pool errors emit only allowlisted connection diagnostics", async (
   );
 });
 
-test("unknown error diagnostics distinguish pooler modes safely", async () => {
+test("unknown errors distinguish pooler modes", async () => {
   for (const [host, port, user, hasPassword, mode, scoped] of [
     [
       "aws-0-ap-southeast-1.pooler.supabase.com",
@@ -117,7 +117,10 @@ test("unknown error diagnostics distinguish pooler modes safely", async () => {
     assert.equal(JSON.stringify(result).includes(host), false);
     assert.equal(JSON.stringify(result).includes(user), false);
     if (hasPassword) {
-      assert.equal(JSON.stringify(result).includes(new URL(url).password), false);
+      assert.equal(
+        JSON.stringify(result).includes(new URL(url).password),
+        false,
+      );
     }
   }
 });
