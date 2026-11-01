@@ -13,6 +13,18 @@ export type ProbeResult = {
   stage: Stage;
   category?: string;
   code?: string;
+  // Fixed enums only: never include raw driver text, URLs, hosts or credentials.
+  diagnostic?: {
+    origin: "pg_pool" | "prisma_adapter" | "unavailable";
+    errorShape: "type_error" | "aggregate_error" | "error" | "opaque";
+    connectionMode:
+      | "supavisor_transaction"
+      | "supavisor_session"
+      | "supabase_direct"
+      | "other";
+    poolerUsername: "project_scoped" | "other" | "not_applicable";
+    passwordPresent: boolean;
+  };
 };
 
 // Values, messages, stacks, hostnames and arbitrary driver fields never enter logs.
@@ -121,6 +133,44 @@ export interface ProbeOperation {
   query(): Promise<unknown>;
   close(): Promise<void>;
   stage?(): Stage;
+  errorOrigin?(): "pg_pool" | "prisma_adapter";
+}
+
+// Report only an allowlisted structural fingerprint for otherwise unknown
+// failures. Error names, messages, stack traces and driver fields stay private.
+function unknownErrorShape(error: unknown): "type_error" | "aggregate_error" | "error" | "opaque" {
+  if (error instanceof TypeError) return "type_error";
+  if (error instanceof AggregateError) return "aggregate_error";
+  if (error instanceof Error) return "error";
+  return "opaque";
+}
+
+function connectionFingerprint(databaseUrl: string): {
+  connectionMode: NonNullable<ProbeResult["diagnostic"]>["connectionMode"];
+  poolerUsername: NonNullable<ProbeResult["diagnostic"]>["poolerUsername"];
+  passwordPresent: boolean;
+} {
+  // Caller validated URL syntax. No parsed string component is ever returned.
+  const url = new URL(databaseUrl);
+  const isSharedPooler = url.hostname.endsWith(".pooler.supabase.com");
+  const isDirect = /^db\.[a-z0-9]+\.supabase\.co$/.test(url.hostname);
+  return {
+    connectionMode: isSharedPooler
+      ? url.port === "6543"
+        ? "supavisor_transaction"
+        : url.port === "5432"
+          ? "supavisor_session"
+          : "other"
+      : isDirect
+        ? "supabase_direct"
+        : "other",
+    poolerUsername: isSharedPooler
+      ? /^postgres\.[a-z0-9]+$/.test(decodeURIComponent(url.username))
+        ? "project_scoped"
+        : "other"
+      : "not_applicable",
+    passwordPresent: url.password.length > 0,
+  };
 }
 
 // PrismaPg deliberately normalizes ENOTFOUND/ECONNREFUSED to the same kind.
@@ -162,6 +212,7 @@ export function createProbeOperation(connectionString: string): ProbeOperation {
   const connections = new Set<PoolClient>();
   let closing = false;
   let stage: Stage = "connect";
+  let errorOrigin: "pg_pool" | "prisma_adapter" = "prisma_adapter";
   pool.on("acquire", () => {
     stage = "query";
   });
@@ -175,11 +226,16 @@ export function createProbeOperation(connectionString: string): ProbeOperation {
   const prisma = new PrismaClient({ adapter: new PrismaPg(pool), log: [] });
   return {
     stage: () => stage,
+    errorOrigin: () => errorOrigin,
     query: async () => {
       try {
         return await prisma.$queryRaw`SELECT 1`;
       } catch (error) {
-        throw pool.connectionError ?? error;
+        if (pool.connectionError !== undefined) {
+          errorOrigin = "pg_pool";
+          throw pool.connectionError;
+        }
+        throw error;
       }
     },
     async close() {
@@ -208,6 +264,7 @@ export async function probeDatabase(
   let operation: ProbeOperation | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let failure: ReturnType<typeof classifyProbeError> | undefined;
+  let diagnostic: ProbeResult["diagnostic"];
   try {
     if (!databaseUrl?.trim()) {
       failure = { category: "missing_database_url" };
@@ -239,6 +296,13 @@ export async function probeDatabase(
   } catch (error) {
     stage = operation?.stage?.() ?? stage;
     failure = classifyProbeError(error);
+    if (failure.category === "unknown" && databaseUrl?.trim()) {
+      diagnostic = {
+        origin: operation?.errorOrigin?.() ?? "unavailable",
+        errorShape: unknownErrorShape(error),
+        ...connectionFingerprint(databaseUrl.trim()),
+      };
+    }
   } finally {
     clearTimeout(timer);
     if (operation) {
@@ -283,5 +347,6 @@ export async function probeDatabase(
     durationMs: Math.max(0, Math.round(now() - started)),
     stage,
     ...failure,
+    ...(failure?.category === "unknown" && diagnostic ? { diagnostic } : {}),
   };
 }
