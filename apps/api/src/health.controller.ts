@@ -69,6 +69,10 @@ export class HealthController {
           stage: probe.stage,
           category: probe.category,
           ...(probe.code ? { code: probe.code } : {}),
+          // Diagnostic is a closed enum/boolean object, never a raw exception.
+          ...(probe.category === "unknown" && probe.diagnostic
+            ? { diagnostic: probe.diagnostic }
+            : {}),
         })}\n`,
       );
     }
