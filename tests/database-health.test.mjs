@@ -118,7 +118,7 @@ test("classifier handles pg code-less timeouts, TLS adapter kinds, cycles and ho
   assert.deepEqual(classifyProbeError(error), { category: "unknown" });
 });
 
-test("unknown pg acquisition failures report only fixed pooler and error-shape labels", async (t) => {
+test("unknown pg errors report only fixed diagnostics", async (t) => {
   const events = [];
   t.mock.method(process.stderr, "write", (line) => {
     events.push(JSON.parse(line));
@@ -161,7 +161,7 @@ test("unknown pg acquisition failures report only fixed pooler and error-shape l
   );
 });
 
-test("unknown errors distinguish transaction, session, direct and other endpoints without values", async () => {
+test("unknown errors classify endpoints without values", async () => {
   const fixtures = [
     [
       "postgresql://postgres.example:secret@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres",
