@@ -16,6 +16,12 @@ if (nodeMajor !== expectedNodeMajor) {
   );
 }
 
+try {
+  execFileSync("openssl", ["version"], { stdio: "ignore" });
+} catch {
+  fail("OpenSSL CLI is required for offline PostgreSQL TLS regression tests");
+}
+
 const pnpmVersion = execFileSync("pnpm", ["--version"], {
   encoding: "utf8",
 }).trim();

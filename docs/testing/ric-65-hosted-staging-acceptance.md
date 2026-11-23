@@ -109,9 +109,13 @@ Sends test payloads to `POST /v1/academy/leads` to confirm server-side validatio
 
 ### Phase E: Independent Direct Database Verification
 - Queries staging database directly via `KHLIM_STAGING_DATABASE_URL` with Prisma client and `PrismaPg` adapter:
-  - Verifies database URL is bound to project `qxsjxcbfhxbvxigghhlq`.
+  - Validates the project, host, port, user and `/postgres` database before constructing Prisma. The direct project endpoint uses `postgres` on port `5432`. Regional Supabase poolers use `postgres.qxsjxcbfhxbvxigghhlq` on port `5432` or `6543`. The project-specific pooler hostname also accepts `postgres` on those pooler ports.
+  - Always verifies the server certificate and hostname using the *same public Supabase Root 2021 CA* compiled into `apps/api/dist/database/supabase-root-2021-ca.js`; fingerprint `80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA`. A missing API build or invalid CA fails closed before staging writes. The URL may omit its query string or include a single `sslmode=require` or `sslmode=verify-full`. All other query parameters cause rejection before Prisma or its pool can initialize.
+  - Rejects inherited nonempty `PGOPTIONS` and uses finite pool acquisition (5 s) and query (10 s) limits with a single probe connection. These are client-side limits; no transaction-pooler-incompatible startup settings are injected.
   - Asserts count by `id === leadId` is exactly 1.
   - Asserts count by `idempotencyKey === syntheticLead.idempotencyKey` is exactly 1 (`DATABASE_PERSISTENCE_VIOLATION` if count != 1).
+
+RIC-120 intentionally rejects `?pgbouncer=true` in the API Preview database guard. The hosted acceptance runner also rejects it. Use the approved endpoint and port to select the connection mode, with TLS verification enforced by the client.
 
 ### Phase F: PII-Safe Logging & Error Sanitization
 All logs and error messages are sanitized via `sanitizeErrorMessage`:

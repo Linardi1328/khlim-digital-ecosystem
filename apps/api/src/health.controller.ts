@@ -2,6 +2,8 @@ import { Controller, Get, Optional } from "@nestjs/common";
 import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { Public } from "./auth/authorization.decorators";
 import { PrismaService } from "./database/prisma.service";
+import type { ProbeResult } from "./database/health-probe";
+import { requiresPreviewDatabaseIsolation } from "./database/pg-client-config";
 
 export function extractDatabaseProjectRef(databaseUrl?: string): string | null {
   if (!databaseUrl) return null;
@@ -12,7 +14,10 @@ export function extractDatabaseProjectRef(databaseUrl?: string): string | null {
     if (hostMatch) return hostMatch[1] ?? null;
     // 2. Supabase Pooler user: postgres.<ref> (only valid on Supabase pooler host)
     const isPoolerHost = parsed.hostname.endsWith(".pooler.supabase.com");
-    const userMatch = parsed.username.match(/^postgres\.([a-z0-9]+)$/);
+    // URL.username is percent-encoded; normalize it before inferring a ref.
+    const userMatch = decodeURIComponent(parsed.username).match(
+      /^postgres\.([a-z0-9]+)$/,
+    );
     if (userMatch && isPoolerHost) return userMatch[1] ?? null;
     // 3. Supabase Pooler host: <ref>.pooler.supabase.com
     const poolerHostMatch = parsed.hostname.match(
@@ -45,40 +50,49 @@ export class HealthController {
     },
   })
   async getHealth() {
-    const isProduction = process.env.KHLIM_ENV === "production";
-    const projectRef = isProduction
-      ? null
-      : extractDatabaseProjectRef(process.env.DATABASE_URL);
-    let databaseStatus = "unconfigured";
-
-    if (this.prisma) {
-      try {
-        let timer: NodeJS.Timeout;
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          timer = setTimeout(
-            () => reject(new Error("Database probe timeout")),
-            2000,
-          );
-        });
-        await Promise.race([
-          this.prisma.client.$queryRaw`SELECT 1`.finally(() =>
-            clearTimeout(timer),
-          ),
-          timeoutPromise,
-        ]);
-        databaseStatus = "connected";
-      } catch {
-        databaseStatus = "disconnected";
-      }
+    const restricted = requiresPreviewDatabaseIsolation();
+    const isProduction = !restricted || process.env.KHLIM_ENV === "production";
+    const databaseUrl = process.env.DATABASE_URL;
+    const probe: ProbeResult = this.prisma
+      ? await this.prisma.probe()
+      : {
+          connected: false,
+          durationMs: 0,
+          stage: "configuration",
+          category: "missing_database_support",
+        };
+    if (!probe.connected) {
+      process.stderr.write(
+        `${JSON.stringify({
+          timestamp: new Date().toISOString(),
+          level: "error",
+          service: "khlim-api",
+          event: "database.health_probe.failed",
+          durationMs: probe.durationMs,
+          stage: probe.stage,
+          category: probe.category,
+          ...(probe.code ? { code: probe.code } : {}),
+          // Diagnostic is a closed enum/boolean object, never a raw exception.
+          ...(probe.category === "unknown" && probe.diagnostic
+            ? { diagnostic: probe.diagnostic }
+            : {}),
+        })}\n`,
+      );
     }
+    const databaseStatus = !this.prisma
+      ? "unconfigured"
+      : probe.connected
+        ? "connected"
+        : "disconnected";
 
-    const isHealthy =
-      databaseStatus === "connected" ||
-      (databaseStatus === "unconfigured" && !this.prisma);
+    const projectRef =
+      isProduction || (restricted && probe.stage === "configuration")
+        ? null
+        : extractDatabaseProjectRef(databaseUrl);
 
     return {
       service: "khlim-api",
-      status: isHealthy ? "ok" : "error",
+      status: probe.connected ? "ok" : "error",
       database: {
         status: databaseStatus,
         ...(projectRef ? { projectRef } : {}),

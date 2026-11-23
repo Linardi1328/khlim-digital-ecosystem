@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { randomUUID } from "node:crypto";
+import { randomUUID, X509Certificate } from "node:crypto";
+import { createRequire } from "node:module";
 
 export const STAGING_SUPABASE_PROJECT_ID = "qxsjxcbfhxbvxigghhlq";
 export const DEDICATED_STAGING_BRANCH = "staging/ric-65-academy-soft-launch";
@@ -126,26 +127,110 @@ export function sanitizeErrorMessage(error) {
     );
 }
 
-export function extractDatabaseProjectRef(databaseUrl) {
-  if (!databaseUrl || typeof databaseUrl !== "string") return null;
-  try {
-    const parsed = new URL(databaseUrl);
-    // 1. Direct Supabase db host: db.<ref>.supabase.co
-    const hostMatch = parsed.hostname.match(/^db\.([a-z0-9]+)\.supabase\.co$/);
-    if (hostMatch) return hostMatch[1] ?? null;
-    // 2. Supabase Pooler user: postgres.<ref> (only valid on Supabase pooler host)
-    const isPoolerHost = parsed.hostname.endsWith(".pooler.supabase.com");
-    const userMatch = parsed.username.match(/^postgres\.([a-z0-9]+)$/);
-    if (userMatch && isPoolerHost) return userMatch[1] ?? null;
-    // 3. Supabase Pooler host: <ref>.pooler.supabase.com
-    const poolerHostMatch = parsed.hostname.match(
-      /^([a-z0-9]+)\.pooler\.supabase\.com$/,
+export function stagingDatabaseConfig(databaseUrl) {
+  // PGOPTIONS is inherited by pg clients and can add unauthorized startup
+  // parameters even when the URL itself is allowlisted.
+  if (process.env.PGOPTIONS?.trim()) {
+    throw new Error(
+      "DATABASE_CONFIGURATION_REJECTED: PGOPTIONS must be unset for hosted staging acceptance",
     );
-    if (poolerHostMatch) return poolerHostMatch[1] ?? null;
-    return null;
-  } catch {
-    return null;
   }
+  const invalid = new Error(
+    "DATABASE_CONFIGURATION_REJECTED: Use a PostgreSQL /postgres URL with no query parameters except one sslmode=require or sslmode=verify-full",
+  );
+  if (
+    typeof databaseUrl !== "string" ||
+    !/^postgres(?:ql)?:\/\/[^/?#]+\/postgres(?:\?[^#]*)?$/.test(databaseUrl) ||
+    /[\s\u0000-\u001f\u007f]|%(?![0-9a-f]{2})/i.test(databaseUrl)
+  ) {
+    throw invalid;
+  }
+
+  let url;
+  let user;
+  let password;
+  try {
+    url = new URL(databaseUrl);
+    user = decodeURIComponent(url.username);
+    password = decodeURIComponent(url.password);
+  } catch {
+    throw invalid;
+  }
+
+  const params = [...url.searchParams];
+  if (
+    params.length > 1 ||
+    params.some(
+      ([key, value]) =>
+        key !== "sslmode" || !["require", "verify-full"].includes(value),
+    )
+  ) {
+    throw invalid;
+  }
+
+  const host = url.hostname.toLowerCase();
+  const port = Number(url.port || "5432");
+  const stagingPoolerUser = `postgres.${STAGING_SUPABASE_PROJECT_ID}`;
+  const direct =
+    host === `db.${STAGING_SUPABASE_PROJECT_ID}.supabase.co` &&
+    user === "postgres" &&
+    port === 5432;
+  const projectPooler =
+    host === `${STAGING_SUPABASE_PROJECT_ID}.pooler.supabase.com` &&
+    (user === "postgres" || user === stagingPoolerUser);
+  const sharedPooler =
+    /^aws-\d+-[a-z]+(?:-[a-z]+)+-\d+\.pooler\.supabase\.com$/.test(host) &&
+    user === stagingPoolerUser;
+  if (
+    !direct &&
+    !((projectPooler || sharedPooler) && [5432, 6543].includes(port))
+  ) {
+    throw new Error(
+      `DATABASE_IDENTITY_MISMATCH: An approved database endpoint for project '${STAGING_SUPABASE_PROJECT_ID}' is required`,
+    );
+  }
+
+  // The API build is a required step in the hosted acceptance workflow.
+  // Reuse the same *public*, fingerprint-checked Supabase trust anchor as the
+  // API, rather than silently falling back to an unrelated default CA store.
+  const apiRequire = createRequire(
+    new URL("../apps/api/package.json", import.meta.url),
+  );
+  let caPem;
+  try {
+    ({ SUPABASE_ROOT_2021_CA_PEM: caPem } = apiRequire(
+      "./dist/database/supabase-root-2021-ca.js",
+    ));
+    const ca = new X509Certificate(caPem);
+    if (
+      !ca.ca ||
+      ca.fingerprint256 !==
+        "80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA" ||
+      Date.now() >= Date.parse(ca.validTo)
+    ) {
+      throw new Error("Invalid staging CA");
+    }
+  } catch {
+    throw new Error(
+      "DATABASE_CONFIGURATION_REJECTED: Built API staging CA trust anchor unavailable or invalid",
+    );
+  }
+
+  // Pass explicit fields so node-postgres cannot reparse any part of the URL.
+  return {
+    host,
+    port,
+    user,
+    database: "postgres",
+    // A callback also prevents fallback to PGPASSWORD or a password file.
+    password: () => password,
+    ssl: { rejectUnauthorized: true, servername: host, ca: caPem },
+    sslnegotiation: "postgres",
+    connectionTimeoutMillis: 5000,
+    query_timeout: 10000,
+    idleTimeoutMillis: 1000,
+    max: 1,
+  };
 }
 
 export function validateTestContact(phone, approvedPhone) {
@@ -667,76 +752,67 @@ export async function runHostedStagingAcceptance(env = process.env) {
     );
   }
 
-  const dbProjectRef = extractDatabaseProjectRef(dbUrl);
-  if (dbProjectRef !== STAGING_SUPABASE_PROJECT_ID) {
-    throw new Error(
-      `DATABASE_IDENTITY_MISMATCH: Direct database URL is bound to project '${dbProjectRef || "unknown"}', expected '${STAGING_SUPABASE_PROJECT_ID}'`,
-    );
-  }
+  const dbConfig = stagingDatabaseConfig(dbUrl);
 
   let prisma = env._prismaClient;
-  let prismaServiceInstance = null;
+  let ownedPrisma = null;
   if (!prisma) {
     try {
+      if (process.env.NODE_PG_FORCE_NATIVE) {
+        throw new Error(
+          "The runner requires the JavaScript node-postgres driver",
+        );
+      }
       const path = await import("node:path");
       const { createRequire } = await import("node:module");
       const apiRequire = createRequire(
         path.resolve(process.cwd(), "apps/api/dist/main.js"),
       );
-      const { PrismaService } = apiRequire("./database/prisma.service.js");
-      const prevDbUrl = process.env.DATABASE_URL;
-      process.env.DATABASE_URL = dbUrl;
-      try {
-        prismaServiceInstance = new PrismaService();
-        prisma = prismaServiceInstance.client;
-      } finally {
-        if (prevDbUrl === undefined) {
-          delete process.env.DATABASE_URL;
-        } else {
-          process.env.DATABASE_URL = prevDbUrl;
-        }
-      }
-    } catch (clientErr) {
+      const { PrismaClient } = apiRequire("./generated/prisma/client.js");
+      const { PrismaPg } = apiRequire("@prisma/adapter-pg");
+      ownedPrisma = new PrismaClient({ adapter: new PrismaPg(dbConfig) });
+      prisma = ownedPrisma;
+    } catch {
       throw new Error(
-        `DATABASE_CLIENT_UNAVAILABLE: Failed to initialize Prisma client with PrismaPg adapter: ${sanitizeErrorMessage(clientErr)}`,
+        "DATABASE_CLIENT_UNAVAILABLE: Failed to initialize Prisma client with PrismaPg adapter",
       );
     }
   }
-
-  // Preflight database probe before any POST
-  try {
-    await prisma.academyLead.count({
-      where: { source: "staging-probe-preflight" },
-    });
-  } catch (preflightErr) {
-    throw new Error(
-      `DATABASE_PREFLIGHT_FAILURE: Failed to query staging database before mutation: ${sanitizeErrorMessage(preflightErr)}`,
-    );
-  }
-
-  // 4d. Mandatory Authenticated Vercel Deployment Identity & Provenance Verification BEFORE ANY POST
-  const deploymentIdentity = await verifyVercelDeploymentIdentity({
-    apiUrl,
-    env,
-  });
-  results.deploymentIdentity = deploymentIdentity;
-
-  console.log(
-    JSON.stringify({
-      event: "staging.hosted_acceptance.active_window_started",
-      note: "Authorized active window confirmed. Mandatory auth tokens, test contact, direct DB client, and deployment provenance verified. Executing hosted validation cases, synthetic lead creation, duplicate idempotency receipt, and MFA AAL2 retrieval.",
-      deploymentId: deploymentIdentity.deploymentId,
-      deployedSha: deploymentIdentity.deployedSha,
-      deployedBranch: deploymentIdentity.deployedBranch,
-    }),
-  );
-
-  const leadsEndpoint = new URL("/v1/academy/leads", apiUrl);
 
   let syntheticLead = null;
   let leadId = null;
 
   try {
+    // Preflight database probe before any POST
+    try {
+      await prisma.academyLead.count({
+        where: { source: "staging-probe-preflight" },
+      });
+    } catch {
+      throw new Error(
+        "DATABASE_PREFLIGHT_FAILURE: Failed to query staging database before mutation",
+      );
+    }
+
+    // 4d. Mandatory Authenticated Vercel Deployment Identity & Provenance Verification BEFORE ANY POST
+    const deploymentIdentity = await verifyVercelDeploymentIdentity({
+      apiUrl,
+      env,
+    });
+    results.deploymentIdentity = deploymentIdentity;
+
+    console.log(
+      JSON.stringify({
+        event: "staging.hosted_acceptance.active_window_started",
+        note: "Authorized active window confirmed. Mandatory auth tokens, test contact, direct DB client, and deployment provenance verified. Executing hosted validation cases, synthetic lead creation, duplicate idempotency receipt, and MFA AAL2 retrieval.",
+        deploymentId: deploymentIdentity.deploymentId,
+        deployedSha: deploymentIdentity.deployedSha,
+        deployedBranch: deploymentIdentity.deployedBranch,
+      }),
+    );
+
+    const leadsEndpoint = new URL("/v1/academy/leads", apiUrl);
+
     // 5. Non-destructive Input Validation / Injection-like Cases
     const validationCases = createValidationCases(validatedPhone);
     for (const testCase of validationCases) {
@@ -1001,8 +1077,8 @@ export async function runHostedStagingAcceptance(env = process.env) {
       dbProjectRefVerified: true,
     };
   } finally {
-    if (prismaServiceInstance) {
-      await prismaServiceInstance.onModuleDestroy();
+    if (ownedPrisma) {
+      await ownedPrisma.$disconnect();
     }
   }
 
