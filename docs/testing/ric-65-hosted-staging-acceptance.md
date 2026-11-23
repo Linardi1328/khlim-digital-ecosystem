@@ -109,9 +109,12 @@ Sends test payloads to `POST /v1/academy/leads` to confirm server-side validatio
 
 ### Phase E: Independent Direct Database Verification
 - Queries staging database directly via `KHLIM_STAGING_DATABASE_URL` with Prisma client and `PrismaPg` adapter:
-  - Verifies database URL is bound to project `qxsjxcbfhxbvxigghhlq`.
+  - Validates the project, host, port, user and `/postgres` database before constructing Prisma. The direct project endpoint uses `postgres` on port `5432`. Regional Supabase poolers use `postgres.qxsjxcbfhxbvxigghhlq` on port `5432` or `6543`. The project-specific pooler hostname also accepts `postgres` on those pooler ports.
+  - Always verifies the server certificate and hostname. The URL may omit its query string or include a single `sslmode=require` or `sslmode=verify-full`. All other query parameters cause rejection before Prisma or its pool can initialize.
   - Asserts count by `id === leadId` is exactly 1.
   - Asserts count by `idempotencyKey === syntheticLead.idempotencyKey` is exactly 1 (`DATABASE_PERSISTENCE_VIOLATION` if count != 1).
+
+RIC-120 intentionally rejects `?pgbouncer=true` in the API Preview database guard. The hosted acceptance runner also rejects it. Use the approved endpoint and port to select the connection mode, with TLS verification enforced by the client.
 
 ### Phase F: PII-Safe Logging & Error Sanitization
 All logs and error messages are sanitized via `sanitizeErrorMessage`:
