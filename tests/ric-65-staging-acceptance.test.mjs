@@ -2229,59 +2229,20 @@ function storedLead(id, payload) {
   return { ...payload, id, programmeOfferingId: null, consentAt: new Date() };
 }
 
-test("the raw Vercel operator procedure validates each optional alias array", async () => {
-  const doc = await read("docs/testing/ric-65-hosted-staging-acceptance.md");
-  const section = doc.split(
-    "## Verify the raw Vercel response after deployment approval",
-  )[1];
-  const procedure = section.split("```bash\n")[1].split("```")[0];
-  const check = (metadata) =>
-    spawnSync(
-      "/bin/bash",
-      [
-        "-c",
-        `curl() { cat >/dev/null; printf '%s\\n' "$REVIEW_FIXTURE"; }
-${procedure}`,
-      ],
-      {
-        env: {
-          PATH: process.env.PATH,
-          review_id: DEPLOYMENT_ID,
-          review_project: STAGING_VERCEL_API_PROJECT_ID,
-          review_host: API_HOST,
-          review_sha: APPROVED_SHA,
-          KHLIM_STAGING_VERCEL_TOKEN: "mock-token",
-          REVIEW_FIXTURE: JSON.stringify(metadata),
-        },
-        encoding: "utf8",
-      },
-    );
-  assert.equal(check(candidateMetadata).stdout.trim(), "true");
-  for (const field of ["alias", "automaticAliases", "userAliases"]) {
-    for (const value of [null, false, 0, API_HOST, {}, [API_HOST]]) {
-      const result = check({ ...candidateMetadata, [field]: value });
-      assert.equal(result.status, 1, field);
-      assert.equal(result.stdout.trim(), "false", field);
-    }
-    const result = check({
-      ...candidateMetadata,
-      [field]: ["elsewhere.vercel.app"],
-    });
-    assert.equal(result.status, 0, field);
-    assert.equal(result.stdout.trim(), "true", field);
-  }
-});
-
 test("active Admin pagination rejects unreadable, malformed and out-of-bound pages", async (t) => {
   const item = { id: receiptId, source: "3x3-oct24", status: "NEW" };
+  const otherItems = Array.from({ length: 21 }, (_, index) => ({
+    ...item,
+    id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+  }));
   const pageOne = {
-    items: [item],
+    items: [item, ...otherItems.slice(0, 19)],
     page: 1,
     limit: 20,
     total: 21,
     totalPages: 2,
   };
-  const pageTwo = { ...pageOne, page: 2, items: [] };
+  const pageTwo = { ...pageOne, page: 2, items: otherItems.slice(19, 20) };
   for (const [label, pages, error] of [
     [
       "unreadable page two",
@@ -2299,8 +2260,28 @@ test("active Admin pagination rejects unreadable, malformed and out-of-bound pag
       /ADMIN_LIST_PAGE_INVALID/,
     ],
     [
+      "incomplete first page",
+      [{ ...pageOne, items: [item] }],
+      /ADMIN_LIST_PAGE_INVALID/,
+    ],
+    [
+      "incomplete last page",
+      [pageOne, { ...pageTwo, items: [] }],
+      /ADMIN_LIST_PAGE_INVALID/,
+    ],
+    [
+      "oversized last page",
+      [pageOne, { ...pageTwo, items: otherItems.slice(19) }],
+      /ADMIN_LIST_PAGE_INVALID/,
+    ],
+    [
       "shrinking boundary",
-      [pageOne, { ...pageTwo, total: 1, totalPages: 1 }],
+      [pageOne, { ...pageTwo, items: [], total: 1, totalPages: 1 }],
+      /ADMIN_PAGINATION_UNVERIFIED/,
+    ],
+    [
+      "changed total with unchanged page count",
+      [pageOne, { ...pageTwo, total: 22, items: otherItems.slice(19) }],
       /ADMIN_PAGINATION_UNVERIFIED/,
     ],
     [
@@ -2308,7 +2289,12 @@ test("active Admin pagination rejects unreadable, malformed and out-of-bound pag
       [{ ...pageOne, total: 101, totalPages: 6 }],
       /ADMIN_PAGINATION_UNVERIFIED/,
     ],
-    ["valid empty later page", [pageOne, pageTwo], null],
+    [
+      "valid empty result still lacks the expected receipt",
+      [{ ...pageOne, items: [], total: 0, totalPages: 1 }],
+      /PERSISTENCE_INVARIANT_VIOLATION/,
+    ],
+    ["complete two-page result", [pageOne, pageTwo], null],
   ]) {
     await t.test(label, async (test) => {
       const { mockFetch, recordedRequests } = createMockFetch({

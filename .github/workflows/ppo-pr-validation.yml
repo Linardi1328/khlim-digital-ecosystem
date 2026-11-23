@@ -44,6 +44,12 @@ jobs:
       - name: Full regression suite
         run: pnpm test
 
+      - name: Offline RIC-65 runbook regression
+        run: |
+          bash --version
+          jq --version
+          pnpm test:ric-65-runbook
+
       - name: Web static localization coverage
         run: pnpm i18n:audit
 

@@ -1126,6 +1126,7 @@ async function runAcceptance(env, progress) {
     const maxPages = 5;
     const pageSize = 20;
     let expectedPages;
+    let expectedTotal;
 
     do {
       const params = new URLSearchParams({
@@ -1149,14 +1150,18 @@ async function runAcceptance(env, progress) {
       const adminJson = await adminRes.json().catch(() => null);
       if (
         !Array.isArray(adminJson?.items) ||
-        adminJson.items.length > pageSize ||
-        adminJson.items.some(
-          (lead) => typeof lead?.id !== "string" || !UUID.test(lead.id),
-        ) ||
         adminJson.page !== currentPage ||
         adminJson.limit !== pageSize ||
         !Number.isSafeInteger(adminJson.total) ||
-        adminJson.total < adminJson.items.length ||
+        adminJson.total < 0 ||
+        adminJson.items.length !==
+          Math.min(
+            pageSize,
+            Math.max(0, adminJson.total - (currentPage - 1) * pageSize),
+          ) ||
+        adminJson.items.some(
+          (lead) => typeof lead?.id !== "string" || !UUID.test(lead.id),
+        ) ||
         !Number.isSafeInteger(adminJson.totalPages) ||
         adminJson.totalPages !==
           Math.max(1, Math.ceil(adminJson.total / pageSize))
@@ -1167,13 +1172,16 @@ async function runAcceptance(env, progress) {
       }
       if (
         adminJson.totalPages > maxPages ||
-        (expectedPages !== undefined && adminJson.totalPages !== expectedPages)
+        (expectedPages !== undefined &&
+          (adminJson.totalPages !== expectedPages ||
+            adminJson.total !== expectedTotal))
       ) {
         throw new Error(
-          "ADMIN_PAGINATION_UNVERIFIED: Staging Admin list page count exceeds or changed within the verification boundary",
+          "ADMIN_PAGINATION_UNVERIFIED: Staging Admin list exceeded the page limit or changed its reported totals",
         );
       }
       expectedPages = adminJson.totalPages;
+      expectedTotal = adminJson.total;
       allMatchingLeads.push(
         ...adminJson.items.filter((lead) => lead.id === leadId),
       );
