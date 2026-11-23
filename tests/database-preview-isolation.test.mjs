@@ -51,6 +51,44 @@ test("Preview uses the approved effective pg destination and verifies TLS with o
   }
 });
 
+test("the isolated probe retains the approved pg destination and pinned TLS with an owned transport", async (t) => {
+  const url = databaseUrl();
+  url.searchParams.set("sslmode", "require");
+  const env = { ...PINNED, DATABASE_URL: url.href };
+  for (const [key, value] of Object.entries(env)) {
+    const previous = process.env[key];
+    t.after(() => {
+      if (previous === undefined) delete process.env[key];
+      else process.env[key] = previous;
+    });
+    process.env[key] = value;
+  }
+  const socketConnect = t.mock.method(Socket.prototype, "connect", () => {
+    assert.fail("Preview probe attempted a network connection");
+  });
+  const connect = t.mock.method(Client.prototype, "connect", (done) => {
+    done(
+      Object.assign(new Error("synthetic refusal"), { code: "ECONNREFUSED" }),
+    );
+  });
+
+  const probe = await new PrismaService().probe();
+  assert.equal(probe.stage, "connect");
+  assert.equal(probe.code, "ECONNREFUSED");
+  assert.equal(connect.mock.callCount(), 1);
+  assert.equal(socketConnect.mock.callCount(), 0);
+  const { this: client } = connect.mock.calls[0];
+  assert.equal(client.host, HOST);
+  assert.equal(client.port, 6543);
+  assert.equal(client.user, `postgres.${STAGING}`);
+  assert.equal(client.database, "postgres");
+  assert.equal(client.ssl.rejectUnauthorized, true);
+  assert.equal(client.ssl.servername, HOST);
+  assert.equal(client.ssl.checkServerIdentity, undefined);
+  assert.equal(client.ssl.ca, pgClientConfigForApi(url.href, PINNED).ssl.ca);
+  assert.equal(client.connection.stream.destroyed, true);
+});
+
 test("Preview rejects production, unknown projects, and unapproved endpoint shapes", () => {
   for (const overrides of [
     { user: `postgres.${PRODUCTION}` },
