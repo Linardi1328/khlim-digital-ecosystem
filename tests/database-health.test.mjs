@@ -13,7 +13,10 @@ const {
   classifyProbeError,
   PROBE_DEADLINE_MS,
 } = require("../apps/api/dist/database/health-probe.js");
-const { HealthController } = require("../apps/api/dist/health.controller.js");
+const {
+  HealthController,
+  extractDatabaseProjectRef,
+} = require("../apps/api/dist/health.controller.js");
 const fixtureUrl = new globalThis.URL("postgresql://127.0.0.1:1/test");
 fixtureUrl.username = "synthetic";
 fixtureUrl.password = randomUUID();
@@ -34,6 +37,77 @@ function operation(error) {
     },
   };
 }
+
+test("late query completion is not healthy even when its timer callback is delayed", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let clock = 0;
+  const result = await probeDatabase(
+    URL,
+    () => ({
+      query: async () => { clock = PROBE_DEADLINE_MS + 1; },
+      close: async () => {},
+    }),
+    () => clock,
+  );
+  assert.equal(result.connected, false);
+  assert.equal(result.stage, "query");
+  assert.equal(result.category, "probe_timeout");
+});
+
+test("late cleanup completion is not healthy even when its timer callback is delayed", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let clock = 0;
+  const result = await probeDatabase(
+    URL,
+    () => ({
+      query: async () => { clock = 1500; },
+      close: async () => { clock = PROBE_DEADLINE_MS + 1; },
+    }),
+    () => clock,
+  );
+  assert.equal(result.connected, false);
+  assert.equal(result.stage, "cleanup");
+  assert.equal(result.category, "cleanup_timeout");
+  assert.equal(result.code, "KHLIM_PROBE_CLEANUP_TIMEOUT");
+});
+
+test("health project ref handles encoded shared-pooler usernames without trusting raw text", () => {
+  assert.equal(
+    extractDatabaseProjectRef(`postgresql://postgres%2Eqxsjxcbfhxbvxigghhlq:${randomUUID()}@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres`),
+    "qxsjxcbfhxbvxigghhlq",
+  );
+  assert.equal(
+    extractDatabaseProjectRef(`postgresql://postgres%2Eanother:${randomUUID()}@not-a-pooler.example:6543/postgres`),
+    null,
+  );
+});
+
+test("changing the staging CA policy invalidates cached health success", async (t) => {
+  const oldUrl = process.env.DATABASE_URL;
+  const oldFlag = process.env.KHLIM_RIC84_SUPABASE_CA_2021;
+  process.env.DATABASE_URL = URL;
+  process.env.KHLIM_RIC84_SUPABASE_CA_2021 = "1";
+  t.after(() => {
+    if (oldUrl === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = oldUrl;
+    if (oldFlag === undefined) delete process.env.KHLIM_RIC84_SUPABASE_CA_2021;
+    else process.env.KHLIM_RIC84_SUPABASE_CA_2021 = oldFlag;
+  });
+  const probeModule = require("../apps/api/dist/database/health-probe.js");
+  const { PrismaService } = require("../apps/api/dist/database/prisma.service.js");
+  let calls = 0;
+  t.mock.method(probeModule, "probeDatabase", async () => {
+    calls++;
+    return { connected: true, durationMs: 0, stage: "query" };
+  });
+  const service = new PrismaService();
+  assert.equal((await service.probe()).connected, true);
+  assert.equal((await service.probe()).connected, true);
+  assert.equal(calls, 1);
+  process.env.KHLIM_RIC84_SUPABASE_CA_2021 = "true";
+  assert.equal((await service.probe()).connected, true);
+  assert.equal(calls, 2, "policy change must start a new probe rather than reuse the old success");
+});
 
 test("successful Prisma probe closes its isolated client and returns connected", async () => {
   const op = operation();

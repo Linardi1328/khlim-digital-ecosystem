@@ -73,10 +73,35 @@ test("staging trust fails closed on wrong endpoints and production", () => {
   );
 });
 
-test("no opt-in preserves current database URL parsing", () => {
+test("no opt-in preserves pg URL parsing without promoting URL keys to pool options", () => {
   const url = databaseUrl();
+  url.searchParams.set("application_name", "khlim-synthetic");
+  url.searchParams.set("log", "debug");
   const config = pgClientConfigForApi(url.toString(), {});
-  assert.equal(config.host, HOST);
-  assert.equal(config.password, url.password);
-  assert.equal(config.ssl, undefined);
+  assert.equal(config.connectionString, url.toString());
+  assert.equal(Object.hasOwn(config, "log"), false);
+  const apiRequire = createRequire(new URL("../apps/api/package.json", import.meta.url));
+  const { Client, Pool } = apiRequire("pg");
+  const client = new Client(config);
+  assert.equal(client.host, HOST);
+  assert.equal(client.password, url.password);
+  assert.equal(client.connectionParameters.application_name, "khlim-synthetic");
+  const pool = new Pool(config);
+  assert.equal(typeof pool.log, "function");
+  void pool.end();
+});
+
+test("ordinary production URL keeps legacy pg TLS semantics", () => {
+  const url = databaseUrl();
+  url.searchParams.set("ssl", "no-verify");
+  const config = pgClientConfigForApi(url.href, {
+    VERCEL_ENV: "production",
+    NODE_ENV: "production",
+    KHLIM_ENV: "production",
+  });
+  assert.equal(config.connectionString, url.href);
+  const apiRequire = createRequire(new URL("../apps/api/package.json", import.meta.url));
+  const { Client } = apiRequire("pg");
+  const client = new Client(config);
+  assert.notEqual(client.ssl, false);
 });

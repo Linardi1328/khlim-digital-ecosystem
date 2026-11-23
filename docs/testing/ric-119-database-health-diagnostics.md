@@ -136,15 +136,14 @@ query succeeds and cleanup exhausts the deadline. A connection or query timeout
 continues to use `probe_timeout`. A query failure keeps its classification when
 cleanup also fails. The endpoint still returns HTTP 200 with the existing JSON.
 A cleanup failure or timeout still reports `status: error` and
-`database.status: disconnected`.
+`database.status: disconnected`. A delayed event-loop timer cannot turn query or
+cleanup work that finished at or beyond the deadline into a healthy result.
 
 [ric119]: https://linear.app/rbl-productions/issue/RIC-119/khlim-api-ric-84-diagnose-staging-db-disconnect-with-safe-prisma
 
 Concurrent health requests share one in-flight operation within PrismaService,
 avoiding one new database connection for every parallel request. Settled results
-are cached for one second per instance to bound sequential connection churn. A
-configuration change invalidates cached results, including cached success when
-DATABASE_URL disappears. Each failed HTTP
+are cached for one second per instance to bound sequential connection churn. A change to the URL or runtime/TLS policy (`VERCEL_ENV`, `VERCEL`, `NODE_ENV`, `KHLIM_ENV`, or the staging CA flag) invalidates cached results, including cached success when DATABASE_URL disappears. Each failed HTTP
 request still gets one sanitized event and the public result. The pool is disposed
 after each operation. Cached event durations describe the underlying probe;
 separate physical samples require waiting beyond the one-second TTL. Warm HTTP

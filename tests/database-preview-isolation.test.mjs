@@ -176,10 +176,23 @@ test("Vercel Preview detection is independent of KHLIM_ENV and ambiguous Vercel 
     VERCEL_ENV: "production",
     KHLIM_ENV: "production",
   });
-  assert.equal(config.host, HOST);
-  assert.equal(config.port, 6543);
-  assert.equal(config.user, `postgres.${PRODUCTION}`);
-  assert.equal(config.ssl, undefined);
+  assert.equal(config.connectionString, url.href);
+  const client = new Client(config);
+  assert.equal(client.host, HOST);
+  assert.equal(client.port, 6543);
+  assert.equal(client.user, `postgres.${PRODUCTION}`);
+  assert.equal(client.ssl, false);
+
+  // If Vercel system markers are not exposed, production-like hosted
+  // environments must still reject any production connection destination.
+  for (const markersMissing of [
+    { NODE_ENV: "production" },
+    { NODE_ENV: "production", KHLIM_ENV: "production" },
+    { KHLIM_ENV: "staging" },
+    { KHLIM_ENV: "production" },
+  ]) {
+    assert.throws(() => pgClientConfigForApi(url.href, markersMissing), REJECTED);
+  }
 });
 
 test("rejected or absent Preview configuration blocks Prisma writes and health before pool acquisition or network access", async (t) => {

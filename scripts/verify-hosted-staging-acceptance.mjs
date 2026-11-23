@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { randomUUID } from "node:crypto";
+import { randomUUID, X509Certificate } from "node:crypto";
+import { createRequire } from "node:module";
 
 export const STAGING_SUPABASE_PROJECT_ID = "qxsjxcbfhxbvxigghhlq";
 export const DEDICATED_STAGING_BRANCH = "staging/ric-65-academy-soft-launch";
@@ -127,6 +128,13 @@ export function sanitizeErrorMessage(error) {
 }
 
 export function stagingDatabaseConfig(databaseUrl) {
+  // PGOPTIONS is inherited by pg clients and can add unauthorized startup
+  // parameters even when the URL itself is allowlisted.
+  if (process.env.PGOPTIONS?.trim()) {
+    throw new Error(
+      "DATABASE_CONFIGURATION_REJECTED: PGOPTIONS must be unset for hosted staging acceptance",
+    );
+  }
   const invalid = new Error(
     "DATABASE_CONFIGURATION_REJECTED: Use a PostgreSQL /postgres URL with no query parameters except one sslmode=require or sslmode=verify-full",
   );
@@ -182,6 +190,32 @@ export function stagingDatabaseConfig(databaseUrl) {
     );
   }
 
+  // The API build is a required step in the hosted acceptance workflow.
+  // Reuse the same *public*, fingerprint-checked Supabase trust anchor as the
+  // API, rather than silently falling back to an unrelated default CA store.
+  const apiRequire = createRequire(
+    new URL("../apps/api/package.json", import.meta.url),
+  );
+  let caPem;
+  try {
+    ({ SUPABASE_ROOT_2021_CA_PEM: caPem } = apiRequire(
+      "./dist/database/supabase-root-2021-ca.js",
+    ));
+    const ca = new X509Certificate(caPem);
+    if (
+      !ca.ca ||
+      ca.fingerprint256 !==
+        "80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA" ||
+      Date.now() >= Date.parse(ca.validTo)
+    ) {
+      throw new Error("Invalid staging CA");
+    }
+  } catch {
+    throw new Error(
+      "DATABASE_CONFIGURATION_REJECTED: Built API staging CA trust anchor unavailable or invalid",
+    );
+  }
+
   // Pass explicit fields so node-postgres cannot reparse any part of the URL.
   return {
     host,
@@ -190,8 +224,12 @@ export function stagingDatabaseConfig(databaseUrl) {
     database: "postgres",
     // A callback also prevents fallback to PGPASSWORD or a password file.
     password: () => password,
-    ssl: { rejectUnauthorized: true, servername: host },
+    ssl: { rejectUnauthorized: true, servername: host, ca: caPem },
     sslnegotiation: "postgres",
+    connectionTimeoutMillis: 5000,
+    query_timeout: 10000,
+    idleTimeoutMillis: 1000,
+    max: 1,
   };
 }
 

@@ -15,7 +15,14 @@ export function requiresPreviewDatabaseIsolation(
 ): boolean {
   const target = env.VERCEL_ENV;
   if (target === "production" || target === "development") return false;
-  return target !== undefined || env.VERCEL === "1";
+  if (target !== undefined || env.VERCEL === "1") return true;
+  // Vercel may omit system markers. An unmarked production/staging runtime
+  // must not inherit the unrestricted local-development DB policy.
+  return (
+    env.NODE_ENV === "production" ||
+    env.KHLIM_ENV === "production" ||
+    env.KHLIM_ENV === "staging"
+  );
 }
 
 function configurationError(code: string, message: string): Error {
@@ -78,7 +85,12 @@ export function pgClientConfigForApi(
   const caFlag = env.KHLIM_RIC84_SUPABASE_CA_2021;
   const pinned = caFlag === "1";
   const preview = requiresPreviewDatabaseIsolation(env);
-  if (!preview && !pinned) return parseIntoClientConfig(connectionString);
+  if (!preview && !pinned) {
+    // Let pg parse supported URL parameters itself. Spreading parsed query
+    // values into PoolConfig can override pool internals (e.g. ?log=debug)
+    // or silently discard legacy TLS options such as ssl=no-verify.
+    return { connectionString };
+  }
 
   if (
     (pinned &&

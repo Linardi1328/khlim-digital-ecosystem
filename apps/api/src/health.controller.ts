@@ -14,7 +14,10 @@ export function extractDatabaseProjectRef(databaseUrl?: string): string | null {
     if (hostMatch) return hostMatch[1] ?? null;
     // 2. Supabase Pooler user: postgres.<ref> (only valid on Supabase pooler host)
     const isPoolerHost = parsed.hostname.endsWith(".pooler.supabase.com");
-    const userMatch = parsed.username.match(/^postgres\.([a-z0-9]+)$/);
+    // URL.username is percent-encoded; normalize it before inferring a ref.
+    const userMatch = decodeURIComponent(parsed.username).match(
+      /^postgres\.([a-z0-9]+)$/,
+    );
     if (userMatch && isPoolerHost) return userMatch[1] ?? null;
     // 3. Supabase Pooler host: <ref>.pooler.supabase.com
     const poolerHostMatch = parsed.hostname.match(

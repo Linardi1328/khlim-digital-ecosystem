@@ -726,10 +726,28 @@ test("RIC-65 resolves approved direct and pooler URLs to explicit node-postgres 
     assert.equal(client.user, decodeURIComponent(username));
     assert.equal(client.database, "postgres");
     assert.equal(client.password(), syntheticCredential);
-    assert.deepEqual(client.ssl, {
-      rejectUnauthorized: true,
-      servername: host,
-    });
+    assert.equal(client.ssl.rejectUnauthorized, true);
+    assert.equal(client.ssl.servername, host);
+    assert.match(client.ssl.ca, /^-----BEGIN CERTIFICATE-----/);
+    assert.equal(config.connectionTimeoutMillis, 5000);
+    assert.equal(config.query_timeout, 10000);
+    assert.equal(config.max, 1);
+  }
+});
+
+test("RIC-65 rejects inherited PostgreSQL startup options before pool creation", () => {
+  const prior = process.env.PGOPTIONS;
+  process.env.PGOPTIONS = "-c search_path=public";
+  try {
+    assert.throws(
+      () => stagingDatabaseConfig(
+        `postgresql://postgres@db.${STAGING_SUPABASE_PROJECT_ID}.supabase.co:5432/postgres`,
+      ),
+      /DATABASE_CONFIGURATION_REJECTED: PGOPTIONS must be unset/,
+    );
+  } finally {
+    if (prior === undefined) delete process.env.PGOPTIONS;
+    else process.env.PGOPTIONS = prior;
   }
 });
 
@@ -1164,10 +1182,9 @@ test("RIC-65 rejects ambiguous or insecure database destinations before construc
   assert.equal(client.port, 5432);
   assert.equal(client.user, "postgres");
   assert.equal(client.database, "postgres");
-  assert.deepEqual(client.ssl, {
-    rejectUnauthorized: true,
-    servername: `db.${staging}.supabase.co`,
-  });
+  assert.equal(client.ssl.rejectUnauthorized, true);
+  assert.equal(client.ssl.servername, `db.${staging}.supabase.co`);
+  assert.match(client.ssl.ca, /^-----BEGIN CERTIFICATE-----/);
   assert.equal(socketConnect.mock.callCount(), 0);
   assert.ok(recordedRequests.every(({ method }) => method === "GET"));
 });

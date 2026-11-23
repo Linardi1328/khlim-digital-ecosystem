@@ -1,7 +1,10 @@
 import { Socket } from "node:net";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool, type PoolClient } from "pg";
-import { pgClientConfigForApi } from "./pg-client-config";
+import {
+  pgClientConfigForApi,
+  requiresPreviewDatabaseIsolation,
+} from "./pg-client-config";
 import { PrismaClient } from "../generated/prisma/client";
 
 export const PROBE_DEADLINE_MS = 2000;
@@ -252,7 +255,9 @@ export function createProbeOperation(connectionString: string): ProbeOperation {
       // Stop new acquisitions and destroy the owned socket even if the peer
       // never closes after Terminate. Start both disposals without waiting on
       // the other or on the socket's close event.
-      const poolClosed = pool.end();
+      // Schedule pool closure as a handled promise so a synchronous exception
+      // cannot prevent socket destruction and Prisma disposal.
+      const poolClosed = Promise.resolve().then(() => pool.end());
       socket?.destroy();
       await Promise.all([poolClosed, prisma.$disconnect(), socketClosed]);
     },
@@ -278,7 +283,11 @@ export async function probeDatabase(
       try {
         const url = new URL(databaseUrl.trim());
         valid =
-          ["postgres:", "postgresql:"].includes(url.protocol) && !!url.hostname;
+          ["postgres:", "postgresql:"].includes(url.protocol) &&
+          (!requiresPreviewDatabaseIsolation() &&
+          process.env.KHLIM_RIC84_SUPABASE_CA_2021 !== "1"
+            ? true
+            : !!url.hostname);
       } catch {
         /* invalid configuration is deliberately not echoed */
       }
@@ -296,6 +305,10 @@ export async function probeDatabase(
             );
           }),
         ]);
+        // A delayed timer callback must not turn a late query success into a
+        // healthy response. The deadline is based on elapsed time, not timer order.
+        if (now() - started > PROBE_DEADLINE_MS)
+          throw { code: "KHLIM_PROBE_TIMEOUT" };
       }
     }
   } catch (error) {
@@ -344,6 +357,15 @@ export async function probeDatabase(
         }
       } finally {
         clearTimeout(cleanupTimer);
+        // Cleanup completion may win a race even after the deadline if the
+        // event loop is delayed. Never report such a probe as connected.
+        if (!failure && now() - started >= PROBE_DEADLINE_MS) {
+          stage = "cleanup";
+          failure = {
+            category: "cleanup_timeout",
+            code: "KHLIM_PROBE_CLEANUP_TIMEOUT",
+          };
+        }
       }
     }
   }

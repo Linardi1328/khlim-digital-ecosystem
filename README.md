@@ -127,6 +127,13 @@ The implemented foundation includes provider-neutral gateway boundaries, payment
 
 The **Billplz gateway adapter is implemented** and supports sandbox validation. Live Billplz merchant activation, production credentials, and production-mode verification remain launch dependencies. Until a valid provider configuration is present, checkout fails closed rather than simulating success.
 
+## Local TLS test prerequisite
+
+The offline PostgreSQL TLS regressions use the `openssl` command to generate
+ephemeral localhost test certificates. Install the OpenSSL CLI before running
+`pnpm bootstrap:verify` or the full regression suite; the test does not require
+network access or hosted database credentials.
+
 ## Technology baseline
 
 - TypeScript end-to-end.

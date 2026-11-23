@@ -72,7 +72,7 @@ export class PrismaService implements OnModuleDestroy {
   private healthProbe: ReturnType<typeof probeDatabase> | null = null;
   private healthProbeUrl: string | undefined;
   private cachedHealthProbe: {
-    databaseUrl: string | undefined;
+    policyKey: string;
     result: ProbeResult;
     expiresAt: number;
   } | null = null;
@@ -81,21 +81,31 @@ export class PrismaService implements OnModuleDestroy {
     // Health traffic must not allocate one connection per concurrent request.
     // Each request still reports/logs its own result, while sharing bounded work.
     const databaseUrl = process.env.DATABASE_URL;
+    // A TLS or runtime policy change must invalidate warm results and prevent
+    // sharing a probe started under the prior security policy.
+    const policyKey = JSON.stringify([
+      databaseUrl,
+      process.env.VERCEL_ENV,
+      process.env.VERCEL,
+      process.env.NODE_ENV,
+      process.env.KHLIM_ENV,
+      process.env.KHLIM_RIC84_SUPABASE_CA_2021,
+    ]);
     const cached = this.cachedHealthProbe;
     if (
       cached &&
-      cached.databaseUrl === databaseUrl &&
+      cached.policyKey === policyKey &&
       cached.expiresAt > Date.now()
     )
       return Promise.resolve(cached.result);
-    if (this.healthProbe && this.healthProbeUrl !== databaseUrl)
+    if (this.healthProbe && this.healthProbeUrl !== policyKey)
       return this.healthProbe.then(() => this.probe());
     if (!this.healthProbe) {
-      this.healthProbeUrl = databaseUrl;
+      this.healthProbeUrl = policyKey;
       this.healthProbe = probeDatabase(databaseUrl)
         .then((result) => {
           this.cachedHealthProbe = {
-            databaseUrl,
+            policyKey,
             result,
             expiresAt: Date.now() + 1000,
           };
