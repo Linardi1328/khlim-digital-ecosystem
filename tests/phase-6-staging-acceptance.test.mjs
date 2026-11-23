@@ -10,16 +10,16 @@ test("staging acceptance fails closed on production/local/placeholder configurat
   assert.match(script, /BILLPLZ_SANDBOX !== "1"/);
   assert.match(script, /PAYMENT_PROVIDER !== "billplz"/);
   assert.match(script, /replace-with\|example\|placeholder/i);
-  assert.match(script, /must use HTTPS/);
-  assert.match(script, /localhost/);
+  assert.match(script, /runHostedStagingAcceptance/);
+  assert.match(script, /KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "0"/);
 });
 
 test("staging acceptance verifies deployed web API and Supabase Auth without moving money", async () => {
   const script = await read("scripts/verify-staging-acceptance.mjs");
   const docs = await read("docs/testing/staging-acceptance.md");
-  assert.match(script, /\/v1\/health/);
-  assert.match(script, /\/auth\/v1\/health/);
-  assert.match(script, /no money-moving request was made/);
+  assert.match(script, /KHLIM_STAGING_WEB_URL/);
+  assert.match(script, /readiness: results.readiness/);
+  assert.match(script, /Billplz credentials were checked for presence only/);
   assert.match(docs, /Guardian acceptance journey/);
   assert.match(docs, /Billplz sandbox/);
 });

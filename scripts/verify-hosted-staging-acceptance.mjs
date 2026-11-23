@@ -1,9 +1,13 @@
 #!/usr/bin/env node
+import { execFileSync } from "node:child_process";
 import { randomUUID, X509Certificate } from "node:crypto";
 import { createRequire } from "node:module";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 export const STAGING_SUPABASE_PROJECT_ID = "qxsjxcbfhxbvxigghhlq";
-export const DEDICATED_STAGING_BRANCH = "staging/ric-65-academy-soft-launch";
+export const DEDICATED_STAGING_BRANCH = "staging/ric-119-120-readonly-20261124";
+export const STAGING_VERCEL_TEAM_ID = "team_q0IpWVrUePVFelvMGwl3oCdL";
+export const STAGING_VERCEL_API_PROJECT_ID = "prj_LnY8hI0PLYuiUI8sOPPKiZsYksgO";
 
 // Inert test fixture used ONLY for unit tests and local mock rehearsals.
 // For live active-window execution, an actual operator-controlled test phone
@@ -17,21 +21,11 @@ export const REQUIRED_STAGING_ENV_VARS = [
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
 ];
 
-const DISALLOWED_PRODUCTION_HOSTS = new Set([
-  "khlim.com",
-  "www.khlim.com",
-  "api.khlim.com",
-  "admin.khlim.com",
-  "app.khlim.com",
-]);
-
-export const PINNED_VERCEL_STAGING_API_HOST =
-  "khlim-digital-ecosystem-api-git-staging-dc7b4a-rbl-productions.vercel.app";
-
-export const VETTED_STAGING_API_HOSTS = new Set([
-  "khlim-api-staging.onrender.com",
-  PINNED_VERCEL_STAGING_API_HOST,
-]);
+export const STAGING_VERCEL_WEB_PROJECT_ID = "prj_KORdDwpoWgLROuGhByQOATU7s1kK";
+const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
+const FULL_GIT_SHA = /^[0-9a-f]{40}$/;
+const DEPLOYMENT_ID = /^dpl_[A-Za-z0-9]+$/;
+const VERCEL_HOST = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.vercel\.app$/;
 
 export function createValidationCases(testPhone) {
   return [
@@ -111,6 +105,7 @@ export function sanitizeErrorMessage(error) {
         ? error
         : JSON.stringify(error) || String(error);
   return raw
+    .replace(/postgres(?:ql)?:\/\/[^\s"'<>]+/gi, "[database-url-redacted]")
     .replace(/Bearer\s+[A-Za-z0-9_.-]+/gi, "Bearer [redacted]")
     .replace(
       /ey[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]*/g,
@@ -261,19 +256,19 @@ export function validateTestContact(phone, approvedPhone) {
 
   if (!/^\+601\d{8,9}$/.test(trimmed)) {
     throw new Error(
-      `TEST_CONTACT_UNAUTHORIZED: Configured test contact does not match Malaysian E.164 format: ${maskPhone(trimmed)}`,
+      "TEST_CONTACT_UNAUTHORIZED: Configured test contact does not match Malaysian E.164 format",
     );
   }
 
   if (!/^\+601\d{8,9}$/.test(allowedContact)) {
     throw new Error(
-      `TEST_CONTACT_UNAUTHORIZED: Approved test contact does not match Malaysian E.164 format: ${maskPhone(allowedContact)}`,
+      "TEST_CONTACT_UNAUTHORIZED: Approved test contact does not match Malaysian E.164 format",
     );
   }
 
   if (trimmed !== allowedContact) {
     throw new Error(
-      `TEST_CONTACT_UNAUTHORIZED: Configured test contact ${maskPhone(trimmed)} does not match approved contact ${maskPhone(allowedContact)}`,
+      "TEST_CONTACT_UNAUTHORIZED: Configured test contact does not match approved contact",
     );
   }
 
@@ -304,94 +299,55 @@ export function maskName(name) {
   return words.map((w) => (w.length > 1 ? `${w[0]}***` : w)).join(" ");
 }
 
-export function validateSupabaseTarget(supabaseUrlString) {
-  if (!supabaseUrlString || typeof supabaseUrlString !== "string") {
-    throw new Error("NEXT_PUBLIC_SUPABASE_URL must be provided as a string");
-  }
-  const url = new URL(supabaseUrlString.trim());
-  if (url.protocol !== "https:") {
+function requireHttpsOrigin(value, name) {
+  // Match before parsing so URL normalization cannot hide credentials, empty
+  // query strings/fragments, backslashes, or paths such as /./.
+  if (
+    typeof value !== "string" ||
+    !/^https:\/\/[a-z0-9.-]+(?::443)?\/?$/i.test(value)
+  ) {
     throw new Error(
-      `STAGING_TARGET_VIOLATION: NEXT_PUBLIC_SUPABASE_URL must use HTTPS: received ${url.protocol}`,
+      `STAGING_TARGET_VIOLATION: ${name} must use HTTPS on port 443 and contain only an origin`,
     );
   }
-  if (url.port && url.port !== "443") {
-    throw new Error(
-      `STAGING_TARGET_VIOLATION: NEXT_PUBLIC_SUPABASE_URL must use standard HTTPS port 443: received ${url.port}`,
-    );
+  try {
+    return new URL(value);
+  } catch {
+    throw new Error(`STAGING_TARGET_VIOLATION: Invalid ${name} origin`);
   }
-  const expectedHost = `${STAGING_SUPABASE_PROJECT_ID}.supabase.co`;
-  if (url.hostname.toLowerCase() !== expectedHost) {
+}
+
+export function validateSupabaseTarget(value) {
+  const url = requireHttpsOrigin(value, "NEXT_PUBLIC_SUPABASE_URL");
+  if (url.hostname !== `${STAGING_SUPABASE_PROJECT_ID}.supabase.co`) {
     throw new Error(
-      `STAGING_TARGET_VIOLATION: Target Supabase project must be exactly '${expectedHost}', received: ${url.hostname}`,
+      "STAGING_TARGET_VIOLATION: Supabase origin must belong to the dedicated staging project",
     );
   }
   return url;
 }
 
-export function validateApiTarget(apiUrlString, allowlist = []) {
-  if (!apiUrlString || typeof apiUrlString !== "string") {
-    throw new Error("KHLIM_STAGING_API_URL must be provided as a string");
-  }
-  const url = new URL(apiUrlString.trim());
-  if (url.protocol !== "https:") {
+// This checks URL syntax only. The Vercel lookup authorizes its destination.
+function requireDeploymentOrigin(value, name) {
+  const url = requireHttpsOrigin(value, name);
+  if (!VERCEL_HOST.test(url.hostname) || url.hostname.includes("-git-")) {
     throw new Error(
-      `STAGING_TARGET_VIOLATION: KHLIM_STAGING_API_URL must use HTTPS: received ${url.protocol}`,
+      "STAGING_TARGET_VIOLATION: An immutable Vercel deployment origin is required",
     );
   }
-  if (url.port && url.port !== "443") {
-    throw new Error(
-      `STAGING_TARGET_VIOLATION: KHLIM_STAGING_API_URL must use standard port 443: received ${url.port}`,
-    );
-  }
-  if (url.pathname !== "" && url.pathname !== "/") {
-    throw new Error(
-      `STAGING_TARGET_VIOLATION: KHLIM_STAGING_API_URL must be origin-only without subpath: received ${url.pathname}`,
-    );
-  }
-
-  const hostname = url.hostname.toLowerCase();
-  if (["localhost", "127.0.0.1"].includes(hostname)) {
-    throw new Error(
-      `STAGING_TARGET_VIOLATION: KHLIM_STAGING_API_URL must point to a deployed hosted staging service, not localhost: ${hostname}`,
-    );
-  }
-
-  if (DISALLOWED_PRODUCTION_HOSTS.has(hostname)) {
-    throw new Error(
-      `STAGING_TARGET_VIOLATION: Refusing to run against production API: ${hostname}`,
-    );
-  }
-
-  // Strict allowlist: only pinned Render host, pinned Vercel staging branch alias, or explicit custom allowlist
-  const customAllowlist = Array.isArray(allowlist)
-    ? allowlist.map((h) => h.toLowerCase())
-    : [];
-
-  const isVettedStagingApi = VETTED_STAGING_API_HOSTS.has(hostname);
-  const isInCustomAllowlist = customAllowlist.includes(hostname);
-
-  if (!isVettedStagingApi && !isInCustomAllowlist) {
-    throw new Error(
-      `STAGING_TARGET_VIOLATION: Host ${hostname} is not an authorized KHLIM staging deployment origin`,
-    );
-  }
-
   return url;
 }
 
 export function validateTargetBranch(branch) {
-  if (!branch || typeof branch !== "string" || !branch.trim()) {
+  if (
+    branch !== DEDICATED_STAGING_BRANCH &&
+    branch !== `refs/heads/${DEDICATED_STAGING_BRANCH}`
+  ) {
     throw new Error(
-      "STAGING_TARGET_VIOLATION: Target branch must be specified and non-empty",
+      `STAGING_TARGET_VIOLATION: Target branch must strictly be '${DEDICATED_STAGING_BRANCH}'`,
     );
   }
-  const normalized = branch.trim().replace(/^refs\/heads\//, "");
-  if (normalized !== DEDICATED_STAGING_BRANCH) {
-    throw new Error(
-      `STAGING_TARGET_VIOLATION: Target branch must strictly be '${DEDICATED_STAGING_BRANCH}', received: ${branch}`,
-    );
-  }
-  return normalized;
+  return DEDICATED_STAGING_BRANCH;
 }
 
 export function generateSyntheticLead(
@@ -410,168 +366,307 @@ export function generateSyntheticLead(
 }
 
 export async function fetchWithTimeout(url, init = {}, timeoutMs = 15000) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  // Keep the deadline active when the caller reads the response body.
+  const signal = AbortSignal.timeout(timeoutMs);
   try {
-    return await fetch(url, {
-      ...init,
-      redirect: "error", // Strictly enforce redirect: 'error' AFTER ...init so callers cannot override
-      signal: controller.signal,
-    });
-  } catch (err) {
-    if (err instanceof Error && err.name === "AbortError") {
-      throw new Error(`Fetch timed out after ${timeoutMs}ms for ${url}`);
-    }
-    throw err;
-  } finally {
-    clearTimeout(timer);
+    return await fetch(url, { ...init, redirect: "error", signal });
+  } catch {
+    throw new Error(
+      "STAGING_REQUEST_FAILED: HTTPS request failed or timed out",
+    );
   }
 }
 
-export async function verifyVercelDeploymentIdentity({
-  apiUrl,
-  env = process.env,
+async function attestVercelDeployment({
+  origin,
+  deploymentId,
+  projectId,
+  expectedSha,
+  vercelToken,
   fetchImpl = fetchWithTimeout,
 }) {
-  const targetHost = apiUrl.hostname.toLowerCase();
-  const isVercelTarget =
-    targetHost === PINNED_VERCEL_STAGING_API_HOST ||
-    targetHost.endsWith(".vercel.app");
-
-  if (!isVercelTarget) {
+  if (!expectedSha || !FULL_GIT_SHA.test(expectedSha)) {
     throw new Error(
-      `UNSUPPORTED_DEPLOYMENT_PROVIDER: Hosted staging active window requires verified Vercel deployment metadata provenance. Target host '${apiUrl.hostname}' cannot be attested via Vercel.`,
+      "MISSING_EXPECTED_COMMIT_SHA: An explicit approved full Git SHA is required",
     );
   }
-
-  const vercelToken =
-    env.VERCEL_TOKEN?.trim() ||
-    env.VERCEL_API_TOKEN?.trim() ||
-    env.KHLIM_STAGING_VERCEL_TOKEN?.trim();
-
+  if (!deploymentId || !DEPLOYMENT_ID.test(deploymentId)) {
+    throw new Error(
+      "MISSING_DEPLOYMENT_ID: An explicit immutable Vercel deployment ID is required",
+    );
+  }
   if (!vercelToken || /replace-with|placeholder/i.test(vercelToken)) {
     throw new Error(
-      "DEPLOYMENT_VERIFICATION_FAILED: Missing Vercel authentication token (VERCEL_TOKEN or KHLIM_STAGING_VERCEL_TOKEN). Deployment identity cannot be attested before hosted POST.",
+      "DEPLOYMENT_VERIFICATION_FAILED: Missing Vercel authentication token",
     );
   }
 
-  const targetDeploymentOrAlias = apiUrl.hostname;
-
   const vercelApiUrl = new URL(
-    `/v13/deployments/${encodeURIComponent(targetDeploymentOrAlias)}`,
+    `/v13/deployments/${deploymentId}`,
     "https://api.vercel.com",
   );
+  vercelApiUrl.searchParams.set("teamId", STAGING_VERCEL_TEAM_ID);
   vercelApiUrl.searchParams.set("withGitRepoInfo", "true");
-
-  const teamId =
-    env.VERCEL_TEAM_ID?.trim() || env.KHLIM_STAGING_VERCEL_TEAM_ID?.trim();
-  if (teamId) {
-    vercelApiUrl.searchParams.set("teamId", teamId);
-  }
-
-  const vercelSlug = env.VERCEL_SLUG?.trim();
-  if (vercelSlug) {
-    vercelApiUrl.searchParams.set("slug", vercelSlug);
-  }
 
   let res;
   try {
     res = await fetchImpl(vercelApiUrl, {
       method: "GET",
+      redirect: "error",
       headers: {
         Authorization: `Bearer ${vercelToken}`,
         Accept: "application/json",
       },
     });
-  } catch (err) {
+  } catch {
     throw new Error(
-      `DEPLOYMENT_INTROSPECTION_FAILED: Vercel deployment API introspection failed: ${sanitizeErrorMessage(err)}`,
+      "DEPLOYMENT_INTROSPECTION_FAILED: Vercel management request failed or timed out",
     );
   }
-
   if (!res.ok) {
     throw new Error(
       `DEPLOYMENT_VERIFICATION_FAILED: Failed to fetch deployment metadata from Vercel API: HTTP ${res.status}`,
     );
   }
 
+  // Verify the owner-view REST response. Reduced responses and caller-supplied
+  // meta fields cannot replace ownerId, projectId, or the Git source.
   const deployment = await res.json().catch(() => null);
-  if (!deployment || typeof deployment !== "object") {
+  if (
+    !deployment?.id ||
+    !deployment.ownerId ||
+    !deployment.projectId ||
+    !deployment.url ||
+    !deployment.readyState ||
+    !deployment.gitSource?.ref ||
+    !deployment.gitSource?.sha ||
+    !Object.hasOwn(deployment, "target")
+  ) {
     throw new Error(
-      "DEPLOYMENT_METADATA_INCOMPLETE: Vercel deployment API returned empty or unparseable metadata payload.",
+      "DEPLOYMENT_METADATA_INCOMPLETE: Required Vercel deployment metadata is missing",
     );
   }
 
-  const deploymentId = deployment.id;
-  const readyState = deployment.readyState || deployment.status;
-  const deployedBranch =
-    deployment.gitSource?.ref ||
-    deployment.gitSource?.branch ||
-    deployment.meta?.githubCommitRef ||
-    deployment.meta?.branch;
-  const deployedSha =
-    deployment.gitSource?.sha ||
-    deployment.meta?.githubCommitSha ||
-    deployment.meta?.sha;
-
-  if (!deploymentId || !deployedBranch || !deployedSha) {
-    throw new Error(
-      `DEPLOYMENT_METADATA_INCOMPLETE: Deployment metadata lacks required Git provenance (deploymentId='${deploymentId || "missing"}', branch='${deployedBranch || "missing"}', sha='${deployedSha || "missing"}').`,
-    );
+  if (deployment.id !== deploymentId) {
+    throw new Error("DEPLOYMENT_ID_MISMATCH: Unexpected Vercel deployment ID");
+  }
+  if (
+    deployment.ownerId !== STAGING_VERCEL_TEAM_ID ||
+    (deployment.team !== undefined &&
+      deployment.team?.id !== STAGING_VERCEL_TEAM_ID)
+  ) {
+    throw new Error("DEPLOYMENT_TEAM_MISMATCH: Unexpected Vercel team");
+  }
+  if (
+    deployment.projectId !== projectId ||
+    (deployment.project !== undefined && deployment.project?.id !== projectId)
+  ) {
+    throw new Error("DEPLOYMENT_PROJECT_MISMATCH: Unexpected Vercel project");
+  }
+  // Vercel v13 explicitly represents standard Preview as JSON null.
+  if (deployment.target !== null || deployment.customEnvironment != null) {
+    throw new Error("DEPLOYMENT_TARGET_MISMATCH: Standard Preview is required");
+  }
+  if (
+    deployment.readyState !== "READY" ||
+    (deployment.status !== undefined && deployment.status !== "READY") ||
+    deployment.deletedAt ||
+    deployment.softDeletedByRetention
+  ) {
+    throw new Error("DEPLOYMENT_NOT_READY: Vercel deployment must be READY");
   }
 
-  if (readyState !== "READY") {
-    throw new Error(
-      `DEPLOYMENT_NOT_READY: Vercel deployment '${deploymentId}' state is '${readyState}', expected 'READY'.`,
-    );
+  const { ref, sha } = deployment.gitSource;
+  if (
+    ref !== DEDICATED_STAGING_BRANCH ||
+    [
+      deployment.gitSource.branch,
+      deployment.meta?.githubCommitRef,
+      deployment.meta?.branch,
+    ].some((value) => value !== undefined && value !== ref)
+  ) {
+    throw new Error("DEPLOYMENT_BRANCH_MISMATCH: Unexpected deployment branch");
   }
-
-  // 1. Verify deployed branch (strictly locked to DEDICATED_STAGING_BRANCH without override)
-  if (deployedBranch !== DEDICATED_STAGING_BRANCH) {
-    throw new Error(
-      `DEPLOYMENT_BRANCH_MISMATCH: Deployed branch '${deployedBranch}' does not match approved staging branch '${DEDICATED_STAGING_BRANCH}'.`,
-    );
+  if (
+    sha !== expectedSha ||
+    [deployment.meta?.githubCommitSha, deployment.meta?.sha].some(
+      (value) => value !== undefined && value !== sha,
+    )
+  ) {
+    throw new Error("DEPLOYMENT_COMMIT_MISMATCH: Unexpected deployment SHA");
   }
-
-  // 2. Verify approved commit SHA with strict exact equality
-  const expectedSha =
-    env.KHLIM_STAGING_EXPECTED_COMMIT_SHA?.trim() ||
-    env.KHLIM_STAGING_APPROVED_COMMIT_SHA?.trim() ||
-    env.GITHUB_SHA?.trim();
-
-  if (!expectedSha || /replace-with|placeholder/i.test(expectedSha)) {
+  if (
+    deployment.url !== origin.hostname ||
+    [
+      deployment.alias,
+      deployment.automaticAliases,
+      deployment.userAliases,
+    ].some(
+      (aliases) =>
+        aliases !== undefined &&
+        (!Array.isArray(aliases) || aliases.includes(origin.hostname)),
+    )
+  ) {
     throw new Error(
-      "MISSING_EXPECTED_COMMIT_SHA: Active staging acceptance requires an explicit approved commit SHA (KHLIM_STAGING_EXPECTED_COMMIT_SHA, KHLIM_STAGING_APPROVED_COMMIT_SHA, or GITHUB_SHA) to prevent executing against stale deployments.",
-    );
-  }
-
-  const normDeployed = deployedSha.toLowerCase();
-  const normExpected = expectedSha.toLowerCase();
-
-  if (normDeployed !== normExpected) {
-    throw new Error(
-      `DEPLOYMENT_COMMIT_MISMATCH: Deployed commit '${deployedSha}' does not match expected approved commit '${expectedSha}'.`,
-    );
-  }
-
-  // 3. Verify mutable alias does not point to a different deployment ID if expectedDeploymentId is configured
-  const expectedDeploymentId = env.KHLIM_STAGING_DEPLOYMENT_ID?.trim();
-  if (expectedDeploymentId && deploymentId !== expectedDeploymentId) {
-    throw new Error(
-      `ALIAS_DEPLOYMENT_MISMATCH: API alias '${apiUrl.hostname}' points to deployment '${deploymentId}', expected '${expectedDeploymentId}'.`,
+      "DEPLOYMENT_HOSTNAME_MISMATCH: Expected the canonical immutable deployment hostname",
     );
   }
 
   return {
     deploymentId,
-    readyState,
-    deployedBranch,
-    deployedSha,
+    readyState: "READY",
+    deployedBranch: ref,
+    deployedSha: sha,
     verified: true,
   };
 }
 
+export async function verifyVercelDeploymentIdentity({
+  env = process.env,
+  fetchImpl,
+} = {}) {
+  if (env.KHLIM_STAGING_API_ALLOWLIST?.trim()) {
+    throw new Error(
+      "STAGING_TARGET_VIOLATION: Custom API allowlists are unsupported",
+    );
+  }
+  const origin = requireDeploymentOrigin(
+    env.KHLIM_STAGING_API_URL,
+    "KHLIM_STAGING_API_URL",
+  );
+  const identity = await attestVercelDeployment({
+    origin,
+    deploymentId: env.KHLIM_STAGING_DEPLOYMENT_ID,
+    projectId: STAGING_VERCEL_API_PROJECT_ID,
+    expectedSha: env.KHLIM_STAGING_EXPECTED_COMMIT_SHA,
+    vercelToken: env.KHLIM_STAGING_VERCEL_TOKEN?.trim(),
+    fetchImpl,
+  });
+  return { ...identity, origin: origin.origin };
+}
+
+function verifyActionsCheckout(env) {
+  if (env.GITHUB_ACTIONS !== "true") return;
+
+  const approvedCandidate = env.KHLIM_STAGING_EXPECTED_COMMIT_SHA;
+  const approvedRunner =
+    env.KHLIM_STAGING_EXPECTED_RUNNER_SHA || approvedCandidate;
+  if (
+    !FULL_GIT_SHA.test(approvedCandidate ?? "") ||
+    !FULL_GIT_SHA.test(approvedRunner ?? "") ||
+    env.GITHUB_SHA !== approvedRunner
+  ) {
+    throw new Error(
+      "RUNNER_PROVENANCE_MISMATCH: Dispatch must match the approved runner SHA",
+    );
+  }
+
+  const cwd = fileURLToPath(new URL("../", import.meta.url));
+  try {
+    const git = (args) =>
+      execFileSync("git", args, {
+        cwd,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim();
+    if (
+      git(["rev-parse", "--verify", "HEAD"]) === approvedRunner &&
+      !git(["status", "--porcelain", "--untracked-files=no"])
+    ) {
+      return;
+    }
+  } catch {
+    // Preserve a fixed diagnostic when Git is unavailable or the checkout is invalid.
+  }
+  throw new Error(
+    "RUNNER_PROVENANCE_MISMATCH: Runner checkout must be clean and match the approved SHA",
+  );
+}
+
+async function verifyActiveTokens(env, supabaseUrl, userToken, adminToken) {
+  const userSubject = env.KHLIM_STAGING_APPROVED_USER_SUBJECT;
+  const adminSubject = env.KHLIM_STAGING_APPROVED_ADMIN_SUBJECT;
+  if (
+    !UUID.test(userSubject ?? "") ||
+    !UUID.test(adminSubject ?? "") ||
+    userSubject.toLowerCase() === adminSubject.toLowerCase()
+  ) {
+    throw new Error(
+      "AUTH_SUBJECT_CONFIGURATION_REJECTED: Two distinct approved synthetic Supabase user IDs are required",
+    );
+  }
+
+  const issuer = new URL("/auth/v1", supabaseUrl).href;
+  let verify;
+  try {
+    const apiRequire = createRequire(
+      new URL("../apps/api/package.json", import.meta.url),
+    );
+    const { createLocalJWKSet, jwtVerify } = await import(
+      pathToFileURL(apiRequire.resolve("jose")).href
+    );
+    const response = await fetchWithTimeout(
+      new URL(`${issuer}/.well-known/jwks.json`),
+    );
+    if (!response.ok) throw new Error("Signing key discovery failed");
+    const jwks = createLocalJWKSet(await response.json());
+    verify = (token, subject) =>
+      jwtVerify(token, jwks, {
+        algorithms: ["ES256", "RS256"],
+        issuer,
+        audience: "authenticated",
+        subject,
+        requiredClaims: ["exp", "aal"],
+      });
+  } catch {
+    throw new Error(
+      "AUTH_KEY_VERIFICATION_UNAVAILABLE: Staging signing keys could not be loaded",
+    );
+  }
+
+  for (const [token, subject, aal] of [
+    [userToken, userSubject, "aal1"],
+    [adminToken, adminSubject, "aal2"],
+  ]) {
+    try {
+      const { payload } = await verify(token, subject);
+      if (
+        payload.aal !== aal ||
+        payload.role !== "authenticated" ||
+        payload.is_anonymous === true
+      ) {
+        throw new Error("Unexpected assurance level or account type");
+      }
+    } catch {
+      throw new Error(
+        `AUTH_TOKEN_REJECTED: Staging ${aal.toUpperCase()} token failed verification`,
+      );
+    }
+  }
+}
+
 export async function runHostedStagingAcceptance(env = process.env) {
+  verifyActionsCheckout(env);
+  if (env.KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED !== "1") {
+    return await runAcceptance(env);
+  }
+
+  // The last marker describes what might have reached the public lead endpoint.
+  const progress = { phase: "BEFORE_SUBMISSION" };
+  try {
+    return await runAcceptance(env, progress);
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        event: "staging.hosted_acceptance.active_failure",
+        ...progress,
+      }),
+    );
+    throw error;
+  }
+}
+
+async function runAcceptance(env, progress) {
   const results = {
     startedAt: new Date().toISOString(),
     acceptanceLayer: "HOSTED_API_AND_DATABASE_ACCEPTANCE",
@@ -615,37 +710,44 @@ export async function runHostedStagingAcceptance(env = process.env) {
   // Exact Supabase project check
   const supabaseUrl = validateSupabaseTarget(env.NEXT_PUBLIC_SUPABASE_URL);
 
-  // Allowlist & API target check
-  const extraAllowlist = (env.KHLIM_STAGING_API_ALLOWLIST || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const apiUrl = validateApiTarget(env.KHLIM_STAGING_API_URL, extraAllowlist);
-  results.apiOrigin = apiUrl.origin;
+  results.deploymentIdentity = await verifyVercelDeploymentIdentity({ env });
+  const apiOrigin = results.deploymentIdentity.origin;
+  results.apiOrigin = apiOrigin;
 
-  let webUrl = null;
-  if (env.KHLIM_STAGING_WEB_URL?.trim()) {
-    webUrl = new URL(env.KHLIM_STAGING_WEB_URL.trim());
-    if (webUrl.protocol !== "https:") {
-      throw new Error("KHLIM_STAGING_WEB_URL must use HTTPS");
-    }
+  let webOrigin;
+  if (env.KHLIM_STAGING_WEB_URL) {
+    webOrigin = requireDeploymentOrigin(
+      env.KHLIM_STAGING_WEB_URL,
+      "KHLIM_STAGING_WEB_URL",
+    );
+    await attestVercelDeployment({
+      origin: webOrigin,
+      projectId: STAGING_VERCEL_WEB_PROJECT_ID,
+      deploymentId: env.KHLIM_STAGING_WEB_DEPLOYMENT_ID,
+      expectedSha: env.KHLIM_STAGING_EXPECTED_COMMIT_SHA,
+      vercelToken: env.KHLIM_STAGING_VERCEL_TOKEN?.trim(),
+    });
   }
 
-  const isPinnedVercelHost =
-    apiUrl.hostname.toLowerCase() === PINNED_VERCEL_STAGING_API_HOST;
-  const vercelBypassSecret =
-    env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim() ||
-    env.KHLIM_STAGING_VERCEL_BYPASS_SECRET?.trim();
-  const vercelBypassHeaders =
-    isPinnedVercelHost && vercelBypassSecret
-      ? { "x-vercel-protection-bypass": vercelBypassSecret }
-      : {};
+  const bypassSecret = env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
+  const requestApi = (path, init = {}) => {
+    const url = new URL(path, apiOrigin);
+    if (url.origin !== apiOrigin) {
+      throw new Error(
+        "STAGING_TARGET_VIOLATION: Request left the attested API origin",
+      );
+    }
+    return fetchWithTimeout(url, {
+      ...init,
+      headers: {
+        ...init.headers,
+        ...(bypassSecret && { "x-vercel-protection-bypass": bypassSecret }),
+      },
+    });
+  };
 
-  // 2. Health & Database Identity Verification Before Any POST
-  const apiHealthUrl = new URL("/v1/health", apiUrl);
-  const apiHealthRes = await fetchWithTimeout(apiHealthUrl, {
-    headers: { ...vercelBypassHeaders },
-  });
+  // Deployment identity is attested before forwarding credentials or probing health.
+  const apiHealthRes = await requestApi("/v1/health");
   if (!apiHealthRes.ok) {
     throw new Error(
       `KHLIM staging API health check failed: HTTP ${apiHealthRes.status}`,
@@ -664,7 +766,7 @@ export async function runHostedStagingAcceptance(env = process.env) {
     apiHealthJson.database.status !== "connected"
   ) {
     throw new Error(
-      `STAGING_HEALTH_FAILURE: Deployed API reports database status as '${apiHealthJson?.database?.status || "missing"}', expected 'connected'`,
+      "STAGING_HEALTH_FAILURE: Deployed API did not report a connected database",
     );
   }
   if (
@@ -672,7 +774,7 @@ export async function runHostedStagingAcceptance(env = process.env) {
     apiHealthJson.database.projectRef !== STAGING_SUPABASE_PROJECT_ID
   ) {
     throw new Error(
-      `DATABASE_IDENTITY_MISMATCH: Deployed API database projectRef is '${apiHealthJson.database.projectRef || "missing"}', expected '${STAGING_SUPABASE_PROJECT_ID}'`,
+      "DATABASE_IDENTITY_MISMATCH: Deployed API did not report the dedicated staging database",
     );
   }
   results.databaseIdentity = {
@@ -692,8 +794,16 @@ export async function runHostedStagingAcceptance(env = process.env) {
   }
   results.readiness.supabaseAuth = "ok";
 
-  if (webUrl) {
-    const webRes = await fetchWithTimeout(webUrl);
+  if (webOrigin) {
+    const webBypass = env.KHLIM_STAGING_WEB_VERCEL_BYPASS_SECRET?.trim();
+    const webRes = await fetchWithTimeout(
+      webOrigin,
+      webBypass
+        ? {
+            headers: { "x-vercel-protection-bypass": webBypass },
+          }
+        : undefined,
+    );
     if (!webRes.ok) {
       throw new Error(`KHLIM staging web check failed: HTTP ${webRes.status}`);
     }
@@ -719,6 +829,7 @@ export async function runHostedStagingAcceptance(env = process.env) {
         note: "Active staging window is not authorized (KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED != '1'). Halting in verified ready state without submitting hosted POST requests.",
       }),
     );
+    results.status = "SAFE_HALT";
     results.completedAt = new Date().toISOString();
     return results;
   }
@@ -753,6 +864,7 @@ export async function runHostedStagingAcceptance(env = process.env) {
   }
 
   const dbConfig = stagingDatabaseConfig(dbUrl);
+  await verifyActiveTokens(env, supabaseUrl, userAal1Token, adminAal2Token);
 
   let prisma = env._prismaClient;
   let ownedPrisma = null;
@@ -794,35 +906,64 @@ export async function runHostedStagingAcceptance(env = process.env) {
       );
     }
 
-    // 4d. Mandatory Authenticated Vercel Deployment Identity & Provenance Verification BEFORE ANY POST
-    const deploymentIdentity = await verifyVercelDeploymentIdentity({
-      apiUrl,
-      env,
+    // Use the aggregate endpoint with the same role and MFA policy as lead retrieval.
+    const adminLeadsPath = "/v1/admin/academy/leads";
+    const adminSummaryPath = `${adminLeadsPath}/summary`;
+
+    const adminAccess = await requestApi(adminSummaryPath, {
+      headers: { Authorization: `Bearer ${adminAal2Token}` },
     });
-    results.deploymentIdentity = deploymentIdentity;
+    if (adminAccess.status !== 200) {
+      throw new Error(
+        `AUTH_ADMIN_ROLE_REJECTED: Staging Academy Lead access returned HTTP ${adminAccess.status}`,
+      );
+    }
+    const summary = await adminAccess.json().catch(() => null);
+    if (
+      ![
+        summary?.newLeads,
+        summary?.needsFollowUp,
+        summary?.total,
+        summary?.byStatus?.NEW,
+      ].every((count) => Number.isSafeInteger(count) && count >= 0)
+    ) {
+      throw new Error(
+        "AUTH_ADMIN_ROLE_REJECTED: Staging Academy Lead summary was invalid",
+      );
+    }
 
     console.log(
       JSON.stringify({
         event: "staging.hosted_acceptance.active_window_started",
-        note: "Authorized active window confirmed. Mandatory auth tokens, test contact, direct DB client, and deployment provenance verified. Executing hosted validation cases, synthetic lead creation, duplicate idempotency receipt, and MFA AAL2 retrieval.",
-        deploymentId: deploymentIdentity.deploymentId,
-        deployedSha: deploymentIdentity.deployedSha,
-        deployedBranch: deploymentIdentity.deployedBranch,
+        deploymentId: results.deploymentIdentity.deploymentId,
+        deployedSha: results.deploymentIdentity.deployedSha,
+        deployedBranch: results.deploymentIdentity.deployedBranch,
       }),
     );
 
-    const leadsEndpoint = new URL("/v1/academy/leads", apiUrl);
+    const leadsPath = "/v1/academy/leads";
+    progress.attemptId = randomUUID();
 
     // 5. Non-destructive Input Validation / Injection-like Cases
     const validationCases = createValidationCases(validatedPhone);
     for (const testCase of validationCases) {
-      const res = await fetchWithTimeout(leadsEndpoint, {
+      progress.phase = "VALIDATION_SUBMISSION_UNCERTAIN";
+      progress.idempotencyKey = randomUUID();
+      console.log(
+        JSON.stringify({
+          event: "staging.hosted_acceptance.validation_submission_started",
+          ...progress,
+        }),
+      );
+      const res = await requestApi(leadsPath, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...vercelBypassHeaders,
         },
-        body: JSON.stringify(testCase.payload),
+        body: JSON.stringify({
+          ...testCase.payload,
+          idempotencyKey: progress.idempotencyKey,
+        }),
       });
 
       if (res.status !== testCase.expectedStatus) {
@@ -831,6 +972,8 @@ export async function runHostedStagingAcceptance(env = process.env) {
         );
       }
 
+      progress.phase = "BEFORE_SUBMISSION";
+      delete progress.idempotencyKey;
       results.validationCases.push({
         label: testCase.label,
         expectedStatus: testCase.expectedStatus,
@@ -840,59 +983,54 @@ export async function runHostedStagingAcceptance(env = process.env) {
     }
 
     // 6. Authorized Synthetic Lead Creation & Duplicate Idempotency Replay
-    syntheticLead = generateSyntheticLead(undefined, validatedPhone);
-
+    syntheticLead = generateSyntheticLead(progress.attemptId, validatedPhone);
+    progress.phase = "LEAD_SUBMISSION_UNCERTAIN";
+    progress.idempotencyKey = syntheticLead.idempotencyKey;
     console.log(
       JSON.stringify({
-        event: "staging.hosted_acceptance.synthetic_lead_prepared",
-        guardian: maskName(syntheticLead.guardianName),
-        email: maskEmail(syntheticLead.email),
-        phone: maskPhone(syntheticLead.phone),
-        source: syntheticLead.source,
-        consent: syntheticLead.consent,
-        idempotencyKey: syntheticLead.idempotencyKey,
+        event: "staging.hosted_acceptance.lead_submission_started",
+        ...progress,
       }),
     );
 
     // 6a. Initial Submission (Expected HTTP 201)
-    const initialRes = await fetchWithTimeout(leadsEndpoint, {
+    const initialRes = await requestApi(leadsPath, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...vercelBypassHeaders,
       },
       body: JSON.stringify(syntheticLead),
     });
 
     if (initialRes.status !== 201) {
-      const errJson = await initialRes.json().catch(() => ({}));
-      const errCode =
-        errJson?.code || errJson?.statusCode || "UNEXPECTED_STATUS";
       throw new Error(
-        `Initial synthetic lead registration failed: expected HTTP 201, received HTTP ${initialRes.status} [code: ${errCode}]`,
+        `Initial synthetic lead registration failed: expected HTTP 201, received HTTP ${initialRes.status}`,
       );
     }
 
     const initialBody = await initialRes.json().catch(() => ({}));
-    if (!initialBody?.id || initialBody.status !== "RECEIVED") {
+    if (
+      typeof initialBody?.id !== "string" ||
+      !UUID.test(initialBody.id) ||
+      initialBody.status !== "RECEIVED"
+    ) {
       throw new Error(
         "Initial synthetic lead registration returned unexpected body structure with missing id or status",
       );
     }
     leadId = initialBody.id;
+    progress.phase = "LEAD_RECEIPT_CONFIRMED";
     results.leadCreation = {
       id: leadId,
       status: initialBody.status,
-      createdAt: initialBody.createdAt,
       httpStatus: initialRes.status,
     };
 
     // 6b. Duplicate Identical Submission (Idempotency Replay Receipt, Expected HTTP 201 with identical ID)
-    const duplicateRes = await fetchWithTimeout(leadsEndpoint, {
+    const duplicateRes = await requestApi(leadsPath, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...vercelBypassHeaders,
       },
       body: JSON.stringify(syntheticLead),
     });
@@ -921,11 +1059,10 @@ export async function runHostedStagingAcceptance(env = process.env) {
       ...syntheticLead,
       childAge: 12, // altered payload
     };
-    const conflictRes = await fetchWithTimeout(leadsEndpoint, {
+    const conflictRes = await requestApi(leadsPath, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...vercelBypassHeaders,
       },
       body: JSON.stringify(conflictingPayload),
     });
@@ -940,23 +1077,23 @@ export async function runHostedStagingAcceptance(env = process.env) {
       rejectedAsExpected: true,
     };
 
-    // 7. Mandatory Admin Lead Retrieval & MFA AAL2 Access Control
-    const adminLeadsEndpoint = new URL("/v1/admin/academy/leads", apiUrl);
-
-    // 7a. Unauthenticated Access must be denied (Expected HTTP 401)
-    const unauthRes = await fetchWithTimeout(adminLeadsEndpoint, {
-      headers: { ...vercelBypassHeaders },
+    // Scope the list controls to this synthetic lead even if authorization regresses.
+    const negativeControlParams = new URLSearchParams({
+      q: syntheticLead.email,
+      limit: "1",
     });
+    const negativeControlPath = `${adminLeadsPath}?${negativeControlParams}`;
+    // Unauthenticated Access must be denied (Expected HTTP 401)
+    const unauthRes = await requestApi(negativeControlPath);
     if (unauthRes.status !== 401) {
       throw new Error(
         `AUTH_GATE_FAILURE: Unauthenticated Admin leads request was not rejected with 401: received HTTP ${unauthRes.status}`,
       );
     }
 
-    // 7b. AAL1 / Unassigned Role Access must be denied (Expected HTTP 403)
-    const aal1Res = await fetchWithTimeout(adminLeadsEndpoint, {
+    // AAL1 / Unassigned Role Access must be denied (Expected HTTP 403)
+    const aal1Res = await requestApi(negativeControlPath, {
       headers: {
-        ...vercelBypassHeaders,
         Authorization: `Bearer ${userAal1Token}`,
       },
     });
@@ -972,17 +1109,14 @@ export async function runHostedStagingAcceptance(env = process.env) {
     const maxPages = 5;
 
     do {
-      const pageQuery = new URL(adminLeadsEndpoint);
-      pageQuery.searchParams.set("source", "3x3-oct24");
-      pageQuery.searchParams.set("page", String(currentPage));
-      pageQuery.searchParams.set("limit", "20");
-      if (syntheticLead.email) {
-        pageQuery.searchParams.set("q", syntheticLead.email);
-      }
-
-      const adminRes = await fetchWithTimeout(pageQuery, {
+      const params = new URLSearchParams({
+        source: "3x3-oct24",
+        page: String(currentPage),
+        limit: "20",
+        q: syntheticLead.email,
+      });
+      const adminRes = await requestApi(`${adminLeadsPath}?${params}`, {
         headers: {
-          ...vercelBypassHeaders,
           Authorization: `Bearer ${adminAal2Token}`,
         },
       });
@@ -993,9 +1127,9 @@ export async function runHostedStagingAcceptance(env = process.env) {
         );
       }
 
-      const adminJson = await adminRes.json();
+      const adminJson = await adminRes.json().catch(() => null);
       const itemsList = Array.isArray(adminJson?.items) ? adminJson.items : [];
-      const pageMatches = itemsList.filter((l) => l.id === leadId);
+      const pageMatches = itemsList.filter((lead) => lead?.id === leadId);
       allMatchingLeads.push(...pageMatches);
 
       const totalPages =
@@ -1015,20 +1149,16 @@ export async function runHostedStagingAcceptance(env = process.env) {
     const leadRecord = allMatchingLeads[0];
     if (leadRecord.source !== "3x3-oct24") {
       throw new Error(
-        `ATTRIBUTION_INVARIANT_VIOLATION: Expected source='3x3-oct24', found '${leadRecord.source}'`,
+        "ATTRIBUTION_INVARIANT_VIOLATION: Expected source 3x3-oct24",
       );
     }
     if (leadRecord.status !== "NEW") {
-      throw new Error(
-        `STATUS_INVARIANT_VIOLATION: Expected status='NEW', found '${leadRecord.status}'`,
-      );
+      throw new Error("STATUS_INVARIANT_VIOLATION: Expected status NEW");
     }
 
     // 7d. Detail endpoint check
-    const detailUrl = new URL(`/v1/admin/academy/leads/${leadId}`, apiUrl);
-    const detailRes = await fetchWithTimeout(detailUrl, {
+    const detailRes = await requestApi(`${adminLeadsPath}/${leadId}`, {
       headers: {
-        ...vercelBypassHeaders,
         Authorization: `Bearer ${adminAal2Token}`,
       },
     });
@@ -1039,7 +1169,7 @@ export async function runHostedStagingAcceptance(env = process.env) {
       );
     }
 
-    const detailJson = await detailRes.json();
+    const detailJson = await detailRes.json().catch(() => null);
     if (
       detailJson?.id !== leadId ||
       detailJson?.source !== "3x3-oct24" ||
@@ -1058,12 +1188,18 @@ export async function runHostedStagingAcceptance(env = process.env) {
     };
 
     // 8. Mandatory Independent Read-Only Database Persistence Verification
-    const dbCount = await prisma.academyLead.count({
-      where: { id: leadId },
-    });
-    const idempotencyCount = await prisma.academyLead.count({
-      where: { idempotencyKey: syntheticLead.idempotencyKey },
-    });
+    let dbCount;
+    let idempotencyCount;
+    try {
+      dbCount = await prisma.academyLead.count({ where: { id: leadId } });
+      idempotencyCount = await prisma.academyLead.count({
+        where: { idempotencyKey: syntheticLead.idempotencyKey },
+      });
+    } catch {
+      throw new Error(
+        "DATABASE_PERSISTENCE_FAILURE: Independent staging database query failed",
+      );
+    }
 
     if (dbCount !== 1 || idempotencyCount !== 1) {
       throw new Error(
@@ -1078,7 +1214,11 @@ export async function runHostedStagingAcceptance(env = process.env) {
     };
   } finally {
     if (ownedPrisma) {
-      await ownedPrisma.$disconnect();
+      await ownedPrisma.$disconnect().catch(() => {
+        throw new Error(
+          "DATABASE_DISCONNECT_FAILURE: Failed to close staging database client",
+        );
+      });
     }
   }
 
@@ -1091,17 +1231,12 @@ export async function runHostedStagingAcceptance(env = process.env) {
       acceptanceLayer: results.acceptanceLayer,
       deploymentId: results.deploymentIdentity?.deploymentId,
       deployedSha: results.deploymentIdentity?.deployedSha,
-      leadId,
+      attemptId: progress.attemptId,
       source: "3x3-oct24",
       idempotencyVerified: true,
       conflictRejected: true,
       singleRecordPersisted: true,
       adminMfaVerified: true,
-      maskedDetails: {
-        guardian: maskName(syntheticLead.guardianName),
-        email: maskEmail(syntheticLead.email),
-        phone: maskPhone(syntheticLead.phone),
-      },
     }),
   );
 
@@ -1109,11 +1244,10 @@ export async function runHostedStagingAcceptance(env = process.env) {
 }
 
 // Direct execution CLI entrypoint
-const isDirectCliExecution =
-  import.meta.url === `file://${process.argv[1]}` ||
-  process.argv[1]?.endsWith("verify-hosted-staging-acceptance.mjs");
-
-if (isDirectCliExecution) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   runHostedStagingAcceptance(process.env).catch((error) => {
     console.error(
       JSON.stringify({
