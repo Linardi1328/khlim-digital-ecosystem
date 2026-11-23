@@ -2,13 +2,25 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 import { Socket } from "node:net";
-import { test } from "node:test";
+import { after, test } from "node:test";
 
 const require = createRequire(import.meta.url);
 const apiRequire = createRequire(
   new URL("../apps/api/package.json", import.meta.url),
 );
-const { Client, Pool } = apiRequire("pg");
+const pg = apiRequire("pg");
+const { Client, Pool } = pg;
+let poolsCreated = 0;
+// Install before importing the health probe, which subclasses pg.Pool.
+pg.Pool = class extends Pool {
+  constructor(...args) {
+    super(...args);
+    poolsCreated++;
+  }
+};
+after(() => {
+  pg.Pool = Pool;
+});
 const {
   pgClientConfigForApi,
 } = require("../apps/api/dist/database/pg-client-config.js");
@@ -162,51 +174,97 @@ test("malformed configuration and mis-scoped CA flags fail with fixed codes", ()
   }
 });
 
-test("Vercel Preview detection is independent of KHLIM_ENV and ambiguous Vercel context fails closed", () => {
+const deploymentCases = [
+  ["explicit Preview", { ...PREVIEW, KHLIM_ENV: "production" }],
+  ["all markers absent", {}],
+  ["only the Vercel marker", { VERCEL: "1" }],
+  ["unknown target", { VERCEL: "1", VERCEL_ENV: "unknown" }],
+  ["production target alone", { VERCEL_ENV: "production" }],
+  [
+    "contradictory Vercel targets",
+    {
+      VERCEL: "1",
+      VERCEL_ENV: "production",
+      VERCEL_TARGET_ENV: "preview",
+    },
+  ],
+  [
+    "production marker with staging app context",
+    {
+      VERCEL: "1",
+      VERCEL_ENV: "production",
+      KHLIM_ENV: "staging",
+    },
+  ],
+  [
+    "local-like settings without Vercel markers",
+    {
+      NODE_ENV: "development",
+      KHLIM_ENV: "development",
+    },
+  ],
+  ["development target", { VERCEL: "1", VERCEL_ENV: "development" }],
+  [
+    "unmarked hosted runtime",
+    { NODE_ENV: "production", KHLIM_ENV: "production" },
+  ],
+];
+
+test("only consistent Vercel production markers authorize ordinary remote pg configuration", () => {
   const url = databaseUrl({ user: `postgres.${PRODUCTION}` });
-  for (const env of [
-    { ...PREVIEW, KHLIM_ENV: "production" },
-    { VERCEL: "1" },
-    { VERCEL: "1", VERCEL_ENV: "unknown" },
-  ]) {
-    assert.throws(() => pgClientConfigForApi(url.href, env), REJECTED);
+  for (const [name, env] of deploymentCases) {
+    assert.throws(() => pgClientConfigForApi(url.href, env), REJECTED, name);
   }
   const config = pgClientConfigForApi(url.href, {
     VERCEL: "1",
     VERCEL_ENV: "production",
+    VERCEL_TARGET_ENV: "production",
     KHLIM_ENV: "production",
+    NODE_ENV: "production",
   });
   assert.equal(config.connectionString, url.href);
   const client = new Client(config);
-  assert.equal(client.host, HOST);
-  assert.equal(client.port, 6543);
   assert.equal(client.user, `postgres.${PRODUCTION}`);
-  assert.equal(client.ssl, false);
-
-  // If Vercel system markers are not exposed, production-like hosted
-  // environments must still reject any production connection destination.
-  for (const markersMissing of [
-    { NODE_ENV: "production" },
-    { NODE_ENV: "production", KHLIM_ENV: "production" },
-    { KHLIM_ENV: "staging" },
-    { KHLIM_ENV: "production" },
-  ]) {
-    assert.throws(
-      () => pgClientConfigForApi(url.href, markersMissing),
-      REJECTED,
-    );
-  }
+  assert.equal(client.host, HOST);
 });
 
-test("rejected or absent Preview configuration blocks Prisma writes and health before pool acquisition or network access", async (t) => {
+test("unmarked development keeps explicit loopback access and staging keeps verified TLS", () => {
+  for (const local of [
+    "postgresql://localhost:5432/test",
+    "postgresql://127.0.0.1:5432/test",
+    "postgresql:///test?host=localhost",
+  ]) {
+    assert.equal(pgClientConfigForApi(local, {}).connectionString, local);
+    assert.equal(
+      pgClientConfigForApi(local, { VERCEL_ENV: "development" })
+        .connectionString,
+      local,
+    );
+    assert.throws(() => pgClientConfigForApi(local, PREVIEW), REJECTED);
+  }
+  const config = pgClientConfigForApi(databaseUrl().href, {});
+  assert.equal(config.host, HOST);
+  assert.deepEqual(config.ssl, { rejectUnauthorized: true, servername: HOST });
+});
+
+test("ambiguous or rejected configuration blocks Prisma pool creation, sockets and SQL", async (t) => {
   const url = databaseUrl({ user: `postgres.${PRODUCTION}` });
   const redirected = databaseUrl();
   redirected.searchParams.set("user", `postgres.${PRODUCTION}`);
+  const loopbackOverride = new URL("postgresql://127.0.0.1:5432/postgres");
+  loopbackOverride.searchParams.set("host", HOST);
+  loopbackOverride.searchParams.set("user", `postgres.${PRODUCTION}`);
+  const hostless = new URL(loopbackOverride);
+  hostless.host = "";
   const values = [
     "DATABASE_URL",
+    "VERCEL",
     "VERCEL_ENV",
+    "VERCEL_TARGET_ENV",
     "KHLIM_ENV",
     "KHLIM_RIC84_SUPABASE_CA_2021",
+    "NODE_ENV",
+    "PGHOST",
   ];
   const restore = values.map((key) => [key, process.env[key]]);
   t.after(() => {
@@ -215,47 +273,63 @@ test("rejected or absent Preview configuration blocks Prisma writes and health b
       else process.env[key] = value;
     }
   });
-  process.env.VERCEL_ENV = "preview";
-  process.env.KHLIM_ENV = "staging";
-  delete process.env.KHLIM_RIC84_SUPABASE_CA_2021;
 
-  const fail = () =>
-    assert.fail("rejected configuration reached network acquisition");
+  const fail = () => assert.fail("rejected configuration reached PostgreSQL");
   const poolConnect = t.mock.method(Pool.prototype, "connect", fail);
   const socketConnect = t.mock.method(Socket.prototype, "connect", fail);
+  const sql = t.mock.method(Client.prototype, "query", fail);
   const logs = [];
   t.mock.method(process.stderr, "write", (line) => {
     logs.push(String(line));
     return true;
   });
-
-  for (const fixture of [url, redirected, undefined]) {
+  const cases = [
+    ...deploymentCases.map(([name, env]) => [name, env, url]),
+    ["Preview identity override", PREVIEW, redirected],
+    ["nonlocal effective pg host", {}, loopbackOverride],
+    ["hostless URL with remote pg host", {}, hostless],
+    [
+      "hostless URL with remote PGHOST",
+      { PGHOST: HOST },
+      new URL("postgresql:///postgres"),
+    ],
+    ["missing configuration", PREVIEW, undefined],
+  ];
+  const previousPoolCount = poolsCreated;
+  for (const [name, env, fixture] of cases) {
+    for (const key of values) delete process.env[key];
+    Object.assign(process.env, env);
     if (fixture) process.env.DATABASE_URL = fixture.href;
-    else delete process.env.DATABASE_URL;
     const prisma = new PrismaService();
     await assert.rejects(
-      async () =>
-        prisma.client
-          .$executeRaw`INSERT INTO ric120_synthetic_probe VALUES (1)`,
+      async () => prisma.client.$executeRaw`SELECT 1`,
       fixture ? REJECTED : /DATABASE_URL is required before database access/,
+      name,
     );
     const probe = await prisma.probe();
-    assert.equal(probe.stage, "configuration");
+    assert.equal(probe.stage, "configuration", name);
     assert.equal(
       probe.category,
       fixture ? "preview_database_rejected" : "missing_database_url",
+      name,
     );
-    assert.deepEqual(await new HealthController(prisma).getHealth(), {
-      service: "khlim-api",
-      status: "error",
-      database: { status: "disconnected" },
-    });
+    assert.deepEqual(
+      await new HealthController(prisma).getHealth(),
+      {
+        service: "khlim-api",
+        status: "error",
+        database: { status: "disconnected" },
+      },
+      name,
+    );
     await prisma.onModuleDestroy();
   }
 
+  assert.equal(poolsCreated, previousPoolCount);
   assert.equal(poolConnect.mock.callCount(), 0);
   assert.equal(socketConnect.mock.callCount(), 0);
-  assert.equal(logs.length, 3);
+  assert.equal(sql.mock.callCount(), 0);
+  assert.equal(logs.length, cases.length);
   for (const log of logs) {
     assert.equal(JSON.parse(log).stage, "configuration");
     assert.doesNotMatch(log, /postgresql:|supabase\.com/);

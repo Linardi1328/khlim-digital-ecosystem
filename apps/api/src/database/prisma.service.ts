@@ -86,6 +86,7 @@ export class PrismaService implements OnModuleDestroy {
     const policyKey = JSON.stringify([
       databaseUrl,
       process.env.VERCEL_ENV,
+      process.env.VERCEL_TARGET_ENV,
       process.env.VERCEL,
       process.env.NODE_ENV,
       process.env.KHLIM_ENV,

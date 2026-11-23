@@ -1,10 +1,7 @@
 import { Socket } from "node:net";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool, type PoolClient } from "pg";
-import {
-  pgClientConfigForApi,
-  requiresPreviewDatabaseIsolation,
-} from "./pg-client-config";
+import { pgClientConfigForApi } from "./pg-client-config";
 import { PrismaClient } from "../generated/prisma/client";
 
 export const PROBE_DEADLINE_MS = 2000;
@@ -282,12 +279,8 @@ export async function probeDatabase(
       let valid = false;
       try {
         const url = new URL(databaseUrl.trim());
-        valid =
-          ["postgres:", "postgresql:"].includes(url.protocol) &&
-          (!requiresPreviewDatabaseIsolation() &&
-          process.env.KHLIM_RIC84_SUPABASE_CA_2021 !== "1"
-            ? true
-            : !!url.hostname);
+        // The shared connection policy validates the effective destination.
+        valid = ["postgres:", "postgresql:"].includes(url.protocol);
       } catch {
         /* invalid configuration is deliberately not echoed */
       }

@@ -10,19 +10,55 @@ const STAGING_POOLER_USER = `postgres.${STAGING_PROJECT}`;
 const EXPECTED_CA_FINGERPRINT =
   "80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA";
 
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+
 export function requiresPreviewDatabaseIsolation(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  const target = env.VERCEL_ENV;
-  if (target === "production" || target === "development") return false;
-  if (target !== undefined || env.VERCEL === "1") return true;
-  // Vercel may omit system markers. An unmarked production/staging runtime
-  // must not inherit the unrestricted local-development DB policy.
-  return (
-    env.NODE_ENV === "production" ||
-    env.KHLIM_ENV === "production" ||
-    env.KHLIM_ENV === "staging"
+  // Missing markers never authorize a remote production connection.
+  return !(
+    env.VERCEL === "1" &&
+    env.VERCEL_ENV === "production" &&
+    (env.VERCEL_TARGET_ENV === undefined ||
+      env.VERCEL_TARGET_ENV === "production") &&
+    (env.KHLIM_ENV === undefined || env.KHLIM_ENV === "production") &&
+    (env.NODE_ENV === undefined || env.NODE_ENV === "production")
   );
+}
+
+function isLocalDatabase(
+  connectionString: string,
+  env: NodeJS.ProcessEnv,
+): boolean {
+  const target = env.VERCEL_ENV;
+  if (
+    (target !== undefined && target !== "development") ||
+    (target === undefined && env.VERCEL !== undefined) ||
+    (target === "development" &&
+      env.VERCEL !== undefined &&
+      env.VERCEL !== "1") ||
+    (env.VERCEL_TARGET_ENV !== undefined &&
+      (target !== "development" || env.VERCEL_TARGET_ENV !== "development")) ||
+    (env.KHLIM_ENV !== undefined &&
+      env.KHLIM_ENV !== "development" &&
+      env.KHLIM_ENV !== "test")
+  ) {
+    return false;
+  }
+
+  // Match pg's effective host, including URL query overrides. Require an
+  // explicit loopback destination so pg cannot fall back to PGHOST.
+  try {
+    const url = new URL(connectionString);
+    if (!["postgres:", "postgresql:"].includes(url.protocol)) return false;
+    // Reject remote URLs before pg can read any TLS file named in the URL.
+    const urlHost = url.searchParams.getAll("host").at(-1) || url.hostname;
+    if (!LOOPBACK_HOSTS.has(urlHost)) return false;
+    const { host } = parseIntoClientConfig(connectionString);
+    return host !== undefined && LOOPBACK_HOSTS.has(host);
+  } catch {
+    return false;
+  }
 }
 
 function configurationError(code: string, message: string): Error {
@@ -84,8 +120,13 @@ export function pgClientConfigForApi(
 ): PoolConfig {
   const caFlag = env.KHLIM_RIC84_SUPABASE_CA_2021;
   const pinned = caFlag === "1";
-  const preview = requiresPreviewDatabaseIsolation(env);
-  if (!preview && !pinned) {
+  const restricted = requiresPreviewDatabaseIsolation(env);
+  if (
+    !pinned &&
+    (!restricted ||
+      ((caFlag === undefined || caFlag === "0") &&
+        isLocalDatabase(connectionString, env)))
+  ) {
     // Let pg parse supported URL parameters itself. Spreading parsed query
     // values into PoolConfig can override pool internals (e.g. ?log=debug)
     // or silently discard legacy TLS options such as ssl=no-verify.
@@ -95,7 +136,7 @@ export function pgClientConfigForApi(
   if (
     (pinned &&
       (env.VERCEL_ENV === "production" || env.KHLIM_ENV === "production")) ||
-    (preview && caFlag !== undefined && caFlag !== "0" && !pinned)
+    (restricted && caFlag !== undefined && caFlag !== "0" && !pinned)
   ) {
     throw configurationError(
       "KHLIM_STAGING_CA_SCOPE",

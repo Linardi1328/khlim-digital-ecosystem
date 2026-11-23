@@ -50,8 +50,8 @@ export class HealthController {
     },
   })
   async getHealth() {
-    const isProduction = process.env.KHLIM_ENV === "production";
-    const preview = requiresPreviewDatabaseIsolation();
+    const restricted = requiresPreviewDatabaseIsolation();
+    const isProduction = !restricted || process.env.KHLIM_ENV === "production";
     const databaseUrl = process.env.DATABASE_URL;
     const probe: ProbeResult = this.prisma
       ? await this.prisma.probe()
@@ -86,7 +86,7 @@ export class HealthController {
         : "disconnected";
 
     const projectRef =
-      isProduction || (preview && probe.stage === "configuration")
+      isProduction || (restricted && probe.stage === "configuration")
         ? null
         : extractDatabaseProjectRef(databaseUrl);
 

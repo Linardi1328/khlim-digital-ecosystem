@@ -77,7 +77,10 @@ test("no opt-in preserves pg URL parsing without promoting URL keys to pool opti
   const url = databaseUrl();
   url.searchParams.set("application_name", "khlim-synthetic");
   url.searchParams.set("log", "debug");
-  const config = pgClientConfigForApi(url.toString(), {});
+  const config = pgClientConfigForApi(url.toString(), {
+    VERCEL: "1",
+    VERCEL_ENV: "production",
+  });
   assert.equal(config.connectionString, url.toString());
   assert.equal(Object.hasOwn(config, "log"), false);
   const apiRequire = createRequire(
@@ -97,6 +100,7 @@ test("ordinary production URL keeps legacy pg TLS semantics", () => {
   const url = databaseUrl();
   url.searchParams.set("ssl", "no-verify");
   const config = pgClientConfigForApi(url.href, {
+    VERCEL: "1",
     VERCEL_ENV: "production",
     NODE_ENV: "production",
     KHLIM_ENV: "production",
