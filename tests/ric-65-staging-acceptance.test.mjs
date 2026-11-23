@@ -1172,6 +1172,55 @@ test("RIC-65 rejects ambiguous or insecure database destinations before construc
   assert.ok(recordedRequests.every(({ method }) => method === "GET"));
 });
 
+test("RIC-65 closes the owned pool when deployment provenance fails after preflight", async (t) => {
+  const apiRequire = createRequire(
+    new URL("../apps/api/package.json", import.meta.url),
+  );
+  const { Pool } = apiRequire("pg");
+  const socketConnect = t.mock.method(Socket.prototype, "connect", () => {
+    throw new Error("Unexpected socket connection");
+  });
+  const query = t.mock.method(Pool.prototype, "query", async () => ({
+    fields: [{ name: "_count$_all", dataTypeID: 20 }],
+    rows: [["0"]],
+  }));
+  const end = t.mock.method(Pool.prototype, "end");
+  const { mockFetch, recordedRequests } = createMockFetch();
+  t.mock.method(globalThis, "fetch", mockFetch);
+
+  await assert.rejects(
+    () =>
+      runHostedStagingAcceptance({
+        KHLIM_STAGING_TARGET_BRANCH: DEDICATED_STAGING_BRANCH,
+        KHLIM_STAGING_API_URL: `https://${PINNED_VERCEL_STAGING_API_HOST}`,
+        NEXT_PUBLIC_SUPABASE_URL: `https://${STAGING_SUPABASE_PROJECT_ID}.supabase.co`,
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
+        KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1",
+        KHLIM_STAGING_ADMIN_AAL2_TOKEN: "admin-token",
+        KHLIM_STAGING_USER_AAL1_TOKEN: "aal1-token",
+        KHLIM_STAGING_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
+        KHLIM_STAGING_APPROVED_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
+        KHLIM_STAGING_DATABASE_URL: `postgresql://postgres@db.${STAGING_SUPABASE_PROJECT_ID}.supabase.co:5432/postgres`,
+        VERCEL_TOKEN: "mock-vercel-token",
+        KHLIM_STAGING_EXPECTED_COMMIT_SHA: "different-approved-commit-sha",
+      }),
+    /DEPLOYMENT_COMMIT_MISMATCH/,
+  );
+
+  assert.equal(query.mock.callCount(), 1);
+  assert.match(query.mock.calls[0].arguments[0].text, /COUNT\(/i);
+  assert.ok(
+    query.mock.calls[0].arguments[0].values.includes("staging-probe-preflight"),
+  );
+  assert.equal(end.mock.callCount(), 1);
+  assert.equal(end.mock.calls[0].this, query.mock.calls[0].this);
+  assert.equal(socketConnect.mock.callCount(), 0);
+  assert.deepEqual(
+    recordedRequests.map(({ method }) => method),
+    ["GET", "GET", "GET"],
+  );
+});
+
 test("safety regression: active mode requires approved test phone and fails closed if missing or mismatched", async () => {
   const origFetch = globalThis.fetch;
   const { mockFetch } = createMockFetch();
