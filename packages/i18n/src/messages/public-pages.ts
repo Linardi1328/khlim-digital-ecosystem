@@ -23,7 +23,8 @@ const en = {
   "programmes.allLevels": "All levels",
   "programmes.loadingCurrent": "Loading current offerings…",
   "programmes.noMatching": "No matching open programme offerings.",
-  "programmes.catalogueLoadError": "Programme listings are temporarily unavailable. Please try again.",
+  "programmes.catalogueLoadError":
+    "Programme listings are temporarily unavailable. Please try again.",
   "programmes.levelLabel": "Level",
   "programmes.openDevelopment": "Open development",
   "programmes.loadingOffering": "Loading offering…",
@@ -68,7 +69,8 @@ const ms: Catalogue = {
   "programmes.allLevels": "Semua tahap",
   "programmes.loadingCurrent": "Memuatkan tawaran semasa…",
   "programmes.noMatching": "Tiada tawaran program terbuka yang sepadan.",
-  "programmes.catalogueLoadError": "Senarai program tidak dapat dimuatkan buat masa ini. Sila cuba lagi.",
+  "programmes.catalogueLoadError":
+    "Senarai program tidak dapat dimuatkan buat masa ini. Sila cuba lagi.",
   "programmes.levelLabel": "Tahap",
   "programmes.openDevelopment": "Pembangunan terbuka",
   "programmes.loadingOffering": "Memuatkan tawaran…",
@@ -192,7 +194,8 @@ const hi: Catalogue = {
   "programmes.allLevels": "सभी स्तर",
   "programmes.loadingCurrent": "वर्तमान विकल्प लोड हो रहे हैं…",
   "programmes.noMatching": "कोई मेल खाता खुला कार्यक्रम विकल्प नहीं मिला।",
-  "programmes.catalogueLoadError": "फ़िलहाल कार्यक्रम सूची लोड नहीं हो सकी। कृपया फिर से प्रयास करें।",
+  "programmes.catalogueLoadError":
+    "फ़िलहाल कार्यक्रम सूची लोड नहीं हो सकी। कृपया फिर से प्रयास करें।",
   "programmes.levelLabel": "स्तर",
   "programmes.openDevelopment": "ओपन डेवलपमेंट",
   "programmes.loadingOffering": "विकल्प लोड हो रहा है…",
