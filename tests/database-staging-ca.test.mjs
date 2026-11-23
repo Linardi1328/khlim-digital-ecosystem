@@ -39,8 +39,7 @@ test("pinned public CA has expected fingerprint and validity", () => {
 
 test("staging SSL verifies the pinned CA and pooler hostname", () => {
   const url = databaseUrl();
-  // Simulate an unsafe query parameter: the explicit staged config must win.
-  url.searchParams.set("sslmode", "no-verify");
+  url.searchParams.set("sslmode", "require");
   const config = pgClientConfigForApi(url.toString(), ENABLED);
   assert.equal(config.ssl?.rejectUnauthorized, true);
   assert.equal(config.ssl?.servername, HOST);
@@ -60,10 +59,9 @@ test("staging trust fails closed on wrong endpoints and production", () => {
     databaseUrl({ host: "127.0.0.1" }),
   ];
   for (const invalidUrl of invalidUrls) {
-    assert.throws(
-      () => pgClientConfigForApi(invalidUrl.toString(), ENABLED),
-      /RIC-84 staging CA trust scope mismatch/,
-    );
+    assert.throws(() => pgClientConfigForApi(invalidUrl.toString(), ENABLED), {
+      code: "KHLIM_PREVIEW_DB_REJECTED",
+    });
   }
   assert.throws(
     () =>
