@@ -66,6 +66,9 @@ test("late cleanup completion is not healthy even when its timer callback is del
         clock = 1500;
       },
       close: async () => {
+        // Yield so probeDatabase calculates a positive remaining cleanup
+        // budget, then finish late before the timer callback is dispatched.
+        await Promise.resolve();
         clock = PROBE_DEADLINE_MS + 1;
       },
     }),
