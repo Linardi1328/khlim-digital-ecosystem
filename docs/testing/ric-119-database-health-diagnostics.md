@@ -1,6 +1,6 @@
 # RIC-119: database health diagnostics and preview investigation
 
-Issue: [RIC-119](https://linear.app/rbl-productions/issue/RIC-119/khlim-api-ric-84-diagnose-staging-db-disconnect-with-safe-prisma).
+Issue: [RIC-119][ric119].
 Observed 31 October 2026 (MYT). The original RIC-119 backend-only
 diagnostics were based on main `16e877863953366e3cbfedb10a7f06d6910b950d`.
 The isolated integration candidate combines RIC-84 security source
@@ -116,16 +116,29 @@ not portable through transaction poolers. Connection-string parsing is
 performed before applying the limits so URL timeout fields cannot disable them.
 Credentials and TLS behavior are otherwise preserved, never rewritten in Vercel.
 
-The watchdog does not merely abandon a Promise.race: cleanup immediately ends tracked clients
-(pg destroys an active query's socket), disconnects that probe's Prisma instance,
-and ends its pool. A late successful connection is closed if cleanup already
-started. Connection and query stalls are separately tested against owned
-nonresponsive loopback peers, with explicit peer-close assertions. Setup failures,
-normal completion and rejection all initiate cleanup. Cleanup waits only for the
-remaining overall deadline; slow pool bookkeeping can finish after the response
-without extending its budget. Rejections are observed, and driver connection
-timeouts plus late-client closure remain active. No shared application client is
-disconnected and normal application query limits are unchanged.
+The probe owns its Node socket from the start of the handshake, including when
+pg upgrades it to TLS. Cleanup starts pool shutdown and Prisma disconnect and
+destroys the owned socket even when the peer fails to close. It waits for these
+steps only within the original request budget and observes late rejections. No
+shared application client is disconnected and normal application query limits
+are unchanged.
+
+The 23 November [RIC-119 handoff][ric119] records two events on the immutable
+CA-tested API Preview in `sin1`: a query timeout at 2,004 ms and a cleanup timeout
+at 2,000 ms. The operator separately observed three connected warm samples about
+five seconds apart. Those samples lack matching request IDs. The local
+regressions reproduce both stages and reproduce a successful query followed by
+a peer that stalls during shutdown. The cause of the hosted stalls remains
+unverified.
+
+The private event uses `cleanup_timeout` / `KHLIM_PROBE_CLEANUP_TIMEOUT` when the
+query succeeds and cleanup exhausts the deadline. A connection or query timeout
+continues to use `probe_timeout`. A query failure keeps its classification when
+cleanup also fails. The endpoint still returns HTTP 200 with the existing JSON.
+A cleanup failure or timeout still reports `status: error` and
+`database.status: disconnected`.
+
+[ric119]: https://linear.app/rbl-productions/issue/RIC-119/khlim-api-ric-84-diagnose-staging-db-disconnect-with-safe-prisma
 
 Concurrent health requests share one in-flight operation within PrismaService,
 avoiding one new database connection for every parallel request. Settled results
