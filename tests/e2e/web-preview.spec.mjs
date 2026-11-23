@@ -68,7 +68,7 @@ for (const path of publicRoutes) {
   });
 }
 
-test("programme API outage shows a retryable error, not an empty catalogue", async ({
+test("programme API failure shows retry instead of no offerings", async ({
   page,
 }) => {
   let shouldFail = true;
@@ -76,12 +76,13 @@ test("programme API outage shows a retryable error, not an empty catalogue", asy
     await route.fulfill({
       status: shouldFail ? 503 : 200,
       contentType: "application/json",
+      headers: { "access-control-allow-origin": "*" },
       body: shouldFail ? '{"message":"temporarily unavailable"}' : "[]",
     });
   });
 
   await page.goto("/programmes", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("alert")).toContainText(
+  await expect(page.locator('main p[role="alert"]')).toContainText(
     "Programme listings are temporarily unavailable.",
   );
   await expect(
@@ -93,10 +94,10 @@ test("programme API outage shows a retryable error, not an empty catalogue", asy
   await expect(
     page.getByText("No matching open programme offerings."),
   ).toBeVisible();
-  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.locator('main p[role="alert"]')).toHaveCount(0);
 });
 
-test("programme loading error respects public language selection", async ({
+test("programme outage error follows selected locale", async ({
   page,
 }) => {
   await page.route("**/academy/offerings", (route) =>
@@ -104,11 +105,11 @@ test("programme loading error respects public language selection", async ({
   );
   await page.goto("/programmes", { waitUntil: "domcontentloaded" });
   await visibleLocaleSwitcher(page).selectOption("ms");
-  await expect(page.getByRole("alert")).toContainText(
+  await expect(page.locator('main p[role="alert"]')).toContainText(
     "Senarai program tidak dapat dimuatkan",
   );
   await visibleLocaleSwitcher(page).selectOption("zh-Hans");
-  await expect(page.getByRole("alert")).toContainText(
+  await expect(page.locator('main p[role="alert"]')).toContainText(
     "暂时无法加载课程列表。",
   );
 });
