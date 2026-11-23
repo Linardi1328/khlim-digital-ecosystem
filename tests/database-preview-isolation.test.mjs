@@ -191,7 +191,10 @@ test("Vercel Preview detection is independent of KHLIM_ENV and ambiguous Vercel 
     { KHLIM_ENV: "staging" },
     { KHLIM_ENV: "production" },
   ]) {
-    assert.throws(() => pgClientConfigForApi(url.href, markersMissing), REJECTED);
+    assert.throws(
+      () => pgClientConfigForApi(url.href, markersMissing),
+      REJECTED,
+    );
   }
 });
 

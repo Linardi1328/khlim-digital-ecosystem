@@ -80,12 +80,17 @@ test("no opt-in preserves pg URL parsing without promoting URL keys to pool opti
   const config = pgClientConfigForApi(url.toString(), {});
   assert.equal(config.connectionString, url.toString());
   assert.equal(Object.hasOwn(config, "log"), false);
-  const apiRequire = createRequire(new URL("../apps/api/package.json", import.meta.url));
+  const apiRequire = createRequire(
+    new URL("../apps/api/package.json", import.meta.url),
+  );
   const { Client, Pool } = apiRequire("pg");
   const client = new Client(config);
   assert.equal(client.host, HOST);
   assert.equal(client.password, url.password);
-  assert.equal(client.connectionParameters.application_name, "khlim-synthetic");
+  assert.equal(
+    client.connectionParameters.application_name,
+    "khlim-synthetic",
+  );
   const pool = new Pool(config);
   assert.equal(typeof pool.log, "function");
   void pool.end();
@@ -100,7 +105,9 @@ test("ordinary production URL keeps legacy pg TLS semantics", () => {
     KHLIM_ENV: "production",
   });
   assert.equal(config.connectionString, url.href);
-  const apiRequire = createRequire(new URL("../apps/api/package.json", import.meta.url));
+  const apiRequire = createRequire(
+    new URL("../apps/api/package.json", import.meta.url),
+  );
   const { Client } = apiRequire("pg");
   const client = new Client(config);
   assert.notEqual(client.ssl, false);

@@ -740,9 +740,10 @@ test("RIC-65 rejects inherited PostgreSQL startup options before pool creation",
   process.env.PGOPTIONS = "-c search_path=public";
   try {
     assert.throws(
-      () => stagingDatabaseConfig(
-        `postgresql://postgres@db.${STAGING_SUPABASE_PROJECT_ID}.supabase.co:5432/postgres`,
-      ),
+      () =>
+        stagingDatabaseConfig(
+          `postgresql://postgres@db.${STAGING_SUPABASE_PROJECT_ID}.supabase.co:5432/postgres`,
+        ),
       /DATABASE_CONFIGURATION_REJECTED: PGOPTIONS must be unset/,
     );
   } finally {
