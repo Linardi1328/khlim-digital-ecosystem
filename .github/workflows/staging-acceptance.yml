@@ -27,12 +27,28 @@ permissions:
 jobs:
   acceptance:
     runs-on: ubuntu-latest
-    if: github.ref_name == 'staging/ric-65-academy-soft-launch'
+    if: github.ref == 'refs/heads/staging/ric-119-120-readonly-20261124'
     environment: staging
     steps:
+      - name: Require approved runner dispatch
+        env:
+          KHLIM_STAGING_EXPECTED_COMMIT_SHA: ${{ vars.KHLIM_STAGING_EXPECTED_COMMIT_SHA }}
+          KHLIM_STAGING_EXPECTED_RUNNER_SHA: ${{ vars.KHLIM_STAGING_EXPECTED_RUNNER_SHA }}
+        shell: bash
+        run: |
+          approved_runner="${KHLIM_STAGING_EXPECTED_RUNNER_SHA:-$KHLIM_STAGING_EXPECTED_COMMIT_SHA}"
+          if [[ ! "$KHLIM_STAGING_EXPECTED_COMMIT_SHA" =~ ^[0-9a-f]{40}$ ||
+                ! "$approved_runner" =~ ^[0-9a-f]{40}$ || "$GITHUB_SHA" != "$approved_runner" ]]; then
+            echo "Dispatch does not match the approved staging runner SHA"
+            exit 1
+          fi
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
+          ref: ${{ github.sha }}
           persist-credentials: false
+      - name: Verify checked-out commit
+        shell: bash
+        run: test "$(git rev-parse --verify HEAD)" = "$GITHUB_SHA"
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: "24"
@@ -50,8 +66,16 @@ jobs:
       - name: Verify deployed staging services and fail-closed configuration
         if: ${{ inputs.acceptance_mode != 'ric-65-hosted' }}
         env:
-          KHLIM_STAGING_WEB_URL: ${{ secrets.KHLIM_STAGING_WEB_URL }}
           KHLIM_STAGING_API_URL: ${{ secrets.KHLIM_STAGING_API_URL }}
+          KHLIM_STAGING_WEB_URL: ${{ secrets.KHLIM_STAGING_WEB_URL }}
+          KHLIM_STAGING_WEB_VERCEL_BYPASS_SECRET: ${{ secrets.KHLIM_STAGING_WEB_VERCEL_BYPASS_SECRET }}
+          KHLIM_STAGING_WEB_DEPLOYMENT_ID: ${{ vars.KHLIM_STAGING_WEB_DEPLOYMENT_ID }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          KHLIM_STAGING_TARGET_BRANCH: ${{ github.ref }}
+          KHLIM_STAGING_VERCEL_TOKEN: ${{ secrets.KHLIM_STAGING_VERCEL_TOKEN }}
+          KHLIM_STAGING_EXPECTED_COMMIT_SHA: ${{ vars.KHLIM_STAGING_EXPECTED_COMMIT_SHA }}
+          KHLIM_STAGING_EXPECTED_RUNNER_SHA: ${{ vars.KHLIM_STAGING_EXPECTED_RUNNER_SHA }}
+          KHLIM_STAGING_DEPLOYMENT_ID: ${{ vars.KHLIM_STAGING_DEPLOYMENT_ID }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.KHLIM_STAGING_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.KHLIM_STAGING_SUPABASE_ANON_KEY }}
           PAYMENT_PROVIDER: billplz
@@ -66,20 +90,20 @@ jobs:
         if: ${{ inputs.acceptance_mode != 'readiness-only' }}
         env:
           KHLIM_STAGING_API_URL: ${{ secrets.KHLIM_STAGING_API_URL }}
-          KHLIM_STAGING_API_ALLOWLIST: ${{ secrets.KHLIM_STAGING_API_ALLOWLIST }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-          KHLIM_STAGING_WEB_URL: ${{ secrets.KHLIM_STAGING_WEB_URL }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.KHLIM_STAGING_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.KHLIM_STAGING_SUPABASE_ANON_KEY }}
-          KHLIM_STAGING_ADMIN_AAL2_TOKEN: ${{ secrets.KHLIM_STAGING_ADMIN_AAL2_TOKEN }}
-          KHLIM_STAGING_USER_AAL1_TOKEN: ${{ secrets.KHLIM_STAGING_USER_AAL1_TOKEN }}
-          KHLIM_STAGING_DATABASE_URL: ${{ secrets.KHLIM_STAGING_DATABASE_URL }}
-          KHLIM_STAGING_TEST_PHONE: ${{ secrets.KHLIM_STAGING_TEST_PHONE }}
-          KHLIM_STAGING_APPROVED_TEST_PHONE: ${{ secrets.KHLIM_STAGING_APPROVED_TEST_PHONE }}
-          KHLIM_STAGING_TARGET_BRANCH: ${{ github.ref_name }}
-          KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: ${{ inputs.active_window_authorized && '1' || '0' }}
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          KHLIM_STAGING_ADMIN_AAL2_TOKEN: ${{ inputs.active_window_authorized == true && secrets.KHLIM_STAGING_ADMIN_AAL2_TOKEN || '' }}
+          KHLIM_STAGING_USER_AAL1_TOKEN: ${{ inputs.active_window_authorized == true && secrets.KHLIM_STAGING_USER_AAL1_TOKEN || '' }}
+          KHLIM_STAGING_APPROVED_USER_SUBJECT: ${{ inputs.active_window_authorized == true && secrets.KHLIM_STAGING_APPROVED_USER_SUBJECT || '' }}
+          KHLIM_STAGING_APPROVED_ADMIN_SUBJECT: ${{ inputs.active_window_authorized == true && secrets.KHLIM_STAGING_APPROVED_ADMIN_SUBJECT || '' }}
+          KHLIM_STAGING_DATABASE_URL: ${{ inputs.active_window_authorized == true && secrets.KHLIM_STAGING_DATABASE_URL || '' }}
+          KHLIM_STAGING_TEST_PHONE: ${{ inputs.active_window_authorized == true && secrets.KHLIM_STAGING_TEST_PHONE || '' }}
+          KHLIM_STAGING_APPROVED_TEST_PHONE: ${{ inputs.active_window_authorized == true && secrets.KHLIM_STAGING_APPROVED_TEST_PHONE || '' }}
+          KHLIM_STAGING_TARGET_BRANCH: ${{ github.ref }}
+          KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: ${{ inputs.active_window_authorized == true && '1' || '0' }}
           KHLIM_STAGING_VERCEL_TOKEN: ${{ secrets.KHLIM_STAGING_VERCEL_TOKEN }}
-          KHLIM_STAGING_EXPECTED_COMMIT_SHA: ${{ github.sha }}
-          KHLIM_STAGING_DEPLOYMENT_ID: ${{ secrets.KHLIM_STAGING_DEPLOYMENT_ID }}
+          KHLIM_STAGING_EXPECTED_COMMIT_SHA: ${{ vars.KHLIM_STAGING_EXPECTED_COMMIT_SHA }}
+          KHLIM_STAGING_EXPECTED_RUNNER_SHA: ${{ vars.KHLIM_STAGING_EXPECTED_RUNNER_SHA }}
+          KHLIM_STAGING_DEPLOYMENT_ID: ${{ vars.KHLIM_STAGING_DEPLOYMENT_ID }}
         run: node scripts/verify-hosted-staging-acceptance.mjs

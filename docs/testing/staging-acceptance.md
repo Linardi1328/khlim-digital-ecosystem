@@ -16,7 +16,7 @@ Never point the staging acceptance workflow at production Billplz credentials or
 
 ## Automated readiness gate
 
-Run `node scripts/verify-staging-acceptance.mjs` with the staging environment variables present. The verifier fails closed when URLs are local/non-HTTPS, credentials are missing/placeholders, Billplz is not in sandbox mode, or the deployed web/API/Supabase Auth health checks fail.
+The manual `Staging Acceptance` workflow runs `node scripts/verify-staging-acceptance.mjs` in `readiness-only` and `both` modes. The verifier requires approved immutable API and web previews, checks staging API database identity and Supabase Auth health, and validates Billplz sandbox settings for presence. See the [RIC-65 runbook](ric-65-hosted-staging-acceptance.md) for the protected environment variables and candidate approval steps.
 
 The verifier deliberately does **not** create a payment or move money. Provider-native Billplz request/signature behavior remains covered by the sandbox adapter tests. A real RM1 sandbox Bill smoke can be opted into separately with `KHLIM_BILLPLZ_LIVE_TEST=1` after a Billplz sandbox account is connected.
 
