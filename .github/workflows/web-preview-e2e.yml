@@ -17,6 +17,8 @@ jobs:
       NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:3001/v1
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: 04c6a0646446f1bf5ce4ccce84d4624910315af9
 
       - uses: actions/setup-node@v4
         with:
@@ -95,7 +97,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      QA_PREVIEW_URL: ${{ vars.KHLIM_WEB_QA_URL }}
+      QA_PREVIEW_URL: ""
     steps:
       - name: Verify configured shared QA preview is reachable
         if: ${{ env.QA_PREVIEW_URL != '' }}

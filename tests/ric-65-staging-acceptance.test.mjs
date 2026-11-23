@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { createRequire } from "node:module";
+import { Socket } from "node:net";
 import { test } from "node:test";
 import {
   STAGING_SUPABASE_PROJECT_ID,
@@ -11,7 +13,7 @@ import {
   maskPhone,
   maskName,
   sanitizeErrorMessage,
-  extractDatabaseProjectRef,
+  stagingDatabaseConfig,
   validateTestContact,
   validateSupabaseTarget,
   validateApiTarget,
@@ -692,37 +694,43 @@ test("validateApiTarget rejects attacker Vercel domains and arbitrary foreign ho
   );
 });
 
-test("extractDatabaseProjectRef correctly parses db, postgres, and pooler formats", () => {
-  assert.equal(
-    extractDatabaseProjectRef(
-      "postgresql://postgres@db.qxsjxcbfhxbvxigghhlq.supabase.co:5432/postgres",
-    ),
-    "qxsjxcbfhxbvxigghhlq",
+test("RIC-65 resolves approved direct and pooler URLs to explicit node-postgres settings", () => {
+  const apiRequire = createRequire(
+    new URL("../apps/api/package.json", import.meta.url),
   );
-  assert.equal(
-    extractDatabaseProjectRef(
-      "postgresql://postgres.qxsjxcbfhxbvxigghhlq@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres",
-    ),
-    "qxsjxcbfhxbvxigghhlq",
-  );
-  assert.equal(
-    extractDatabaseProjectRef(
-      "postgresql://postgres@qxsjxcbfhxbvxigghhlq.pooler.supabase.com:6543/postgres",
-    ),
-    "qxsjxcbfhxbvxigghhlq",
-  );
-  assert.equal(
-    extractDatabaseProjectRef("postgresql://postgres@localhost:5432/db"),
-    null,
-  );
-  assert.equal(
-    extractDatabaseProjectRef(
-      "postgresql://postgres.qxsjxcbfhxbvxigghhlq@attacker.com:5432/postgres",
-    ),
-    null,
-  );
-  assert.equal(extractDatabaseProjectRef(null), null);
-  assert.equal(extractDatabaseProjectRef("not-a-url"), null);
+  const { Client } = apiRequire("pg");
+  const staging = STAGING_SUPABASE_PROJECT_ID;
+  const directHost = `db.${staging}.supabase.co`;
+  const sharedHost = "aws-0-ap-southeast-1.pooler.supabase.com";
+  const projectHost = `${staging}.pooler.supabase.com`;
+  const syntheticCredential = "synthetic@pass/word";
+
+  for (const [host, port, username, query, defaultPort] of [
+    [directHost, 5432, "postgres", ""],
+    [directHost, 5432, "postgres", "?sslmode=require", true],
+    [sharedHost, 5432, `postgres%2E${staging}`, "?sslmode=verify-full"],
+    [sharedHost, 6543, `postgres.${staging}`, ""],
+    [projectHost, 6543, "postgres", ""],
+  ]) {
+    const authority = defaultPort ? host : `${host}:${port}`;
+    const databaseUrl = new URL(
+      `postgresql://${username}@${authority}/postgres${query}`,
+    );
+    databaseUrl.password = syntheticCredential;
+    const config = stagingDatabaseConfig(databaseUrl.href);
+    const client = new Client(config);
+
+    assert.equal(Object.hasOwn(config, "connectionString"), false);
+    assert.equal(client.host, host);
+    assert.equal(client.port, port);
+    assert.equal(client.user, decodeURIComponent(username));
+    assert.equal(client.database, "postgres");
+    assert.equal(client.password(), syntheticCredential);
+    assert.deepEqual(client.ssl, {
+      rejectUnauthorized: true,
+      servername: host,
+    });
+  }
 });
 
 test("validateTestContact strictly validates Malaysian E.164 and authorized staging phone", () => {
@@ -1048,11 +1056,169 @@ test("safety regression: active mode requires direct database URL and verifies p
           KHLIM_STAGING_DATABASE_URL:
             "postgresql://postgres@db.foreignproductionref.supabase.co:5432/postgres",
         }),
-      /DATABASE_IDENTITY_MISMATCH: Direct database URL is bound to project 'foreignproductionref', expected 'qxsjxcbfhxbvxigghhlq'/,
+      /DATABASE_IDENTITY_MISMATCH: An approved database endpoint for project 'qxsjxcbfhxbvxigghhlq' is required/,
     );
   } finally {
     globalThis.fetch = origFetch;
   }
+});
+
+test("RIC-65 rejects ambiguous or insecure database destinations before constructing a pool or opening a socket", async (t) => {
+  const apiRequire = createRequire(
+    new URL("../apps/api/package.json", import.meta.url),
+  );
+  const pg = apiRequire("pg");
+  const poolAttempts = [];
+  const socketConnect = t.mock.method(Socket.prototype, "connect", () => {
+    throw new Error("Unexpected socket connection");
+  });
+  t.mock.method(pg, "Pool", function (config) {
+    poolAttempts.push(config);
+    throw new Error("Pool construction intercepted");
+  });
+
+  const { mockFetch, recordedRequests } = createMockFetch();
+  t.mock.method(globalThis, "fetch", mockFetch);
+  const staging = STAGING_SUPABASE_PROJECT_ID;
+  const secret = "synthetic-password-sentinel";
+  const direct = `postgresql://postgres:${secret}@db.${staging}.supabase.co:5432/postgres`;
+  const env = {
+    KHLIM_STAGING_TARGET_BRANCH: DEDICATED_STAGING_BRANCH,
+    KHLIM_STAGING_API_URL: `https://${PINNED_VERCEL_STAGING_API_HOST}`,
+    NEXT_PUBLIC_SUPABASE_URL: `https://${staging}.supabase.co`,
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
+    KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1",
+    KHLIM_STAGING_ADMIN_AAL2_TOKEN: "admin-token",
+    KHLIM_STAGING_USER_AAL1_TOKEN: "aal1-token",
+    KHLIM_STAGING_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
+    KHLIM_STAGING_APPROVED_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
+  };
+
+  for (const query of [
+    "host=127.0.0.1",
+    "%68ost=127.0.0.1",
+    "user=postgres.foreignproject",
+    "port=6543",
+    "database=other",
+    "dbname=other",
+    "connectionString=postgresql%3A%2F%2F127.0.0.1%2Fpostgres",
+    "sslmode=disable",
+    "sslmode=no-verify",
+    "sslmode=prefer",
+    "sslmode=verify-ca",
+    "ssl=0",
+    "sslrootcert=synthetic-path",
+    "sslcert=synthetic-path",
+    "sslkey=synthetic-path",
+    "sslnegotiation=direct",
+    "sslmode=require&uselibpqcompat=true",
+    "sslmode=require&sslmode=verify-full",
+    "pgbouncer=true",
+  ]) {
+    await t.test(query.split("=")[0], async () => {
+      await assert.rejects(
+        () =>
+          runHostedStagingAcceptance({
+            ...env,
+            KHLIM_STAGING_DATABASE_URL: `${direct}?${query}`,
+          }),
+        (error) => {
+          assert.match(error.message, /^DATABASE_CONFIGURATION_REJECTED:/);
+          assert.ok(!error.message.includes(secret));
+          return true;
+        },
+      );
+    });
+  }
+
+  for (const url of [
+    direct.replace(":5432/", ":6543/"),
+    direct.replace(".supabase.co", ".supabase.co.invalid"),
+    direct.replace(/\/postgres$/, "/other"),
+    `postgresql://postgres.foreignproject:${secret}@${staging}.pooler.supabase.com:6543/postgres`,
+    `postgresql://postgres.${staging}:${secret}@foreignproject.pooler.supabase.com:6543/postgres`,
+  ]) {
+    await assert.rejects(
+      () =>
+        runHostedStagingAcceptance({ ...env, KHLIM_STAGING_DATABASE_URL: url }),
+      /^(Error: )?DATABASE_(IDENTITY_MISMATCH|CONFIGURATION_REJECTED):/,
+    );
+  }
+
+  assert.equal(poolAttempts.length, 0);
+  assert.equal(socketConnect.mock.callCount(), 0);
+  assert.ok(recordedRequests.every(({ method }) => method === "GET"));
+
+  // The same active runner reaches the pool spy with the approved URL.
+  await assert.rejects(
+    () =>
+      runHostedStagingAcceptance({
+        ...env,
+        KHLIM_STAGING_DATABASE_URL: direct,
+      }),
+    /DATABASE_PREFLIGHT_FAILURE/,
+  );
+  assert.equal(poolAttempts.length, 1);
+  const client = new pg.Client(poolAttempts[0]);
+  assert.equal(client.host, `db.${staging}.supabase.co`);
+  assert.equal(client.port, 5432);
+  assert.equal(client.user, "postgres");
+  assert.equal(client.database, "postgres");
+  assert.deepEqual(client.ssl, {
+    rejectUnauthorized: true,
+    servername: `db.${staging}.supabase.co`,
+  });
+  assert.equal(socketConnect.mock.callCount(), 0);
+  assert.ok(recordedRequests.every(({ method }) => method === "GET"));
+});
+
+test("RIC-65 closes the owned pool when deployment provenance fails after preflight", async (t) => {
+  const apiRequire = createRequire(
+    new URL("../apps/api/package.json", import.meta.url),
+  );
+  const { Pool } = apiRequire("pg");
+  const socketConnect = t.mock.method(Socket.prototype, "connect", () => {
+    throw new Error("Unexpected socket connection");
+  });
+  const query = t.mock.method(Pool.prototype, "query", async () => ({
+    fields: [{ name: "_count$_all", dataTypeID: 20 }],
+    rows: [["0"]],
+  }));
+  const end = t.mock.method(Pool.prototype, "end");
+  const { mockFetch, recordedRequests } = createMockFetch();
+  t.mock.method(globalThis, "fetch", mockFetch);
+
+  await assert.rejects(
+    () =>
+      runHostedStagingAcceptance({
+        KHLIM_STAGING_TARGET_BRANCH: DEDICATED_STAGING_BRANCH,
+        KHLIM_STAGING_API_URL: `https://${PINNED_VERCEL_STAGING_API_HOST}`,
+        NEXT_PUBLIC_SUPABASE_URL: `https://${STAGING_SUPABASE_PROJECT_ID}.supabase.co`,
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key-test",
+        KHLIM_STAGING_ACTIVE_WINDOW_AUTHORIZED: "1",
+        KHLIM_STAGING_ADMIN_AAL2_TOKEN: "admin-token",
+        KHLIM_STAGING_USER_AAL1_TOKEN: "aal1-token",
+        KHLIM_STAGING_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
+        KHLIM_STAGING_APPROVED_TEST_PHONE: APPROVED_STAGING_TEST_PHONE,
+        KHLIM_STAGING_DATABASE_URL: `postgresql://postgres@db.${STAGING_SUPABASE_PROJECT_ID}.supabase.co:5432/postgres`,
+        VERCEL_TOKEN: "mock-vercel-token",
+        KHLIM_STAGING_EXPECTED_COMMIT_SHA: "different-approved-commit-sha",
+      }),
+    /DEPLOYMENT_COMMIT_MISMATCH/,
+  );
+
+  assert.equal(query.mock.callCount(), 1);
+  assert.match(query.mock.calls[0].arguments[0].text, /COUNT\(/i);
+  assert.ok(
+    query.mock.calls[0].arguments[0].values.includes("staging-probe-preflight"),
+  );
+  assert.equal(end.mock.callCount(), 1);
+  assert.equal(end.mock.calls[0].this, query.mock.calls[0].this);
+  assert.equal(socketConnect.mock.callCount(), 0);
+  assert.deepEqual(
+    recordedRequests.map(({ method }) => method),
+    ["GET", "GET", "GET"],
+  );
 });
 
 test("safety regression: active mode requires approved test phone and fails closed if missing or mismatched", async () => {

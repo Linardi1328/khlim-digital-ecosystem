@@ -1,0 +1,149 @@
+{
+  "issue": "RIC-119",
+  "observedAt": "2026-10-31",
+  "sourceBase": "16e877863953366e3cbfedb10a7f06d6910b950d",
+  "deployments": [
+    {
+      "target": "ric84",
+      "id": "dpl_EcMfuoq7Gz38CdvgH7iFLmS9TsFF",
+      "url": "khlim-digital-ecosystem-bgax17o5e-rbl-productions.vercel.app",
+      "branch": "codex/ric-84-first-admin-continuity-20261030",
+      "commit": "1793935894bf4bf3673eda3127b89cf24b73f8a3",
+      "state": "READY",
+      "metadataRegions": ["iad1"],
+      "runtimeRegion": "not independently established by CLI log fields; do not infer from metadata",
+      "startup": {
+        "nodeEnv": "production",
+        "deploymentEnv": "staging",
+        "hasDatabaseUrl": true,
+        "hasSupabaseJwtIssuer": true
+      },
+      "firstProbe": {
+        "httpStatus": 200,
+        "status": "error",
+        "databaseStatus": "disconnected",
+        "bootstrapStartObserved": true
+      }
+    },
+    {
+      "target": "ric65",
+      "id": "dpl_8Rt92FYHQhR2PYiTFbfoC9HZE1xb",
+      "url": "khlim-digital-ecosystem-frd22o0kw-rbl-productions.vercel.app",
+      "branch": "staging/ric-65-academy-soft-launch",
+      "commit": "db73d8c0f88d7274f8156b9bca4c9ec4ad8d6d1e",
+      "state": "READY",
+      "metadataRegions": ["iad1"],
+      "runtimeRegion": "not independently established by CLI log fields; do not infer from metadata",
+      "startup": {
+        "nodeEnv": "production",
+        "deploymentEnv": "staging",
+        "hasDatabaseUrl": true,
+        "hasSupabaseJwtIssuer": true
+      },
+      "firstProbe": {
+        "httpStatus": 200,
+        "status": "error",
+        "databaseStatus": "disconnected",
+        "bootstrapStartObserved": true
+      }
+    }
+  ],
+  "warmSamples": [
+    {
+      "target": "ric84",
+      "sample": 1,
+      "at": "2026-10-31T00:13:22.802975+00:00",
+      "exitCode": 0,
+      "body": {
+        "service": "khlim-api",
+        "status": "error",
+        "database": {
+          "status": "disconnected"
+        }
+      },
+      "httpStatus": "200",
+      "seconds": "0.356437"
+    },
+    {
+      "target": "ric65",
+      "sample": 1,
+      "at": "2026-10-31T00:13:24.838970+00:00",
+      "exitCode": 0,
+      "body": {
+        "service": "khlim-api",
+        "status": "ok",
+        "database": {
+          "status": "connected",
+          "projectRef": "qxsjxcbfhxbvxigghhlq"
+        }
+      },
+      "httpStatus": "200",
+      "seconds": "0.920572"
+    },
+    {
+      "target": "ric84",
+      "sample": 2,
+      "at": "2026-10-31T00:13:26.358299+00:00",
+      "exitCode": 0,
+      "body": {
+        "service": "khlim-api",
+        "status": "error",
+        "database": {
+          "status": "disconnected"
+        }
+      },
+      "httpStatus": "200",
+      "seconds": "0.443211"
+    },
+    {
+      "target": "ric65",
+      "sample": 2,
+      "at": "2026-10-31T00:13:27.968362+00:00",
+      "exitCode": 0,
+      "body": {
+        "service": "khlim-api",
+        "status": "ok",
+        "database": {
+          "status": "connected",
+          "projectRef": "qxsjxcbfhxbvxigghhlq"
+        }
+      },
+      "httpStatus": "200",
+      "seconds": "0.544064"
+    },
+    {
+      "target": "ric84",
+      "sample": 3,
+      "at": "2026-10-31T00:13:29.356321+00:00",
+      "exitCode": 0,
+      "body": {
+        "service": "khlim-api",
+        "status": "error",
+        "database": {
+          "status": "disconnected"
+        }
+      },
+      "httpStatus": "200",
+      "seconds": "0.301353"
+    },
+    {
+      "target": "ric65",
+      "sample": 3,
+      "at": "2026-10-31T00:13:31.137490+00:00",
+      "exitCode": 0,
+      "body": {
+        "service": "khlim-api",
+        "status": "ok",
+        "database": {
+          "status": "connected",
+          "projectRef": "qxsjxcbfhxbvxigghhlq"
+        }
+      },
+      "httpStatus": "200",
+      "seconds": "0.647284"
+    }
+  ],
+  "rootCause": "unverified: current runtime logs suppress database probe errors; diagnostic deployment requires separate approval",
+  "authorizedMe": "not tested: no authorized synthetic access-token session available; no credentials or tokens retrieved",
+  "changesToHostedResources": false
+}

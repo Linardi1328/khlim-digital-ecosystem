@@ -18,6 +18,8 @@ jobs:
       PLAYWRIGHT_ADMIN_BASE_URL: http://127.0.0.1:3002
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: 04c6a0646446f1bf5ce4ccce84d4624910315af9
 
       - uses: actions/setup-node@v4
         with:

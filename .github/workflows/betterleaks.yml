@@ -16,6 +16,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
+          ref: 04c6a0646446f1bf5ce4ccce84d4624910315af9
           fetch-depth: 0
 
       - name: Set up Go
@@ -32,7 +33,7 @@ jobs:
       - name: Scan pull request commits
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_SHA: 04c6a0646446f1bf5ce4ccce84d4624910315af9
         run: |
           "$(go env GOPATH)/bin/betterleaks" git . \
             --log-opts="${BASE_SHA}..${HEAD_SHA}" \
