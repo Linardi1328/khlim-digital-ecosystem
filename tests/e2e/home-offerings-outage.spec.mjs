@@ -24,7 +24,11 @@ const mockOfferings = [
 ];
 
 function visibleLocaleSwitcher(page) {
-  return page.locator(".public-header-locale select:visible");
+  return page
+    .locator(
+      ".public-header-locale select:visible, .public-mobile-locale select:visible",
+    )
+    .first();
 }
 
 test.describe("RIC-184: Homepage offerings failure recovery and truthful status", () => {
@@ -216,15 +220,18 @@ test.describe("RIC-184: Homepage offerings failure recovery and truthful status"
     );
 
     const switcher = visibleLocaleSwitcher(page);
-    if (await switcher.isVisible()) {
-      await switcher.selectOption("ms");
-      await expect(alert).toContainText(
-        "Senarai program tidak dapat dimuatkan",
-      );
+    await expect(switcher).toBeVisible();
 
-      await switcher.selectOption("zh-Hans");
-      await expect(alert).toContainText("暂时无法加载课程列表。");
-    }
+    await switcher.selectOption("ms");
+    await expect(alert).toContainText("Senarai program tidak dapat dimuatkan");
+
+    await switcher.selectOption("zh-Hans");
+    await expect(alert).toContainText("暂时无法加载课程列表。");
+
+    await switcher.selectOption("en");
+    await expect(alert).toContainText(
+      "Programme listings are temporarily unavailable.",
+    );
   });
 
   test("8. Other supported translations pass existing completeness checks", () => {
@@ -236,7 +243,7 @@ test.describe("RIC-184: Homepage offerings failure recovery and truthful status"
     ).toBe("फ़िलहाल कार्यक्रम सूची लोड नहीं हो सकी। कृपया फिर से प्रयास करें।");
   });
 
-  test("9. Register Interest remains reachable during API failure", async ({
+  test("9. Register Interest remains reachable during API failure without nested buttons", async ({
     page,
   }) => {
     await page.route("**/academy/offerings", async (route) => {
@@ -255,6 +262,13 @@ test.describe("RIC-184: Homepage offerings failure recovery and truthful status"
     });
     await expect(interestBtn).toBeVisible();
     await expect(interestBtn).toHaveAttribute("href", /\/interest/);
+
+    // Confirm the outage CTA contains no nested button element
+    await expect(interestBtn.locator("button")).toHaveCount(0);
+
+    // Verify keyboard navigation to the link
+    await interestBtn.focus();
+    await expect(interestBtn).toBeFocused();
   });
 
   test("10. source=3x3-oct24 survives navigation to /interest during outage", async ({
@@ -289,21 +303,44 @@ test.describe("RIC-184: Homepage offerings failure recovery and truthful status"
       if (route.request().method() === "POST") {
         leadPostCalled = true;
       }
-      await route.fulfill({ status: 200, body: "{}" });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: { "access-control-allow-origin": "*" },
+        body: "{}",
+      });
     });
 
+    let offeringsGetCount = 0;
     await page.route("**/academy/offerings", async (route) => {
+      offeringsGetCount++;
       await route.fulfill({
         status: 503,
         contentType: "application/json",
         headers: { "access-control-allow-origin": "*" },
-        body: '{"message":"unavailable"}',
+        body: JSON.stringify({ message: "unavailable" }),
       });
     });
 
     await page.goto("/", { waitUntil: "domcontentloaded" });
+    const alert = page.locator(
+      'section.home-programmes-section p[role="alert"]',
+    );
+    await expect(alert).toBeVisible();
+    expect(offeringsGetCount).toBe(1);
+
     await page.getByRole("button", { name: "Try Again" }).click();
 
+    // 1. Wait for second offerings request
+    await expect.poll(() => offeringsGetCount).toBe(2);
+
+    // 2. Wait for completed retry/error state
+    await expect(alert).toBeVisible();
+    await expect(alert).toContainText(
+      "Programme listings are temporarily unavailable.",
+    );
+
+    // 3. Confirm no lead POST occurred throughout the entire retry sequence
     expect(leadPostCalled).toBe(false);
   });
 

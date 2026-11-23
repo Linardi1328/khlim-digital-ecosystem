@@ -24,7 +24,7 @@ import { PlayerSpotlightSection } from "../components/home/player-spotlight-sect
 import { PublicFooter } from "../components/layout/public-footer";
 import { PublicHeader } from "../components/layout/public-header";
 import { Badge } from "../components/ui/badge";
-import { Button } from "../components/ui/button";
+import { Button, getButtonStyles } from "../components/ui/button";
 import {
   Card,
   CardContent,
@@ -204,15 +204,13 @@ function HomeContent() {
                 </Button>
                 <Link
                   href={buildUrlWithSource("/interest", campaignSource)}
-                  style={{ textDecoration: "none" }}
+                  style={{
+                    ...getButtonStyles("primary", "sm"),
+                    minHeight: 44,
+                    minWidth: 44,
+                  }}
                 >
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    style={{ minHeight: 44, minWidth: 44 }}
-                  >
-                    {t("nav.registerInterest")}
-                  </Button>
+                  {t("nav.registerInterest")}
                 </Link>
               </div>
             </Card>
