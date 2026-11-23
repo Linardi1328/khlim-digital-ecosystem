@@ -122,6 +122,7 @@ function createMockFetch({
   adminUnauthStatus = 401,
   adminAal1Status = 403,
   adminAal2Items = null,
+  adminPages,
   adminSummaryStatus = 200,
   adminDetailItem = null,
   duplicateReturnsDifferentId = false,
@@ -343,6 +344,18 @@ function createMockFetch({
           };
         }
 
+        if (adminPages) {
+          const page = Number(new URL(urlStr).searchParams.get("page"));
+          return {
+            ok: true,
+            status: 200,
+            json: async () => {
+              const payload = adminPages[page - 1];
+              if (payload instanceof Error) throw payload;
+              return payload;
+            },
+          };
+        }
         const items =
           adminAal2Items !== null
             ? adminAal2Items
@@ -507,10 +520,11 @@ test("generateSyntheticLead creates controlled non-random test phone and valid p
 
 test("fetchWithTimeout strictly rejects HTTP redirects with redirect: error to prevent bearer token leakage", async () => {
   const origFetch = globalThis.fetch;
+  let observedRedirect;
   try {
-    globalThis.fetch = async (url, options = {}) => {
-      assert.equal(options.redirect, "error");
-      throw new TypeError("Failed to fetch: redirect mode is 'error'");
+    globalThis.fetch = async (_url, options = {}) => {
+      observedRedirect = options.redirect;
+      throw new TypeError("synthetic redirect failure");
     };
 
     await assert.rejects(
@@ -518,8 +532,9 @@ test("fetchWithTimeout strictly rejects HTTP redirects with redirect: error to p
         fetchWithTimeout(`https://${API_HOST}/redirect-check`, {
           redirect: "follow",
         }),
-      /STAGING_REQUEST_FAILED/,
+      { message: "STAGING_REQUEST_FAILED: HTTPS request failed or timed out" },
     );
+    assert.equal(observedRedirect, "error");
   } finally {
     globalThis.fetch = origFetch;
   }
@@ -1321,20 +1336,18 @@ test("authorized active window verifies non-destructive cases, lead creation, du
       _prismaClient: {
         academyLead: {
           count: async ({ where }) => {
-            if (where.source === "staging-probe-preflight") return 0;
-            if (where.id === leadId) return 1;
-            if (where.idempotencyKey) {
-              assert.ok(
-                initialLeadPayload,
-                "Expected initialLeadPayload to be populated before DB idempotency query",
-              );
-              assert.equal(
-                where.idempotencyKey,
-                initialLeadPayload.idempotencyKey,
-              );
-              return 1;
-            }
+            assert.deepEqual(where, { source: "staging-probe-preflight" });
             return 0;
+          },
+          findMany: async ({ where, take }) => {
+            assert.deepEqual(where, {
+              OR: [
+                { id: leadId },
+                { idempotencyKey: initialLeadPayload.idempotencyKey },
+              ],
+            });
+            assert.equal(take, 2);
+            return [storedLead(leadId, initialLeadPayload)];
           },
         },
       },
@@ -2168,7 +2181,8 @@ test("records the opaque key before a request and preserves it for partial-failu
         ...activeEnv,
         _prismaClient: {
           academyLead: {
-            count: async ({ where }) => (where.idempotencyKey ? 2 : 1),
+            count: async () => 1,
+            findMany: async () => [],
           },
         },
       };
@@ -2204,6 +2218,212 @@ test("records the opaque key before a request and preserves it for partial-failu
       ]) {
         assert.ok(!output.includes(privateValue));
       }
+    });
+  }
+});
+
+const receiptId = "c2a95d10-8b9a-4e89-a2e6-7a13c9a0b123";
+const otherReceiptId = "812914bd-de07-47be-b916-0fec2f6f88e1";
+
+function storedLead(id, payload) {
+  return { ...payload, id, programmeOfferingId: null, consentAt: new Date() };
+}
+
+test("the raw Vercel operator procedure validates each optional alias array", async () => {
+  const doc = await read("docs/testing/ric-65-hosted-staging-acceptance.md");
+  const section = doc.split(
+    "## Verify the raw Vercel response after deployment approval",
+  )[1];
+  const procedure = section.split("```bash\n")[1].split("```")[0];
+  const check = (metadata) =>
+    spawnSync(
+      "/bin/bash",
+      [
+        "-c",
+        `curl() { cat >/dev/null; printf '%s\\n' "$REVIEW_FIXTURE"; }
+${procedure}`,
+      ],
+      {
+        env: {
+          PATH: process.env.PATH,
+          review_id: DEPLOYMENT_ID,
+          review_project: STAGING_VERCEL_API_PROJECT_ID,
+          review_host: API_HOST,
+          review_sha: APPROVED_SHA,
+          KHLIM_STAGING_VERCEL_TOKEN: "mock-token",
+          REVIEW_FIXTURE: JSON.stringify(metadata),
+        },
+        encoding: "utf8",
+      },
+    );
+  assert.equal(check(candidateMetadata).stdout.trim(), "true");
+  for (const field of ["alias", "automaticAliases", "userAliases"]) {
+    for (const value of [null, false, 0, API_HOST, {}, [API_HOST]]) {
+      const result = check({ ...candidateMetadata, [field]: value });
+      assert.equal(result.status, 1, field);
+      assert.equal(result.stdout.trim(), "false", field);
+    }
+    const result = check({
+      ...candidateMetadata,
+      [field]: ["elsewhere.vercel.app"],
+    });
+    assert.equal(result.status, 0, field);
+    assert.equal(result.stdout.trim(), "true", field);
+  }
+});
+
+test("active Admin pagination rejects unreadable, malformed and out-of-bound pages", async (t) => {
+  const item = { id: receiptId, source: "3x3-oct24", status: "NEW" };
+  const pageOne = {
+    items: [item],
+    page: 1,
+    limit: 20,
+    total: 21,
+    totalPages: 2,
+  };
+  const pageTwo = { ...pageOne, page: 2, items: [] };
+  for (const [label, pages, error] of [
+    [
+      "unreadable page two",
+      [pageOne, new Error("untrusted body")],
+      /ADMIN_LIST_PAGE_INVALID/,
+    ],
+    [
+      "malformed page two",
+      [pageOne, { ...pageTwo, items: null }],
+      /ADMIN_LIST_PAGE_INVALID/,
+    ],
+    [
+      "mismatched page number",
+      [pageOne, { ...pageTwo, page: 1 }],
+      /ADMIN_LIST_PAGE_INVALID/,
+    ],
+    [
+      "shrinking boundary",
+      [pageOne, { ...pageTwo, total: 1, totalPages: 1 }],
+      /ADMIN_PAGINATION_UNVERIFIED/,
+    ],
+    [
+      "excess pages",
+      [{ ...pageOne, total: 101, totalPages: 6 }],
+      /ADMIN_PAGINATION_UNVERIFIED/,
+    ],
+    ["valid empty later page", [pageOne, pageTwo], null],
+  ]) {
+    await t.test(label, async (test) => {
+      const { mockFetch, recordedRequests } = createMockFetch({
+        adminPages: pages,
+      });
+      test.mock.method(globalThis, "fetch", mockFetch);
+      const findMany = test.mock.fn(async () => {
+        const initial = recordedRequests.find(({ body }) =>
+          body?.email?.startsWith("staging-synth-"),
+        );
+        return [storedLead(receiptId, initial.body)];
+      });
+      const run = () =>
+        runHostedStagingAcceptance({
+          ...activeEnv,
+          _prismaClient: { academyLead: { count: async () => 0, findMany } },
+        });
+      if (error) await assert.rejects(run, error);
+      else assert.equal((await run()).adminRetrieval.persistedCount, 1);
+      assert.equal(findMany.mock.callCount(), error ? 0 : 1);
+    });
+  }
+});
+
+test("one database snapshot verifies receipt identity, key uniqueness and original payload", async (t) => {
+  for (const [label, records, error] of [
+    [
+      "receipt and key on different rows",
+      (row) => [
+        { ...row, idempotencyKey: null },
+        { ...row, id: otherReceiptId },
+      ],
+      /DATABASE_PERSISTENCE_VIOLATION/,
+    ],
+    [
+      "duplicate keys",
+      (row) => [row, { ...row, id: otherReceiptId }],
+      /DATABASE_PERSISTENCE_VIOLATION/,
+    ],
+    [
+      "conflicting replay changed age",
+      (row) => [{ ...row, childAge: 12 }],
+      /DATABASE_PAYLOAD_MISMATCH/,
+    ],
+    [
+      "conflicting replay changed email",
+      (row) => [{ ...row, email: "changed@synthetic.khlim.test" }],
+      /DATABASE_PAYLOAD_MISMATCH/,
+    ],
+  ]) {
+    await t.test(label, async (test) => {
+      const { mockFetch, recordedRequests } = createMockFetch();
+      test.mock.method(globalThis, "fetch", mockFetch);
+      const findMany = test.mock.fn(async () => {
+        const initial = recordedRequests.find(({ body }) =>
+          body?.email?.startsWith("staging-synth-"),
+        );
+        return records(storedLead(receiptId, initial.body));
+      });
+      await assert.rejects(
+        () =>
+          runHostedStagingAcceptance({
+            ...activeEnv,
+            _prismaClient: { academyLead: { count: async () => 0, findMany } },
+          }),
+        error,
+      );
+      assert.equal(findMany.mock.callCount(), 1);
+    });
+  }
+});
+
+test("ambiguous replays keep the confirmed receipt and only the in-flight replay marker", async (t) => {
+  for (const [kind, postNumber] of [
+    ["IDENTICAL", 2],
+    ["CONFLICTING", 3],
+  ]) {
+    await t.test(kind, async (test) => {
+      const log = test.mock.method(console, "log", () => {});
+      const failure = test.mock.method(console, "error", () => {});
+      const { mockFetch } = createMockFetch();
+      let validPosts = 0;
+      let beforePost;
+      test.mock.method(globalThis, "fetch", async (url, options) => {
+        const payload = options.body && JSON.parse(options.body);
+        if (
+          payload?.email?.startsWith("staging-synth-") &&
+          ++validPosts === postNumber
+        ) {
+          beforePost = JSON.parse(log.mock.calls.at(-1).arguments[0]);
+          throw new Error("synthetic response loss");
+        }
+        return mockFetch(url, options);
+      });
+      await assert.rejects(
+        () =>
+          runHostedStagingAcceptance({
+            ...activeEnv,
+            _prismaClient: { academyLead: { count: async () => 0 } },
+          }),
+        /STAGING_REQUEST_FAILED/,
+      );
+      const entry = JSON.parse(failure.mock.calls[0].arguments[0]);
+      assert.deepEqual(entry, {
+        ...beforePost,
+        event: "staging.hosted_acceptance.active_failure",
+      });
+      assert.equal(entry.phase, "LEAD_RECEIPT_CONFIRMED");
+      assert.equal(entry.receiptId, receiptId);
+      assert.equal(entry.replayInFlight, kind);
+      assert.equal(validPosts, postNumber);
+      assert.doesNotMatch(
+        JSON.stringify(entry),
+        /synthetic\.khlim\.test|guardianName|phone|Authorization/,
+      );
     });
   }
 });

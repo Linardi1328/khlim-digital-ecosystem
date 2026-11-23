@@ -33,7 +33,7 @@ The runner verifies both JWT signatures using asymmetric public signing keys fro
 1. Require HTTP 400 for missing consent, injection-like email input, malformed phone and offering UUID, and out-of-range child age.
 2. Submit a synthetic Academy lead using `source=3x3-oct24`. Require HTTP 201 and a `RECEIVED` receipt. Replay with the same idempotency key and payload and require the same receipt. Change the payload and require HTTP 409.
 3. Require HTTP 401 for unauthenticated Admin access and HTTP 403 with the AAL1 token. Check the paginated Admin list and lead detail using the AAL2 token. Verify the single matching lead, campaign attribution, and `NEW` status.
-4. Use separate read-only Prisma counts by receipt ID and idempotency key to verify exactly one persisted lead. Logs contain statuses and verification outcomes and omit response bodies, credentials, and contact details.
+4. Use one read-only Prisma query to verify that exactly one row matches the receipt ID or key, that it matches both, and that its submitted attributes match the original synthetic lead. Logs contain statuses and verification outcomes and omit response bodies, credentials, and contact details.
 
 The staging database URL must name `/postgres`. Direct connections use `db.qxsjxcbfhxbvxigghhlq.supabase.co:5432` with user `postgres`. The project-specific pooler accepts `postgres` or `postgres.qxsjxcbfhxbvxigghhlq`. A regional Supabase pooler requires `postgres.qxsjxcbfhxbvxigghhlq`. Both pooler types accept ports 5432 and 6543. Only a single `sslmode=require` or `sslmode=verify-full` parameter is allowed. Inherited `PGOPTIONS` and additional URL parameters, including `pgbouncer=true`, are rejected.
 
@@ -72,7 +72,7 @@ Once the candidate has been separately approved, have an authorized operator run
     jq -e --arg id "$review_id" --arg team "$review_team" \
       --arg project "$review_project" --arg host "$review_host" \
       --arg ref "$review_branch" --arg sha "$review_sha" '
-      .id == $id and .ownerId == $team and .projectId == $project and
+      . as $deployment | .id == $id and .ownerId == $team and .projectId == $project and
       ((has("team") | not) or .team.id == $team) and
       ((has("project") | not) or .project.id == $project) and
       has("target") and .target == null and .customEnvironment == null and
@@ -86,8 +86,10 @@ Once the candidate has been separately approved, have an authorized operator run
       ((.meta | has("sha") | not) or .meta.sha == $sha) and
       .url == $host and ($host | test("^[a-z0-9-]+[.]vercel[.]app$")) and
       ($host | contains("-git-") | not) and
-      ([.alias, .automaticAliases, .userAliases] | map(. // []) | flatten |
-        index($host) == null)'
+      all("alias", "automaticAliases", "userAliases"; . as $field |
+        $deployment | if has($field) then
+          (.[$field] | if type == "array" then index($host) == null else false end)
+        else true end)'
 )
 ```
 
@@ -98,9 +100,9 @@ The runner records an opaque attempt UUID and the request's idempotency key befo
 - `BEFORE_SUBMISSION` means the valid lead POST had not started and no validation request was outstanding. The active authentication check may already have upserted the approved synthetic Admin account.
 - `VALIDATION_SUBMISSION_UNCERTAIN` identifies a validation POST without a confirmed HTTP 400. If validation regressed, the request could have persisted a lead with its own logged key.
 - `LEAD_SUBMISSION_UNCERTAIN` means the request may have reached the server before the runner received and checked a receipt. If the process stopped before logging a failure, use the last submission-started marker.
-- `LEAD_RECEIPT_CONFIRMED` means the initial HTTP 201 receipt passed validation and a later check failed. The original idempotency key still identifies the attempt.
+- `LEAD_RECEIPT_CONFIRMED` means the initial HTTP 201 receipt passed validation and a later check failed. The original idempotency key and opaque receipt ID identify the attempt. The runner logs `replayInFlight` as `IDENTICAL` or `CONFLICTING` before dispatching a replay and retains it in sanitized failure records until the expected response is verified.
 
-For every uncertain or confirmed submission, pause further active runs. Under separate operator authorization, use the approved staging database and a read-only transaction to count rows in `public.academy_leads` where `idempotency_key` exactly equals the logged key. Use a bound parameter and record only the count. One row confirms persistence. More than one is an invariant violation. For zero rows, investigate in-flight work and confirm the final state before considering another approved attempt. Do not rerun the active workflow to resolve an ambiguous result. Any separately authorized replay must reuse the original key and exact payload. The runner performs no automatic recovery submission.
+For every uncertain or confirmed submission, pause further active runs. Under separate operator authorization, use the approved staging database and a read-only transaction to count rows in `public.academy_leads` where `idempotency_key` exactly equals the logged key. Use a bound parameter and record only the count. One row confirms persistence. More than one is an invariant violation. For zero rows, investigate in-flight work and confirm the final state before considering another approved attempt. Do not rerun the active workflow to resolve an ambiguous result. If the last replay marker is `CONFLICTING` and the response was unverified, also confirm the one row for the key has the logged receipt ID and still matches the original submitted attributes. Compare privately using bound parameters and record only the count and a match Boolean. Reconstruct the original synthetic name and email from the attempt UUID and the original payload format in the approved runner revision. Use the approved phone for that run and verify the original age (10), source (`3x3-oct24`), absence of an offering, and recorded consent. A single row with the replay age of 12 or any other mismatch requires investigation. Any separately authorized replay must reuse the original key and exact payload. The runner performs no automatic recovery submission.
 
 ## Offline verification
 

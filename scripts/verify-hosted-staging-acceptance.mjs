@@ -1020,6 +1020,7 @@ async function runAcceptance(env, progress) {
     }
     leadId = initialBody.id;
     progress.phase = "LEAD_RECEIPT_CONFIRMED";
+    progress.receiptId = leadId;
     results.leadCreation = {
       id: leadId,
       status: initialBody.status,
@@ -1027,6 +1028,13 @@ async function runAcceptance(env, progress) {
     };
 
     // 6b. Duplicate Identical Submission (Idempotency Replay Receipt, Expected HTTP 201 with identical ID)
+    progress.replayInFlight = "IDENTICAL";
+    console.log(
+      JSON.stringify({
+        event: "staging.hosted_acceptance.lead_replay_started",
+        ...progress,
+      }),
+    );
     const duplicateRes = await requestApi(leadsPath, {
       method: "POST",
       headers: {
@@ -1047,6 +1055,7 @@ async function runAcceptance(env, progress) {
         "Duplicate idempotency replay did not match original receipt ID",
       );
     }
+    delete progress.replayInFlight;
     results.idempotencyReceipt = {
       id: duplicateBody.id,
       matchesOriginal: duplicateBody.id === leadId,
@@ -1059,6 +1068,13 @@ async function runAcceptance(env, progress) {
       ...syntheticLead,
       childAge: 12, // altered payload
     };
+    progress.replayInFlight = "CONFLICTING";
+    console.log(
+      JSON.stringify({
+        event: "staging.hosted_acceptance.lead_replay_started",
+        ...progress,
+      }),
+    );
     const conflictRes = await requestApi(leadsPath, {
       method: "POST",
       headers: {
@@ -1072,6 +1088,7 @@ async function runAcceptance(env, progress) {
         `Conflicting idempotency key submission failed: expected HTTP 409 Conflict, received HTTP ${conflictRes.status}`,
       );
     }
+    delete progress.replayInFlight;
     results.conflictReplay = {
       httpStatus: conflictRes.status,
       rejectedAsExpected: true,
@@ -1107,12 +1124,14 @@ async function runAcceptance(env, progress) {
     const allMatchingLeads = [];
     let currentPage = 1;
     const maxPages = 5;
+    const pageSize = 20;
+    let expectedPages;
 
     do {
       const params = new URLSearchParams({
         source: "3x3-oct24",
         page: String(currentPage),
-        limit: "20",
+        limit: String(pageSize),
         q: syntheticLead.email,
       });
       const adminRes = await requestApi(`${adminLeadsPath}?${params}`, {
@@ -1128,15 +1147,37 @@ async function runAcceptance(env, progress) {
       }
 
       const adminJson = await adminRes.json().catch(() => null);
-      const itemsList = Array.isArray(adminJson?.items) ? adminJson.items : [];
-      const pageMatches = itemsList.filter((lead) => lead?.id === leadId);
-      allMatchingLeads.push(...pageMatches);
-
-      const totalPages =
-        typeof adminJson?.totalPages === "number" ? adminJson.totalPages : 1;
-      if (currentPage >= totalPages) {
-        break;
+      if (
+        !Array.isArray(adminJson?.items) ||
+        adminJson.items.length > pageSize ||
+        adminJson.items.some(
+          (lead) => typeof lead?.id !== "string" || !UUID.test(lead.id),
+        ) ||
+        adminJson.page !== currentPage ||
+        adminJson.limit !== pageSize ||
+        !Number.isSafeInteger(adminJson.total) ||
+        adminJson.total < adminJson.items.length ||
+        !Number.isSafeInteger(adminJson.totalPages) ||
+        adminJson.totalPages !==
+          Math.max(1, Math.ceil(adminJson.total / pageSize))
+      ) {
+        throw new Error(
+          "ADMIN_LIST_PAGE_INVALID: Staging Admin list returned an unreadable or malformed page",
+        );
       }
+      if (
+        adminJson.totalPages > maxPages ||
+        (expectedPages !== undefined && adminJson.totalPages !== expectedPages)
+      ) {
+        throw new Error(
+          "ADMIN_PAGINATION_UNVERIFIED: Staging Admin list page count exceeds or changed within the verification boundary",
+        );
+      }
+      expectedPages = adminJson.totalPages;
+      allMatchingLeads.push(
+        ...adminJson.items.filter((lead) => lead.id === leadId),
+      );
+      if (currentPage === expectedPages) break;
       currentPage++;
     } while (currentPage <= maxPages);
 
@@ -1188,12 +1229,26 @@ async function runAcceptance(env, progress) {
     };
 
     // 8. Mandatory Independent Read-Only Database Persistence Verification
-    let dbCount;
-    let idempotencyCount;
+    const { idempotencyKey, guardianName, email, phone, childAge, source } =
+      syntheticLead;
+    let rows;
     try {
-      dbCount = await prisma.academyLead.count({ where: { id: leadId } });
-      idempotencyCount = await prisma.academyLead.count({
-        where: { idempotencyKey: syntheticLead.idempotencyKey },
+      // One SELECT observes both identities and the stored payload in a single
+      // snapshot. Two matches already disprove the exact-one invariant.
+      rows = await prisma.academyLead.findMany({
+        where: { OR: [{ id: leadId }, { idempotencyKey }] },
+        take: 2,
+        select: {
+          id: true,
+          idempotencyKey: true,
+          guardianName: true,
+          email: true,
+          phone: true,
+          childAge: true,
+          source: true,
+          programmeOfferingId: true,
+          consentAt: true,
+        },
       });
     } catch {
       throw new Error(
@@ -1201,15 +1256,34 @@ async function runAcceptance(env, progress) {
       );
     }
 
-    if (dbCount !== 1 || idempotencyCount !== 1) {
+    const [row] = rows;
+    if (
+      rows.length !== 1 ||
+      row.id !== leadId ||
+      row.idempotencyKey !== idempotencyKey
+    ) {
       throw new Error(
-        `DATABASE_PERSISTENCE_VIOLATION: Independent DB query found ${dbCount} leads with id and ${idempotencyCount} with idempotency key (expected exactly 1)`,
+        "DATABASE_PERSISTENCE_VIOLATION: Expected exactly one row matching both the receipt ID and idempotency key",
+      );
+    }
+    if (
+      row.guardianName !== guardianName ||
+      row.email !== email ||
+      row.phone !== phone ||
+      row.childAge !== childAge ||
+      row.source !== source ||
+      row.programmeOfferingId !== null ||
+      !(row.consentAt instanceof Date) ||
+      !Number.isFinite(row.consentAt.getTime())
+    ) {
+      throw new Error(
+        "DATABASE_PAYLOAD_MISMATCH: Persisted lead does not match the original synthetic submission",
       );
     }
     results.independentDbVerification = {
       verifiedDirectly: true,
-      recordCount: dbCount,
-      idempotencyCount,
+      recordCount: 1,
+      idempotencyCount: 1,
       dbProjectRefVerified: true,
     };
   } finally {
