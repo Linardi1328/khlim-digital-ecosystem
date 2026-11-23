@@ -145,19 +145,50 @@ test("2-second watchdog closes in-flight work instead of abandoning the Promise.
   assert.equal(inFlight, false);
 });
 
-test("a slow successful probe inside the deadline is not misclassified", async (t) => {
+test("a slow cold connection and an immediate warm probe both succeed inside the deadline", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
-  let resolve;
-  const pending = probeDatabase(URL, () => ({
-    query: () =>
-      new Promise((r) => {
-        resolve = r;
-      }),
-    close: async () => {},
-  }));
-  t.mock.timers.tick(PROBE_DEADLINE_MS - 1);
-  resolve([{ result: 1 }]);
-  assert.equal((await pending).connected, true);
+  let clock = 0;
+  let connect;
+  let stage = "connect";
+  const cold = probeDatabase(
+    URL,
+    () => ({
+      query: () =>
+        new Promise((resolve) => {
+          connect = () => {
+            stage = "query";
+            resolve();
+          };
+        }),
+      close: async () => {},
+      stage: () => stage,
+    }),
+    () => clock,
+  );
+  assert.equal(stage, "connect");
+  clock = PROBE_DEADLINE_MS - 1;
+  t.mock.timers.tick(clock);
+  connect();
+  assert.deepEqual(await cold, {
+    connected: true,
+    durationMs: PROBE_DEADLINE_MS - 1,
+    stage: "query",
+  });
+
+  const warm = operation();
+  assert.deepEqual(
+    await probeDatabase(
+      URL,
+      () => warm,
+      () => clock,
+    ),
+    {
+      connected: true,
+      durationMs: 0,
+      stage: "query",
+    },
+  );
+  assert.equal(warm.closed, 1);
 });
 
 test("synchronous setup/query failures and cleanup failures are not healthy and still dispose", async () => {
@@ -173,9 +204,12 @@ test("synchronous setup/query failures and cleanup failures are not healthy and 
     },
     async close() {
       closed++;
+      throw { code: "ETIMEDOUT", message: URL };
     },
   }));
   assert.equal(query.category, "connection_refused");
+  assert.equal(query.code, "ECONNREFUSED");
+  assert.equal(query.stage, "query");
   assert.equal(closed, 1);
   const cleanup = await probeDatabase(URL, () => ({
     query: async () => {},
@@ -185,6 +219,9 @@ test("synchronous setup/query failures and cleanup failures are not healthy and 
   }));
   assert.equal(cleanup.connected, false);
   assert.equal(cleanup.stage, "cleanup");
+  assert.equal(cleanup.category, "unknown");
+  assert.equal(cleanup.diagnostic, undefined);
+  assert.ok(!JSON.stringify(cleanup).includes(fixtureUrl.password));
 });
 
 test("public response stays minimal; exactly one structured redacted failure event per probe", async (t) => {
@@ -388,37 +425,84 @@ test("concurrent health requests share one bounded operation and log once per fa
   assert.equal(events, 4);
 });
 
-test("stalled cleanup is bounded by the remaining overall deadline", async (t) => {
+test("successful query with stalled cleanup exhausts only the remaining budget and logs a redacted cleanup timeout", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
+  const events = [];
+  t.mock.method(process.stderr, "write", (line) => {
+    events.push(JSON.parse(line));
+    return true;
+  });
   let clock = 0;
-  let closeCalled = false;
+  let rejectCleanup;
   let enterCleanup;
   const entered = new Promise((resolve) => {
     enterCleanup = resolve;
   });
-  const resultPromise = probeDatabase(
+  const probe = () =>
+    probeDatabase(
+      URL,
+      () => ({
+        query: async () => {
+          clock = 1500;
+          t.mock.timers.tick(1500);
+        },
+        close: () =>
+          new Promise((_, reject) => {
+            rejectCleanup = reject;
+            enterCleanup();
+          }),
+      }),
+      () => clock,
+    );
+  const resultPromise = new HealthController({ probe }).getHealth();
+  await entered;
+  clock = PROBE_DEADLINE_MS;
+  t.mock.timers.tick(500);
+  const response = await resultPromise;
+  assert.equal(response.status, "error");
+  assert.equal(response.database.status, "disconnected");
+  assert.equal(Object.hasOwn(response.database, "category"), false);
+  rejectCleanup(new Error(URL));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(events.length, 1);
+  const { timestamp, ...event } = events[0];
+  assert.ok(Number.isFinite(Date.parse(timestamp)));
+  assert.deepEqual(event, {
+    level: "error",
+    service: "khlim-api",
+    event: "database.health_probe.failed",
+    durationMs: PROBE_DEADLINE_MS,
+    stage: "cleanup",
+    category: "cleanup_timeout",
+    code: "KHLIM_PROBE_CLEANUP_TIMEOUT",
+  });
+});
+
+test("cleanup budget exhausted when cleanup starts still initiates disposal", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let clock = 0;
+  let closed = 0;
+  const result = await probeDatabase(
     URL,
     () => ({
       query: async () => {
-        clock = 1500;
+        clock = PROBE_DEADLINE_MS;
       },
-      close: () => {
-        closeCalled = true;
-        enterCleanup();
-        return new Promise(() => {});
+      close: async () => {
+        closed++;
+        throw new Error(URL);
       },
     }),
     () => clock,
   );
-  await entered;
-  clock = PROBE_DEADLINE_MS;
-  t.mock.timers.tick(500);
-  const result = await resultPromise;
-  assert.equal(closeCalled, true);
-  assert.equal(result.connected, false);
-  assert.equal(result.stage, "cleanup");
-  assert.equal(result.category, "probe_timeout");
-  assert.equal(result.durationMs, PROBE_DEADLINE_MS);
+  assert.equal(closed, 1);
+  assert.deepEqual(result, {
+    connected: false,
+    durationMs: PROBE_DEADLINE_MS,
+    stage: "cleanup",
+    category: "cleanup_timeout",
+    code: "KHLIM_PROBE_CLEANUP_TIMEOUT",
+  });
 });
 
 test("expired query budget initiates disposal without waiting on stalled pool bookkeeping", async (t) => {
@@ -426,6 +510,7 @@ test("expired query budget initiates disposal without waiting on stalled pool bo
   let clock = 0;
   let closeCalled = false;
   let rejectCleanup;
+  let settleQuery;
   const unhandled = [];
   const onUnhandled = (reason) => unhandled.push(reason);
   process.on("unhandledRejection", onUnhandled);
@@ -433,7 +518,10 @@ test("expired query budget initiates disposal without waiting on stalled pool bo
   const pending = probeDatabase(
     URL,
     () => ({
-      query: () => new Promise(() => {}),
+      query: () =>
+        new Promise((resolve) => {
+          settleQuery = resolve;
+        }),
       close: () => {
         closeCalled = true;
         return new Promise((_, reject) => {
@@ -450,8 +538,10 @@ test("expired query budget initiates disposal without waiting on stalled pool bo
   assert.equal(result.stage, "query");
   assert.equal(result.category, "probe_timeout");
   assert.equal(result.durationMs, PROBE_DEADLINE_MS);
+  settleQuery([{ result: 1 }]);
   rejectCleanup(new Error("late cleanup failure"));
   await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(result.connected, false);
   assert.deepEqual(unhandled, [], "late cleanup rejection must be observed");
 });
 
@@ -523,6 +613,10 @@ test(
   { timeout: 5000 },
   async () => {
     const sockets = new Set();
+    let clientEnded;
+    const ended = new Promise((resolve) => {
+      clientEnded = resolve;
+    });
     let startup = "";
     let startupBuffer = Buffer.alloc(0);
     const message = (tag, payload) => {
@@ -530,7 +624,7 @@ test(
       size.writeInt32BE(payload.length + 4);
       return Buffer.concat([Buffer.from(tag), size, payload]);
     };
-    const server = createServer((socket) => {
+    const server = createServer({ allowHalfOpen: true }, (socket) => {
       sockets.add(socket);
       let authenticated = false;
       socket.on("data", (data) => {
@@ -570,10 +664,11 @@ test(
               message("Z", Buffer.from("I")),
             ]),
           );
-        } else if (data[0] === 88) {
-          socket.end();
+          // Other frames (including Terminate) are ignored. The server
+          // deliberately keeps its writable side open after receiving FIN.
         }
       });
+      socket.on("end", clientEnded);
       socket.on("close", () => sockets.delete(socket));
     });
     await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -584,6 +679,7 @@ test(
       );
       assert.equal(result.connected, true);
       assert.equal(result.category, undefined);
+      await ended;
       assert.doesNotMatch(
         startup,
         /statement_timeout|query_timeout|connectionTimeoutMillis/,

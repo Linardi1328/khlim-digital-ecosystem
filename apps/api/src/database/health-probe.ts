@@ -1,3 +1,4 @@
+import { Socket } from "node:net";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool, type PoolClient } from "pg";
 import { pgClientConfigForApi } from "./pg-client-config";
@@ -51,6 +52,7 @@ const codes: Record<string, string> = {
   UNABLE_TO_GET_ISSUER_CERT_LOCALLY: "tls_failure",
   ERR_TLS_CERT_ALTNAME_INVALID: "tls_failure",
   KHLIM_PROBE_TIMEOUT: "probe_timeout",
+  KHLIM_PROBE_CLEANUP_TIMEOUT: "cleanup_timeout",
   KHLIM_PREVIEW_DB_REJECTED: "preview_database_rejected",
   KHLIM_STAGING_CA_SCOPE: "invalid_staging_ca_configuration",
   KHLIM_STAGING_CA_INVALID: "invalid_staging_ca_configuration",
@@ -205,6 +207,8 @@ class ProbePool extends Pool {
 // Use the same Prisma -> PrismaPg -> pg path as application queries, but never
 // disconnect the shared application client or impose probe limits on its work.
 export function createProbeOperation(connectionString: string): ProbeOperation {
+  let socket: Socket | undefined;
+  let socketClosed: Promise<void> | undefined;
   const pool = new ProbePool({
     // Parse first so URL timeout parameters cannot override probe bounds.
     // The staging-only pinned CA also applies to this isolated probe.
@@ -213,17 +217,18 @@ export function createProbeOperation(connectionString: string): ProbeOperation {
     connectionTimeoutMillis: PROBE_PHASE_TIMEOUT_MS,
     query_timeout: PROBE_PHASE_TIMEOUT_MS,
     allowExitOnIdle: true,
+    // Own the transport from the start of the handshake, including under TLS.
+    stream: () => {
+      const transport = new Socket();
+      socket = transport;
+      socketClosed = new Promise((resolve) => transport.once("close", resolve));
+      return transport;
+    },
   });
-  const connections = new Set<PoolClient>();
-  let closing = false;
   let stage: Stage = "connect";
   let errorOrigin: "pg_pool" | "prisma_adapter" = "prisma_adapter";
   pool.on("acquire", () => {
     stage = "query";
-  });
-  pool.on("connect", (connection) => {
-    connections.add(connection);
-    if (closing) void connection.end();
   });
   // The per-probe pool can emit idle-client errors during teardown. The probe
   // rejection is classified by the caller; do not emit a second/raw error event.
@@ -244,17 +249,12 @@ export function createProbeOperation(connectionString: string): ProbeOperation {
       }
     },
     async close() {
-      closing = true;
-      // pg Client.end destroys the socket when a query is active. A watchdog
-      // timeout therefore terminates work rather than merely abandoning a race.
-      await Promise.allSettled(
-        [...connections].map((connection) => connection.end()),
-      );
-      try {
-        await prisma.$disconnect();
-      } finally {
-        await pool.end();
-      }
+      // Stop new acquisitions and destroy the owned socket even if the peer
+      // never closes after Terminate. Start both disposals without waiting on
+      // the other or on the socket's close event.
+      const poolClosed = pool.end();
+      socket?.destroy();
+      await Promise.all([poolClosed, prisma.$disconnect(), socketClosed]);
     },
   };
 }
@@ -322,8 +322,8 @@ export async function probeDatabase(
           if (!failure) {
             stage = "cleanup";
             failure = {
-              category: "probe_timeout",
-              code: "KHLIM_PROBE_TIMEOUT",
+              category: "cleanup_timeout",
+              code: "KHLIM_PROBE_CLEANUP_TIMEOUT",
             };
           }
         } else {
@@ -331,7 +331,7 @@ export async function probeDatabase(
             cleanup,
             new Promise<never>((_, reject) => {
               cleanupTimer = setTimeout(
-                () => reject({ code: "KHLIM_PROBE_TIMEOUT" }),
+                () => reject({ code: "KHLIM_PROBE_CLEANUP_TIMEOUT" }),
                 remainingMs,
               );
             }),
