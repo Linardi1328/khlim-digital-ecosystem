@@ -3,6 +3,7 @@ import { ApiOkResponse, ApiTags } from "@nestjs/swagger";
 import { Public } from "./auth/authorization.decorators";
 import { PrismaService } from "./database/prisma.service";
 import type { ProbeResult } from "./database/health-probe";
+import { requiresPreviewDatabaseIsolation } from "./database/pg-client-config";
 
 export function extractDatabaseProjectRef(databaseUrl?: string): string | null {
   if (!databaseUrl) return null;
@@ -47,9 +48,8 @@ export class HealthController {
   })
   async getHealth() {
     const isProduction = process.env.KHLIM_ENV === "production";
-    const projectRef = isProduction
-      ? null
-      : extractDatabaseProjectRef(process.env.DATABASE_URL);
+    const preview = requiresPreviewDatabaseIsolation();
+    const databaseUrl = process.env.DATABASE_URL;
     const probe: ProbeResult = this.prisma
       ? await this.prisma.probe()
       : {
@@ -81,6 +81,11 @@ export class HealthController {
       : probe.connected
         ? "connected"
         : "disconnected";
+
+    const projectRef =
+      isProduction || (preview && probe.stage === "configuration")
+        ? null
+        : extractDatabaseProjectRef(databaseUrl);
 
     return {
       service: "khlim-api",
