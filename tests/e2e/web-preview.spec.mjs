@@ -97,9 +97,7 @@ test("programme API failure shows retry instead of no offerings", async ({
   await expect(page.locator('main p[role="alert"]')).toHaveCount(0);
 });
 
-test("programme outage error follows selected locale", async ({
-  page,
-}) => {
+test("programme outage error follows selected locale", async ({ page }) => {
   await page.route("**/academy/offerings", (route) =>
     route.fulfill({ status: 503, body: "unavailable" }),
   );
