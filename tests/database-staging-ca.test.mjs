@@ -87,10 +87,7 @@ test("no opt-in preserves pg URL parsing without promoting URL keys to pool opti
   const client = new Client(config);
   assert.equal(client.host, HOST);
   assert.equal(client.password, url.password);
-  assert.equal(
-    client.connectionParameters.application_name,
-    "khlim-synthetic",
-  );
+  assert.equal(client.connectionParameters.application_name, "khlim-synthetic");
   const pool = new Pool(config);
   assert.equal(typeof pool.log, "function");
   void pool.end();

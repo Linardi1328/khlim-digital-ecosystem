@@ -38,68 +38,59 @@ function operation(error) {
   };
 }
 
-test(
-  "late query completion is not healthy even when its timer callback is delayed",
-  async (t) => {
-    t.mock.timers.enable({ apis: ["setTimeout"] });
-    let clock = 0;
-    const result = await probeDatabase(
-      URL,
-      () => ({
-        query: async () => {
-          clock = PROBE_DEADLINE_MS + 1;
-        },
-        close: async () => {},
-      }),
-      () => clock,
-    );
-    assert.equal(result.connected, false);
-    assert.equal(result.stage, "query");
-    assert.equal(result.category, "probe_timeout");
-  },
-);
+test("late query completion is not healthy even when its timer callback is delayed", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let clock = 0;
+  const result = await probeDatabase(
+    URL,
+    () => ({
+      query: async () => {
+        clock = PROBE_DEADLINE_MS + 1;
+      },
+      close: async () => {},
+    }),
+    () => clock,
+  );
+  assert.equal(result.connected, false);
+  assert.equal(result.stage, "query");
+  assert.equal(result.category, "probe_timeout");
+});
 
-test(
-  "late cleanup completion is not healthy even when its timer callback is delayed",
-  async (t) => {
-    t.mock.timers.enable({ apis: ["setTimeout"] });
-    let clock = 0;
-    const result = await probeDatabase(
-      URL,
-      () => ({
-        query: async () => {
-          clock = 1500;
-        },
-        close: async () => {
-          clock = PROBE_DEADLINE_MS + 1;
-        },
-      }),
-      () => clock,
-    );
-    assert.equal(result.connected, false);
-    assert.equal(result.stage, "cleanup");
-    assert.equal(result.category, "cleanup_timeout");
-    assert.equal(result.code, "KHLIM_PROBE_CLEANUP_TIMEOUT");
-  },
-);
+test("late cleanup completion is not healthy even when its timer callback is delayed", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let clock = 0;
+  const result = await probeDatabase(
+    URL,
+    () => ({
+      query: async () => {
+        clock = 1500;
+      },
+      close: async () => {
+        clock = PROBE_DEADLINE_MS + 1;
+      },
+    }),
+    () => clock,
+  );
+  assert.equal(result.connected, false);
+  assert.equal(result.stage, "cleanup");
+  assert.equal(result.category, "cleanup_timeout");
+  assert.equal(result.code, "KHLIM_PROBE_CLEANUP_TIMEOUT");
+});
 
-test(
-  "health project ref handles encoded shared-pooler usernames without trusting raw text",
-  () => {
-    assert.equal(
-      extractDatabaseProjectRef(
-        `postgresql://postgres%2Eqxsjxcbfhxbvxigghhlq:${randomUUID()}@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres`,
-      ),
-      "qxsjxcbfhxbvxigghhlq",
-    );
-    assert.equal(
-      extractDatabaseProjectRef(
-        `postgresql://postgres%2Eanother:${randomUUID()}@not-a-pooler.example:6543/postgres`,
-      ),
-      null,
-    );
-  },
-);
+test("health project ref handles encoded shared-pooler usernames without trusting raw text", () => {
+  assert.equal(
+    extractDatabaseProjectRef(
+      `postgresql://postgres%2Eqxsjxcbfhxbvxigghhlq:${randomUUID()}@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres`,
+    ),
+    "qxsjxcbfhxbvxigghhlq",
+  );
+  assert.equal(
+    extractDatabaseProjectRef(
+      `postgresql://postgres%2Eanother:${randomUUID()}@not-a-pooler.example:6543/postgres`,
+    ),
+    null,
+  );
+});
 
 test("changing the staging CA policy invalidates cached health success", async (t) => {
   const oldUrl = process.env.DATABASE_URL;
