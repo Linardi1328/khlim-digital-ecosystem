@@ -343,8 +343,24 @@ test("login page exposes branded authentication controls", async ({ page }) => {
 });
 
 for (const path of protectedRoutes) {
-  test(`unauthenticated ${path} redirects to login`, async ({ page }) => {
+  test(`unauthenticated ${path} is blocked by login redirect or V1 coming-soon gate`, async ({
+    page,
+  }) => {
     await page.goto(path, { waitUntil: "domcontentloaded" });
+    await Promise.race([
+      page.waitForURL(/\/auth\/login\?redirect=/, { timeout: 10_000 }),
+      page
+        .locator("#coming-soon-heading")
+        .waitFor({ state: "visible", timeout: 10_000 }),
+    ]);
+    const comingSoonHeading = page.locator("#coming-soon-heading");
+    if (await comingSoonHeading.isVisible()) {
+      await expect(page.locator("main")).toContainText(/Coming Soon/i);
+      await expect(page.locator('aside[aria-label*="Portal" i]')).toHaveCount(
+        0,
+      );
+      return;
+    }
     await expect(page).toHaveURL(/\/auth\/login\?redirect=/);
     expect(
       decodeURIComponent(new URL(page.url()).searchParams.get("redirect")),
@@ -352,10 +368,24 @@ for (const path of protectedRoutes) {
   });
 }
 
-test("unauthenticated enrolment redirects to login when continuing", async ({
+test("unauthenticated enrolment is blocked by login redirect or V1 coming-soon gate", async ({
   page,
 }) => {
   await page.goto("/enrol", { waitUntil: "domcontentloaded" });
+  await Promise.race([
+    page
+      .locator("#coming-soon-heading")
+      .waitFor({ state: "visible", timeout: 10_000 }),
+    page
+      .getByRole("button", { name: "Continue" })
+      .waitFor({ state: "visible", timeout: 10_000 }),
+  ]);
+  const comingSoonHeading = page.locator("#coming-soon-heading");
+  if (await comingSoonHeading.isVisible()) {
+    await expect(page.locator("main")).toContainText(/Coming Soon/i);
+    await expect(page.getByRole("button", { name: "Continue" })).toHaveCount(0);
+    return;
+  }
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page).toHaveURL(/\/auth\/login\?redirect=%2Fenrol/);
 });

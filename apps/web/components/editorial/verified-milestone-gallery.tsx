@@ -1,7 +1,10 @@
 "use client";
 
 import type { AchievementStory } from "../../lib/editorial-content";
-import { canRenderYouthMedia } from "../../lib/editorial-content";
+import {
+  canRenderYouthMedia,
+  localizeAchievementStory,
+} from "../../lib/editorial-content";
 import { useI18n } from "../../lib/i18n-context";
 
 export function VerifiedMilestoneGallery({
@@ -17,7 +20,8 @@ export function VerifiedMilestoneGallery({
     <div
       className={`verified-milestone-grid${compact ? " verified-milestone-grid--compact" : ""}`}
     >
-      {stories.map((story) => {
+      {stories.map((rawStory) => {
+        const story = localizeAchievementStory(rawStory, t);
         const showImage = canRenderYouthMedia(story);
         return (
           <article className="verified-milestone-card" key={story.id}>

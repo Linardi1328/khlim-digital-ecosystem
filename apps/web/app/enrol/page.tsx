@@ -20,6 +20,13 @@ import {
 } from "../../lib/types";
 import { PublicFooter } from "../../components/layout/public-footer";
 import { PublicHeader } from "../../components/layout/public-header";
+import { ComingSoonPanel } from "../../components/layout/coming-soon-panel";
+import {
+  getQueryCampaignSource,
+  resolveCampaignSource,
+} from "../../lib/campaign-source";
+import { commerceBusinessFieldLabel } from "../../lib/display-labels";
+import { isFeatureAvailable } from "../../lib/feature-availability";
 import { Alert } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
@@ -81,6 +88,16 @@ function EnrolmentWizardContent() {
   const { t, formatCurrency, formatDate } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryCampaign = useMemo(
+    () => getQueryCampaignSource(searchParams),
+    [searchParams],
+  );
+  const [storedCampaign, setStoredCampaign] = useState<string | null>(null);
+  useEffect(() => {
+    setStoredCampaign(resolveCampaignSource(searchParams));
+  }, [searchParams]);
+  const campaignSource = queryCampaign ?? storedCampaign;
+  const enrolmentAvailable = isFeatureAvailable("academyEnrolmentCheckout");
   const { isAuthenticated } = useAuth();
   const { athletes, activeChild, addChild } = useFamily();
   const preAthleteId = searchParams.get("athleteId");
@@ -357,11 +374,26 @@ function EnrolmentWizardContent() {
     }
   };
 
+  if (!enrolmentAvailable) {
+    return (
+      <div
+        style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
+      >
+        <PublicHeader campaignSource={campaignSource} />
+        <ComingSoonPanel
+          feature="academyEnrolmentCheckout"
+          campaignSource={campaignSource}
+        />
+        <PublicFooter campaignSource={campaignSource} />
+      </div>
+    );
+  }
+
   return (
     <div
       style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
     >
-      <PublicHeader />
+      <PublicHeader campaignSource={campaignSource} />
       <main
         style={{
           flex: 1,
@@ -750,7 +782,9 @@ function EnrolmentWizardContent() {
                     title={t("compliance.enrol.checkoutDisabledTitle")}
                   >
                     {t("compliance.enrol.checkoutDisabledBody", {
-                      fields: missingCommerceFields.join(", "),
+                      fields: missingCommerceFields
+                        .map((field) => commerceBusinessFieldLabel(field, t))
+                        .join(", "),
                     })}
                   </Alert>
                 )}

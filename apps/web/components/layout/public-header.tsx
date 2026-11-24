@@ -14,6 +14,7 @@ import {
   getQueryCampaignSource,
   resolveCampaignSource,
 } from "../../lib/campaign-source";
+import { isFeatureAvailable } from "../../lib/feature-availability";
 import styles from "./public-header.module.css";
 
 function PublicHeaderView({
@@ -305,18 +306,20 @@ function PublicHeaderView({
                 {t("nav.registerInterest")}
               </Button>
             </Link>
-            <Link
-              href={buildUrlWithSource("/enrol", campaignSource)}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              <Button
-                variant="outline"
-                size="md"
-                style={{ width: "100%", minHeight: "44px" }}
+            {isFeatureAvailable("academyEnrolmentCheckout") ? (
+              <Link
+                href={buildUrlWithSource("/enrol", campaignSource)}
+                onClick={() => setMobileMenuOpen(false)}
               >
-                {t("nav.register")}
-              </Button>
-            </Link>
+                <Button
+                  variant="outline"
+                  size="md"
+                  style={{ width: "100%", minHeight: "44px" }}
+                >
+                  {t("nav.register")}
+                </Button>
+              </Link>
+            ) : null}
           </div>
         </div>
       </Sheet>

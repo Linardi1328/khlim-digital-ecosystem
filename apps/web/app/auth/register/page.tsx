@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { SupportedLocale } from "@khlim/i18n";
 import { useI18n } from "../../../lib/i18n-context";
 import { useAuth } from "../../../lib/auth-context";
 import { BrandLogo } from "../../../components/layout/brand-logo";
+import { LocaleSwitcher } from "../../../components/layout/locale-switcher";
 import { Button } from "../../../components/ui/button";
 import { Checkbox } from "../../../components/ui/checkbox";
 import { Input } from "../../../components/ui/input";
@@ -30,6 +31,9 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [selectedLocale, setSelectedLocale] = useState<SupportedLocale>(locale);
+  useEffect(() => {
+    setSelectedLocale(locale);
+  }, [locale]);
   const [legalAccepted, setLegalAccepted] = useState(false);
   const [error, setError] = useState("");
   const [confirmationEmail, setConfirmationEmail] = useState<string | null>(
@@ -80,6 +84,37 @@ export default function RegisterPage() {
       }}
     >
       <div style={{ width: "100%", maxWidth: 480 }}>
+        <div
+          style={{
+            minHeight: 44,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            marginBottom: 12,
+          }}
+        >
+          <Link
+            href="/"
+            className="auth-home-link"
+            style={{
+              minHeight: 44,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "0 10px",
+              borderRadius: 8,
+              color: "#3F3F46",
+              fontSize: "0.9375rem",
+              fontWeight: 700,
+              textDecoration: "none",
+            }}
+          >
+            <span aria-hidden="true">←</span>
+            <span>{t("nav.home")}</span>
+          </Link>
+          <LocaleSwitcher />
+        </div>
         <div
           style={{
             display: "flex",

@@ -24,6 +24,7 @@ import {
   trackInterestSubmitSuccess,
 } from "../../lib/posthog";
 import { useAnalyticsConsent } from "../../lib/analytics-consent";
+import { isFeatureAvailable } from "../../lib/feature-availability";
 import { useI18n } from "../../lib/i18n-context";
 import type { PublicOfferingItem } from "../../lib/types";
 import { PublicFooter } from "../../components/layout/public-footer";
@@ -411,14 +412,16 @@ function InterestForm({
                 </a>
               ) : null}
 
-              <Link href={enrolUrl} style={{ textDecoration: "none" }}>
-                <Button
-                  variant={staffWhatsAppUrl ? "outline" : "primary"}
-                  style={{ width: "100%" }}
-                >
-                  {t("interest.enrolAction")}
-                </Button>
-              </Link>
+              {isFeatureAvailable("academyEnrolmentCheckout") ? (
+                <Link href={enrolUrl} style={{ textDecoration: "none" }}>
+                  <Button
+                    variant={staffWhatsAppUrl ? "outline" : "primary"}
+                    style={{ width: "100%" }}
+                  >
+                    {t("interest.enrolAction")}
+                  </Button>
+                </Link>
+              ) : null}
 
               <Link href={programmesUrl} style={{ textDecoration: "none" }}>
                 <Button variant="outline" style={{ width: "100%" }}>

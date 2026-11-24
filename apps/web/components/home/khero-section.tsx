@@ -1,9 +1,17 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import {
+  buildUrlWithSource,
+  getQueryCampaignSource,
+  resolveCampaignSource,
+} from "../../lib/campaign-source";
+import { isFeatureAvailable } from "../../lib/feature-availability";
 import { useI18n } from "../../lib/i18n-context";
+import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 
 const posters = [
@@ -24,8 +32,23 @@ const posters = [
   },
 ] as const;
 
-export function KheroSection() {
+export function KheroSection({
+  campaignSource: propCampaignSource = null,
+}: {
+  campaignSource?: string | null;
+} = {}) {
   const { t } = useI18n();
+  const searchParams = useSearchParams();
+  const queryCampaign = useMemo(
+    () => getQueryCampaignSource(searchParams),
+    [searchParams],
+  );
+  const [storedCampaign, setStoredCampaign] = useState<string | null>(null);
+  useEffect(() => {
+    setStoredCampaign(resolveCampaignSource(searchParams));
+  }, [searchParams]);
+  const campaignSource = propCampaignSource ?? queryCampaign ?? storedCampaign;
+  const portalAvailable = isFeatureAvailable("parentPortal");
 
   return (
     <section className="home-khero-section" aria-labelledby="home-khero-title">
@@ -251,11 +274,41 @@ export function KheroSection() {
               <strong>{t("home.khero.points.progress")}</strong>
             </div>
           </div>
-          <Link href="/portal" style={{ textDecoration: "none" }}>
-            <Button variant="primary" size="lg">
-              {t("home.khero.points.cta")}
-            </Button>
-          </Link>
+          {portalAvailable ? (
+            <Link href="/portal" style={{ textDecoration: "none" }}>
+              <Button variant="primary" size="lg">
+                {t("home.khero.points.cta")}
+              </Button>
+            </Link>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div>
+                <Badge variant="warning" size="sm">
+                  {t("feature.status.comingSoon")}
+                </Badge>
+              </div>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "0.875rem",
+                  color: "#d4d4d8",
+                  lineHeight: 1.5,
+                }}
+              >
+                {t("feature.kheroPoints.comingSoonNote")}
+              </p>
+              <div>
+                <Link
+                  href={buildUrlWithSource("/interest", campaignSource)}
+                  style={{ textDecoration: "none" }}
+                >
+                  <Button variant="primary" size="lg">
+                    {t("nav.registerInterest")}
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="home-khero-points-visual" aria-hidden="true">

@@ -13,6 +13,7 @@ import { trackCampaignLanding } from "../../lib/posthog";
 import { useAnalyticsConsent } from "../../lib/analytics-consent";
 import { PublicFooter } from "../../components/layout/public-footer";
 import { PublicHeader } from "../../components/layout/public-header";
+import { TrainingSessionsSection } from "../../components/academy/training-sessions-section";
 import { Badge } from "../../components/ui/badge";
 import { getButtonStyles } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
@@ -48,7 +49,7 @@ function AcademyContent() {
         role: t("academy.coaches.role"),
         bio: t("academy.coaches.sengJun.bio"),
         imageUrl: "/media/coaches/seng-jun.webp",
-        alt: `${t("academy.coaches.sengJun.name")} — KHLIM Basketball Academy`,
+        alt: `${t("academy.coaches.sengJun.name")} — ${t("brand.academy")}`,
       },
       {
         id: "jia-xuan",
@@ -56,7 +57,7 @@ function AcademyContent() {
         role: t("academy.coaches.role"),
         bio: t("academy.coaches.genericBio"),
         imageUrl: "/media/coaches/jia-xuan.webp",
-        alt: `${t("academy.coaches.jiaXuan.name")} — KHLIM Basketball Academy`,
+        alt: `${t("academy.coaches.jiaXuan.name")} — ${t("brand.academy")}`,
       },
       {
         id: "puimann",
@@ -64,7 +65,7 @@ function AcademyContent() {
         role: t("academy.coaches.role"),
         bio: t("academy.coaches.genericBio"),
         imageUrl: "/media/coaches/puimann.webp",
-        alt: `${t("academy.coaches.puimann.name")} — KHLIM Basketball Academy`,
+        alt: `${t("academy.coaches.puimann.name")} — ${t("brand.academy")}`,
       },
       {
         id: "woon",
@@ -72,7 +73,7 @@ function AcademyContent() {
         role: t("academy.coaches.role"),
         bio: t("academy.coaches.genericBio"),
         imageUrl: "/media/coaches/woon.webp",
-        alt: `${t("academy.coaches.woon.name")} — KHLIM Basketball Academy`,
+        alt: `${t("academy.coaches.woon.name")} — ${t("brand.academy")}`,
       },
     ],
     [t],
@@ -142,6 +143,12 @@ function AcademyContent() {
             >
               {t("nav.registerInterest")}
             </Link>
+            <a
+              href="#training-sessions"
+              style={getButtonStyles("outline", "lg")}
+            >
+              {t("academy.trainingSessionsCta")}
+            </a>
             <Link
               href={buildUrlWithSource("/programmes", campaignSource)}
               style={getButtonStyles("outline", "lg")}
@@ -150,6 +157,9 @@ function AcademyContent() {
             </Link>
           </div>
         </section>
+
+        {/* Training Sessions and Venue */}
+        <TrainingSessionsSection campaignSource={campaignSource} />
 
         {/* U9 / U12 / U15 Development Pathway */}
         <section style={{ marginBottom: 52 }}>
@@ -311,7 +321,7 @@ function AcademyContent() {
               style={{
                 position: "relative",
                 width: "100%",
-                aspectRatio: "1280 / 769",
+                aspectRatio: "4 / 3",
                 borderRadius: 12,
                 overflow: "hidden",
                 margin: "0 0 24px",
@@ -324,7 +334,7 @@ function AcademyContent() {
                 alt={t("academy.training.alt")}
                 fill
                 sizes="(max-width: 768px) 100vw, 1100px"
-                style={{ objectFit: "cover", objectPosition: "center 35%" }}
+                style={{ objectFit: "contain", objectPosition: "center" }}
               />
             </div>
 
@@ -715,7 +725,7 @@ function AcademyContent() {
           </Link>
         </section>
       </main>
-      <PublicFooter />
+      <PublicFooter campaignSource={campaignSource} />
     </div>
   );
 }

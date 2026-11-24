@@ -688,3 +688,51 @@ export const clubEventGallery: ClubGalleryItem[] = [
     mediaReleaseRef: "DIR-AUTH-ESTHER-202610",
   },
 ];
+
+function translateOrFallback(
+  t: Translate,
+  key: string,
+  fallback: string,
+): string {
+  const translated = t(key);
+  return translated === key ? fallback : translated;
+}
+
+export function localizeAchievementStory(
+  story: AchievementStory,
+  t: Translate,
+): AchievementStory {
+  const prefix = `editorial.achievement.${story.id}`;
+  return {
+    ...story,
+    title: translateOrFallback(t, `${prefix}.title`, story.title),
+    eventName: translateOrFallback(t, `${prefix}.eventName`, story.eventName),
+    description: translateOrFallback(
+      t,
+      `${prefix}.description`,
+      story.description,
+    ),
+    photoLabel: translateOrFallback(
+      t,
+      `${prefix}.photoLabel`,
+      story.photoLabel,
+    ),
+  };
+}
+
+export function localizeClubGalleryItem(
+  item: ClubGalleryItem,
+  t: Translate,
+): ClubGalleryItem {
+  const prefix = `editorial.gallery.${item.id}`;
+  return {
+    ...item,
+    title: translateOrFallback(t, `${prefix}.title`, item.title),
+    description: translateOrFallback(
+      t,
+      `${prefix}.description`,
+      item.description,
+    ),
+    photoLabel: translateOrFallback(t, `${prefix}.photoLabel`, item.photoLabel),
+  };
+}

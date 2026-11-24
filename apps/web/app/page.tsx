@@ -49,7 +49,7 @@ function ageLabel(
 }
 
 function HomeContent() {
-  const { t } = useI18n();
+  const { t, formatDate } = useI18n();
   const searchParams = useSearchParams();
   const queryCampaign = useMemo(
     () => getQueryCampaignSource(searchParams),
@@ -183,7 +183,9 @@ function HomeContent() {
                     </p>
                     <p>
                       {t("programmes.termStartLabel")}:{" "}
-                      {offering.startsOn ?? t("common.toBeConfirmed")}
+                      {offering.startsOn
+                        ? formatDate(offering.startsOn)
+                        : t("common.toBeConfirmed")}
                     </p>
                   </CardContent>
                   <CardFooter
@@ -249,7 +251,7 @@ function HomeContent() {
           </div>
         </section>
       </main>
-      <PublicFooter />
+      <PublicFooter campaignSource={campaignSource} />
     </div>
   );
 }

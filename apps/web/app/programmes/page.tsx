@@ -10,6 +10,7 @@ import {
   resolveCampaignSource,
 } from "../../lib/campaign-source";
 import { useI18n } from "../../lib/i18n-context";
+import { programmeLevelLabel } from "../../lib/display-labels";
 import type { PublicOfferingItem } from "../../lib/types";
 import { PublicFooter } from "../../components/layout/public-footer";
 import { PublicHeader } from "../../components/layout/public-header";
@@ -140,7 +141,7 @@ function ProgrammesContent() {
                 size="sm"
                 onClick={() => setLevel(item)}
               >
-                {item}
+                {programmeLevelLabel(item, t)}
               </Button>
             ))}
           </div>
@@ -179,7 +180,7 @@ function ProgrammesContent() {
                     </Badge>
                     {offering.programme.level ? (
                       <Badge variant="neutral" size="sm">
-                        {offering.programme.level}
+                        {programmeLevelLabel(offering.programme.level, t)}
                       </Badge>
                     ) : null}
                   </div>
@@ -191,8 +192,7 @@ function ProgrammesContent() {
                 <CardContent>
                   <p>
                     {t("programmes.levelLabel")}:{" "}
-                    {offering.programme.level ??
-                      t("programmes.openDevelopment")}
+                    {programmeLevelLabel(offering.programme.level, t)}
                   </p>
                   <p>
                     {t("programmes.venueLabel")}:{" "}
@@ -238,7 +238,7 @@ function ProgrammesContent() {
           </div>
         )}
       </main>
-      <PublicFooter />
+      <PublicFooter campaignSource={campaignSource} />
     </div>
   );
 }

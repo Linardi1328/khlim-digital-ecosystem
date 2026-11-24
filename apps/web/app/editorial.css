@@ -50,13 +50,15 @@
 
 .home-achievement-photo {
   position: relative;
-  min-height: 300px;
+  aspect-ratio: 4 / 3;
   display: flex;
   align-items: flex-end;
   padding: 22px;
   overflow: hidden;
+  background-color: #18181b;
   background-position: center;
-  background-size: cover;
+  background-repeat: no-repeat;
+  background-size: contain;
   color: #ffffff;
   box-sizing: border-box;
 }
@@ -353,9 +355,11 @@
 
 .spotlight-archive-photo {
   position: relative;
-  min-height: 320px;
+  aspect-ratio: 4 / 3;
+  background-color: #18181b;
   background-position: center;
-  background-size: cover;
+  background-repeat: no-repeat;
+  background-size: contain;
 }
 
 .spotlight-archive-copy {
@@ -516,7 +520,7 @@
   }
 
   .home-achievement-photo {
-    min-height: 280px;
+    aspect-ratio: 4 / 3;
   }
 
   .home-spotlight-card,
@@ -555,7 +559,7 @@
   }
 
   .home-achievement-photo {
-    min-height: 310px;
+    aspect-ratio: 4 / 3;
   }
 
   .home-spotlight-section {

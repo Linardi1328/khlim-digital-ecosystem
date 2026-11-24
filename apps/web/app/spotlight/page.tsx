@@ -17,6 +17,8 @@ import {
 import {
   canRenderYouthMedia,
   clubEventGallery,
+  localizeAchievementStory,
+  localizeClubGalleryItem,
   publishedPlayerSpotlights,
   verifiedTeamResults,
   verifiedRepresentativeMilestones,
@@ -48,8 +50,9 @@ const MILESTONE_ACHIEVEMENT_IDS = [
   "maba-matrix-u17-2026-squad2",
 ];
 
-function AchievementCard({ story }: { story: AchievementStory }) {
+function AchievementCard({ story: rawStory }: { story: AchievementStory }) {
   const { t } = useI18n();
+  const story = localizeAchievementStory(rawStory, t);
   const hasVerifiedImage = canRenderYouthMedia(story);
   const backgroundImage = hasVerifiedImage
     ? `linear-gradient(180deg, rgba(9, 9, 11, 0.08), rgba(9, 9, 11, 0.84)), url("${story.imageUrl}")`
@@ -483,7 +486,8 @@ function SpotlightArchiveContent() {
             <p>{t("spotlight.achievements.galleryDesc")}</p>
           </div>
           <div className="spotlight-club-gallery-grid">
-            {clubEventGallery.map((item) => {
+            {clubEventGallery.map((rawItem) => {
+              const item = localizeClubGalleryItem(rawItem, t);
               const showImage = canRenderYouthMedia(item);
               return (
                 <figure key={item.id} className="spotlight-gallery-card">
@@ -659,7 +663,7 @@ function SpotlightArchiveContent() {
           )}
         </section>
       </main>
-      <PublicFooter />
+      <PublicFooter campaignSource={campaignSource} />
     </div>
   );
 }

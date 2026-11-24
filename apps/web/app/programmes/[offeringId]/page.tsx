@@ -9,6 +9,8 @@ import {
   resolveCampaignSource,
 } from "../../../lib/campaign-source";
 import { useI18n } from "../../../lib/i18n-context";
+import { programmeLevelLabel } from "../../../lib/display-labels";
+import { isFeatureAvailable } from "../../../lib/feature-availability";
 import {
   getPlanChargeMinor,
   type PublicOfferingItem,
@@ -53,7 +55,7 @@ function OfferingDetailContent({ offeringId }: { offeringId: string }) {
         <main aria-busy="true" style={{ padding: 48, textAlign: "center" }}>
           {t("programmes.loadingOffering")}
         </main>
-        <PublicFooter />
+        <PublicFooter campaignSource={campaignSource} />
       </div>
     );
 
@@ -67,7 +69,7 @@ function OfferingDetailContent({ offeringId }: { offeringId: string }) {
             {t("programmes.returnToProgrammes")}
           </Link>
         </main>
-        <PublicFooter />
+        <PublicFooter campaignSource={campaignSource} />
       </div>
     );
 
@@ -113,7 +115,9 @@ function OfferingDetailContent({ offeringId }: { offeringId: string }) {
 
         <Card>
           <Badge variant="brand">
-            {offering.programme.level ?? t("programmes.academyProgramme")}
+            {offering.programme.level
+              ? programmeLevelLabel(offering.programme.level, t)
+              : t("programmes.academyProgramme")}
           </Badge>
           <h1>{offering.name}</h1>
           <p>{offering.programme.description ?? offering.programme.name}</p>
@@ -195,16 +199,49 @@ function OfferingDetailContent({ offeringId }: { offeringId: string }) {
                     {plan.benefitsSummary ? (
                       <p>{plan.benefitsSummary}</p>
                     ) : null}
-                    <Link
-                      href={buildUrlWithSource("/enrol", campaignSource, {
-                        offeringId: offering.id,
-                        planId: plan.id,
-                      })}
-                    >
-                      <Button variant="primary">
-                        {t("programmes.selectPlan")}
-                      </Button>
-                    </Link>
+                    {isFeatureAvailable("academyEnrolmentCheckout") ? (
+                      <Link
+                        href={buildUrlWithSource("/enrol", campaignSource, {
+                          offeringId: offering.id,
+                          planId: plan.id,
+                        })}
+                      >
+                        <Button variant="primary">
+                          {t("programmes.selectPlan")}
+                        </Button>
+                      </Link>
+                    ) : (
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 8,
+                        }}
+                      >
+                        <div>
+                          <Badge variant="warning" size="sm">
+                            {t("feature.status.comingSoon")}
+                          </Badge>
+                        </div>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: "0.85rem",
+                            color: "#52525b",
+                          }}
+                        >
+                          {t("feature.programmes.checkoutComingSoon")}
+                        </p>
+                        <Link
+                          href={registerInterestUrl}
+                          style={{ textDecoration: "none" }}
+                        >
+                          <Button variant="primary">
+                            {t("programmes.registerInterest")}
+                          </Button>
+                        </Link>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               );
@@ -212,7 +249,7 @@ function OfferingDetailContent({ offeringId }: { offeringId: string }) {
           </div>
         )}
       </main>
-      <PublicFooter />
+      <PublicFooter campaignSource={campaignSource} />
     </div>
   );
 }

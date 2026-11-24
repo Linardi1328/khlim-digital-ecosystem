@@ -15,9 +15,38 @@ const en = {
   "academy.coaching.title": "Coaching team",
   "academy.coaching.body":
     "Our coaching staff focuses on fundamental basketball skills, court discipline, and structured player development across all academy age groups.",
-  "academy.venues.title": "Training venues",
+  "academy.venues.title": "Training venue & schedule",
   "academy.venues.body":
-    "Current venue information comes from active programme offerings in the KHLIM backend.",
+    "Weekly Academy training is planned at Sports Garage in Seksyen 19, Petaling Jaya, with current programme details published on the Programmes page.",
+  "academy.trainingSessionsCta": "Training sessions & venue",
+  "academy.trainingSessions.eyebrow": "Training Sessions & Venue",
+  "academy.trainingSessions.title": "Weekly training sessions and venue",
+  "academy.trainingSessions.subtitle":
+    "Confirmed venue, lead coach, and age-group time slots for KHLIM Basketball Academy, alongside our current proposed practice day.",
+  "academy.trainingSessions.statusConfirmed": "Confirmed",
+  "academy.trainingSessions.statusProposed": "Proposed · Pending confirmation",
+  "academy.trainingSessions.timeConfirmedBadge": "Confirmed time slot",
+  "academy.trainingSessions.venueLabel": "Training Venue",
+  "academy.trainingSessions.leadCoachLabel": "Lead Coach",
+  "academy.trainingSessions.leadCoachName": "Coach {name}",
+  "academy.trainingSessions.directionsCta": "Get Directions",
+  "academy.trainingSessions.directionsAria":
+    "Get Google Maps directions to {venue}",
+  "academy.trainingSessions.workingDayLabel": "Working Practice Day",
+  "academy.trainingSessions.workingDayShortLabel": "Practice Day",
+  "academy.trainingSessions.workingDayValue": "Saturday (Working Day)",
+  "academy.trainingSessions.workingDayPendingInline":
+    "Saturday — pending recurring booking confirmation",
+  "academy.trainingSessions.workingDayNote":
+    "Saturday is our current working practice day, pending final confirmation of recurring venue booking. Specific start dates, capacity, and booking confirmation will be shared once confirmed.",
+  "academy.trainingSessions.registrationPendingNote":
+    "Online session reservations are not open yet. Register your interest now and our team will contact you once the recurring schedule is finalized.",
+  "academy.trainingSessions.slot10to12.ageGroup": "Ages 10–12",
+  "academy.trainingSessions.slot10to12.summary":
+    "Foundational ball handling, footwork, shooting mechanics, and team spacing tailored for U12 players.",
+  "academy.trainingSessions.slot13to15.ageGroup": "Ages 13–15",
+  "academy.trainingSessions.slot13to15.summary":
+    "Progressive decision-making, defensive habits, game-speed execution, and structured squad preparation for U15 players.",
   "academy.programmesCta": "View current programmes",
   "academy.pathway.badge": "U9 · U12 · U15",
   "academy.pathway.u9.badge": "U9",
@@ -88,9 +117,38 @@ const ms: Catalogue = {
   "academy.coaching.title": "Pasukan jurulatih",
   "academy.coaching.body":
     "Barisan jurulatih kami menumpukan kemahiran asas bola keranjang, disiplin gelanggang dan pembangunan pemain berstruktur merentasi semua peringkat umur akademi.",
-  "academy.venues.title": "Lokasi latihan",
+  "academy.venues.title": "Lokasi & jadual latihan",
   "academy.venues.body":
-    "Maklumat lokasi semasa datang daripada tawaran program aktif dalam sistem KHLIM.",
+    "Latihan mingguan Akademi dirancang di Sports Garage, Seksyen 19, Petaling Jaya, dengan butiran program semasa dipaparkan di halaman Program.",
+  "academy.trainingSessionsCta": "Sesi latihan & lokasi",
+  "academy.trainingSessions.eyebrow": "Sesi Latihan & Lokasi",
+  "academy.trainingSessions.title": "Sesi latihan mingguan dan lokasi",
+  "academy.trainingSessions.subtitle":
+    "Lokasi, ketua jurulatih, dan slot masa kumpulan umur yang disahkan untuk Akademi Bola Keranjang KHLIM, bersama cadangan hari latihan semasa.",
+  "academy.trainingSessions.statusConfirmed": "Disahkan",
+  "academy.trainingSessions.statusProposed": "Cadangan · Menunggu pengesahan",
+  "academy.trainingSessions.timeConfirmedBadge": "Slot masa disahkan",
+  "academy.trainingSessions.venueLabel": "Lokasi Latihan",
+  "academy.trainingSessions.leadCoachLabel": "Ketua Jurulatih",
+  "academy.trainingSessions.leadCoachName": "Jurulatih {name}",
+  "academy.trainingSessions.directionsCta": "Dapatkan Arah",
+  "academy.trainingSessions.directionsAria":
+    "Dapatkan arah Google Maps ke {venue}",
+  "academy.trainingSessions.workingDayLabel": "Cadangan Hari Latihan",
+  "academy.trainingSessions.workingDayShortLabel": "Hari Latihan",
+  "academy.trainingSessions.workingDayValue": "Sabtu (Cadangan Semasa)",
+  "academy.trainingSessions.workingDayPendingInline":
+    "Sabtu — menunggu pengesahan tempahan berkala",
+  "academy.trainingSessions.workingDayNote":
+    "Sabtu ialah cadangan hari latihan semasa kami, sementara menunggu pengesahan muktamad tempahan gelanggang berkala. Tarikh mula, kapasiti, dan pengesahan tempahan akan dikongsi setelah disahkan.",
+  "academy.trainingSessions.registrationPendingNote":
+    "Tempahan sesi dalam talian belum dibuka lagi. Daftar minat anda sekarang dan pasukan kami akan menghubungi anda setelah jadual berkala dimuktamadkan.",
+  "academy.trainingSessions.slot10to12.ageGroup": "Umur 10–12",
+  "academy.trainingSessions.slot10to12.summary":
+    "Kawalan bola asas, gerak kaki, teknik jaringan, dan ruang berpasukan yang disesuaikan untuk pemain U12.",
+  "academy.trainingSessions.slot13to15.ageGroup": "Umur 13–15",
+  "academy.trainingSessions.slot13to15.summary":
+    "Membuat keputusan progresif, tabiat pertahanan, pelaksanaan kelajuan permainan, dan persediaan skuad berstruktur untuk pemain U15.",
   "academy.programmesCta": "Lihat program semasa",
   "academy.pathway.badge": "U9 · U12 · U15",
   "academy.pathway.u9.badge": "U9",
@@ -101,13 +159,13 @@ const ms: Catalogue = {
     "Perkembangan bola keranjang mengikut umur yang disesuaikan untuk setiap tahap pertumbuhan.",
   "academy.pathway.u9.title": "U9 — Umur 5–9",
   "academy.pathway.u9.body":
-    "Program Youth Development untuk atlet berumur 5 hingga 9 tahun.",
+    "Program Pembangunan Belia untuk atlet berumur 5 hingga 9 tahun.",
   "academy.pathway.u12.title": "U12 — Umur 10–12",
   "academy.pathway.u12.body":
-    "Program Youth Development untuk atlet berumur 10 hingga 12 tahun.",
+    "Program Pembangunan Belia untuk atlet berumur 10 hingga 12 tahun.",
   "academy.pathway.u15.title": "U15 — Umur 13–15",
   "academy.pathway.u15.body":
-    "Program Youth Development untuk atlet berumur 13 hingga 15 tahun.",
+    "Program Pembangunan Belia untuk atlet berumur 13 hingga 15 tahun.",
   "academy.nextSteps.title": "Langkah seterusnya",
   "academy.nextSteps.subtitle":
     "Laluan jelas dan mudah dari pendaftaran minat sehingga ke gelanggang latihan.",
@@ -158,8 +216,38 @@ const zhHans: Catalogue = {
   "academy.coaching.title": "教练团队",
   "academy.coaching.body":
     "我们的教练团队专注于扎实的篮球基本功、球场纪律以及面向各年龄段球员的结构化发展培养。",
-  "academy.venues.title": "训练场地",
-  "academy.venues.body": "当前场地信息来自 KHLIM 后端中的有效课程班次。",
+  "academy.venues.title": "训练场地与时间",
+  "academy.venues.body":
+    "学院每周常规训练规划于八打灵再也 Seksyen 19 的 Sports Garage 进行，当前课程详情请查看课程项目页面。",
+  "academy.trainingSessionsCta": "训练班次与场地",
+  "academy.trainingSessions.eyebrow": "训练班次与场地",
+  "academy.trainingSessions.title": "每周训练班次与场地安排",
+  "academy.trainingSessions.subtitle":
+    "以下列出 KHLIM 篮球学院已确认的场地、主教练及年龄段训练时段，以及目前拟定的训练日说明。",
+  "academy.trainingSessions.statusConfirmed": "已确认",
+  "academy.trainingSessions.statusProposed": "拟定方案 · 待最终确认",
+  "academy.trainingSessions.timeConfirmedBadge": "已确认时段",
+  "academy.trainingSessions.venueLabel": "训练场地",
+  "academy.trainingSessions.leadCoachLabel": "主教练",
+  "academy.trainingSessions.leadCoachName": "{name} 教练",
+  "academy.trainingSessions.directionsCta": "查看路线导航",
+  "academy.trainingSessions.directionsAria":
+    "在 Google 地图中查看前往 {venue} 的路线",
+  "academy.trainingSessions.workingDayLabel": "拟定训练日",
+  "academy.trainingSessions.workingDayShortLabel": "训练日",
+  "academy.trainingSessions.workingDayValue": "星期六（拟定工作方案）",
+  "academy.trainingSessions.workingDayPendingInline":
+    "星期六 — 待场地长期预订最终确认",
+  "academy.trainingSessions.workingDayNote":
+    "目前暂定星期六为常规训练日，尚待场地长期预订最终确认。具体开课日期、名额及预订确认将在敲定后另行公布。",
+  "academy.trainingSessions.registrationPendingNote":
+    "在线训练班次预约尚未开放。欢迎先登记意向，待长期场地排期确认后我们的团队将第一时间联系您。",
+  "academy.trainingSessions.slot10to12.ageGroup": "10–12 岁",
+  "academy.trainingSessions.slot10to12.summary":
+    "面向 U12 球员的运球基础、脚步移动、投篮基本功与团队空间意识训练。",
+  "academy.trainingSessions.slot13to15.ageGroup": "13–15 岁",
+  "academy.trainingSessions.slot13to15.summary":
+    "面向 U15 球员的进阶阅读比赛、防守习惯、实战节奏执行与团队体系训练。",
   "academy.programmesCta": "查看当前课程",
   "academy.pathway.badge": "U9 · U12 · U15",
   "academy.pathway.u9.badge": "U9",
@@ -168,14 +256,11 @@ const zhHans: Catalogue = {
   "academy.pathway.title": "梯队发展路径",
   "academy.pathway.subtitle": "契合各年龄段成长规律的阶梯式篮球培养体系。",
   "academy.pathway.u9.title": "U9 — 5–9 岁",
-  "academy.pathway.u9.body":
-    "面向 5 至 9 岁青少年运动员的青年发展（Youth Development）课程。",
+  "academy.pathway.u9.body": "面向 5 至 9 岁青少年运动员的青少年发展课程。",
   "academy.pathway.u12.title": "U12 — 10–12 岁",
-  "academy.pathway.u12.body":
-    "面向 10 至 12 岁青少年运动员的青年发展（Youth Development）课程。",
+  "academy.pathway.u12.body": "面向 10 至 12 岁青少年运动员的青少年发展课程。",
   "academy.pathway.u15.title": "U15 — 13–15 岁",
-  "academy.pathway.u15.body":
-    "面向 13 至 15 岁青少年运动员的青年发展（Youth Development）课程。",
+  "academy.pathway.u15.body": "面向 13 至 15 岁青少年运动员的青少年发展课程。",
   "academy.nextSteps.title": "后续流程",
   "academy.nextSteps.subtitle": "从登记意向到球场训练的清晰低门槛流程。",
   "academy.nextSteps.step1.title": "1. 家长登记意向",
@@ -225,8 +310,38 @@ const zhHant: Catalogue = {
   "academy.coaching.title": "教練團隊",
   "academy.coaching.body":
     "我們的教練團隊專注於扎實的籃球基本功、球場紀律以及面向各年齡段球員的結構化發展培養。",
-  "academy.venues.title": "訓練場地",
-  "academy.venues.body": "目前場地資訊來自 KHLIM 後端中的有效課程班次。",
+  "academy.venues.title": "訓練場地與時間",
+  "academy.venues.body":
+    "學院每週常規訓練規劃於八打靈再也 Seksyen 19 的 Sports Garage 進行，目前課程詳情請查看課程項目頁面。",
+  "academy.trainingSessionsCta": "訓練班次與場地",
+  "academy.trainingSessions.eyebrow": "訓練班次與場地",
+  "academy.trainingSessions.title": "每週訓練班次與場地安排",
+  "academy.trainingSessions.subtitle":
+    "以下列出 KHLIM 籃球學院已確認的場地、主教練及年齡段訓練時段，以及目前擬定的訓練日說明。",
+  "academy.trainingSessions.statusConfirmed": "已確認",
+  "academy.trainingSessions.statusProposed": "擬定方案 · 待最終確認",
+  "academy.trainingSessions.timeConfirmedBadge": "已確認時段",
+  "academy.trainingSessions.venueLabel": "訓練場地",
+  "academy.trainingSessions.leadCoachLabel": "主教練",
+  "academy.trainingSessions.leadCoachName": "{name} 教練",
+  "academy.trainingSessions.directionsCta": "查看路線導航",
+  "academy.trainingSessions.directionsAria":
+    "在 Google 地圖中查看前往 {venue} 的路線",
+  "academy.trainingSessions.workingDayLabel": "擬定訓練日",
+  "academy.trainingSessions.workingDayShortLabel": "訓練日",
+  "academy.trainingSessions.workingDayValue": "星期六（擬定工作方案）",
+  "academy.trainingSessions.workingDayPendingInline":
+    "星期六 — 待場地長期預訂最終確認",
+  "academy.trainingSessions.workingDayNote":
+    "目前暫定星期六為常規訓練日，尚待場地長期預訂最終確認。具體開課日期、名額及預訂確認將在敲定後另行公布。",
+  "academy.trainingSessions.registrationPendingNote":
+    "線上訓練班次預約尚未開放。歡迎先登記意向，待長期場地排期確認後我們的團隊將第一時間聯繫您。",
+  "academy.trainingSessions.slot10to12.ageGroup": "10–12 歲",
+  "academy.trainingSessions.slot10to12.summary":
+    "面向 U12 球員的運球基礎、腳步移動、投籃基本功與團隊空間意識訓練。",
+  "academy.trainingSessions.slot13to15.ageGroup": "13–15 歲",
+  "academy.trainingSessions.slot13to15.summary":
+    "面向 U15 球員的進階閱讀比賽、防守習慣、實戰節奏執行與團隊體系訓練。",
   "academy.programmesCta": "查看目前課程",
   "academy.pathway.badge": "U9 · U12 · U15",
   "academy.pathway.u9.badge": "U9",
@@ -292,9 +407,38 @@ const hi: Catalogue = {
   "academy.coaching.title": "कोचिंग टीम",
   "academy.coaching.body":
     "हमारा कोचिंग स्टाफ बास्केटबॉल की बुनियादी कौशल, कोर्ट अनुशासन और सभी अकादमी आयु वर्गों में संरचित खिलाड़ी विकास पर ध्यान केंद्रित करता है।",
-  "academy.venues.title": "प्रशिक्षण स्थल",
+  "academy.venues.title": "प्रशिक्षण स्थल और समय",
   "academy.venues.body":
-    "वर्तमान स्थल जानकारी KHLIM बैकएंड में सक्रिय कार्यक्रम विकल्पों से आती है।",
+    "साप्ताहिक अकादमी प्रशिक्षण Sports Garage, Seksyen 19, Petaling Jaya में नियोजित है, और वर्तमान कार्यक्रम विवरण कार्यक्रम पृष्ठ पर उपलब्ध हैं।",
+  "academy.trainingSessionsCta": "प्रशिक्षण सत्र और स्थल",
+  "academy.trainingSessions.eyebrow": "प्रशिक्षण सत्र और स्थल",
+  "academy.trainingSessions.title": "साप्ताहिक प्रशिक्षण सत्र और स्थल",
+  "academy.trainingSessions.subtitle":
+    "KHLIM बास्केटबॉल अकादमी के लिए पुष्टि किए गए स्थल, प्रमुख कोच और आयु-वर्ग समय स्लॉट, साथ ही वर्तमान प्रस्तावित अभ्यास दिन।",
+  "academy.trainingSessions.statusConfirmed": "पुष्ट",
+  "academy.trainingSessions.statusProposed": "प्रस्तावित · पुष्टि लंबित",
+  "academy.trainingSessions.timeConfirmedBadge": "पुष्ट समय स्लॉट",
+  "academy.trainingSessions.venueLabel": "प्रशिक्षण स्थल",
+  "academy.trainingSessions.leadCoachLabel": "प्रमुख कोच",
+  "academy.trainingSessions.leadCoachName": "कोच {name}",
+  "academy.trainingSessions.directionsCta": "दिशा-निर्देश प्राप्त करें",
+  "academy.trainingSessions.directionsAria":
+    "{venue} के लिए Google Maps दिशा-निर्देश प्राप्त करें",
+  "academy.trainingSessions.workingDayLabel": "प्रस्तावित अभ्यास दिन",
+  "academy.trainingSessions.workingDayShortLabel": "अभ्यास दिन",
+  "academy.trainingSessions.workingDayValue": "शनिवार (प्रस्तावित दिन)",
+  "academy.trainingSessions.workingDayPendingInline":
+    "शनिवार — आवर्ती बुकिंग की अंतिम पुष्टि लंबित",
+  "academy.trainingSessions.workingDayNote":
+    "शनिवार हमारा वर्तमान प्रस्तावित अभ्यास दिन है, जो आवर्ती स्थल बुकिंग की अंतिम पुष्टि के अधीन है। पुष्टि होने के बाद सत्र तिथियां, क्षमता और बुकिंग विवरण साझा किए जाएंगे।",
+  "academy.trainingSessions.registrationPendingNote":
+    "ऑनलाइन सत्र आरक्षण अभी खुले नहीं हैं। अभी अपनी रुचि दर्ज करें और आवर्ती कार्यक्रम तय होने पर हमारी टीम आपसे संपर्क करेगी।",
+  "academy.trainingSessions.slot10to12.ageGroup": "आयु 10–12",
+  "academy.trainingSessions.slot10to12.summary":
+    "U12 खिलाड़ियों के लिए बुनियादी बॉल हैंडलिंग, फुटवर्क, शूटिंग तकनीक और टीम स्पेसिंग।",
+  "academy.trainingSessions.slot13to15.ageGroup": "आयु 13–15",
+  "academy.trainingSessions.slot13to15.summary":
+    "U15 खिलाड़ियों के लिए उन्नत निर्णय क्षमता, रक्षात्मक आदतें, गेम-स्पीड निष्पादन और संरचित टीम तैयारी।",
   "academy.programmesCta": "वर्तमान कार्यक्रम देखें",
   "academy.pathway.badge": "U9 · U12 · U15",
   "academy.pathway.u9.badge": "U9",

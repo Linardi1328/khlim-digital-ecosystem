@@ -11,6 +11,7 @@ export default defineConfig({
     "walkthrough-visual.spec.mjs",
     "auth-accessibility.spec.mjs",
     "staging-browser-acceptance.spec.mjs",
+    "ric-184-academy-parity-qa.spec.mjs",
   ],
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),

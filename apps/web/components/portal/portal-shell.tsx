@@ -7,6 +7,10 @@ import { useI18n } from "../../lib/i18n-context";
 import { useAuth } from "../../lib/auth-context";
 import { BrandLogo } from "../layout/brand-logo";
 import { LocaleSwitcher } from "../layout/locale-switcher";
+import { PublicHeader } from "../layout/public-header";
+import { PublicFooter } from "../layout/public-footer";
+import { ComingSoonPanel } from "../layout/coming-soon-panel";
+import { isFeatureAvailable } from "../../lib/feature-availability";
 import { ChildSwitcher } from "./child-switcher";
 
 export interface PortalShellProps {
@@ -18,12 +22,25 @@ export function PortalShell({ children }: PortalShellProps) {
   const router = useRouter();
   const { t } = useI18n();
   const { guardianProfile, isAuthenticated, isLoading, logout } = useAuth();
+  const portalAvailable = isFeatureAvailable("parentPortal");
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (portalAvailable && !isLoading && !isAuthenticated) {
       router.replace(`/auth/login?redirect=${encodeURIComponent(pathname)}`);
     }
-  }, [isLoading, isAuthenticated, router, pathname]);
+  }, [portalAvailable, isLoading, isAuthenticated, router, pathname]);
+
+  if (!portalAvailable) {
+    return (
+      <div
+        style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
+      >
+        <PublicHeader />
+        <ComingSoonPanel feature="parentPortal" />
+        <PublicFooter />
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
