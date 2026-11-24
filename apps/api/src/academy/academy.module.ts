@@ -9,6 +9,16 @@ import { AcademyLeadsAdminController } from "./academy-leads-admin.controller";
 import { AcademyLeadsController } from "./academy-leads.controller";
 import { AcademyLeadsService } from "./academy-leads.service";
 import { AcademyService } from "./academy.service";
+import {
+  AcademyRegistrationAdminController,
+  AcademyRegistrationPolicyAdminController,
+  AcademyRegistrationPublicController,
+  AcademyRegistrationSessionAdminController,
+} from "./registration/registration.controllers";
+import { RegistrationAdminService } from "./registration/registration-admin.service";
+import { RegistrationPolicyService } from "./registration/registration-policy.service";
+import { RegistrationPublicService } from "./registration/registration-public.service";
+import { RegistrationSessionAdminService } from "./registration/registration-session-admin.service";
 
 @Module({
   imports: [DatabaseModule],
@@ -19,8 +29,20 @@ import { AcademyService } from "./academy.service";
     AcademyLeadsAdminController,
     AcademyAdminMutationsController,
     AcademyCampaignsAdminController,
+    AcademyRegistrationPublicController,
+    AcademyRegistrationAdminController,
+    AcademyRegistrationSessionAdminController,
+    AcademyRegistrationPolicyAdminController,
   ],
-  providers: [AcademyService, AcademyLeadsService, AcademyCampaignsService],
+  providers: [
+    AcademyService,
+    AcademyLeadsService,
+    AcademyCampaignsService,
+    RegistrationPolicyService,
+    RegistrationPublicService,
+    RegistrationAdminService,
+    RegistrationSessionAdminService,
+  ],
   exports: [AcademyService, AcademyLeadsService, AcademyCampaignsService],
 })
 export class AcademyModule {}

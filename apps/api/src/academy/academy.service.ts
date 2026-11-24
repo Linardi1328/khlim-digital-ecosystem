@@ -46,6 +46,8 @@ export class AcademyService {
       where: {
         organizationId: DEFAULT_ORGANIZATION_ID,
         status: "OPEN",
+        // Registration cohorts are served by /academy/sessions, never legacy checkout.
+        registrationSession: { is: null },
         programme: {
           organizationId: DEFAULT_ORGANIZATION_ID,
           active: true,
@@ -363,6 +365,17 @@ export class AcademyService {
     ]);
     if (!plan || !offering) {
       throw new NotFoundException("Plan or programme offering not found");
+    }
+    const registrationCohort =
+      await this.prisma.client.academyRegistrationSession.findUnique({
+        where: { programmeOfferingId: offering.id },
+        select: { id: true },
+      });
+    if (registrationCohort) {
+      throw new ConflictException({
+        code: "OFFERING_REGISTRATION_ONLY",
+        message: "Registration cohorts cannot be linked to membership plans",
+      });
     }
 
     return this.prisma.client.membershipPlanOfferingEligibility.upsert({

@@ -782,6 +782,247 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/academy/registration-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Approved consent versions and form options; reports whether registration is open */
+        get: operations["AcademyRegistrationPublicController_getConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/academy/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Published, open, not-full Academy sessions available for registration */
+        get: operations["AcademyRegistrationPublicController_listSessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/academy/registrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit a registration. A receipt means received and pending review; it never reserves a place. */
+        post: operations["AcademyRegistrationPublicController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/academy/registrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List registrations (no text search: use POST search) */
+        get: operations["AcademyRegistrationAdminController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/academy/registrations/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Search registrations by name, guardian phone or reference code (body, not URL) */
+        post: operations["AcademyRegistrationAdminController_search"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/academy/registrations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Registration detail (audited PII access) */
+        get: operations["AcademyRegistrationAdminController_detail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/academy/registrations/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change registration status (server-enforced state machine) */
+        patch: operations["AcademyRegistrationAdminController_changeStatus"];
+        trace?: never;
+    };
+    "/v1/admin/academy/registration-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List registration sessions with seat counts */
+        get: operations["AcademyRegistrationSessionAdminController_list"];
+        put?: never;
+        /** Create a draft session and its dedicated programme offering */
+        post: operations["AcademyRegistrationSessionAdminController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/academy/registration-sessions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Registration session detail */
+        get: operations["AcademyRegistrationSessionAdminController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit a session (compare-and-set on expectedVersion) */
+        patch: operations["AcademyRegistrationSessionAdminController_patch"];
+        trace?: never;
+    };
+    "/v1/admin/academy/registration-sessions/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish a complete session; records explicit schedule and age-rule approval */
+        post: operations["AcademyRegistrationSessionAdminController_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/academy/registration-sessions/{id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close a published session */
+        post: operations["AcademyRegistrationSessionAdminController_close"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/academy/registration-policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List consent policy versions */
+        get: operations["AcademyRegistrationPolicyAdminController_list"];
+        put?: never;
+        /** Create a draft consent policy version (references and hashes only) */
+        post: operations["AcademyRegistrationPolicyAdminController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/academy/registration-policies/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve a draft policy; approver is the authenticated user */
+        post: operations["AcademyRegistrationPolicyAdminController_approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/academy/registration-policies/{id}/retire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retire a policy (closes registration if it was current) */
+        post: operations["AcademyRegistrationPolicyAdminController_retire"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/athletes/{athleteId}/memberships/{membershipId}/billing": {
         parameters: {
             query?: never;
@@ -1530,6 +1771,294 @@ export interface components {
             traffic: components["schemas"]["CampaignTrafficMetricsDto"];
             /** @example Database records are authoritative for all confirmed registrations. PostHog traffic counts include only visitors who explicitly opted into analytics; non-consenting visitors also generate valid database leads. */
             methodologyNote: string;
+        };
+        RegistrationConsentItemDto: {
+            /** @example MARKETING */
+            type: string;
+            required: boolean;
+            /** @enum {boolean} */
+            defaultChecked: false;
+            /** @description Per-locale { ref, sha256 } references to approved wording */
+            content: {
+                [key: string]: unknown;
+            };
+        };
+        RegistrationConsentConfigDto: {
+            policyVersion: string;
+            approvedAt: string;
+            locales: string[];
+            items: components["schemas"]["RegistrationConsentItemDto"][];
+        };
+        RegistrationConfigDto: {
+            registrationOpen: boolean;
+            /** @example null */
+            closedReasonCode: string | null;
+            consent: components["schemas"]["RegistrationConsentConfigDto"] | null;
+            options: {
+                [key: string]: string[];
+            };
+            idempotencyKey: {
+                [key: string]: unknown;
+            };
+        };
+        PublicVenueDto: {
+            name: string;
+            address: string | null;
+        };
+        PublicAgeReferenceDto: {
+            rule: string | null;
+            date: string | null;
+        };
+        PublicRegistrationSessionDto: {
+            /** @example 00000000-0000-4000-8000-000000000001 */
+            id: string;
+            name: string;
+            programmeName: string;
+            venue: components["schemas"]["PublicVenueDto"];
+            coachDisplayName: string | null;
+            /** @description ISO weekday, 1 = Monday */
+            weekday: number | null;
+            /** @example 14:00 */
+            startTime: string | null;
+            /** @example 16:00 */
+            endTime: string | null;
+            /** @example Asia/Kuala_Lumpur */
+            timezone: string;
+            firstSessionDate: string | null;
+            /** @enum {string|null} */
+            recurrence: "NONE" | "WEEKLY" | null;
+            minAge: number | null;
+            maxAge: number | null;
+            ageReference: components["schemas"]["PublicAgeReferenceDto"];
+            registrationOpensAt: string | null;
+            registrationClosesAt: string | null;
+        };
+        PublicRegistrationSessionsDto: {
+            registrationOpen: boolean;
+            items: components["schemas"]["PublicRegistrationSessionDto"][];
+        };
+        RegistrationPlayerDto: {
+            /** @example Test Player */
+            fullName: string;
+            /**
+             * @description YYYY-MM-DD
+             * @example 2015-03-02
+             */
+            dateOfBirth: string;
+            /** @example MALE */
+            gender: string;
+            /** @example YM */
+            jerseySize: string;
+            /** @example null */
+            phone?: string | null;
+        };
+        RegistrationGuardianDto: {
+            fullName: string;
+            /** @example 012-3456789 */
+            phone: string;
+            /** @example MOTHER */
+            relationship: string;
+            /**
+             * @description Must be true
+             * @example true
+             */
+            authorityConfirmed: boolean;
+        };
+        RegistrationEmergencyContactDto: {
+            fullName: string;
+            /** @example 013-9876543 */
+            phone: string;
+            /** @example GRANDPARENT */
+            relationship: string;
+        };
+        RegistrationConsentsDto: {
+            /**
+             * @description Must be true
+             * @example true
+             */
+            registrationPrivacy: boolean;
+            /**
+             * @description Never preselected
+             * @example false
+             */
+            marketing: boolean;
+            /**
+             * @description Never preselected
+             * @example false
+             */
+            photography: boolean;
+        };
+        CreateRegistrationRequestDto: {
+            /** @example 00000000-0000-4000-8000-000000000001 */
+            sessionId: string;
+            /** @enum {string} */
+            locale: "en" | "ms" | "zh-Hans";
+            /** @description Policy version from registration-config */
+            consentVersion: string;
+            /** @description Campaign token; unsafe values are dropped */
+            source?: string;
+            player: components["schemas"]["RegistrationPlayerDto"];
+            guardian: components["schemas"]["RegistrationGuardianDto"];
+            emergencyContact: components["schemas"]["RegistrationEmergencyContactDto"];
+            consents: components["schemas"]["RegistrationConsentsDto"];
+        };
+        RegistrationReceiptSessionDto: {
+            /** @example 00000000-0000-4000-8000-000000000001 */
+            id: string;
+            name: string;
+        };
+        RegistrationReceiptDto: {
+            /** @example 00000000-0000-4000-8000-000000000001 */
+            id: string;
+            /** @example KAR-7H3QK9XM */
+            referenceCode: string;
+            /** @enum {string} */
+            status: "RECEIVED";
+            /**
+             * @description A receipt never reserves a place
+             * @enum {boolean}
+             */
+            reservesPlace: false;
+            /** @example 2026-12-10T04:21:00.000Z */
+            receivedAt: string;
+            /** @example REGISTRATION_RECEIVED_PENDING_REVIEW */
+            messageCode: string;
+            session: components["schemas"]["RegistrationReceiptSessionDto"];
+        };
+        RegistrationErrorFieldDto: {
+            /** @example guardian.phone */
+            field: string;
+            /** @example INVALID_PHONE */
+            code: string;
+        };
+        RegistrationErrorDto: {
+            /** @example 409 */
+            statusCode: number;
+            /**
+             * @description Stable localization key
+             * @example SESSION_FULL
+             */
+            code: string;
+            /** @description English developer text only */
+            message: string;
+            fieldErrors?: components["schemas"]["RegistrationErrorFieldDto"][];
+            details?: {
+                [key: string]: unknown;
+            };
+            retryAfter?: number;
+        };
+        RegistrationSummaryDto: {
+            id: string;
+            referenceCode: string;
+            /** @enum {string} */
+            status: "RECEIVED" | "UNDER_REVIEW" | "CONFIRMED" | "REJECTED" | "CANCELLED";
+            version: number;
+            sessionId: string;
+            sessionName: string;
+            playerFullName: string;
+            ageAtReference: number;
+            createdAt: string;
+            updatedAt: string;
+        };
+        RegistrationListDto: {
+            items: components["schemas"]["RegistrationSummaryDto"][];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+        };
+        RegistrationSearchRequestDto: {
+            /** @description Name, guardian phone or reference code */
+            q: string;
+            /** @enum {string} */
+            status?: "RECEIVED" | "UNDER_REVIEW" | "CONFIRMED" | "REJECTED" | "CANCELLED";
+            sessionId?: string;
+            page?: number;
+            limit?: number;
+        };
+        RegistrationDetailDto: {
+            id: string;
+            referenceCode: string;
+            /** @enum {string} */
+            status: "RECEIVED" | "UNDER_REVIEW" | "CONFIRMED" | "REJECTED" | "CANCELLED";
+            version: number;
+            sessionId: string;
+            sessionName: string;
+            playerFullName: string;
+            ageAtReference: number;
+            createdAt: string;
+            updatedAt: string;
+            player: {
+                [key: string]: unknown;
+            };
+            guardian: {
+                [key: string]: unknown;
+            };
+            emergencyContact: {
+                [key: string]: unknown;
+            };
+            source: string | null;
+            statusReasonCode: string | null;
+            statusChangedAt: string | null;
+            consents: {
+                [key: string]: unknown;
+            }[];
+        };
+        RegistrationStatusChangeRequestDto: {
+            /** @enum {string} */
+            status: "RECEIVED" | "UNDER_REVIEW" | "CONFIRMED" | "REJECTED" | "CANCELLED";
+            /**
+             * @description Required for REJECTED and CANCELLED
+             * @enum {string}
+             */
+            reasonCode?: "DUPLICATE" | "INELIGIBLE" | "CAPACITY" | "GUARDIAN_REQUEST" | "INCOMPLETE_INFORMATION" | "SESSION_CHANGED" | "OTHER";
+            /** @example 1 */
+            expectedVersion: number;
+        };
+        RegistrationSessionRequestDto: {
+            programmeId?: string;
+            name?: string;
+            venueId?: string;
+            capacity?: number;
+            enrollmentOpensAt?: string | null;
+            enrollmentClosesAt?: string | null;
+            coachDisplayName?: string | null;
+            weekday?: number | null;
+            /** @example 14:00 */
+            startTime?: string | null;
+            /** @example 16:00 */
+            endTime?: string | null;
+            firstSessionDate?: string | null;
+            /** @enum {string|null} */
+            recurrence?: "NONE" | "WEEKLY" | null;
+            /** @enum {string|null} */
+            ageReferenceRule?: "FIXED_DATE" | "SESSION_START_DATE" | "REGISTRATION_DATE" | null;
+            ageReferenceDate?: string | null;
+            /** @description Required on PATCH/publish/close */
+            expectedVersion?: number;
+        };
+        PublishRegistrationSessionRequestDto: {
+            expectedVersion: number;
+            /**
+             * @example {
+             *       "scheduleApproved": true,
+             *       "ageRuleApproved": true
+             *     }
+             */
+            approvals: {
+                [key: string]: boolean;
+            };
+        };
+        VersionRequestDto: {
+            expectedVersion: number;
+        };
+        CreateRegistrationPolicyRequestDto: {
+            /** @example 2026-12-v1 */
+            policyVersion: string;
+            /** @description { CONSENT_TYPE: { locale: { ref, sha256 } } } for all four types and three locales */
+            content: {
+                [key: string]: unknown;
+            };
         };
         PrepareMembershipCheckoutDto: {
             /** @example true */
@@ -2578,6 +3107,431 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CampaignAnalyticsResponseDto"];
                 };
+            };
+        };
+    };
+    AcademyRegistrationPublicController_getConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationConfigDto"];
+                };
+            };
+        };
+    };
+    AcademyRegistrationPublicController_listSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicRegistrationSessionsDto"];
+                };
+            };
+        };
+    };
+    AcademyRegistrationPublicController_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 22-128 URL-safe characters */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRegistrationRequestDto"];
+            };
+        };
+        responses: {
+            /** @description Identical retry; original receipt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationReceiptDto"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationReceiptDto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationErrorDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationErrorDto"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationErrorDto"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationErrorDto"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationErrorDto"];
+                };
+            };
+        };
+    };
+    AcademyRegistrationAdminController_list: {
+        parameters: {
+            query?: {
+                limit?: unknown;
+                page?: unknown;
+                sessionId?: unknown;
+                status?: unknown;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationListDto"];
+                };
+            };
+        };
+    };
+    AcademyRegistrationAdminController_search: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegistrationSearchRequestDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationListDto"];
+                };
+            };
+        };
+    };
+    AcademyRegistrationAdminController_detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationDetailDto"];
+                };
+            };
+        };
+    };
+    AcademyRegistrationAdminController_changeStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegistrationStatusChangeRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationDetailDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationErrorDto"];
+                };
+            };
+        };
+    };
+    AcademyRegistrationSessionAdminController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AcademyRegistrationSessionAdminController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegistrationSessionRequestDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AcademyRegistrationSessionAdminController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AcademyRegistrationSessionAdminController_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegistrationSessionRequestDto"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AcademyRegistrationSessionAdminController_publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishRegistrationSessionRequestDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AcademyRegistrationSessionAdminController_close: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionRequestDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AcademyRegistrationPolicyAdminController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AcademyRegistrationPolicyAdminController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRegistrationPolicyRequestDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AcademyRegistrationPolicyAdminController_approve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionRequestDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AcademyRegistrationPolicyAdminController_retire: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionRequestDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

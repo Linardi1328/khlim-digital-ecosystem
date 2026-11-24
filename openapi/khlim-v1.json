@@ -1604,6 +1604,651 @@
         ]
       }
     },
+    "/v1/academy/registration-config": {
+      "get": {
+        "operationId": "AcademyRegistrationPublicController_getConfig",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationConfigDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Approved consent versions and form options; reports whether registration is open",
+        "tags": [
+          "academy"
+        ]
+      }
+    },
+    "/v1/academy/sessions": {
+      "get": {
+        "operationId": "AcademyRegistrationPublicController_listSessions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicRegistrationSessionsDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Published, open, not-full Academy sessions available for registration",
+        "tags": [
+          "academy"
+        ]
+      }
+    },
+    "/v1/academy/registrations": {
+      "post": {
+        "operationId": "AcademyRegistrationPublicController_create",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "22-128 URL-safe characters",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRegistrationRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Identical retry; original receipt",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationReceiptDto"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationReceiptDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationErrorDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationErrorDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationErrorDto"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationErrorDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Submit a registration. A receipt means received and pending review; it never reserves a place.",
+        "tags": [
+          "academy"
+        ]
+      }
+    },
+    "/v1/admin/academy/registrations": {
+      "get": {
+        "operationId": "AcademyRegistrationAdminController_list",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "sessionId",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationListDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "List registrations (no text search: use POST search)",
+        "tags": [
+          "admin-academy"
+        ]
+      }
+    },
+    "/v1/admin/academy/registrations/search": {
+      "post": {
+        "operationId": "AcademyRegistrationAdminController_search",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistrationSearchRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationListDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Search registrations by name, guardian phone or reference code (body, not URL)",
+        "tags": [
+          "admin-academy"
+        ]
+      }
+    },
+    "/v1/admin/academy/registrations/{id}": {
+      "get": {
+        "operationId": "AcademyRegistrationAdminController_detail",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationDetailDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Registration detail (audited PII access)",
+        "tags": [
+          "admin-academy"
+        ]
+      }
+    },
+    "/v1/admin/academy/registrations/{id}/status": {
+      "patch": {
+        "operationId": "AcademyRegistrationAdminController_changeStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistrationStatusChangeRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationErrorDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Change registration status (server-enforced state machine)",
+        "tags": [
+          "admin-academy"
+        ]
+      }
+    },
+    "/v1/admin/academy/registration-sessions": {
+      "get": {
+        "operationId": "AcademyRegistrationSessionAdminController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "List registration sessions with seat counts",
+        "tags": [
+          "admin-academy"
+        ]
+      },
+      "post": {
+        "operationId": "AcademyRegistrationSessionAdminController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistrationSessionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Create a draft session and its dedicated programme offering",
+        "tags": [
+          "admin-academy"
+        ]
+      }
+    },
+    "/v1/admin/academy/registration-sessions/{id}": {
+      "get": {
+        "operationId": "AcademyRegistrationSessionAdminController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Registration session detail",
+        "tags": [
+          "admin-academy"
+        ]
+      },
+      "patch": {
+        "operationId": "AcademyRegistrationSessionAdminController_patch",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistrationSessionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Edit a session (compare-and-set on expectedVersion)",
+        "tags": [
+          "admin-academy"
+        ]
+      }
+    },
+    "/v1/admin/academy/registration-sessions/{id}/publish": {
+      "post": {
+        "operationId": "AcademyRegistrationSessionAdminController_publish",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublishRegistrationSessionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Publish a complete session; records explicit schedule and age-rule approval",
+        "tags": [
+          "admin-academy"
+        ]
+      }
+    },
+    "/v1/admin/academy/registration-sessions/{id}/close": {
+      "post": {
+        "operationId": "AcademyRegistrationSessionAdminController_close",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Close a published session",
+        "tags": [
+          "admin-academy"
+        ]
+      }
+    },
+    "/v1/admin/academy/registration-policies": {
+      "get": {
+        "operationId": "AcademyRegistrationPolicyAdminController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "List consent policy versions",
+        "tags": [
+          "admin-academy"
+        ]
+      },
+      "post": {
+        "operationId": "AcademyRegistrationPolicyAdminController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRegistrationPolicyRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Create a draft consent policy version (references and hashes only)",
+        "tags": [
+          "admin-academy"
+        ]
+      }
+    },
+    "/v1/admin/academy/registration-policies/{id}/approve": {
+      "post": {
+        "operationId": "AcademyRegistrationPolicyAdminController_approve",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Approve a draft policy; approver is the authenticated user",
+        "tags": [
+          "admin-academy"
+        ]
+      }
+    },
+    "/v1/admin/academy/registration-policies/{id}/retire": {
+      "post": {
+        "operationId": "AcademyRegistrationPolicyAdminController_retire",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VersionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "supabase": []
+          }
+        ],
+        "summary": "Retire a policy (closes registration if it was current)",
+        "tags": [
+          "admin-academy"
+        ]
+      }
+    },
     "/v1/athletes/{athleteId}/memberships/{membershipId}/billing": {
       "get": {
         "operationId": "BillingController_getMembershipBilling",
@@ -3105,6 +3750,891 @@
           "leads",
           "traffic",
           "methodologyNote"
+        ]
+      },
+      "RegistrationConsentItemDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "MARKETING"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "defaultChecked": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "content": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Per-locale { ref, sha256 } references to approved wording"
+          }
+        },
+        "required": [
+          "type",
+          "required",
+          "defaultChecked",
+          "content"
+        ]
+      },
+      "RegistrationConsentConfigDto": {
+        "type": "object",
+        "properties": {
+          "policyVersion": {
+            "type": "string"
+          },
+          "approvedAt": {
+            "type": "string"
+          },
+          "locales": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RegistrationConsentItemDto"
+            }
+          }
+        },
+        "required": [
+          "policyVersion",
+          "approvedAt",
+          "locales",
+          "items"
+        ]
+      },
+      "RegistrationConfigDto": {
+        "type": "object",
+        "properties": {
+          "registrationOpen": {
+            "type": "boolean"
+          },
+          "closedReasonCode": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          },
+          "consent": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RegistrationConsentConfigDto"
+              }
+            ]
+          },
+          "options": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "idempotencyKey": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "registrationOpen",
+          "closedReasonCode",
+          "consent",
+          "options",
+          "idempotencyKey"
+        ]
+      },
+      "PublicVenueDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "name",
+          "address"
+        ]
+      },
+      "PublicAgeReferenceDto": {
+        "type": "object",
+        "properties": {
+          "rule": {
+            "type": "string",
+            "nullable": true
+          },
+          "date": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "rule",
+          "date"
+        ]
+      },
+      "PublicRegistrationSessionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "00000000-0000-4000-8000-000000000001"
+          },
+          "name": {
+            "type": "string"
+          },
+          "programmeName": {
+            "type": "string"
+          },
+          "venue": {
+            "$ref": "#/components/schemas/PublicVenueDto"
+          },
+          "coachDisplayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "weekday": {
+            "type": "number",
+            "nullable": true,
+            "description": "ISO weekday, 1 = Monday"
+          },
+          "startTime": {
+            "type": "string",
+            "nullable": true,
+            "example": "14:00"
+          },
+          "endTime": {
+            "type": "string",
+            "nullable": true,
+            "example": "16:00"
+          },
+          "timezone": {
+            "type": "string",
+            "example": "Asia/Kuala_Lumpur"
+          },
+          "firstSessionDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "recurrence": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "NONE",
+              "WEEKLY"
+            ]
+          },
+          "minAge": {
+            "type": "number",
+            "nullable": true
+          },
+          "maxAge": {
+            "type": "number",
+            "nullable": true
+          },
+          "ageReference": {
+            "$ref": "#/components/schemas/PublicAgeReferenceDto"
+          },
+          "registrationOpensAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "registrationClosesAt": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "programmeName",
+          "venue",
+          "coachDisplayName",
+          "weekday",
+          "startTime",
+          "endTime",
+          "timezone",
+          "firstSessionDate",
+          "recurrence",
+          "minAge",
+          "maxAge",
+          "ageReference",
+          "registrationOpensAt",
+          "registrationClosesAt"
+        ]
+      },
+      "PublicRegistrationSessionsDto": {
+        "type": "object",
+        "properties": {
+          "registrationOpen": {
+            "type": "boolean"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PublicRegistrationSessionDto"
+            }
+          }
+        },
+        "required": [
+          "registrationOpen",
+          "items"
+        ]
+      },
+      "RegistrationPlayerDto": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "maxLength": 120,
+            "example": "Test Player"
+          },
+          "dateOfBirth": {
+            "type": "string",
+            "example": "2015-03-02",
+            "description": "YYYY-MM-DD"
+          },
+          "gender": {
+            "type": "string",
+            "example": "MALE"
+          },
+          "jerseySize": {
+            "type": "string",
+            "example": "YM"
+          },
+          "phone": {
+            "type": "string",
+            "nullable": true,
+            "example": null
+          }
+        },
+        "required": [
+          "fullName",
+          "dateOfBirth",
+          "gender",
+          "jerseySize"
+        ]
+      },
+      "RegistrationGuardianDto": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "phone": {
+            "type": "string",
+            "example": "012-3456789"
+          },
+          "relationship": {
+            "type": "string",
+            "example": "MOTHER"
+          },
+          "authorityConfirmed": {
+            "type": "boolean",
+            "example": true,
+            "description": "Must be true"
+          }
+        },
+        "required": [
+          "fullName",
+          "phone",
+          "relationship",
+          "authorityConfirmed"
+        ]
+      },
+      "RegistrationEmergencyContactDto": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "phone": {
+            "type": "string",
+            "example": "013-9876543"
+          },
+          "relationship": {
+            "type": "string",
+            "example": "GRANDPARENT"
+          }
+        },
+        "required": [
+          "fullName",
+          "phone",
+          "relationship"
+        ]
+      },
+      "RegistrationConsentsDto": {
+        "type": "object",
+        "properties": {
+          "registrationPrivacy": {
+            "type": "boolean",
+            "example": true,
+            "description": "Must be true"
+          },
+          "marketing": {
+            "type": "boolean",
+            "example": false,
+            "description": "Never preselected"
+          },
+          "photography": {
+            "type": "boolean",
+            "example": false,
+            "description": "Never preselected"
+          }
+        },
+        "required": [
+          "registrationPrivacy",
+          "marketing",
+          "photography"
+        ]
+      },
+      "CreateRegistrationRequestDto": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "example": "00000000-0000-4000-8000-000000000001"
+          },
+          "locale": {
+            "type": "string",
+            "enum": [
+              "en",
+              "ms",
+              "zh-Hans"
+            ]
+          },
+          "consentVersion": {
+            "type": "string",
+            "description": "Policy version from registration-config"
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "Campaign token; unsafe values are dropped"
+          },
+          "player": {
+            "$ref": "#/components/schemas/RegistrationPlayerDto"
+          },
+          "guardian": {
+            "$ref": "#/components/schemas/RegistrationGuardianDto"
+          },
+          "emergencyContact": {
+            "$ref": "#/components/schemas/RegistrationEmergencyContactDto"
+          },
+          "consents": {
+            "$ref": "#/components/schemas/RegistrationConsentsDto"
+          }
+        },
+        "required": [
+          "sessionId",
+          "locale",
+          "consentVersion",
+          "player",
+          "guardian",
+          "emergencyContact",
+          "consents"
+        ]
+      },
+      "RegistrationReceiptSessionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "00000000-0000-4000-8000-000000000001"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "RegistrationReceiptDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "00000000-0000-4000-8000-000000000001"
+          },
+          "referenceCode": {
+            "type": "string",
+            "example": "KAR-7H3QK9XM"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "RECEIVED"
+            ]
+          },
+          "reservesPlace": {
+            "type": "boolean",
+            "enum": [
+              false
+            ],
+            "description": "A receipt never reserves a place"
+          },
+          "receivedAt": {
+            "type": "string",
+            "example": "2026-12-10T04:21:00.000Z"
+          },
+          "messageCode": {
+            "type": "string",
+            "example": "REGISTRATION_RECEIVED_PENDING_REVIEW"
+          },
+          "session": {
+            "$ref": "#/components/schemas/RegistrationReceiptSessionDto"
+          }
+        },
+        "required": [
+          "id",
+          "referenceCode",
+          "status",
+          "reservesPlace",
+          "receivedAt",
+          "messageCode",
+          "session"
+        ]
+      },
+      "RegistrationErrorFieldDto": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string",
+            "example": "guardian.phone"
+          },
+          "code": {
+            "type": "string",
+            "example": "INVALID_PHONE"
+          }
+        },
+        "required": [
+          "field",
+          "code"
+        ]
+      },
+      "RegistrationErrorDto": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 409
+          },
+          "code": {
+            "type": "string",
+            "example": "SESSION_FULL",
+            "description": "Stable localization key"
+          },
+          "message": {
+            "type": "string",
+            "description": "English developer text only"
+          },
+          "fieldErrors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RegistrationErrorFieldDto"
+            }
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "retryAfter": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "statusCode",
+          "code",
+          "message"
+        ]
+      },
+      "RegistrationSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "referenceCode": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "RECEIVED",
+              "UNDER_REVIEW",
+              "CONFIRMED",
+              "REJECTED",
+              "CANCELLED"
+            ]
+          },
+          "version": {
+            "type": "number"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "sessionName": {
+            "type": "string"
+          },
+          "playerFullName": {
+            "type": "string"
+          },
+          "ageAtReference": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "referenceCode",
+          "status",
+          "version",
+          "sessionId",
+          "sessionName",
+          "playerFullName",
+          "ageAtReference",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "RegistrationListDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RegistrationSummaryDto"
+            }
+          },
+          "total": {
+            "type": "number"
+          },
+          "page": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          },
+          "totalPages": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "limit",
+          "totalPages"
+        ]
+      },
+      "RegistrationSearchRequestDto": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100,
+            "description": "Name, guardian phone or reference code"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "RECEIVED",
+              "UNDER_REVIEW",
+              "CONFIRMED",
+              "REJECTED",
+              "CANCELLED"
+            ]
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "page": {
+            "type": "number",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "q"
+        ]
+      },
+      "RegistrationDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "referenceCode": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "RECEIVED",
+              "UNDER_REVIEW",
+              "CONFIRMED",
+              "REJECTED",
+              "CANCELLED"
+            ]
+          },
+          "version": {
+            "type": "number"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "sessionName": {
+            "type": "string"
+          },
+          "playerFullName": {
+            "type": "string"
+          },
+          "ageAtReference": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "player": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "guardian": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "emergencyContact": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "source": {
+            "type": "string",
+            "nullable": true
+          },
+          "statusReasonCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "statusChangedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "consents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        },
+        "required": [
+          "id",
+          "referenceCode",
+          "status",
+          "version",
+          "sessionId",
+          "sessionName",
+          "playerFullName",
+          "ageAtReference",
+          "createdAt",
+          "updatedAt",
+          "player",
+          "guardian",
+          "emergencyContact",
+          "source",
+          "statusReasonCode",
+          "statusChangedAt",
+          "consents"
+        ]
+      },
+      "RegistrationStatusChangeRequestDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "RECEIVED",
+              "UNDER_REVIEW",
+              "CONFIRMED",
+              "REJECTED",
+              "CANCELLED"
+            ]
+          },
+          "reasonCode": {
+            "type": "string",
+            "enum": [
+              "DUPLICATE",
+              "INELIGIBLE",
+              "CAPACITY",
+              "GUARDIAN_REQUEST",
+              "INCOMPLETE_INFORMATION",
+              "SESSION_CHANGED",
+              "OTHER"
+            ],
+            "description": "Required for REJECTED and CANCELLED"
+          },
+          "expectedVersion": {
+            "type": "number",
+            "example": 1
+          }
+        },
+        "required": [
+          "status",
+          "expectedVersion"
+        ]
+      },
+      "RegistrationSessionRequestDto": {
+        "type": "object",
+        "properties": {
+          "programmeId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "venueId": {
+            "type": "string"
+          },
+          "capacity": {
+            "type": "number"
+          },
+          "enrollmentOpensAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "enrollmentClosesAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "coachDisplayName": {
+            "type": "string",
+            "nullable": true
+          },
+          "weekday": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 1,
+            "maximum": 7
+          },
+          "startTime": {
+            "type": "string",
+            "nullable": true,
+            "example": "14:00"
+          },
+          "endTime": {
+            "type": "string",
+            "nullable": true,
+            "example": "16:00"
+          },
+          "firstSessionDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "recurrence": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "NONE",
+              "WEEKLY"
+            ]
+          },
+          "ageReferenceRule": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "FIXED_DATE",
+              "SESSION_START_DATE",
+              "REGISTRATION_DATE"
+            ]
+          },
+          "ageReferenceDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "expectedVersion": {
+            "type": "number",
+            "description": "Required on PATCH/publish/close"
+          }
+        }
+      },
+      "PublishRegistrationSessionRequestDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number"
+          },
+          "approvals": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "example": {
+              "scheduleApproved": true,
+              "ageRuleApproved": true
+            }
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "approvals"
+        ]
+      },
+      "VersionRequestDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "expectedVersion"
+        ]
+      },
+      "CreateRegistrationPolicyRequestDto": {
+        "type": "object",
+        "properties": {
+          "policyVersion": {
+            "type": "string",
+            "example": "2026-12-v1"
+          },
+          "content": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "{ CONSENT_TYPE: { locale: { ref, sha256 } } } for all four types and three locales"
+          }
+        },
+        "required": [
+          "policyVersion",
+          "content"
         ]
       },
       "PrepareMembershipCheckoutDto": {
