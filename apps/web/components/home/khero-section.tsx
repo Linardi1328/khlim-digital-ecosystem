@@ -69,7 +69,6 @@ export function KheroSection({
               alt={t(poster.altKey)}
               fill
               sizes="(max-width: 640px) 100vw, (max-width: 900px) 50vw, 33vw"
-              priority={index === 0}
               style={{ objectFit: "cover" }}
             />
           </figure>
