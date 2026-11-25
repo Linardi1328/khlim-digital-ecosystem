@@ -534,11 +534,63 @@ export function isYouthMediaConfirmed(): boolean {
   return process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED === "1";
 }
 
+/**
+ * Youth media publication approvals (identifiable minors).
+ *
+ * A youth image may render ONLY when all of the following hold:
+ *   1. the editorial item is marked `photoRightsVerified`;
+ *   2. the deployment opts in with NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED=1;
+ *   3. the exact image URL is listed here with a documented guardian
+ *      publication-consent reference.
+ *
+ * The environment flag and filenames are never sufficient on their own.
+ * Approved youth images must be served from approved private storage (not from
+ * `apps/web/public`, which is publicly downloadable and also published in this
+ * public Git repository). Keep consent records in private KHLIM business
+ * systems; record only a non-sensitive reference here.
+ *
+ * Intentionally empty: no guardian publication consent is documented yet.
+ */
+export interface ApprovedYouthMedia {
+  /** Exact URL the site renders (private-storage or signed URL origin). */
+  readonly url: string;
+  /** Non-sensitive reference to the private consent record. */
+  readonly consentRef: string;
+  /** Channels the consent covers, for example "website". */
+  readonly channels: readonly string[];
+  /** ISO date after which the consent must be re-confirmed. */
+  readonly reviewBy: string;
+}
+
+export const APPROVED_YOUTH_MEDIA: readonly ApprovedYouthMedia[] = [];
+
+export function isApprovedYouthMedia(
+  url: string | undefined,
+  approvals: readonly ApprovedYouthMedia[] = APPROVED_YOUTH_MEDIA,
+  today: string = new Date().toISOString().slice(0, 10),
+): boolean {
+  if (!url) return false;
+  return approvals.some(
+    (entry) =>
+      entry.url === url &&
+      entry.consentRef.trim().length > 0 &&
+      entry.channels.includes("website") &&
+      entry.reviewBy >= today,
+  );
+}
+
 export function canRenderYouthMedia(
   item: { imageUrl?: string; photoRightsVerified?: boolean } | null | undefined,
+  approvals: readonly ApprovedYouthMedia[] = APPROVED_YOUTH_MEDIA,
 ): boolean {
   if (!item || !item.imageUrl) return false;
-  return Boolean(item.photoRightsVerified) && isYouthMediaConfirmed();
+  // The build flag alone is not authorization: the exact image must also have
+  // a documented guardian publication consent in APPROVED_YOUTH_MEDIA.
+  return (
+    Boolean(item.photoRightsVerified) &&
+    isYouthMediaConfirmed() &&
+    isApprovedYouthMedia(item.imageUrl, approvals)
+  );
 }
 
 export interface ClubGalleryItem {

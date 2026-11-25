@@ -36,7 +36,8 @@ test("static contract: homepage hero carousel uses exactly 4 slides in specified
     "Slide 3 (sideline energy) must precede Slide 4 (court together)",
   );
 
-  // 2. Approved homepage carousel media is present in deployable public directory
+  // 2. Youth carousel photographs (identifiable minors, no documented guardian
+  //    publication consent) must NOT be in the deployable public directory.
   const files = [
     "apps/web/public/media/home/team-huddle-desktop.webp",
     "apps/web/public/media/home/team-huddle-mobile.webp",
@@ -55,8 +56,8 @@ test("static contract: homepage hero carousel uses exactly 4 slides in specified
     }
     assert.equal(
       exists,
-      true,
-      `Approved carousel binary ${f} must be present in public tree`,
+      false,
+      `Restricted youth carousel binary ${f} must not be in the public tree`,
     );
   }
 

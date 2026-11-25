@@ -8,7 +8,11 @@ import {
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import type { AuthenticatedUserContext } from "../auth/authenticated-user";
-import { Public, RequireAthleteAccess } from "../auth/authorization.decorators";
+import {
+  Public,
+  RequireAthleteAccess,
+  RequireLaunchedFeature,
+} from "../auth/authorization.decorators";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { CreatePendingMembershipDto } from "./academy.dto";
 import { AcademyService } from "./academy.service";
@@ -35,6 +39,7 @@ export class AcademyController {
   }
 
   @Get("athletes/:athleteId/memberships")
+  @RequireLaunchedFeature("V1_PORTAL", { staffBypass: true })
   @ApiBearerAuth("supabase")
   @RequireAthleteAccess("read")
   listAthleteMemberships(
@@ -45,6 +50,7 @@ export class AcademyController {
   }
 
   @Post("athletes/:athleteId/memberships")
+  @RequireLaunchedFeature("V1_ENROLMENT")
   @ApiBearerAuth("supabase")
   @RequireAthleteAccess("manage")
   createPendingMembership(

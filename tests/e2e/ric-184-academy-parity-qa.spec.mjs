@@ -396,6 +396,60 @@ test.describe("RIC-184 Academy information, V1 availability, localization & QA",
     }
   });
 
+  test("Removed youth and unverified media cannot be fetched directly from a local production build", async ({
+    request,
+    baseURL,
+  }) => {
+    test.skip(
+      !baseURL ||
+        !["localhost", "127.0.0.1", "[::1]"].includes(
+          new URL(baseURL).hostname,
+        ),
+      "Direct asset checks run only on the disposable local build",
+    );
+    test.setTimeout(60_000);
+    const removedPaths = [
+      "/media/achievements/cls-international-indonesia-2026-champion.webp",
+      "/media/achievements/club-gallery-court-lineup-hoop.webp",
+      "/media/achievements/club-gallery-in-game-court-huddle.webp",
+      "/media/achievements/club-gallery-matchday-bench-cheering.webp",
+      "/media/achievements/club-gallery-sideline-celebration-moment.webp",
+      "/media/achievements/club-gallery-sideline-celebration-wide.webp",
+      "/media/achievements/club-gallery-state-honours-lineup.webp",
+      "/media/achievements/club-gallery-studio-squad-spirit.webp",
+      "/media/achievements/club-gallery-studio-team-portrait.webp",
+      "/media/achievements/club-gallery-team-huddle-circle.webp",
+      "/media/achievements/jasmine-cup-2025-2026-khlim-a-champion.webp",
+      "/media/achievements/jasmine-cup-2025-2026-khlim-e-fourth.webp",
+      "/media/achievements/khlim-maba-matrix-u17-2026-2.webp",
+      "/media/achievements/khlim-maba-matrix-u17-2026.webp",
+      "/media/achievements/khlim-mssm-2024.webp",
+      "/media/achievements/khlim-mssm-2025.webp",
+      "/media/achievements/khlim-u15-lmc-cup-2025.webp",
+      "/media/achievements/u14g-fastbreak-2024-champion.webp",
+      "/media/achievements/u14g-mpbl-2025-runner-up.webp",
+      "/media/achievements/u15-sba-d1-selangor-2025-champion.webp",
+      "/media/achievements/u15-sba-d2-selangor-2025.webp",
+      "/media/achievements/u15-sba-selangor-2024-third.webp",
+      "/media/achievements/u16-d2-sba-selangor-2026-runner-up.webp",
+      "/media/home/court-together-desktop.webp",
+      "/media/home/court-together-mobile.webp",
+      "/media/home/sideline-energy-desktop.webp",
+      "/media/home/sideline-energy-mobile.webp",
+      "/media/home/team-huddle-desktop.webp",
+      "/media/home/team-huddle-mobile.webp",
+      "/media/khero/coming-soon.webp",
+      "/media/khlim/team-hero-1920.webp",
+      "/media/khlim/team-hero-wide-1920.webp",
+      "/media/khlim/training-group-1280.webp",
+    ];
+    for (const path of removedPaths) {
+      const response = await request.get(path, { maxRedirects: 0 });
+      expect(response.status(), `Removed asset: ${path}`).toBe(404);
+      await response.dispose();
+    }
+  });
+
   test("Programme detail distinguishes loading, unavailable (with retry), successful empty, not-found, and available states", async ({
     page,
   }) => {

@@ -18,6 +18,7 @@ import {
   AllowAuthenticated,
   RequireAnyRole,
   RequireAthleteAccess,
+  RequireLaunchedFeature,
 } from "../auth/authorization.decorators";
 import { CurrentUser } from "../auth/current-user.decorator";
 import {
@@ -35,6 +36,7 @@ export class FamilyController {
   constructor(private readonly family: FamilyService) {}
 
   @Get("me/athletes")
+  @RequireLaunchedFeature("V1_PORTAL", { staffBypass: true })
   @RequireAnyRole("GUARDIAN")
   @ApiOperation({
     summary: "List athletes actively managed by the current guardian",
@@ -45,6 +47,7 @@ export class FamilyController {
   }
 
   @Post("me/athletes")
+  @RequireLaunchedFeature("V1_PORTAL", { staffBypass: true })
   @RequireAnyRole("GUARDIAN")
   @ApiOperation({
     summary: "Create a managed athlete for the current guardian",
@@ -60,6 +63,7 @@ export class FamilyController {
   }
 
   @Get("athletes/:athleteId")
+  @RequireLaunchedFeature("V1_PORTAL", { staffBypass: true })
   @RequireAthleteAccess("read")
   @ApiOperation({ summary: "Get an athlete visible to the current account" })
   @ApiOkResponse({ description: "Authorized athlete profile" })
@@ -68,6 +72,7 @@ export class FamilyController {
   }
 
   @Patch("athletes/:athleteId")
+  @RequireLaunchedFeature("V1_PORTAL", { staffBypass: true })
   @RequireAthleteAccess("manage")
   @ApiOperation({ summary: "Update an athlete managed by the current account" })
   @ApiOkResponse({ description: "Athlete profile updated" })
@@ -79,6 +84,7 @@ export class FamilyController {
   }
 
   @Delete("me/athletes/:athleteId/link")
+  @RequireLaunchedFeature("V1_PORTAL", { staffBypass: true })
   @RequireAnyRole("GUARDIAN")
   @ApiOperation({ summary: "Revoke the current guardian's athlete link" })
   @ApiOkResponse({ description: "Family link revoked" })
@@ -90,6 +96,7 @@ export class FamilyController {
   }
 
   @Post("me/athletes/:athleteId/guardian-invitations")
+  @RequireLaunchedFeature("V1_PORTAL", { staffBypass: true })
   @RequireAthleteAccess("manage")
   @ApiOperation({ summary: "Invite another guardian to manage an athlete" })
   createGuardianInvitation(
@@ -101,6 +108,7 @@ export class FamilyController {
   }
 
   @Delete("me/athletes/:athleteId/guardian-invitations/:invitationId")
+  @RequireLaunchedFeature("V1_PORTAL", { staffBypass: true })
   @RequireAthleteAccess("manage")
   @ApiOperation({ summary: "Revoke a pending guardian invitation" })
   revokeGuardianInvitation(
@@ -116,6 +124,7 @@ export class FamilyController {
   }
 
   @Post("family-invitations/accept")
+  @RequireLaunchedFeature("V1_PORTAL", { staffBypass: true })
   @AllowAuthenticated()
   @ApiOperation({ summary: "Accept a guardian invitation" })
   acceptGuardianInvitation(

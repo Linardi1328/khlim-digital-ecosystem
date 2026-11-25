@@ -57,9 +57,9 @@ test("club event gallery: data model accounts for all 9 event photographs with f
       `Item for ${original} must have mediaReleaseRef documented`,
     );
 
-    // Verify file exists on disk in deployable public tree
+    // Restricted youth media is not served from the deployable public tree
     const diskPath = `apps/web/public${item.imageUrl}`;
-    await access(new URL(diskPath, root));
+    await assert.rejects(access(new URL(diskPath, root)));
   }
 
   // Factual caption verification: duplicate / companion analysis
@@ -172,17 +172,14 @@ test("browser: spotlight renders 9 club photos independently from editorial stat
       .textContent();
     assert.equal(firstCardTitle, "Pre-Game Strategy Circle");
 
-    const firstImage = galleryCards.first().locator("img");
-    assert.equal(await firstImage.count(), 1);
-    assert.match(
-      await firstImage.getAttribute("src"),
-      /club-gallery-team-huddle-circle/,
-      "Approved club photo must render as a full-frame image",
-    );
-    const firstImageLink = galleryCards.first().locator("a");
-    assert.match(
-      await firstImageLink.getAttribute("href"),
-      /club-gallery-team-huddle-circle\.webp/,
+    // The flag alone is not authorization: without a documented guardian
+    // consent entry no club photograph renders or links.
+    assert.equal(await page.locator(".spotlight-gallery-card img").count(), 0);
+    assert.equal(
+      await page
+        .locator('.spotlight-gallery-card a[href*="club-gallery"]')
+        .count(),
+      0,
     );
   } finally {
     await browser.close();

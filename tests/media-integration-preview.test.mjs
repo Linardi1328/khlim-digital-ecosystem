@@ -110,23 +110,22 @@ test("media safety: deployable public directory contains verified approved asset
     "academy-crest.webp must be present in public tree",
   );
 
-  // 2b. Verified director-approved website media is present in public tree
-  assert.ok(
-    allPublicFiles.some((f) => f.includes("team-hero-1920")),
-    "team-hero-1920 must be present in public tree",
-  );
-  assert.ok(
-    allPublicFiles.some((f) => f.includes("team-hero-wide-1920")),
-    "team-hero-wide-1920 must be present in public tree",
-  );
-  assert.ok(
-    allPublicFiles.some((f) => f.includes("training-group-1280")),
-    "training-group-1280 must be present in public tree",
-  );
-  assert.ok(
-    allPublicFiles.some((f) => f.includes("/media/achievements/")),
-    "achievements photos must be present in public tree",
-  );
+  // 2b. Youth photographs (identifiable minors) have director website
+  //     authorization but no documented guardian publication consent, so they
+  //     must not be served from the public tree.
+  for (const restricted of [
+    "team-hero-1920",
+    "team-hero-wide-1920",
+    "training-group-1280",
+    "/media/achievements/",
+    "/media/home/",
+    "khero/coming-soon.webp",
+  ]) {
+    assert.ok(
+      !allPublicFiles.some((f) => f.includes(restricted)),
+      `${restricted} must not be present in the public tree`,
+    );
+  }
 
   // 3. .gitignore contains staging pack directory
   const gitignore = await read(".gitignore");
