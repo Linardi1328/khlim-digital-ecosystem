@@ -34,7 +34,7 @@ All registration endpoints:
   "code": "VALIDATION_FAILED",
   "message": "English developer text",
   "fieldErrors": [{ "field": "guardian.phone", "code": "INVALID_PHONE" }],
-  "details": { "currentConsentVersion": "…" },
+  "details": { "currentConsentVersion": "SYNTHETIC-EXAMPLE-2" },
   "retryAfter": 30
 }
 ```
@@ -63,8 +63,10 @@ admin endpoints keep the existing platform shape
 | 503 | `SERVICE_TEMPORARILY_UNAVAILABLE` | Rate-limit storage failure (fails closed); honour `Retry-After` |
 | 503 | `REGISTRATION_PERSISTENCE_FAILED` | Not saved. Retry with the **same** key |
 
-Status codes on success: `POST` endpoints return `201` (including admin
-`search`, `publish`, `close`, policy create/approve/retire); `PATCH` returns `200`.
+Status codes on success: admin `POST …/registrations/search` returns `200`
+(it is a read; the body only keeps search terms out of URLs). Other `POST`
+endpoints return `201` (including `publish`, `close`, policy
+create/approve/retire); `PATCH` returns `200`.
 
 Admin-only: `POLICY_VERSION_EXISTS`, `OFFERING_REGISTRATION_ONLY`,
 `OFFERING_HAS_LEGACY_USAGE`, `REGISTRATION_NOT_FOUND`, `SESSION_NOT_FOUND`, `POLICY_NOT_FOUND`,
@@ -79,8 +81,13 @@ Admin-only: `POLICY_VERSION_EXISTS`, `OFFERING_REGISTRATION_ONLY`,
 `TOO_SHORT`, `OUT_OF_RANGE`, `UNKNOWN_FIELD`, `MUST_BE_TRUE`, `INVALID_PHONE`,
 `INVALID_DATE`, `DATE_IN_FUTURE`, `REASON_CODE_REQUIRED`.
 
-Unknown fields are rejected at every nesting level (`UNKNOWN_FIELD`), including
-`status`, `price`, `age`, `organizationId`, `role`.
+Unknown fields are rejected at every nesting level, including `status`,
+`price`, `age`, `organizationId`, `role`. Unknown member names are client
+controlled (and could contain personal data), so they are **never echoed**: the
+error is reported once at the known parent path, for example
+`{ "field": "body", "code": "UNKNOWN_FIELD" }` or
+`{ "field": "guardian", "code": "UNKNOWN_FIELD" }`. Recognised fields keep exact
+paths such as `guardian.phone`.
 
 ## Public endpoints (no auth)
 
@@ -93,22 +100,127 @@ Unknown fields are rejected at every nesting level (`UNKNOWN_FIELD`), including
   "consent": {
     "policyVersion": "SYNTHETIC-EXAMPLE",
     "approvedAt": "2026-12-01T03:00:00.000Z",
-    "locales": ["en", "ms", "zh-Hans"],
+    "locales": [
+      "en",
+      "ms",
+      "zh-Hans"
+    ],
     "items": [
-      { "type": "GUARDIAN_AUTHORITY", "required": true, "defaultChecked": false,
-        "content": { "en": { "ref": "…", "sha256": "…" }, "ms": {…}, "zh-Hans": {…} } },
-      { "type": "REGISTRATION_PRIVACY", "required": true, "defaultChecked": false, "content": {…} },
-      { "type": "MARKETING", "required": false, "defaultChecked": false, "content": {…} },
-      { "type": "PHOTOGRAPHY", "required": false, "defaultChecked": false, "content": {…} }
+      {
+        "type": "GUARDIAN_AUTHORITY",
+        "required": true,
+        "defaultChecked": false,
+        "content": {
+          "en": {
+            "ref": "ref://synthetic-example/GUARDIAN_AUTHORITY/en",
+            "sha256": "315d5efa5d9e77aebbbdb677f8c73ba6f0a6e369c9157a53e88594253f5df6a6"
+          },
+          "ms": {
+            "ref": "ref://synthetic-example/GUARDIAN_AUTHORITY/ms",
+            "sha256": "5726bab1f716d90a8a00c4053e5fe819be257f3ecd597b4a7a85fbde4e7fc29d"
+          },
+          "zh-Hans": {
+            "ref": "ref://synthetic-example/GUARDIAN_AUTHORITY/zh-Hans",
+            "sha256": "465c3a418163cf279780e8c52d61ade3d8fa39a491f7f23402e1eba31fd279c1"
+          }
+        }
+      },
+      {
+        "type": "REGISTRATION_PRIVACY",
+        "required": true,
+        "defaultChecked": false,
+        "content": {
+          "en": {
+            "ref": "ref://synthetic-example/REGISTRATION_PRIVACY/en",
+            "sha256": "8a3b1b933fead2cdccaf9f22798c43b102f2c7ef070da0f2b7fd606f653f05f3"
+          },
+          "ms": {
+            "ref": "ref://synthetic-example/REGISTRATION_PRIVACY/ms",
+            "sha256": "47da45ed28f1aa43bc119ae2df93180d2eae7999f39a5b62a14b2220621150fe"
+          },
+          "zh-Hans": {
+            "ref": "ref://synthetic-example/REGISTRATION_PRIVACY/zh-Hans",
+            "sha256": "e272af41f7df27e50368434cede71c87db9618a128d755afb183d64fa9257e2b"
+          }
+        }
+      },
+      {
+        "type": "MARKETING",
+        "required": false,
+        "defaultChecked": false,
+        "content": {
+          "en": {
+            "ref": "ref://synthetic-example/MARKETING/en",
+            "sha256": "89977df8e2614d4c01c11a42efc2ce6d88b05fe98e726721e442b24da1392fa2"
+          },
+          "ms": {
+            "ref": "ref://synthetic-example/MARKETING/ms",
+            "sha256": "713c4208d30df620793a3ee5480d1d0bf5c1a86f005ee8860153e2c76c41aa86"
+          },
+          "zh-Hans": {
+            "ref": "ref://synthetic-example/MARKETING/zh-Hans",
+            "sha256": "f7e250565d4c7d3995041c28dbee8b192f9fbb56a7ecdb8b567dade5153f960f"
+          }
+        }
+      },
+      {
+        "type": "PHOTOGRAPHY",
+        "required": false,
+        "defaultChecked": false,
+        "content": {
+          "en": {
+            "ref": "ref://synthetic-example/PHOTOGRAPHY/en",
+            "sha256": "9a7c5da28337610c17d7cc5c7831d59da61e7bc3c37e48d6335fa9d025eea9df"
+          },
+          "ms": {
+            "ref": "ref://synthetic-example/PHOTOGRAPHY/ms",
+            "sha256": "798f2b71bc40339a360b6a3a62b6dc677260273368dd93871c36af2b5be4c330"
+          },
+          "zh-Hans": {
+            "ref": "ref://synthetic-example/PHOTOGRAPHY/zh-Hans",
+            "sha256": "b032a18527015ee95b51ebf4fa8dc676409d289e95194ad4af1dbac3845746ec"
+          }
+        }
+      }
     ]
   },
   "options": {
-    "gender": ["MALE", "FEMALE"],
-    "jerseySize": ["YS", "YM", "YL", "AS", "AM", "AL", "AXL"],
-    "guardianRelationship": ["MOTHER", "FATHER", "LEGAL_GUARDIAN", "GRANDPARENT", "OTHER_RELATIVE"],
-    "emergencyContactRelationship": ["MOTHER", "FATHER", "LEGAL_GUARDIAN", "GRANDPARENT", "OTHER_RELATIVE", "FRIEND", "OTHER"]
+    "gender": [
+      "MALE",
+      "FEMALE"
+    ],
+    "jerseySize": [
+      "YS",
+      "YM",
+      "YL",
+      "AS",
+      "AM",
+      "AL",
+      "AXL"
+    ],
+    "guardianRelationship": [
+      "MOTHER",
+      "FATHER",
+      "LEGAL_GUARDIAN",
+      "GRANDPARENT",
+      "OTHER_RELATIVE"
+    ],
+    "emergencyContactRelationship": [
+      "MOTHER",
+      "FATHER",
+      "LEGAL_GUARDIAN",
+      "GRANDPARENT",
+      "OTHER_RELATIVE",
+      "FRIEND",
+      "OTHER"
+    ]
   },
-  "idempotencyKey": { "header": "Idempotency-Key", "minLength": 22, "maxLength": 128, "pattern": "^[A-Za-z0-9_-]{22,128}$" }
+  "idempotencyKey": {
+    "header": "Idempotency-Key",
+    "minLength": 22,
+    "maxLength": 128,
+    "pattern": "^[A-Za-z0-9_-]{22,128}$"
+  }
 }
 ```
 
@@ -238,13 +350,61 @@ Session admin fields (all optional while `DRAFT` except where noted):
 
 ## Mock responses
 
-Use the JSON blocks above verbatim for MSW/Playwright mocks. Error mocks:
+Every ```json block in this document is complete, parseable JSON (checked by
+`tests/academy-registration-handoff.test.mjs`). Use the response blocks above
+verbatim for MSW/Playwright mocks. Error mocks, one JSON array:
 
 ```json
-{ "statusCode": 409, "code": "SESSION_FULL", "message": "Session is full" }
-{ "statusCode": 409, "code": "CONSENT_VERSION_MISMATCH", "message": "…", "details": { "currentConsentVersion": "SYNTHETIC-EXAMPLE-2" } }
-{ "statusCode": 422, "code": "PLAYER_AGE_INELIGIBLE", "message": "…", "details": { "minAge": 10, "maxAge": 12 } }
-{ "statusCode": 429, "code": "RATE_LIMITED", "message": "…", "retryAfter": 600 }
+[
+  {
+    "statusCode": 409,
+    "code": "SESSION_FULL",
+    "message": "Session is full"
+  },
+  {
+    "statusCode": 409,
+    "code": "CONSENT_VERSION_MISMATCH",
+    "message": "Consent version is not current",
+    "details": {
+      "currentConsentVersion": "SYNTHETIC-EXAMPLE-2"
+    }
+  },
+  {
+    "statusCode": 422,
+    "code": "PLAYER_AGE_INELIGIBLE",
+    "message": "Player does not meet the age requirements",
+    "details": {
+      "minAge": 10,
+      "maxAge": 12
+    }
+  },
+  {
+    "statusCode": 429,
+    "code": "RATE_LIMITED",
+    "message": "Too many registration attempts",
+    "retryAfter": 600
+  },
+  {
+    "statusCode": 409,
+    "code": "REGISTRATION_CLOSED",
+    "message": "Registration is not open"
+  },
+  {
+    "statusCode": 400,
+    "code": "VALIDATION_FAILED",
+    "message": "Request validation failed",
+    "fieldErrors": [
+      {
+        "field": "guardian.phone",
+        "code": "INVALID_PHONE"
+      },
+      {
+        "field": "guardian",
+        "code": "UNKNOWN_FIELD"
+      }
+    ]
+  }
+]
 ```
 
 ## Not in this API
@@ -267,8 +427,8 @@ policy operation (previously `unknown`):
   `PublishRegistrationSessionRequestDto`; close `VersionRequestDto`.
 - Policies: `AdminRegistrationPolicyDto`, `AdminRegistrationPolicyListDto`;
   create `CreateRegistrationPolicyRequestDto`; approve/retire `VersionRequestDto`.
-- Success statuses are exactly as documented in the schema: `POST` = `201`
-  (including search, publish, close, policy create/approve/retire), `PATCH` = `200`,
+- Success statuses are exactly as documented in the schema: search = `200`;
+  other `POST` = `201` (publish, close, policy create/approve/retire); `PATCH` = `200`,
   `GET` = `200`; `POST /academy/registrations` is `201` first time and `200` for
   an identical replay.
 - A contract test compares the generated schemas with live responses and fails
@@ -279,3 +439,19 @@ serialized with submissions, so a submission racing a retirement or replacement
 can return `REGISTRATION_CLOSED` or `CONSENT_VERSION_MISMATCH` (refetch
 `registration-config` and ask the guardian to review the current text). Nothing
 else in the public request/response shapes changed.
+
+## Contract corrections (CodeRabbit review)
+
+- `PATCH …/registrations/:id/status`: the `status` enum excludes `RECEIVED`
+  (it is only ever the initial state).
+- Nullable enums (`recurrence`, `ageReferenceRule`) list `null`, so strict
+  OpenAPI 3.0 validators accept draft sessions.
+- `publish` requires `approvals.scheduleApproved` and `approvals.ageRuleApproved`,
+  both exactly `true` (`PublishApprovalsDto`).
+- `GET …/registration-policies` returns `{ current, items }`: `current` is the
+  approved policy (or `null`) even when it is older than the 50 newest versions.
+- Admin search now returns `200`.
+- Publishing refuses a programme whose sport is inactive
+  (`SESSION_INCOMPLETE`, field `programme.sport`).
+- Date-time inputs with impossible calendar days (for example `2026-02-30T10:00:00Z`)
+  return `INVALID_DATE` instead of being silently normalized.

@@ -40,6 +40,12 @@ const PUBLISHED_EDITABLE = new Set([
   "enrollmentClosesAt",
 ]);
 
+const SNAPSHOT_READ = {
+  isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+  maxWait: 5000,
+  timeout: 15000,
+} as const;
+
 const TX_OPTIONS = {
   isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
   maxWait: 5000,
@@ -161,42 +167,41 @@ export class RegistrationSessionAdminService {
     return map;
   }
 
+  /** Rows and seat counts are read in one REPEATABLE READ snapshot. */
   list(organizationId: string) {
-    return withSanitizedErrors(async () => {
-      const rows = await this.prisma.client.academyRegistrationSession.findMany(
-        {
+    return withSanitizedErrors(() =>
+      this.prisma.client.$transaction(async (tx) => {
+        const rows = await tx.academyRegistrationSession.findMany({
           where: { organizationId },
           include: SESSION_INCLUDE,
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           take: 100,
-        },
-      );
-      const counts = await this.countsFor(
-        this.prisma.client,
-        organizationId,
-        rows.map((row) => row.id),
-      );
-      return {
-        items: rows.map((row) => mapSession(row, counts.get(row.id) ?? {})),
-      };
-    });
+        });
+        const counts = await this.countsFor(
+          tx,
+          organizationId,
+          rows.map((row) => row.id),
+        );
+        return {
+          items: rows.map((row) => mapSession(row, counts.get(row.id) ?? {})),
+        };
+      }, SNAPSHOT_READ),
+    );
   }
 
   get(organizationId: string, id: string) {
     const sessionId = parseUuidParam(id, "SESSION_NOT_FOUND");
-    return withSanitizedErrors(async () => {
-      const row = await this.prisma.client.academyRegistrationSession.findFirst(
-        {
+    return withSanitizedErrors(() =>
+      this.prisma.client.$transaction(async (tx) => {
+        const row = await tx.academyRegistrationSession.findFirst({
           where: { id: sessionId, organizationId },
           include: SESSION_INCLUDE,
-        },
-      );
-      if (!row) throw this.notFound();
-      const counts = await this.countsFor(this.prisma.client, organizationId, [
-        row.id,
-      ]);
-      return mapSession(row, counts.get(row.id) ?? {});
-    });
+        });
+        if (!row) throw this.notFound();
+        const counts = await this.countsFor(tx, organizationId, [row.id]);
+        return mapSession(row, counts.get(row.id) ?? {});
+      }, SNAPSHOT_READ),
+    );
   }
 
   private notFound(): RegistrationApiException {
@@ -533,6 +538,14 @@ export class RegistrationSessionAdminService {
           missing.push({ field: "capacity", code: "OUT_OF_RANGE" });
         if (!programme.active)
           missing.push({ field: "programme", code: "INVALID_VALUE" });
+        // An inactive sport hides the session publicly and blocks submission,
+        // so refuse to publish and leave the session in DRAFT.
+        const sport = await tx.sport.findUnique({
+          where: { id: programme.sportId },
+          select: { active: true },
+        });
+        if (!sport?.active)
+          missing.push({ field: "programme.sport", code: "INVALID_VALUE" });
         if (
           programme.minimumAge !== null &&
           programme.maximumAge !== null &&

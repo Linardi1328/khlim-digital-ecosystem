@@ -5,6 +5,15 @@ import {
   STATUS_REASON_CODES,
 } from "./registration.constants";
 
+// OpenAPI 3.0 applies `enum` to null too, so nullable enums must list null.
+const NULLABLE_RECURRENCE = ["NONE", "WEEKLY", null] as unknown as string[];
+const NULLABLE_AGE_RULE = [
+  "FIXED_DATE",
+  "SESSION_START_DATE",
+  "REGISTRATION_DATE",
+  null,
+] as unknown as string[];
+
 const UUID_EXAMPLE = "00000000-0000-4000-8000-000000000001";
 
 export class RegistrationPlayerDto {
@@ -204,7 +213,7 @@ export class PublicRegistrationSessionDto {
   timezone!: string;
   @ApiProperty({ type: String, nullable: true })
   firstSessionDate!: string | null;
-  @ApiProperty({ type: String, nullable: true, enum: ["NONE", "WEEKLY"] })
+  @ApiProperty({ type: String, nullable: true, enum: NULLABLE_RECURRENCE })
   recurrence!: string | null;
   @ApiProperty({ type: Number, nullable: true })
   minAge!: number | null;
@@ -226,7 +235,10 @@ export class PublicRegistrationSessionsDto {
 }
 
 export class RegistrationStatusChangeRequestDto {
-  @ApiProperty({ enum: REGISTRATION_STATUSES })
+  @ApiProperty({
+    enum: REGISTRATION_STATUSES.filter((status) => status !== "RECEIVED"),
+    description: "Target status; RECEIVED is only ever the initial state",
+  })
   status!: string;
   @ApiPropertyOptional({
     enum: STATUS_REASON_CODES,
@@ -333,13 +345,13 @@ class RegistrationSessionScheduleFieldsDto {
   @ApiPropertyOptional({
     type: String,
     nullable: true,
-    enum: ["NONE", "WEEKLY"],
+    enum: NULLABLE_RECURRENCE,
   })
   recurrence?: string | null;
   @ApiPropertyOptional({
     type: String,
     nullable: true,
-    enum: ["FIXED_DATE", "SESSION_START_DATE", "REGISTRATION_DATE"],
+    enum: NULLABLE_AGE_RULE,
   })
   ageReferenceRule?: string | null;
   @ApiPropertyOptional({
@@ -424,7 +436,7 @@ export class AdminRegistrationSessionDto {
   @ApiProperty({ example: "Asia/Kuala_Lumpur" }) timezone!: string;
   @ApiProperty({ type: String, nullable: true }) firstSessionDate!:
     string | null;
-  @ApiProperty({ type: String, nullable: true, enum: ["NONE", "WEEKLY"] })
+  @ApiProperty({ type: String, nullable: true, enum: NULLABLE_RECURRENCE })
   recurrence!: string | null;
   @ApiProperty({ type: String, nullable: true }) ageReferenceRule!:
     string | null;
@@ -459,18 +471,31 @@ export class AdminRegistrationPolicyDto {
 }
 
 export class AdminRegistrationPolicyListDto {
-  @ApiProperty({ type: () => [AdminRegistrationPolicyDto] })
+  @ApiProperty({
+    type: () => AdminRegistrationPolicyDto,
+    nullable: true,
+    description:
+      "The approved policy, always present here even when older than the history page",
+  })
+  current!: AdminRegistrationPolicyDto | null;
+  @ApiProperty({
+    type: () => [AdminRegistrationPolicyDto],
+    description: "Newest 50 policy versions",
+  })
   items!: AdminRegistrationPolicyDto[];
+}
+
+export class PublishApprovalsDto {
+  @ApiProperty({ type: Boolean, enum: [true], description: "Must be true" })
+  scheduleApproved!: true;
+  @ApiProperty({ type: Boolean, enum: [true], description: "Must be true" })
+  ageRuleApproved!: true;
 }
 
 export class PublishRegistrationSessionRequestDto {
   @ApiProperty() expectedVersion!: number;
-  @ApiProperty({
-    type: "object",
-    additionalProperties: { type: "boolean" },
-    example: { scheduleApproved: true, ageRuleApproved: true },
-  })
-  approvals!: { scheduleApproved: boolean; ageRuleApproved: boolean };
+  @ApiProperty({ type: () => PublishApprovalsDto })
+  approvals!: PublishApprovalsDto;
 }
 
 export class VersionRequestDto {

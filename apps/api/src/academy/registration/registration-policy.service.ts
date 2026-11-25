@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { AuthenticatedUserContext } from "../../auth/authenticated-user";
 import { PrismaService } from "../../database/prisma.service";
+import { loadApiRuntimeConfig } from "../../environment";
 import { DEFAULT_ORGANIZATION_ID } from "../../organization/organization.constants";
 import { Prisma } from "../../generated/prisma/client";
 import {
@@ -22,6 +23,21 @@ import {
   withSanitizedErrors,
 } from "./registration.errors";
 import { parseUuidParam } from "./registration.validation";
+
+/**
+ * The deployment tier exactly as the API runtime resolves it at startup
+ * (`KHLIM_ENV`, else `production` when `NODE_ENV=production`). Any invalid
+ * configuration is treated as production so the synthetic guard fails closed.
+ */
+export function resolveDeploymentTier(
+  environment: NodeJS.ProcessEnv = process.env,
+): "development" | "staging" | "production" {
+  try {
+    return loadApiRuntimeConfig(environment).deploymentEnv;
+  } catch {
+    return "production";
+  }
+}
 
 export interface CurrentPolicy {
   id: string;
@@ -110,12 +126,22 @@ export class RegistrationPolicyService {
 
   list(organizationId: string) {
     return withSanitizedErrors(async () => {
-      const rows = await this.prisma.client.academyRegistrationPolicy.findMany({
-        where: { organizationId },
-        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-        take: 50,
-      });
-      return { items: rows.map(mapPolicy) };
+      // Bounded history plus the current policy, which stays reachable (for
+      // retirement) however many newer drafts exist.
+      const [rows, current] = await Promise.all([
+        this.prisma.client.academyRegistrationPolicy.findMany({
+          where: { organizationId },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: 50,
+        }),
+        this.prisma.client.academyRegistrationPolicy.findFirst({
+          where: { organizationId, status: "APPROVED" },
+        }),
+      ]);
+      return {
+        current: current ? mapPolicy(current) : null,
+        items: rows.map(mapPolicy),
+      };
     });
   }
 
@@ -206,10 +232,9 @@ export class RegistrationPolicyService {
           );
         }
         // Synthetic fixtures must never become live policy versions.
-        const deployment = process.env.KHLIM_ENV;
         if (
           /^synthetic/i.test(row.policy_version) &&
-          (deployment === "staging" || deployment === "production")
+          resolveDeploymentTier() !== "development"
         ) {
           throw new RegistrationApiException(
             409,
@@ -220,7 +245,11 @@ export class RegistrationPolicyService {
         const now = new Date();
         await tx.academyRegistrationPolicy.updateMany({
           where: { organizationId, status: "APPROVED" },
-          data: { status: "RETIRED", retiredAt: now },
+          data: {
+            status: "RETIRED",
+            retiredAt: now,
+            version: { increment: 1 },
+          },
         });
         const approved = await tx.academyRegistrationPolicy.update({
           where: { id: policyId },

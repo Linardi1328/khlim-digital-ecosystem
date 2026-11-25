@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Get,
   Headers,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -169,11 +170,12 @@ export class AcademyRegistrationAdminController {
   }
 
   @Post("search")
+  @HttpCode(200)
   @ApiOperation({
     summary:
       "Search registrations by name, guardian phone or reference code (body, not URL)",
   })
-  @ApiResponse({ status: 201, type: RegistrationListDto })
+  @ApiResponse({ status: 200, type: RegistrationListDto })
   search(
     @CurrentUser() user: AuthenticatedUserContext,
     @Body() body: RegistrationSearchRequestDto,

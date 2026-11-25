@@ -51,8 +51,12 @@ double-counting is possible when conversion is added later (conversion must
 then retire the registration seat in the same transaction; out of scope).
 Legacy `PATCH admin/academy/offerings/:id/status` can still move an offering
 between statuses, but bookability is the conjunction of offering `OPEN` **and**
-session `PUBLISHED` **and** approved consent, evaluated live, so a legacy
-status change can only _reduce_ availability.
+session `PUBLISHED` **and** approved consent, evaluated live. A legacy status
+change therefore cannot publish a `DRAFT` cohort, but it can both remove and
+**restore** availability of an already `PUBLISHED` cohort: moving its offering to
+`INACTIVE`/`CLOSED` hides it, and moving it back to `OPEN` makes it bookable
+again (all other eligibility conditions still apply). Close the session itself
+(`POST …/registration-sessions/:id/close`) to end registration permanently.
 `TrainingSession` (legacy scheduling/attendance) is a different table; no
 scheduling route reads or writes registration sessions.
 
@@ -70,6 +74,10 @@ scheduling route reads or writes registration sessions.
   targeted `BEFORE INSERT OR UPDATE` trigger on `programme_offerings` now rejects
   cross-tenant programme/venue references. Existing rows are not rewritten and
   legacy FK delete behaviour (`venue_id ON DELETE SET NULL`) is unchanged.
+- The reverse direction is guarded too: a `programmes` or `venues` row cannot
+  change `organization_id` while an offering of a different organization
+  references it (`CROSS_TENANT_REFERENCE`). Unreferenced parents can still move,
+  and deleting a venue still sets referencing offerings' `venue_id` to `NULL`.
 
 ### D5. Lock order and transaction isolation
 
@@ -125,21 +133,40 @@ policy advisory lock (approve/retire only)
 - A unique violation (reference-code collision) is caught **outside** the
   rolled-back transaction and handled with a fresh transaction/lookup, never
   continued inside it.
-- **Legacy versus attachment (review U1).** The membership and plan-link
-  triggers take `FOR SHARE` on the offering row before checking for a
-  registration session; the session-insert trigger takes `FOR UPDATE` on the
-  offering row before checking for memberships/links. The two sides therefore
-  conflict on a single row in either order and the second transaction re-checks
-  after the first commits (tested both ways on PostgreSQL 16; no deadlock).
-  The API still creates the offering and session together, so no HTTP path can
-  attach a session to an existing offering.
+- **Legacy versus attachment, at every isolation level.** A row lock alone is
+  not enough under `REPEATABLE READ`/`SERIALIZABLE`: the check after the wait
+  still reads the transaction's original snapshot (demonstrated: with the
+  earlier lock-only triggers both sides committed under `REPEATABLE READ`). Each
+  writer on either side (membership insert, plan-link insert, session
+  attachment) therefore writes a no-op **conflict marker**
+  (`UPDATE programme_offerings SET id = id`) before its check. Under
+  `READ COMMITTED` the second writer waits and then sees the first writer's
+  commit; under `REPEATABLE READ`/`SERIALIZABLE` it fails with SQLSTATE `40001`.
+  At most one side commits (tested both orders, both isolation levels; no
+  deadlock). The marker changes no key and fires none of the column-specific
+  offering triggers or foreign-key actions. Concurrent legacy membership inserts
+  on one offering now serialize on that row (the legacy service already locked
+  it `FOR UPDATE`). The API still creates the offering and session together, so
+  no HTTP path can attach a session to an existing offering.
+- **Capacity at every isolation level.** The confirmation trigger also writes the
+  conflict marker, so two direct-SQL confirmations under `REPEATABLE READ`
+  cannot both count a stale snapshot (demonstrated before the fix: two
+  confirmations into one seat). The confirmed-seat counts in both triggers
+  include `organization_id`, the leading column of the registration index.
+- **Direct-SQL confirmation versus the API.** A direct `UPDATE … status =
+  'CONFIRMED'` locks the registration row before its trigger locks the offering,
+  the reverse of the API order, so PostgreSQL can abort one side with `40P01`.
+  The status API retries a deadlocked transaction (bounded, the aborted attempt
+  has fully rolled back) and never returns a 5xx for this case. Direct writers
+  should lock the offering (`SELECT … FOR UPDATE`) before confirming.
 
 Defense in depth at the database level (works for any writer, including direct
 SQL): a trigger on `academy_registrations` locks the offering and refuses a
 transition to `CONFIRMED` beyond capacity, refuses leaving a terminal state,
 and refuses non-`RECEIVED` inserts; a trigger on `programme_offerings` refuses
 reducing capacity below confirmed seats and clearing the venue of a published
-cohort. Identity triggers (review U4) make a registration's `id`,
+cohort; and a session can only enter `PUBLISHED` (insert or update) while its
+offering has a venue. Identity triggers (review U4) make a registration's `id`,
 `organization_id`, `session_id`, `reference_code`, session-name snapshot,
 idempotency/HMAC columns and `created_at` immutable, and a session's `id`,
 `organization_id` and `programme_offering_id` immutable; because the composite
@@ -262,6 +289,13 @@ re-check already precedes the policy lock and availability checks.
 - Sentry `beforeSend` strips bodies, query strings and cookies on registration
   routes (`apps/api/src/observability/registration-privacy.ts`).
 - Public responses carry no player/guardian PII.
+- Unknown JSON member names are never echoed in `fieldErrors` (they are client
+  controlled and can carry personal data); the error names the known parent path.
+- The Sentry scrubber matches the request **path** by whole segments (never the
+  query string), so unrelated routes keep their diagnostics.
+- The integration suite records the production structured logger
+  (`createStructuredLogger`) during registration traffic and asserts it captured
+  registration-path events without personal data.
 
 ### D13. Google Sheets: BLOCKED
 
@@ -287,6 +321,16 @@ re-cut as a corrective migration) before merge. Rollback before data exists is
 the reverse `DROP` order (triggers → consent → registration → session → policy →
 enums → the three composite unique indexes). After real data exists, prefer a
 forward fix. No migration execution was added to Vercel builds.
+
+**Prisma migration history.** The CodeRabbit remediation amended the same
+unpublished migration again (conflict markers, publish-venue trigger, parent
+tenant-move triggers, tenant predicates). `prisma migrate deploy` records each
+applied migration by name and checksum; a database that applied an earlier
+revision keeps that revision and will not receive these changes, and
+`migrate dev` reports the checksum mismatch. Any such database (local or CI
+only; none hosted) must be rebuilt with `prisma migrate reset`. Before the
+first hosted deployment the migration must be frozen; later changes must be
+new migrations.
 
 ## Operations and configuration
 
@@ -316,6 +360,9 @@ The tests refuse to run unless the database name contains `test` and the host is
 
 ```sql
 -- RIC-190 rollback (local/pre-data only). Reverse order of the migration.
+DROP TRIGGER IF EXISTS "venues_tenant_move_guard" ON "public"."venues";
+DROP TRIGGER IF EXISTS "programmes_tenant_move_guard" ON "public"."programmes";
+DROP TRIGGER IF EXISTS "registration_sessions_publish_requires_venue" ON "public"."academy_registration_sessions";
 DROP TRIGGER IF EXISTS "academy_registrations_identity_guard" ON "public"."academy_registrations";
 DROP TRIGGER IF EXISTS "registration_sessions_identity_guard" ON "public"."academy_registration_sessions";
 DROP TRIGGER IF EXISTS "academy_registrations_state_guard" ON "public"."academy_registrations";
@@ -324,6 +371,9 @@ DROP TRIGGER IF EXISTS "plan_eligibilities_registration_isolation" ON "public"."
 DROP TRIGGER IF EXISTS "memberships_registration_isolation" ON "public"."memberships";
 DROP TRIGGER IF EXISTS "programme_offerings_registration_guard" ON "public"."programme_offerings";
 DROP TRIGGER IF EXISTS "programme_offerings_tenant_integrity" ON "public"."programme_offerings";
+DROP FUNCTION IF EXISTS "public"."academy_venue_tenant_move_guard"();
+DROP FUNCTION IF EXISTS "public"."academy_programme_tenant_move_guard"();
+DROP FUNCTION IF EXISTS "public"."academy_session_publish_requires_venue"();
 DROP FUNCTION IF EXISTS "public"."academy_registration_identity_guard"();
 DROP FUNCTION IF EXISTS "public"."academy_registration_session_identity_guard"();
 DROP FUNCTION IF EXISTS "public"."academy_registration_state_guard"();
@@ -347,6 +397,19 @@ DROP INDEX "public"."programmes_organization_id_id_key";
 DROP INDEX "public"."venues_organization_id_id_key";
 ```
 
+This SQL does **not** touch `_prisma_migrations`, so the migration stays
+recorded as applied and a later `prisma migrate deploy` will skip it and not
+recreate the tables. To restore a matching schema and application revision on a
+local/disposable database:
+
+1. Check out (or deploy) the application revision that matches the schema you
+   want.
+2. Rebuild the disposable database from that revision with
+   `prisma migrate reset` (drops and re-applies every migration of that
+   revision); do not rely on `migrate deploy` after a manual rollback.
+3. Do not use `prisma migrate resolve` here: it only applies to failed
+   migrations and errors on a successfully applied one.
+
 After real registrations exist, prefer a forward fix: dropping the tables loses
 submitted data. Prisma's `migrate dev` does not model the partial unique index
 or triggers; this repository applies migrations with `migrate deploy` only.
@@ -358,7 +421,7 @@ or triggers; this repository applies migrations with `migrate deploy` only.
   other consumers.
 - Public session list is capped at 50 sessions.
 - Closed sessions are terminal; consent withdrawal has storage (`withdrawn_at`) but no endpoint yet.
-- Legacy `PATCH /admin/academy/offerings/:id/status` is unaudited legacy behaviour; for cohorts it can only reduce availability.
+- Legacy `PATCH /admin/academy/offerings/:id/status` is unaudited legacy behaviour; for a published cohort it can hide and later restore availability (see D3), but cannot publish a draft.
 - Access auditing beyond detail reads and state changes (list/search views of minors' names, exports) is an outstanding operational decision for the owner; this change adds no further audit infrastructure.
 - Retention/anonymization columns (`anonymized_at`) exist, but no job or policy is implemented.
 - Option lists (gender, jersey size, relationships) are placeholders pending owner confirmation.
@@ -430,3 +493,30 @@ Merging this PR does not open registration. Before parents can register:
 6. Google Sheets projection: BLOCKED (destination, field allowlist, access not approved).
 7. Hosted synthetic acceptance (RIC-65-style) for the new endpoints.
 8. RIC-191 frontend integration and the RIC-184 release gate.
+9. **Trusted ingress and client IP.** Before public registration opens, set
+   `TRUST_PROXY=true` with `TRUST_PROXY_ADDRESSES` listing only the verified
+   ingress addresses (startup refuses trust without the allowlist), then verify
+   on the hosted API that `req.ip` is the real client address. Without it every
+   applicant shares the ingress IP and the per-IP limit (20 per 10 minutes)
+   would throttle all new submissions together.
+10. **Compatible HMAC key rings** before any signing switch (rotation protocol
+    step 2), and **rate-limit windows when retiring keys**: counters for a
+    removed version are no longer consulted, so retire old versions outside
+    peak registration and at least one hour (the longest window) after the
+    signing switch.
+11. **Hosted Sentry privacy acceptance**: confirm on the hosted project that
+    registration-route events arrive scrubbed (no body, query, cookies,
+    headers, breadcrumbs or user) before activation.
+12. Consent wording, retention period and withdrawal handling approved by the
+    owner (withdrawal endpoint and retention job are not implemented).
+13. Confirmed session facts (venue booking, first date, capacity, recurrence,
+    age cutoff) before any real publication.
+
+## Access auditing (pending owner approval)
+
+Detail reads and all state changes are audited (ids and codes only). List and
+search responses show minors' names to authorized staff without an audit event.
+Recommended, **not implemented**: one audit event per list/search request
+recording only the actor, organization, operation, filter kinds (not values) and
+result count; never the raw search term or any personal data. This needs
+explicit owner approval and is not assumed by this change.

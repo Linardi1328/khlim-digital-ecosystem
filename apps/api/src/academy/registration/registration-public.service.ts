@@ -118,7 +118,11 @@ export class RegistrationPublicService {
     if (now.getTime() < this.nextCleanupAt) return;
     this.nextCleanupAt = now.getTime() + 10 * 60 * 1000;
     try {
-      await this.cleanupExpiredRateLimits(now);
+      // A full batch means more expired rows may remain: run again on the
+      // next submission instead of waiting ten minutes (each batch stays bounded).
+      if ((await this.cleanupExpiredRateLimits(now)) >= 500) {
+        this.nextCleanupAt = 0;
+      }
     } catch {
       // Logged above; maintenance must never replace quota enforcement.
     }
@@ -200,61 +204,50 @@ export class RegistrationPublicService {
         this.ringLoader(),
       ];
       if (!policy || !ring) return { registrationOpen: false, items: [] };
-      const now = new Date();
-      const sessions =
-        await this.prisma.client.academyRegistrationSession.findMany({
-          where: {
-            organizationId: DEFAULT_ORGANIZATION_ID,
-            publicationState: "PUBLISHED",
-            offering: {
-              status: "OPEN",
-              venueId: { not: null },
-              programme: {
-                active: true,
-                minimumAge: { not: null },
-                maximumAge: { not: null },
-                sport: { active: true },
-              },
-              AND: [
-                {
-                  OR: [
-                    { enrollmentOpensAt: null },
-                    { enrollmentOpensAt: { lte: now } },
-                  ],
-                },
-                {
-                  OR: [
-                    { enrollmentClosesAt: null },
-                    { enrollmentClosesAt: { gte: now } },
-                  ],
-                },
-              ],
-            },
-          },
-          include: { offering: { include: { programme: true, venue: true } } },
-          orderBy: [{ weekday: "asc" }, { startTime: "asc" }, { id: "asc" }],
-          take: PUBLIC_SESSION_LIMIT,
-        });
-      const confirmed = sessions.length
-        ? await this.prisma.client.academyRegistration.groupBy({
-            by: ["sessionId"],
+      // One statement applies every availability predicate, including free
+      // seats, BEFORE the limit: full sessions never crowd out open ones, and
+      // capacity and the confirmed count come from the same snapshot.
+      const available = await this.prisma.client.$queryRaw<
+        Array<{ id: string }>
+      >`
+        SELECT s.id::text AS id
+        FROM academy_registration_sessions s
+        JOIN programme_offerings o
+          ON o.id = s.programme_offering_id AND o.organization_id = s.organization_id
+        JOIN programmes p
+          ON p.id = o.programme_id AND p.organization_id = o.organization_id
+        JOIN sports sp ON sp.id = p.sport_id
+        WHERE s.organization_id = ${DEFAULT_ORGANIZATION_ID}::uuid
+          AND s.publication_state = 'PUBLISHED'
+          AND o.status = 'OPEN'
+          AND o.venue_id IS NOT NULL
+          AND p.active AND sp.active
+          AND p.minimum_age IS NOT NULL AND p.maximum_age IS NOT NULL
+          AND (o.enrollment_opens_at IS NULL OR o.enrollment_opens_at <= now())
+          AND (o.enrollment_closes_at IS NULL OR o.enrollment_closes_at >= now())
+          AND (
+            SELECT count(*) FROM academy_registrations r
+            WHERE r.organization_id = s.organization_id
+              AND r.session_id = s.id
+              AND r.status = 'CONFIRMED'
+          ) < o.capacity
+        ORDER BY s.weekday ASC, s.start_time ASC, s.id ASC
+        LIMIT ${PUBLIC_SESSION_LIMIT}
+      `;
+      const order = new Map(available.map((row, index) => [row.id, index]));
+      const sessions = available.length
+        ? await this.prisma.client.academyRegistrationSession.findMany({
             where: {
               organizationId: DEFAULT_ORGANIZATION_ID,
-              status: "CONFIRMED",
-              sessionId: { in: sessions.map((session) => session.id) },
+              id: { in: available.map((row) => row.id) },
             },
-            _count: { _all: true },
+            include: {
+              offering: { include: { programme: true, venue: true } },
+            },
           })
         : [];
-      const confirmedBySession = new Map(
-        confirmed.map((row) => [row.sessionId, row._count._all]),
-      );
       const items = sessions
-        .filter(
-          (session) =>
-            (confirmedBySession.get(session.id) ?? 0) <
-            session.offering.capacity,
-        )
+        .sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
         .map((session) => ({
           id: session.id,
           name: session.offering.name,

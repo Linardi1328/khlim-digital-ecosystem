@@ -1817,7 +1817,7 @@
           }
         },
         "responses": {
-          "201": {
+          "200": {
             "description": "",
             "content": {
               "application/json": {
@@ -4063,7 +4063,8 @@
             "nullable": true,
             "enum": [
               "NONE",
-              "WEEKLY"
+              "WEEKLY",
+              null
             ]
           },
           "minAge": {
@@ -4612,12 +4613,12 @@
           "status": {
             "type": "string",
             "enum": [
-              "RECEIVED",
               "UNDER_REVIEW",
               "CONFIRMED",
               "REJECTED",
               "CANCELLED"
-            ]
+            ],
+            "description": "Target status; RECEIVED is only ever the initial state"
           },
           "reasonCode": {
             "type": "string",
@@ -4795,7 +4796,8 @@
             "nullable": true,
             "enum": [
               "NONE",
-              "WEEKLY"
+              "WEEKLY",
+              null
             ]
           },
           "ageReferenceRule": {
@@ -4908,7 +4910,8 @@
             "nullable": true,
             "enum": [
               "NONE",
-              "WEEKLY"
+              "WEEKLY",
+              null
             ]
           },
           "ageReferenceRule": {
@@ -4917,7 +4920,8 @@
             "enum": [
               "FIXED_DATE",
               "SESSION_START_DATE",
-              "REGISTRATION_DATE"
+              "REGISTRATION_DATE",
+              null
             ]
           },
           "ageReferenceDate": {
@@ -4995,7 +4999,8 @@
             "nullable": true,
             "enum": [
               "NONE",
-              "WEEKLY"
+              "WEEKLY",
+              null
             ]
           },
           "ageReferenceRule": {
@@ -5004,7 +5009,8 @@
             "enum": [
               "FIXED_DATE",
               "SESSION_START_DATE",
-              "REGISTRATION_DATE"
+              "REGISTRATION_DATE",
+              null
             ]
           },
           "ageReferenceDate": {
@@ -5036,6 +5042,29 @@
           "expectedVersion"
         ]
       },
+      "PublishApprovalsDto": {
+        "type": "object",
+        "properties": {
+          "scheduleApproved": {
+            "type": "boolean",
+            "enum": [
+              true
+            ],
+            "description": "Must be true"
+          },
+          "ageRuleApproved": {
+            "type": "boolean",
+            "enum": [
+              true
+            ],
+            "description": "Must be true"
+          }
+        },
+        "required": [
+          "scheduleApproved",
+          "ageRuleApproved"
+        ]
+      },
       "PublishRegistrationSessionRequestDto": {
         "type": "object",
         "properties": {
@@ -5043,14 +5072,7 @@
             "type": "number"
           },
           "approvals": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "boolean"
-            },
-            "example": {
-              "scheduleApproved": true,
-              "ageRuleApproved": true
-            }
+            "$ref": "#/components/schemas/PublishApprovalsDto"
           }
         },
         "required": [
@@ -5124,7 +5146,18 @@
       "AdminRegistrationPolicyListDto": {
         "type": "object",
         "properties": {
+          "current": {
+            "nullable": true,
+            "description": "The approved policy, always present here even when older than the history page",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminRegistrationPolicyDto"
+              }
+            ]
+          },
           "items": {
+            "description": "Newest 50 policy versions",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/AdminRegistrationPolicyDto"
@@ -5132,6 +5165,7 @@
           }
         },
         "required": [
+          "current",
           "items"
         ]
       },

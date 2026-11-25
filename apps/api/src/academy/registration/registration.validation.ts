@@ -52,10 +52,10 @@ export class Validator {
       this.add(path || "body", "INVALID_TYPE");
       return null;
     }
-    for (const key of Object.keys(value)) {
-      if (!allowed.includes(key)) {
-        this.add(path ? `${path}.${key}` : key, "UNKNOWN_FIELD");
-      }
+    // Unknown member names are client-controlled and may carry personal data,
+    // so they are never echoed: report one UNKNOWN_FIELD at the known parent.
+    if (Object.keys(value).some((key) => !allowed.includes(key))) {
+      this.add(path || "body", "UNKNOWN_FIELD");
     }
     return value as Rec;
   }
@@ -203,6 +203,12 @@ export class Validator {
         value,
       )
     ) {
+      this.add(field, "INVALID_DATE");
+      return undefined;
+    }
+    // Reject impossible calendar days before Date can normalize them
+    // (2026-02-30T10:00:00Z would otherwise become 2026-03-02).
+    if (!isValidIsoDate(value.slice(0, 10))) {
       this.add(field, "INVALID_DATE");
       return undefined;
     }

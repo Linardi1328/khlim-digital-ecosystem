@@ -209,139 +209,163 @@ export class RegistrationAdminService {
     const registrationId = parseUuidParam(id, "REGISTRATION_NOT_FOUND");
     const input = parseStatusChange(body);
     return withSanitizedErrors(() =>
-      this.prisma.client.$transaction(
-        async (tx) => {
-          // Lock order: offering -> session -> registration. The offering id is
-          // read unlocked first (the session/offering link is immutable); all
-          // mutable state is re-read after the locks are held.
-          const link = await tx.$queryRaw<
-            Array<{ session_id: string; offering_id: string }>
-          >`
+      retryOnDeadlock(() =>
+        this.prisma.client.$transaction(
+          async (tx) => {
+            // Lock order: offering -> session -> registration. The offering id is
+            // read unlocked first (the session/offering link is immutable); all
+            // mutable state is re-read after the locks are held.
+            const link = await tx.$queryRaw<
+              Array<{ session_id: string; offering_id: string }>
+            >`
             SELECT r.session_id::text AS session_id, s.programme_offering_id::text AS offering_id
             FROM academy_registrations r
             JOIN academy_registration_sessions s
               ON s.id = r.session_id AND s.organization_id = r.organization_id
             WHERE r.id = ${registrationId}::uuid AND r.organization_id = ${organizationId}::uuid
           `;
-          const ids = link[0];
-          if (!ids) {
-            throw new RegistrationApiException(
-              404,
-              "REGISTRATION_NOT_FOUND",
-              "Registration not found",
-            );
-          }
-          await tx.$queryRaw`
+            const ids = link[0];
+            if (!ids) {
+              throw new RegistrationApiException(
+                404,
+                "REGISTRATION_NOT_FOUND",
+                "Registration not found",
+              );
+            }
+            await tx.$queryRaw`
             SELECT id FROM programme_offerings
             WHERE id = ${ids.offering_id}::uuid AND organization_id = ${organizationId}::uuid
             FOR UPDATE
           `;
-          await tx.$queryRaw`
+            await tx.$queryRaw`
             SELECT id FROM academy_registration_sessions
             WHERE id = ${ids.session_id}::uuid AND organization_id = ${organizationId}::uuid
             FOR SHARE
           `;
-          const locked = await tx.$queryRaw<
-            Array<{ status: RegistrationStatus; version: number }>
-          >`
+            const locked = await tx.$queryRaw<
+              Array<{ status: RegistrationStatus; version: number }>
+            >`
             SELECT status::text AS status, version
             FROM academy_registrations
             WHERE id = ${registrationId}::uuid AND organization_id = ${organizationId}::uuid
             FOR UPDATE
           `;
-          const current = locked[0];
-          if (!current) {
-            throw new RegistrationApiException(
-              404,
-              "REGISTRATION_NOT_FOUND",
-              "Registration not found",
-            );
-          }
-          if (current.version !== input.expectedVersion) {
-            throw new RegistrationApiException(
-              409,
-              "STALE_VERSION",
-              "Registration was changed by someone else",
-              { details: { currentVersion: current.version } },
-            );
-          }
-          if (
-            !REGISTRATION_TRANSITIONS[current.status].includes(input.status)
-          ) {
-            throw new RegistrationApiException(
-              409,
-              "INVALID_TRANSITION",
-              "Status transition is not allowed",
-              { details: { from: current.status, to: input.status } },
-            );
-          }
-          if (input.status === "CONFIRMED") {
-            const session = await tx.academyRegistrationSession.findFirst({
-              where: { id: ids.session_id, organizationId },
-              include: {
-                offering: { select: { capacity: true, status: true } },
-              },
-            });
+            const current = locked[0];
+            if (!current) {
+              throw new RegistrationApiException(
+                404,
+                "REGISTRATION_NOT_FOUND",
+                "Registration not found",
+              );
+            }
+            if (current.version !== input.expectedVersion) {
+              throw new RegistrationApiException(
+                409,
+                "STALE_VERSION",
+                "Registration was changed by someone else",
+                { details: { currentVersion: current.version } },
+              );
+            }
             if (
-              !session ||
-              session.publicationState !== "PUBLISHED" ||
-              session.offering.status !== "OPEN"
+              !REGISTRATION_TRANSITIONS[current.status].includes(input.status)
             ) {
               throw new RegistrationApiException(
                 409,
-                "SESSION_NOT_AVAILABLE",
-                "Session is not available for confirmation",
+                "INVALID_TRANSITION",
+                "Status transition is not allowed",
+                { details: { from: current.status, to: input.status } },
               );
             }
-            const confirmed = await tx.academyRegistration.count({
-              where: {
-                organizationId,
-                sessionId: ids.session_id,
-                status: "CONFIRMED",
-                id: { not: registrationId },
+            if (input.status === "CONFIRMED") {
+              const session = await tx.academyRegistrationSession.findFirst({
+                where: { id: ids.session_id, organizationId },
+                include: {
+                  offering: { select: { capacity: true, status: true } },
+                },
+              });
+              if (
+                !session ||
+                session.publicationState !== "PUBLISHED" ||
+                session.offering.status !== "OPEN"
+              ) {
+                throw new RegistrationApiException(
+                  409,
+                  "SESSION_NOT_AVAILABLE",
+                  "Session is not available for confirmation",
+                );
+              }
+              const confirmed = await tx.academyRegistration.count({
+                where: {
+                  organizationId,
+                  sessionId: ids.session_id,
+                  status: "CONFIRMED",
+                  id: { not: registrationId },
+                },
+              });
+              if (confirmed >= session.offering.capacity) {
+                throw new RegistrationApiException(
+                  409,
+                  "CAPACITY_EXCEEDED",
+                  "Session capacity would be exceeded",
+                );
+              }
+            }
+            const updated = await tx.academyRegistration.update({
+              where: { id: registrationId },
+              data: {
+                status: input.status,
+                statusReasonCode: input.reasonCode,
+                statusChangedAt: new Date(),
+                statusChangedByUserId: actor.id,
+                version: { increment: 1 },
               },
             });
-            if (confirmed >= session.offering.capacity) {
-              throw new RegistrationApiException(
-                409,
-                "CAPACITY_EXCEEDED",
-                "Session capacity would be exceeded",
-              );
-            }
-          }
-          const updated = await tx.academyRegistration.update({
-            where: { id: registrationId },
-            data: {
-              status: input.status,
-              statusReasonCode: input.reasonCode,
-              statusChangedAt: new Date(),
-              statusChangedByUserId: actor.id,
-              version: { increment: 1 },
-            },
-          });
-          await writeRegistrationAudit(tx, organizationId, actor, {
-            action: "ACADEMY_REGISTRATION_STATUS_CHANGED",
-            entityType: "ACADEMY_REGISTRATION",
-            entityId: registrationId,
-            summary: `Academy registration status changed from ${current.status} to ${input.status}.`,
-            metadata: {
-              from: current.status,
-              to: input.status,
-              reasonCode: input.reasonCode,
-            },
-          });
-          const consents = await tx.academyRegistrationConsent.findMany({
-            where: { organizationId, registrationId },
-            orderBy: { consentType: "asc" },
-          });
-          return mapDetail(updated, consents);
-        },
-        {
-          isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
-          maxWait: 5000,
-          timeout: 15000,
-        },
+            await writeRegistrationAudit(tx, organizationId, actor, {
+              action: "ACADEMY_REGISTRATION_STATUS_CHANGED",
+              entityType: "ACADEMY_REGISTRATION",
+              entityId: registrationId,
+              summary: `Academy registration status changed from ${current.status} to ${input.status}.`,
+              metadata: {
+                from: current.status,
+                to: input.status,
+                reasonCode: input.reasonCode,
+              },
+            });
+            const consents = await tx.academyRegistrationConsent.findMany({
+              where: { organizationId, registrationId },
+              orderBy: { consentType: "asc" },
+            });
+            return mapDetail(updated, consents);
+          },
+          {
+            isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+            maxWait: 5000,
+            timeout: 15000,
+          },
+        ),
       ),
     );
+  }
+}
+
+/**
+ * A direct SQL confirmation locks the registration row before its trigger
+ * locks the offering, the reverse of this service's order, so PostgreSQL may
+ * abort one side with a deadlock (40P01). The aborted transaction has fully
+ * rolled back; retry it a bounded number of times.
+ */
+async function retryOnDeadlock<T>(
+  run: () => Promise<T>,
+  attempts = 3,
+): Promise<T> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await run();
+    } catch (error) {
+      const deadlock =
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        (error.code === "P2034" || /40P01|deadlock/i.test(error.message));
+      if (!deadlock || attempt >= attempts) throw error;
+    }
   }
 }

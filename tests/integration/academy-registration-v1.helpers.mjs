@@ -21,6 +21,7 @@ export const {
 } = require("../../apps/api/dist/academy/registration/registration-public.service.js");
 export const {
   RegistrationPolicyService,
+  resolveDeploymentTier,
 } = require("../../apps/api/dist/academy/registration/registration-policy.service.js");
 export const {
   loadHmacKeyRing,
@@ -28,6 +29,9 @@ export const {
 export const {
   createOpenApiDocument,
 } = require("../../apps/api/dist/openapi.js");
+export const {
+  createStructuredLogger,
+} = require("../../apps/api/dist/logger.js");
 export const {
   scrubRegistrationEvent,
 } = require("../../apps/api/dist/observability/registration-privacy.js");
@@ -83,9 +87,13 @@ export function nextSaturday(minDays = 7) {
   return candidate;
 }
 
+/** Same month/day N years away; 29 February becomes 28 February in non-leap years. */
 export function shiftYears(iso, years) {
   const [y, m, d] = iso.split("-").map(Number);
-  return `${String(y + years).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  const year = y + years;
+  const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const day = m === 2 && d === 29 && !leap ? 28 : d;
+  return `${String(year).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 export function policyContent(label) {
@@ -184,4 +192,38 @@ export function captureOutput() {
       process.stderr.write = originals.err;
     },
   };
+}
+
+/**
+ * A LoggerService that runs every call through the production structured
+ * logger (same formatting and sanitizing) but records the output instead of
+ * writing it to the terminal, so tests can assert on what production would log.
+ */
+export function recordingAppLogger() {
+  const lines = [];
+  const production = createStructuredLogger({
+    service: "khlim-api",
+    deploymentEnv: "development",
+  });
+  const methods = ["log", "info", "warn", "error", "debug", "verbose", "fatal"];
+  const logger = {};
+  for (const method of methods) {
+    logger[method] = (...args) => {
+      const out = process.stdout.write;
+      const err = process.stderr.write;
+      const sink = (chunk) => {
+        lines.push(String(chunk));
+        return true;
+      };
+      process.stdout.write = sink;
+      process.stderr.write = sink;
+      try {
+        production[method](...args);
+      } finally {
+        process.stdout.write = out;
+        process.stderr.write = err;
+      }
+    };
+  }
+  return { logger, text: () => lines.join("") };
 }

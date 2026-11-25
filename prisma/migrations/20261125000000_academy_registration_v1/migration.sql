@@ -332,7 +332,8 @@ BEGIN
 
   SELECT count(*) INTO v_confirmed
   FROM "public"."academy_registrations" r
-  WHERE r."session_id" = v_session_id AND r."status" = 'CONFIRMED';
+  WHERE r."organization_id" = NEW."organization_id"
+    AND r."session_id" = v_session_id AND r."status" = 'CONFIRMED';
   IF NEW."capacity" < v_confirmed THEN
     RAISE EXCEPTION 'CAPACITY_BELOW_CONFIRMED' USING ERRCODE = '23514';
   END IF;
@@ -357,6 +358,16 @@ CREATE TRIGGER "programme_offerings_registration_guard"
 -- Legacy checkout isolation: registration-managed offerings cannot receive
 -- memberships or plan eligibilities, and an offering that already has either
 -- cannot become registration-managed.
+--
+-- Isolation-level note (RIC-190 review): a row LOCK alone is not enough under
+-- REPEATABLE READ or SERIALIZABLE, because the EXISTS check after the wait
+-- still reads the transaction's original snapshot. Every writer on either side
+-- therefore performs a no-op UPDATE of the offering row ("conflict marker").
+-- Under READ COMMITTED the second writer waits and its next statement sees the
+-- first writer's committed row; under REPEATABLE READ/SERIALIZABLE the second
+-- writer fails with SQLSTATE 40001 (could not serialize). Either way at most
+-- one side commits. `SET "id" = "id"` changes no key and fires none of the
+-- column-specific offering triggers or foreign-key actions.
 -- ---------------------------------------------------------------------------
 CREATE FUNCTION "public"."academy_membership_registration_isolation"()
 RETURNS trigger
@@ -364,10 +375,8 @@ LANGUAGE plpgsql
 SET search_path = pg_catalog, public
 AS $$
 BEGIN
-  -- Serialize with registration-session creation on the offering row so two
-  -- uncommitted transactions cannot each miss the other's insert.
-  PERFORM 1 FROM "public"."programme_offerings" o
-    WHERE o."id" = NEW."programme_offering_id" FOR SHARE;
+  UPDATE "public"."programme_offerings" SET "id" = "id"
+    WHERE "id" = NEW."programme_offering_id";
   IF EXISTS (
     SELECT 1 FROM "public"."academy_registration_sessions" s
     WHERE s."programme_offering_id" = NEW."programme_offering_id"
@@ -384,8 +393,8 @@ LANGUAGE plpgsql
 SET search_path = pg_catalog, public
 AS $$
 BEGIN
-  PERFORM 1 FROM "public"."programme_offerings" o
-    WHERE o."id" = NEW."offering_id" FOR SHARE;
+  UPDATE "public"."programme_offerings" SET "id" = "id"
+    WHERE "id" = NEW."offering_id";
   IF EXISTS (
     SELECT 1 FROM "public"."academy_registration_sessions" s
     WHERE s."programme_offering_id" = NEW."offering_id"
@@ -402,10 +411,9 @@ LANGUAGE plpgsql
 SET search_path = pg_catalog, public
 AS $$
 BEGIN
-  -- Exclusive offering lock: waits for in-flight membership/plan-link inserts
-  -- (which hold FOR SHARE) and blocks new ones until this transaction ends.
-  PERFORM 1 FROM "public"."programme_offerings" o
-    WHERE o."id" = NEW."programme_offering_id" FOR UPDATE;
+  -- Conflict marker (see the isolation-level note above).
+  UPDATE "public"."programme_offerings" SET "id" = "id"
+    WHERE "id" = NEW."programme_offering_id";
   IF EXISTS (
     SELECT 1 FROM "public"."memberships" m
     WHERE m."programme_offering_id" = NEW."programme_offering_id"
@@ -484,6 +492,85 @@ CREATE TRIGGER "academy_registrations_identity_guard"
   FOR EACH ROW EXECUTE FUNCTION "public"."academy_registration_identity_guard"();
 
 -- ---------------------------------------------------------------------------
+-- A session can only enter PUBLISHED (insert or update) while its offering has
+-- a venue. The offering guard covers the reverse direction (clearing a venue).
+-- ---------------------------------------------------------------------------
+CREATE FUNCTION "public"."academy_session_publish_requires_venue"()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = pg_catalog, public
+AS $$
+DECLARE
+  v_venue uuid;
+BEGIN
+  IF NEW."publication_state" <> 'PUBLISHED'
+     OR (TG_OP = 'UPDATE' AND OLD."publication_state" = 'PUBLISHED') THEN
+    RETURN NEW;
+  END IF;
+  -- Conflict marker, then read the venue (fresh under READ COMMITTED).
+  UPDATE "public"."programme_offerings" SET "id" = "id"
+    WHERE "id" = NEW."programme_offering_id";
+  SELECT o."venue_id" INTO v_venue
+  FROM "public"."programme_offerings" o
+  WHERE o."id" = NEW."programme_offering_id"
+    AND o."organization_id" = NEW."organization_id";
+  IF v_venue IS NULL THEN
+    RAISE EXCEPTION 'SESSION_INCOMPLETE' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END
+$$;
+
+CREATE TRIGGER "registration_sessions_publish_requires_venue"
+  BEFORE INSERT OR UPDATE OF "publication_state" ON "public"."academy_registration_sessions"
+  FOR EACH ROW EXECUTE FUNCTION "public"."academy_session_publish_requires_venue"();
+
+-- ---------------------------------------------------------------------------
+-- Parent organization changes: a programme or venue cannot move to another
+-- organization while an offering of a different organization references it.
+-- Deleting a venue keeps its legacy ON DELETE SET NULL behaviour.
+-- ---------------------------------------------------------------------------
+CREATE FUNCTION "public"."academy_programme_tenant_move_guard"()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = pg_catalog, public
+AS $$
+BEGIN
+  IF NEW."organization_id" IS DISTINCT FROM OLD."organization_id" AND EXISTS (
+    SELECT 1 FROM "public"."programme_offerings" o
+    WHERE o."programme_id" = NEW."id" AND o."organization_id" <> NEW."organization_id"
+  ) THEN
+    RAISE EXCEPTION 'CROSS_TENANT_REFERENCE' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END
+$$;
+
+CREATE FUNCTION "public"."academy_venue_tenant_move_guard"()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = pg_catalog, public
+AS $$
+BEGIN
+  IF NEW."organization_id" IS DISTINCT FROM OLD."organization_id" AND EXISTS (
+    SELECT 1 FROM "public"."programme_offerings" o
+    WHERE o."venue_id" = NEW."id" AND o."organization_id" <> NEW."organization_id"
+  ) THEN
+    RAISE EXCEPTION 'CROSS_TENANT_REFERENCE' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END
+$$;
+
+CREATE TRIGGER "programmes_tenant_move_guard"
+  BEFORE UPDATE OF "organization_id" ON "public"."programmes"
+  FOR EACH ROW EXECUTE FUNCTION "public"."academy_programme_tenant_move_guard"();
+
+CREATE TRIGGER "venues_tenant_move_guard"
+  BEFORE UPDATE OF "organization_id" ON "public"."venues"
+  FOR EACH ROW EXECUTE FUNCTION "public"."academy_venue_tenant_move_guard"();
+
+-- ---------------------------------------------------------------------------
 -- Registration state machine and capacity, enforced for any writer. The
 -- application takes the same locks first (offering -> session -> registration);
 -- this trigger re-takes the offering lock so even direct SQL cannot exceed
@@ -528,12 +615,19 @@ BEGIN
     IF NOT FOUND THEN
       RAISE EXCEPTION 'SESSION_NOT_FOUND' USING ERRCODE = '23514';
     END IF;
+    -- Conflict marker: concurrent confirmations, capacity changes and closures
+    -- on one offering cannot both commit under REPEATABLE READ/SERIALIZABLE,
+    -- where the count below would otherwise use a stale snapshot.
+    UPDATE "public"."programme_offerings" o SET "id" = o."id"
+      FROM "public"."academy_registration_sessions" s
+      WHERE s."id" = NEW."session_id" AND o."id" = s."programme_offering_id";
     IF v_state <> 'PUBLISHED' THEN
       RAISE EXCEPTION 'SESSION_NOT_AVAILABLE' USING ERRCODE = '23514';
     END IF;
     SELECT count(*) INTO v_confirmed
     FROM "public"."academy_registrations" r
-    WHERE r."session_id" = NEW."session_id" AND r."status" = 'CONFIRMED' AND r."id" <> NEW."id";
+    WHERE r."organization_id" = NEW."organization_id"
+      AND r."session_id" = NEW."session_id" AND r."status" = 'CONFIRMED' AND r."id" <> NEW."id";
     IF v_confirmed >= v_capacity THEN
       RAISE EXCEPTION 'CAPACITY_EXCEEDED' USING ERRCODE = '23514';
     END IF;

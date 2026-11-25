@@ -1,5 +1,21 @@
-const REGISTRATION_ROUTE =
-  /\/(academy\/(registrations|registration-config|sessions)|admin\/academy\/registration)/;
+// Matched against the request PATH only (never the query string), by whole
+// segments, optionally after the /v1 prefix.
+const REGISTRATION_PATH =
+  /^(?:\/v1)?\/(?:academy\/(?:registrations|registration-config|sessions)|admin\/academy\/(?:registrations|registration-sessions|registration-policies))(?:\/|$)/;
+
+function pathOf(value: string): string {
+  // Accepts absolute URLs, bare paths and "METHOD /path" transaction names.
+  const candidate = value.trim().replace(/^[A-Z]+\s+/, "");
+  try {
+    return new URL(candidate, "http://placeholder.invalid").pathname;
+  } catch {
+    return candidate.split(/[?#]/)[0] ?? "";
+  }
+}
+
+export function isRegistrationRoute(value: string | undefined): boolean {
+  return Boolean(value) && REGISTRATION_PATH.test(pathOf(value as string));
+}
 
 interface SentryLikeEvent {
   request?: {
@@ -24,9 +40,10 @@ interface SentryLikeEvent {
  * routes pass through unchanged.
  */
 export function scrubRegistrationEvent<T extends SentryLikeEvent>(event: T): T {
-  const url = event.request?.url ?? "";
-  const transaction = event.transaction ?? "";
-  if (!REGISTRATION_ROUTE.test(url) && !REGISTRATION_ROUTE.test(transaction)) {
+  if (
+    !isRegistrationRoute(event.request?.url) &&
+    !isRegistrationRoute(event.transaction)
+  ) {
     return event;
   }
   if (event.request) {

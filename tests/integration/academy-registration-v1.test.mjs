@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { after, test } from "node:test";
+import { after, afterEach, test } from "node:test";
 import {
   AppModule,
   HMAC_V1,
@@ -12,11 +12,13 @@ import {
   RUN,
   RegistrationPolicyService,
   RegistrationPublicService,
+  resolveDeploymentTier,
   SupabaseJwtService,
   UnauthorizedException,
   addDays,
   captureOutput,
   createOpenApiDocument,
+  recordingAppLogger,
   dbText,
   databaseTestsEnabled,
   expectDbReject,
@@ -66,9 +68,14 @@ const USERS = {
 
 let ctxPromise;
 let output;
+let appRef;
+const appLogger = recordingAppLogger();
 
 async function buildContext() {
-  const app = await NestFactory.create(AppModule, { logger: false });
+  // The production logging path, recorded: privacy assertions see exactly what
+  // the API would log.
+  const app = await NestFactory.create(AppModule, { logger: appLogger.logger });
+  appRef = app;
   app.setGlobalPrefix("v1");
   app.getHttpAdapter().getInstance().set("trust proxy", true);
   const prisma = app.get(PrismaService);
@@ -195,9 +202,9 @@ function ctx() {
 
 after(async () => {
   output?.restore();
-  if (!ctxPromise) return;
-  const c = await ctxPromise;
-  await c.app.close();
+  // Close the app even when context setup failed part-way.
+  await ctxPromise?.catch(() => undefined);
+  await appRef?.close();
 });
 
 const FIRST_DATE = nextSaturday(8);
@@ -229,7 +236,20 @@ async function setSession(c, overrides = {}) {
   return created.body;
 }
 
+/** Lets any test run alone (--test-name-pattern): ensure a current policy. */
+async function ensureApprovedPolicy(c) {
+  const current = await c.client.academyRegistrationPolicy.findFirst({
+    where: { organizationId: ORG_A, status: "APPROVED" },
+  });
+  if (current) {
+    currentConsent = current.policyVersion;
+  } else {
+    await rotateTo();
+  }
+}
+
 async function publishedSession(c, overrides = {}) {
+  await ensureApprovedPolicy(c);
   const draft = await setSession(c, overrides);
   const published = await api(
     c,
@@ -656,7 +676,7 @@ test(
     assert.equal(byType.REGISTRATION_PRIVACY.granted, true);
     assert.equal(byType.MARKETING.granted, true);
     assert.equal(byType.PHOTOGRAPHY.granted, false);
-    assert.equal(byType.MARKETING.policyVersion, POLICY_V1);
+    assert.equal(byType.MARKETING.policyVersion, currentConsent);
     assert.equal(byType.MARKETING.locale, "en");
     assert.match(byType.MARKETING.contentSha256, /^[0-9a-f]{64}$/);
     assert.equal(byType.MARKETING.withdrawnAt, null);
@@ -712,15 +732,10 @@ test(
     });
     assert.equal(forged.status, 400);
     for (const expected of [
-      "status:UNKNOWN_FIELD",
-      "price:UNKNOWN_FIELD",
-      "age:UNKNOWN_FIELD",
-      "organizationId:UNKNOWN_FIELD",
-      "role:UNKNOWN_FIELD",
-      "player.ageAtReference:UNKNOWN_FIELD",
-      "player.id:UNKNOWN_FIELD",
-      "guardian.isAdmin:UNKNOWN_FIELD",
-      "consents.guardianAuthority:UNKNOWN_FIELD",
+      "body:UNKNOWN_FIELD",
+      "player:UNKNOWN_FIELD",
+      "guardian:UNKNOWN_FIELD",
+      "consents:UNKNOWN_FIELD",
     ]) {
       assert.ok(
         fields(forged).includes(expected),
@@ -905,6 +920,8 @@ test(
   async () => {
     const c = await ctx();
     const session = await publishedSession(c);
+    // Self-contained: rotate away from whatever policy is current now.
+    const previousConsent = currentConsent;
     const body = regBody(session.id);
     const key = newKey();
     const first = await submit(c, body, { key });
@@ -958,17 +975,49 @@ test(
     );
 
     // The client drops the connection mid-request; the retry is safe.
+    // Lost response: the server commits after the client has disconnected.
+    // Park the request behind a held offering lock, abort the client, then let
+    // the server finish; the retry must replay the committed receipt.
     const abortKey = newKey();
     const abortBody = regBody(session.id);
+    const parked = holdTransaction(
+      c,
+      (tx) =>
+        tx.$queryRaw`SELECT id FROM programme_offerings WHERE id = ${session.programmeOfferingId}::uuid FOR UPDATE`,
+    );
+    await parked.ready;
+    const beforeAbort = await waitingLocks(c);
     const controller = new AbortController();
     const inflight = submit(c, abortBody, {
       key: abortKey,
       signal: controller.signal,
-    }).catch(() => null);
+    }).catch((error) => error);
+    await waitForWaiters(c, beforeAbort, 1, "request parked before commit", {
+      blockedBy: parked.pid,
+    });
     controller.abort();
-    await inflight;
+    assert.equal(
+      (await inflight)?.name,
+      "AbortError",
+      "the client lost the response",
+    );
+    parked.release();
+    await parked.done;
+    const deadline = Date.now() + 10000;
+    let stored = null;
+    while (!stored && Date.now() < deadline) {
+      stored = await c.client.academyRegistration.findFirst({
+        where: { guardianPhone: abortBody.guardian.phone },
+      });
+      if (!stored) await sleep(25);
+    }
+    assert.ok(
+      stored,
+      "the server committed the registration after the disconnect",
+    );
     const retried = await submit(c, abortBody, { key: abortKey });
-    assert.ok([200, 201].includes(retried.status));
+    assert.equal(retried.status, 200, retried.text);
+    assert.equal(retried.body.id, stored.id);
     assert.equal(
       await c.client.academyRegistration.count({
         where: { guardianPhone: abortBody.guardian.phone },
@@ -995,7 +1044,7 @@ test(
     assert.deepEqual(afterRotation.body, first.body);
     const stale = await submit(
       c,
-      regBody(session.id, { consentVersion: POLICY_V1 }),
+      regBody(session.id, { consentVersion: previousConsent }),
     );
     assert.equal(stale.status, 409);
     assert.equal(stale.body.code, "CONSENT_VERSION_MISMATCH");
@@ -1011,7 +1060,7 @@ test(
       ),
     );
     const retired = await c.client.academyRegistrationPolicy.findFirst({
-      where: { organizationId: ORG_A, policyVersion: POLICY_V1 },
+      where: { organizationId: ORG_A, policyVersion: previousConsent },
     });
     assert.equal(retired.status, "RETIRED");
 
@@ -1119,6 +1168,7 @@ test(
   { skip },
   async () => {
     const c = await ctx();
+    await ensureApprovedPolicy(c);
     const ghost = randomUUID();
     const attempt = (phone, address) =>
       submit(
@@ -1339,7 +1389,7 @@ test(
     assert.equal(forgedBody.status, 400);
     assert.ok(
       forgedBody.body.fieldErrors.some(
-        (e) => e.field === "organizationId" && e.code === "UNKNOWN_FIELD",
+        (e) => e.field === "body" && e.code === "UNKNOWN_FIELD",
       ),
     );
     const crossProgramme = await api(
@@ -1492,17 +1542,38 @@ test(
         ),
       /foreign key|violates/i,
     );
+    // Consent composite FKs, one parent at a time, on a dedicated registration
+    // whose PHOTOGRAPHY consent slot is free (no duplicate-key ambiguity).
     const registrationA = await createRegistration(c, session.id);
+    await c.client.$executeRawUnsafe(
+      `DELETE FROM academy_registration_consents WHERE registration_id = '${registrationA.id}' AND consent_type = 'PHOTOGRAPHY'`,
+    );
     const policyA = await c.client.academyRegistrationPolicy.findFirst({
       where: { organizationId: ORG_A, status: "APPROVED" },
     });
+    const policyForeign = await c.client.academyRegistrationPolicy.create({
+      data: {
+        organizationId: ORG_B,
+        policyVersion: `synthetic-b-iso-${RUN}`,
+        content: {},
+      },
+    });
+    const consentInsert = (organizationId, policyId) =>
+      c.client.$executeRawUnsafe(
+        `INSERT INTO academy_registration_consents (id, organization_id, registration_id, policy_id, consent_type, granted, policy_version, locale, content_sha256) VALUES (gen_random_uuid(), '${organizationId}', '${registrationA.id}', '${policyId}', 'PHOTOGRAPHY', false, 'v', 'en', '${"e".repeat(64)}')`,
+      );
+    // Registration parent in another tenant (policy parent valid for Org B).
     await expectDbReject(
-      () =>
-        c.client.$executeRawUnsafe(
-          `INSERT INTO academy_registration_consents (id, organization_id, registration_id, policy_id, consent_type, granted, policy_version, locale, content_sha256) VALUES (gen_random_uuid(), '${ORG_B}', '${registrationA.id}', '${policyA.id}', 'MARKETING', false, 'v', 'en', '${"e".repeat(64)}')`,
-        ),
-      /foreign key|violates/i,
+      () => consentInsert(ORG_B, policyForeign.id),
+      /academy_registration_consents_organization_id_registration_fkey/,
     );
+    // Policy parent in another tenant (registration parent valid for Org A).
+    await expectDbReject(
+      () => consentInsert(ORG_A, policyForeign.id),
+      /academy_registration_consents_organization_id_policy_id_fkey/,
+    );
+    // Control: the same-tenant insert succeeds.
+    assert.equal(await consentInsert(ORG_A, policyA.id), 1);
     await expectDbReject(
       () =>
         c.client.programmeOffering.create({
@@ -1610,7 +1681,7 @@ test(
       token: "admin",
       body: { q: row.playerFullName.slice(0, 12), sessionId: session.id },
     });
-    assert.equal(search.status, 201);
+    assert.equal(search.status, 200);
     assert.ok(search.body.total >= 1);
     const byRef = await api(c, "/admin/academy/registrations/search", {
       method: "POST",
@@ -1791,28 +1862,37 @@ test(
       /INVALID_TRANSITION/,
     );
 
+    assert.equal(
+      (await api(c, `/admin/academy/registrations/${a.id}`, { token: "admin" }))
+        .status,
+      200,
+    );
+    // Only events for entities and the actor exercised in THIS test count.
     const events = await c.client.auditEvent.findMany({
       where: {
-        entityType: {
-          in: [
-            "ACADEMY_REGISTRATION",
-            "ACADEMY_REGISTRATION_SESSION",
-            "ACADEMY_REGISTRATION_POLICY",
-          ],
-        },
+        actorUserId: c.ids.admin,
+        entityId: { in: [a.id, b.id, d.id, session.id] },
       },
     });
-    for (const action of [
-      "ACADEMY_REGISTRATION_STATUS_CHANGED",
-      "ACADEMY_REGISTRATION_SESSION_PUBLISHED",
-      "ACADEMY_REGISTRATION_POLICY_APPROVED",
-      "ACADEMY_REGISTRATION_DETAIL_VIEWED",
-    ]) {
+    const has = (action, entityId) =>
+      events.some((e) => e.action === action && e.entityId === entityId);
+    for (const id of [a.id, b.id, d.id]) {
       assert.ok(
-        events.some((e) => e.action === action),
-        `${action} audited`,
+        has("ACADEMY_REGISTRATION_STATUS_CHANGED", id),
+        `status audit for ${id}`,
       );
     }
+    assert.equal(
+      events.filter(
+        (e) =>
+          e.action === "ACADEMY_REGISTRATION_STATUS_CHANGED" &&
+          e.entityId === a.id,
+      ).length,
+      3,
+      "UNDER_REVIEW, CONFIRMED and CANCELLED for the first registration",
+    );
+    assert.ok(has("ACADEMY_REGISTRATION_SESSION_PUBLISHED", session.id));
+    assert.ok(has("ACADEMY_REGISTRATION_DETAIL_VIEWED", a.id));
     const serialized = JSON.stringify(
       events.map((e) => [e.summary, e.metadata, e.entityId]),
     );
@@ -2206,6 +2286,35 @@ test(
       !receipt.text.includes(PLAYER_TAG) &&
         !receipt.text.includes(body.guardian.phone),
     );
+    // Exercise a failure that the service logs, so the recorded production
+    // logger demonstrably captures registration-path output.
+    await c.client.$executeRawUnsafe(
+      `CREATE OR REPLACE FUNCTION ric190_rl_fail2() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'RL_DOWN ${PLAYER_TAG}'; END $$`,
+    );
+    await c.client.$executeRawUnsafe(
+      `CREATE TRIGGER ric190_rl_fail2 BEFORE INSERT ON submission_rate_limits FOR EACH ROW EXECUTE FUNCTION ric190_rl_fail2()`,
+    );
+    try {
+      const down = await submit(c, regBody(session.id), { ip: newIp() });
+      assert.equal(down.status, 503);
+    } finally {
+      await c.client.$executeRawUnsafe(
+        `DROP TRIGGER ric190_rl_fail2 ON submission_rate_limits`,
+      );
+      await c.client.$executeRawUnsafe(`DROP FUNCTION ric190_rl_fail2()`);
+    }
+    const applicationLogs = appLogger.text();
+    assert.match(
+      applicationLogs,
+      /academy\.registration\.rate_limit_storage_failed/,
+      "the recorded production logger captured registration-path logs",
+    );
+    for (const pii of [PLAYER_TAG, GUARDIAN_TAG, "+6012", "RL_DOWN"]) {
+      assert.ok(
+        !applicationLogs.includes(pii),
+        `application logs contain ${pii}`,
+      );
+    }
     const logs = output.text();
     for (const pii of [
       PLAYER_TAG,
@@ -2261,47 +2370,106 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Backends in this database currently blocked on a lock (pid set). */
 async function waitingLocks(c) {
   const rows = await c.client.$queryRawUnsafe(
-    `SELECT count(*)::int AS n FROM pg_locks WHERE NOT granted`,
+    `SELECT a.pid FROM pg_stat_activity a
+     WHERE a.datname = current_database()
+       AND a.wait_event_type = 'Lock'
+       AND cardinality(pg_blocking_pids(a.pid)) > 0`,
   );
-  return rows[0].n;
+  return new Set(rows.map((row) => row.pid));
 }
 
-async function waitForWaiters(c, atLeast, label) {
+/** Lock waits of the given backends: locktype and the pids blocking them. */
+async function waiterDetails(c, pids) {
+  if (!pids.length) return [];
+  return c.client.$queryRawUnsafe(
+    `SELECT l.pid, l.locktype, pg_blocking_pids(l.pid) AS blockers
+     FROM pg_locks l WHERE NOT l.granted AND l.pid = ANY($1::int[])`,
+    pids,
+  );
+}
+
+/**
+ * Waits until `count` backends that were not waiting at `baseline` are blocked
+ * on a lock. Optional `blockedBy` requires every new waiter to be blocked by
+ * that backend (the test's held transaction); `locktype` filters by lock kind.
+ */
+async function waitForWaiters(c, baseline, count, label, options = {}) {
   const deadline = Date.now() + 15000;
   for (;;) {
-    if ((await waitingLocks(c)) >= atLeast) return;
+    const current = [...(await waitingLocks(c))].filter(
+      (pid) => !baseline.has(pid),
+    );
+    let matching = current;
+    if (options.blockedBy !== undefined || options.locktype) {
+      const details = await waiterDetails(c, current);
+      matching = details
+        .filter(
+          (row) =>
+            (options.blockedBy === undefined ||
+              row.blockers.includes(options.blockedBy)) &&
+            (!options.locktype || row.locktype === options.locktype),
+        )
+        .map((row) => row.pid);
+    }
+    const unique = [...new Set(matching)];
+    if (unique.length >= count) return unique;
     if (Date.now() > deadline) {
-      throw new Error(
-        `timed out waiting for ${atLeast} lock waiters: ${label}`,
-      );
+      throw new Error(`timed out waiting for ${count} lock waiters: ${label}`);
     }
     await sleep(25);
   }
 }
 
-/** Runs `work` in an interactive transaction that stays open until released. */
-function holdTransaction(c, work) {
+const openHolders = new Set();
+
+/**
+ * Runs `work` in an interactive transaction that stays open until released.
+ * `ready` rejects if the setup fails; `pid` is the holding backend. Any holder
+ * a test forgot to release (for example after a failed wait) is released and
+ * settled by the afterEach hook.
+ */
+function holdTransaction(c, work, options = {}) {
   let release;
   const gate = new Promise((resolve) => {
     release = resolve;
   });
   let markReady;
-  const ready = new Promise((resolve) => {
+  let failReady;
+  const ready = new Promise((resolve, reject) => {
     markReady = resolve;
+    failReady = reject;
   });
-  const done = c.client.$transaction(
+  const holder = { ready, release: () => release(), done: null, pid: null };
+  holder.done = c.client.$transaction(
     async (tx) => {
+      const [{ pid }] = await tx.$queryRawUnsafe(
+        "SELECT pg_backend_pid() AS pid",
+      );
+      holder.pid = pid;
       await work(tx);
       markReady();
       await gate;
     },
-    { timeout: 60000, maxWait: 15000 },
+    { timeout: 60000, maxWait: 15000, ...options },
   );
-  done.catch(() => markReady());
-  return { ready, release, done };
+  holder.done.catch((error) => failReady(error));
+  openHolders.add(holder);
+  holder.done.then(
+    () => openHolders.delete(holder),
+    () => openHolders.delete(holder),
+  );
+  return holder;
 }
+
+afterEach(async () => {
+  for (const holder of [...openHolders]) {
+    holder.release();
+    await holder.done.catch(() => undefined);
+  }
+});
 
 function settle(promise) {
   return promise.then(
@@ -2379,14 +2547,22 @@ test(
       const first = services[firstWinner].createRegistration(body, key, ip);
       await waitForWaiters(
         c,
-        baseline + 1,
+        baseline,
+        1,
         `${firstWinner} parked at offering`,
+        {
+          blockedBy: holder.pid,
+        },
       );
       const queued = services[second].createRegistration(body, key, ip);
       await waitForWaiters(
         c,
-        baseline + 2,
+        baseline,
+        1,
         `${second} queued on advisory lock`,
+        {
+          locktype: "advisory",
+        },
       );
       holder.release();
       const [r1, r2] = await Promise.all([first, queued]);
@@ -2495,7 +2671,7 @@ test(
     const body = regBody(session.id);
     const key = newKey();
     const submission = submit(c, body, { key });
-    await waitForWaiters(c, baseline + 1, "submission parked at offering");
+    await waitForWaiters(c, baseline, 1, "submission parked at offering");
     const retirement = api(
       c,
       `/admin/academy/registration-policies/${policy.id}/retire`,
@@ -2505,11 +2681,7 @@ test(
         body: { expectedVersion: policy.version },
       },
     );
-    await waitForWaiters(
-      c,
-      baseline + 2,
-      "retirement waits for the share lock",
-    );
+    await waitForWaiters(c, baseline, 2, "retirement waits for the share lock");
     holder.release();
     const [sub, ret] = await Promise.all([submission, retirement]);
     await holder.done;
@@ -2559,7 +2731,7 @@ test(
       consentVersion: approved.policyVersion,
     });
     const late = submit(c, lateBody);
-    await waitForWaiters(c, waiting + 1, "submission waits on the policy row");
+    await waitForWaiters(c, waiting, 1, "submission waits on the policy row");
     retireHolder.release();
     const lateResult = await late;
     await retireHolder.done;
@@ -2596,7 +2768,7 @@ test(
     const body = regBody(session.id);
     const key = newKey();
     const submission = submit(c, body, { key });
-    await waitForWaiters(c, baseline + 1, "submission parked");
+    await waitForWaiters(c, baseline, 1, "submission parked");
     const approval = api(
       c,
       `/admin/academy/registration-policies/${draft1.id}/approve`,
@@ -2606,7 +2778,7 @@ test(
         body: { expectedVersion: draft1.version },
       },
     );
-    await waitForWaiters(c, baseline + 2, "approval waits for the share lock");
+    await waitForWaiters(c, baseline, 2, "approval waits for the share lock");
     holder.release();
     const [sub, app] = await Promise.all([submission, approval]);
     await holder.done;
@@ -2654,7 +2826,8 @@ test(
     const late = submit(c, lateBody);
     await waitForWaiters(
       c,
-      waiting + 1,
+      waiting,
+      1,
       "submission waits on the retiring policy",
     );
     swap.release();
@@ -2703,7 +2876,7 @@ test(
         body: { expectedVersion: draft.version },
       }),
     );
-    await waitForWaiters(c, baseline + 2, "both approvals queued");
+    await waitForWaiters(c, baseline, 2, "both approvals queued");
     holder.release();
     const results = await Promise.all(approvals);
     await holder.done;
@@ -2775,7 +2948,7 @@ test(
         token: "admin",
         body: { q, sessionId: session.id, ...extra },
       });
-      assert.equal(res.status, 201, res.text);
+      assert.equal(res.status, 200, res.text);
       return res.body.items.map((i) => i.id).sort();
     };
     const local = `0${phones.p1.slice(3)}`;
@@ -2917,7 +3090,8 @@ test(
     );
     await waitForWaiters(
       c,
-      baseline + 1,
+      baseline,
+      1,
       "attachment waits for the membership insert",
     );
     memberTx.release();
@@ -2951,11 +3125,7 @@ test(
         },
       }),
     );
-    await waitForWaiters(
-      c,
-      baseline + 1,
-      "membership waits for the attachment",
-    );
+    await waitForWaiters(c, baseline, 1, "membership waits for the attachment");
     attachTx.release();
     await attachTx.done;
     const refused = await member;
@@ -2982,7 +3152,7 @@ test(
         data: { planId: plan.id, offeringId: third.id },
       }),
     );
-    await waitForWaiters(c, baseline + 1, "plan link waits for the attachment");
+    await waitForWaiters(c, baseline, 1, "plan link waits for the attachment");
     attachTx2.release();
     await attachTx2.done;
     const linkResult = await link;
@@ -3013,7 +3183,8 @@ test(
     );
     await waitForWaiters(
       c,
-      baseline + 1,
+      baseline,
+      1,
       "attachment queues behind legacy flow",
     );
     legacyTx.release();
@@ -3308,7 +3479,7 @@ test(
       "GET /v1/academy/sessions": ["200"],
       "POST /v1/academy/registrations": ["200", "201"],
       "GET /v1/admin/academy/registrations": ["200"],
-      "POST /v1/admin/academy/registrations/search": ["201"],
+      "POST /v1/admin/academy/registrations/search": ["200"],
       "GET /v1/admin/academy/registrations/{id}": ["200"],
       "PATCH /v1/admin/academy/registrations/{id}/status": ["200"],
       "GET /v1/admin/academy/registration-sessions": ["200"],
@@ -3590,5 +3761,833 @@ test(
     assert.equal(retried.ok, true, retried.error?.code);
     assert.deepEqual(retried.value.receipt, first.receipt);
     await rotateTo();
+  },
+);
+
+// ---------------------------------------------------------------------------
+// CodeRabbit remediation regression tests (PR #126).
+// ---------------------------------------------------------------------------
+
+const REPEATABLE_READ = {
+  isolationLevel: "RepeatableRead",
+  timeout: 60000,
+  maxWait: 15000,
+};
+
+async function rawSession(c, { venue = true, state = "DRAFT" } = {}) {
+  const offering = await c.client.programmeOffering.create({
+    data: {
+      organizationId: ORG_A,
+      programmeId: c.programmeA.id,
+      venueId: venue ? c.venueA.id : null,
+      name: `Raw ${RUN} ${randomUUID().slice(0, 6)}`,
+      capacity: 5,
+      status: "OPEN",
+    },
+  });
+  return { offering, state };
+}
+
+function sessionInsertSql(offeringId, state) {
+  const published =
+    state === "PUBLISHED"
+      ? `, published_at, published_by_user_id) VALUES (gen_random_uuid(), '${ORG_A}', '${offeringId}', 'Coach', 6, '14:00', '16:00', '${FIRST_DATE}', 'WEEKLY', 'SESSION_START_DATE', 'PUBLISHED', now(), now(), '${randomUUID()}')`
+      : `) VALUES (gen_random_uuid(), '${ORG_A}', '${offeringId}', 'Coach', 6, '14:00', '16:00', '${FIRST_DATE}', 'WEEKLY', 'SESSION_START_DATE', 'DRAFT', now())`;
+  return `INSERT INTO academy_registration_sessions (id, organization_id, programme_offering_id, coach_display_name, weekday, start_time, end_time, first_session_date, recurrence, age_reference_rule, publication_state, updated_at${published}`;
+}
+
+test(
+  "C15: closure that wins the offering lock leaves the waiting submission unavailable and writes nothing",
+  { skip },
+  async () => {
+    const c = await ctx();
+    const session = await publishedSession(c);
+    const holder = holdTransaction(
+      c,
+      (tx) =>
+        tx.$queryRaw`SELECT id FROM programme_offerings WHERE id = ${session.programmeOfferingId}::uuid FOR UPDATE`,
+    );
+    await holder.ready;
+    const baseline = await waitingLocks(c);
+    const closing = api(
+      c,
+      `/admin/academy/registration-sessions/${session.id}/close`,
+      {
+        method: "POST",
+        token: "admin",
+        body: { expectedVersion: session.version },
+      },
+    );
+    await waitForWaiters(c, baseline, 1, "closure queued first", {
+      blockedBy: holder.pid,
+    });
+    const body = regBody(session.id);
+    const submission = submit(c, body);
+    await waitForWaiters(c, baseline, 2, "submission queued behind closure");
+    holder.release();
+    await holder.done;
+    const [closed, submitted] = await Promise.all([closing, submission]);
+    assert.equal(closed.status, 201, closed.text);
+    assert.equal(submitted.status, 409, submitted.text);
+    assert.equal(submitted.body.code, "SESSION_NOT_AVAILABLE");
+    assert.equal(
+      await c.client.academyRegistration.count({
+        where: { guardianPhone: body.guardian.phone },
+      }),
+      0,
+    );
+  },
+);
+
+test(
+  "C37/C22: replacement approval racing retirement of the current policy, both orders",
+  { skip },
+  async () => {
+    const c = await ctx();
+    for (const order of ["approve-first", "retire-first"]) {
+      await rotateTo();
+      const current = await currentPolicyRow(c);
+      policyCounter += 1;
+      const draft = await newDraftPolicy(
+        c,
+        `synthetic-ric190-${RUN}-race${policyCounter}`,
+      );
+      const holder = holdTransaction(c, (tx) =>
+        tx.$executeRawUnsafe(
+          `SELECT pg_advisory_xact_lock(hashtextextended('registration-policy:${ORG_A}', 0))`,
+        ),
+      );
+      await holder.ready;
+      const baseline = await waitingLocks(c);
+      const approve = () =>
+        api(c, `/admin/academy/registration-policies/${draft.id}/approve`, {
+          method: "POST",
+          token: "mgmt",
+          body: { expectedVersion: draft.version },
+        });
+      const retire = () =>
+        api(c, `/admin/academy/registration-policies/${current.id}/retire`, {
+          method: "POST",
+          token: "mgmt",
+          body: { expectedVersion: current.version },
+        });
+      const first = order === "approve-first" ? approve() : retire();
+      await waitForWaiters(c, baseline, 1, `${order}: first queued`, {
+        blockedBy: holder.pid,
+      });
+      const second = order === "approve-first" ? retire() : approve();
+      await waitForWaiters(c, baseline, 2, `${order}: second queued`);
+      holder.release();
+      await holder.done;
+      const [r1, r2] = await Promise.all([first, second]);
+      const [approved, retired] =
+        order === "approve-first" ? [r1, r2] : [r2, r1];
+      assert.equal(approved.status, 201, approved.text);
+      if (order === "approve-first") {
+        // Auto-retirement increments the version, so the stale retire is detected.
+        assert.equal(retired.status, 409, retired.text);
+        assert.equal(retired.body.code, "STALE_VERSION");
+      } else {
+        assert.equal(retired.status, 201, retired.text);
+      }
+      const after = await c.client.academyRegistrationPolicy.findMany({
+        where: { id: { in: [current.id, draft.id] } },
+      });
+      const byId = Object.fromEntries(after.map((row) => [row.id, row]));
+      assert.equal(byId[draft.id].status, "APPROVED");
+      assert.equal(byId[current.id].status, "RETIRED");
+      assert.equal(byId[current.id].version, current.version + 1);
+      assert.equal(
+        await c.client.academyRegistrationPolicy.count({
+          where: { organizationId: ORG_A, status: "APPROVED" },
+        }),
+        1,
+      );
+      currentConsent = draft.policyVersion;
+    }
+  },
+);
+
+test(
+  "C21: synthetic policies cannot be approved when KHLIM_ENV is unset in production",
+  { skip },
+  async () => {
+    const c = await ctx();
+    assert.equal(
+      resolveDeploymentTier({ NODE_ENV: "production" }),
+      "production",
+    );
+    assert.equal(resolveDeploymentTier({}), "development");
+    assert.equal(
+      resolveDeploymentTier({ NODE_ENV: "production", KHLIM_ENV: "staging" }),
+      "staging",
+    );
+    assert.equal(
+      resolveDeploymentTier({ KHLIM_ENV: "bogus" }),
+      "production",
+      "invalid configuration fails closed",
+    );
+    policyCounter += 1;
+    const draft = await newDraftPolicy(
+      c,
+      `synthetic-ric190-${RUN}-env${policyCounter}`,
+    );
+    const saved = {
+      NODE_ENV: process.env.NODE_ENV,
+      KHLIM_ENV: process.env.KHLIM_ENV,
+    };
+    process.env.NODE_ENV = "production";
+    delete process.env.KHLIM_ENV;
+    let refused;
+    try {
+      refused = await api(
+        c,
+        `/admin/academy/registration-policies/${draft.id}/approve`,
+        {
+          method: "POST",
+          token: "mgmt",
+          body: { expectedVersion: draft.version },
+        },
+      );
+    } finally {
+      for (const [key, value] of Object.entries(saved)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
+    assert.equal(refused.status, 409, refused.text);
+    assert.equal(refused.body.code, "POLICY_NOT_APPROVABLE");
+    assert.equal(
+      (
+        await c.client.academyRegistrationPolicy.findUnique({
+          where: { id: draft.id },
+        })
+      ).status,
+      "DRAFT",
+    );
+  },
+);
+
+test(
+  "C24/C25: full sessions are filtered before the 50-session limit",
+  { skip },
+  async () => {
+    const c = await ctx();
+    await rotateTo();
+    // Isolate the public list from sessions left by earlier tests.
+    await c.client.$executeRawUnsafe(
+      `UPDATE academy_registration_sessions SET publication_state = 'CLOSED', closed_at = now() WHERE publication_state = 'PUBLISHED'`,
+    );
+    const full = [];
+    for (let i = 0; i < 50; i += 1) {
+      const session = await publishedSession(c, {
+        capacity: 1,
+        startTime: "08:00",
+        endTime: "09:00",
+      });
+      const reg = await createRegistration(c, session.id);
+      assert.equal((await setStatus(c, reg.id, "CONFIRMED", 1)).status, 200);
+      full.push(session.id);
+    }
+    const open = await publishedSession(c, {
+      weekday: 7,
+      firstSessionDate: addDays(FIRST_DATE, 1),
+      startTime: "20:00",
+      endTime: "21:00",
+    });
+    const listed = await api(c, "/academy/sessions");
+    assert.equal(listed.status, 200);
+    assert.deepEqual(
+      listed.body.items.map((item) => item.id),
+      [open.id],
+      "the only session with a free seat is listed even after 50 full ones",
+    );
+    assert.ok(
+      full.every((id) => !listed.body.items.some((item) => item.id === id)),
+    );
+  },
+);
+
+test(
+  "C19/C28: impossible calendar dates and inactive sports are refused",
+  { skip },
+  async () => {
+    const c = await ctx();
+    const bad = await api(c, "/admin/academy/registration-sessions", {
+      method: "POST",
+      token: "admin",
+      body: {
+        programmeId: c.programmeA.id,
+        venueId: c.venueA.id,
+        name: "x",
+        capacity: 5,
+        enrollmentOpensAt: "2026-02-30T10:00:00Z",
+      },
+    });
+    assert.equal(bad.status, 400);
+    assert.deepEqual(bad.body.fieldErrors, [
+      { field: "enrollmentOpensAt", code: "INVALID_DATE" },
+    ]);
+    const leap = await api(c, "/admin/academy/registration-sessions", {
+      method: "POST",
+      token: "admin",
+      body: {
+        programmeId: c.programmeA.id,
+        venueId: c.venueA.id,
+        name: "leap",
+        capacity: 5,
+        enrollmentOpensAt: "2028-02-29T10:00:00Z",
+      },
+    });
+    assert.equal(leap.status, 201, leap.text);
+
+    const sport = await c.client.sport.create({
+      data: { code: `INACTIVE_${RUN}`, defaultName: "Inactive", active: false },
+    });
+    await c.client.organizationSport.create({
+      data: { organizationId: ORG_A, sportId: sport.id },
+    });
+    const programme = await c.client.programme.create({
+      data: {
+        organizationId: ORG_A,
+        sportId: sport.id,
+        code: `INACTIVE-${RUN}`,
+        name: "Inactive sport programme",
+        minimumAge: 10,
+        maximumAge: 12,
+      },
+    });
+    await rotateTo();
+    const draft = await setSession(c, { programmeId: programme.id });
+    const refused = await api(
+      c,
+      `/admin/academy/registration-sessions/${draft.id}/publish`,
+      {
+        method: "POST",
+        token: "admin",
+        body: {
+          expectedVersion: draft.version,
+          approvals: { scheduleApproved: true, ageRuleApproved: true },
+        },
+      },
+    );
+    assert.equal(refused.status, 409);
+    assert.equal(refused.body.code, "SESSION_INCOMPLETE");
+    assert.deepEqual(refused.body.fieldErrors, [
+      { field: "programme.sport", code: "INVALID_VALUE" },
+    ]);
+    const still = await api(
+      c,
+      `/admin/academy/registration-sessions/${draft.id}`,
+      {
+        token: "admin",
+      },
+    );
+    assert.equal(still.body.publicationState, "DRAFT");
+  },
+);
+
+test(
+  "C20: the current policy stays reachable however many newer drafts exist",
+  { skip },
+  async () => {
+    const c = await ctx();
+    await rotateTo();
+    const current = await currentPolicyRow(c);
+    await c.client.academyRegistrationPolicy.createMany({
+      data: Array.from({ length: 51 }, (_, i) => ({
+        organizationId: ORG_A,
+        policyVersion: `synthetic-ric190-${RUN}-bulk${i}`,
+        content: {},
+      })),
+    });
+    const listed = await api(c, "/admin/academy/registration-policies", {
+      token: "admin",
+    });
+    assert.equal(listed.status, 200);
+    assert.equal(listed.body.items.length, 50);
+    assert.ok(!listed.body.items.some((item) => item.id === current.id));
+    assert.equal(listed.body.current.id, current.id);
+    assert.equal(listed.body.current.status, "APPROVED");
+  },
+);
+
+test(
+  "C18: a plan link that races a session attachment gets the coded 409",
+  { skip },
+  async () => {
+    const c = await ctx();
+    const plan = await c.client.membershipPlan.create({
+      data: {
+        organizationId: ORG_A,
+        name: `Syn Plan C18 ${RUN}`,
+        billingFrequency: "UPFRONT",
+        upfrontAmountMinor: 100,
+      },
+    });
+    const offering = await c.client.programmeOffering.create({
+      data: {
+        organizationId: ORG_A,
+        programmeId: c.programmeA.id,
+        venueId: c.venueA.id,
+        name: `C18 ${RUN}`,
+        capacity: 5,
+      },
+    });
+    const attach = holdTransaction(c, (tx) =>
+      tx.academyRegistrationSession.create({
+        data: { organizationId: ORG_A, programmeOfferingId: offering.id },
+      }),
+    );
+    await attach.ready;
+    const baseline = await waitingLocks(c);
+    const link = api(c, "/admin/academy/membership-plan-offerings", {
+      method: "POST",
+      token: "admin",
+      body: { planId: plan.id, offeringId: offering.id },
+    });
+    await waitForWaiters(c, baseline, 1, "plan link waits on the attachment", {
+      blockedBy: attach.pid,
+    });
+    attach.release();
+    await attach.done;
+    const result = await link;
+    assert.equal(result.status, 409, result.text);
+    assert.equal(result.body.code, "OFFERING_REGISTRATION_ONLY");
+    assert.equal(
+      await c.client.membershipPlanOfferingEligibility.count({
+        where: { offeringId: offering.id },
+      }),
+      0,
+    );
+  },
+);
+
+test(
+  "C35: legacy isolation holds under REPEATABLE READ in both orders",
+  { skip },
+  async () => {
+    const c = await ctx();
+    const athlete = await c.client.athleteProfile.create({
+      data: {
+        displayName: `Syn RR ${RUN}`,
+        dateOfBirth: new Date("2015-01-01"),
+      },
+    });
+    const plan = await c.client.membershipPlan.create({
+      data: {
+        organizationId: ORG_A,
+        name: `Syn Plan RR ${RUN}`,
+        billingFrequency: "UPFRONT",
+        upfrontAmountMinor: 100,
+      },
+    });
+    const makeOffering = () =>
+      c.client.programmeOffering.create({
+        data: {
+          organizationId: ORG_A,
+          programmeId: c.programmeA.id,
+          venueId: c.venueA.id,
+          name: `RR ${RUN} ${randomUUID().slice(0, 6)}`,
+          capacity: 5,
+          status: "OPEN",
+        },
+      });
+    const legacyWrites = {
+      eligibility: (tx, offeringId) =>
+        tx.membershipPlanOfferingEligibility.create({
+          data: { planId: plan.id, offeringId },
+        }),
+      membership: (tx, offeringId) =>
+        tx.membership.create({
+          data: {
+            organizationId: ORG_A,
+            athleteId: athlete.id,
+            programmeOfferingId: offeringId,
+            membershipPlanId: plan.id,
+          },
+        }),
+    };
+    const attachWrite = (tx, offeringId) =>
+      tx.academyRegistrationSession.create({
+        data: { organizationId: ORG_A, programmeOfferingId: offeringId },
+      });
+    const legacyCount = async (offeringId) =>
+      (await c.client.membershipPlanOfferingEligibility.count({
+        where: { offeringId },
+      })) +
+      (await c.client.membership.count({
+        where: { programmeOfferingId: offeringId },
+      }));
+    for (const [kind, legacyWrite] of Object.entries(legacyWrites)) {
+      for (const legacyFirst of [true, false]) {
+        const offering = await makeOffering();
+        const [firstWrite, secondWrite] = legacyFirst
+          ? [legacyWrite, attachWrite]
+          : [attachWrite, legacyWrite];
+        const holder = holdTransaction(
+          c,
+          (tx) => firstWrite(tx, offering.id),
+          REPEATABLE_READ,
+        );
+        await holder.ready;
+        const baseline = await waitingLocks(c);
+        const second = settle(
+          c.client.$transaction(
+            (tx) => secondWrite(tx, offering.id),
+            REPEATABLE_READ,
+          ),
+        );
+        await waitForWaiters(c, baseline, 1, `${kind} second writer waits`, {
+          blockedBy: holder.pid,
+        });
+        holder.release();
+        await holder.done;
+        const outcome = await second;
+        assert.equal(
+          outcome.ok,
+          false,
+          `${kind}/${legacyFirst}: second writer must fail`,
+        );
+        assert.match(
+          dbText(outcome.error),
+          /could not serialize|40001|OFFERING_HAS_LEGACY_USAGE|OFFERING_REGISTRATION_ONLY/,
+        );
+        const sessions = await c.client.academyRegistrationSession.count({
+          where: { programmeOfferingId: offering.id },
+        });
+        const legacy = await legacyCount(offering.id);
+        assert.equal(
+          sessions + legacy,
+          1,
+          `${kind}/${legacyFirst}: exactly one side committed`,
+        );
+        assert.equal(legacy === 1, legacyFirst);
+      }
+    }
+  },
+);
+
+test(
+  "C35: confirmed capacity holds for direct SQL confirmations under REPEATABLE READ",
+  { skip },
+  async () => {
+    const c = await ctx();
+    const session = await publishedSession(c, { capacity: 1 });
+    const one = await createRegistration(c, session.id);
+    const two = await createRegistration(c, session.id);
+    const confirmSql = (id) =>
+      `UPDATE academy_registrations SET status = 'CONFIRMED' WHERE id = '${id}'`;
+    const holder = holdTransaction(
+      c,
+      (tx) => tx.$executeRawUnsafe(confirmSql(one.id)),
+      REPEATABLE_READ,
+    );
+    await holder.ready;
+    const baseline = await waitingLocks(c);
+    const second = settle(
+      c.client.$transaction(
+        (tx) => tx.$executeRawUnsafe(confirmSql(two.id)),
+        REPEATABLE_READ,
+      ),
+    );
+    await waitForWaiters(c, baseline, 1, "second confirmation waits", {
+      blockedBy: holder.pid,
+    });
+    holder.release();
+    await holder.done;
+    const outcome = await second;
+    assert.equal(outcome.ok, false);
+    assert.match(
+      dbText(outcome.error),
+      /could not serialize|40001|CAPACITY_EXCEEDED/,
+    );
+    assert.equal(
+      await c.client.academyRegistration.count({
+        where: { sessionId: session.id, status: "CONFIRMED" },
+      }),
+      1,
+    );
+  },
+);
+
+test(
+  "C36/C38: published sessions need a venue on every write path; parents cannot change tenant",
+  { skip },
+  async () => {
+    const c = await ctx();
+    const { offering: noVenue } = await rawSession(c, { venue: false });
+    await expectDbReject(
+      () =>
+        c.client.$executeRawUnsafe(sessionInsertSql(noVenue.id, "PUBLISHED")),
+      /SESSION_INCOMPLETE/,
+    );
+    await c.client.$executeRawUnsafe(sessionInsertSql(noVenue.id, "DRAFT"));
+    await expectDbReject(
+      () =>
+        c.client.$executeRawUnsafe(
+          `UPDATE academy_registration_sessions SET publication_state = 'PUBLISHED', published_at = now(), published_by_user_id = '${randomUUID()}' WHERE programme_offering_id = '${noVenue.id}'`,
+        ),
+      /SESSION_INCOMPLETE/,
+    );
+    const { offering: withVenue } = await rawSession(c, { venue: true });
+    assert.equal(
+      await c.client.$executeRawUnsafe(
+        sessionInsertSql(withVenue.id, "PUBLISHED"),
+      ),
+      1,
+      "control: a published insert with a venue succeeds",
+    );
+
+    // Parent tenant moves.
+    const programme = await c.client.programme.create({
+      data: {
+        organizationId: ORG_A,
+        sportId: c.programmeA.sportId,
+        code: `MOVE-${RUN}`,
+        name: "Move guard",
+        minimumAge: 10,
+        maximumAge: 12,
+      },
+    });
+    const venue = await c.client.venue.create({
+      data: { organizationId: ORG_A, name: `Move venue ${RUN}` },
+    });
+    const referenced = await c.client.programmeOffering.create({
+      data: {
+        organizationId: ORG_A,
+        programmeId: programme.id,
+        venueId: venue.id,
+        name: `Move ${RUN}`,
+        capacity: 5,
+      },
+    });
+    await expectDbReject(
+      () =>
+        c.client.$executeRawUnsafe(
+          `UPDATE programmes SET organization_id = '${ORG_B}' WHERE id = '${programme.id}'`,
+        ),
+      /CROSS_TENANT_REFERENCE/,
+    );
+    await expectDbReject(
+      () =>
+        c.client.$executeRawUnsafe(
+          `UPDATE venues SET organization_id = '${ORG_B}' WHERE id = '${venue.id}'`,
+        ),
+      /CROSS_TENANT_REFERENCE/,
+    );
+    // Unreferenced parents can still move, and venue deletion keeps SET NULL.
+    const lone = await c.client.venue.create({
+      data: { organizationId: ORG_A, name: `Lone venue ${RUN}` },
+    });
+    assert.equal(
+      await c.client.$executeRawUnsafe(
+        `UPDATE venues SET organization_id = '${ORG_B}' WHERE id = '${lone.id}'`,
+      ),
+      1,
+    );
+    await c.client.venue.delete({ where: { id: venue.id } });
+    const orphan = await c.client.programmeOffering.findUnique({
+      where: { id: referenced.id },
+    });
+    assert.equal(orphan.venueId, null, "legacy ON DELETE SET NULL preserved");
+  },
+);
+
+test(
+  "C23: expired-counter cleanup runs again immediately after a full batch",
+  { skip },
+  async () => {
+    const c = await ctx();
+    await rotateTo();
+    const prefix = `reg:cadence:${RUN}:`;
+    await c.client.submissionRateLimit.createMany({
+      data: Array.from({ length: 650 }, (_, i) => ({
+        key: `${prefix}${i}`,
+        expiresAt: new Date("2000-01-01T00:00:00Z"),
+      })),
+    });
+    const remaining = () =>
+      c.client.submissionRateLimit.count({
+        where: { key: { startsWith: prefix } },
+      });
+    const service = instance(c, `v1:${HMAC_V1}`);
+    const ghost = randomUUID();
+    await settle(service.createRegistration(regBody(ghost), newKey(), newIp()));
+    assert.equal(await remaining(), 150, "first batch removed 500");
+    await settle(service.createRegistration(regBody(ghost), newKey(), newIp()));
+    assert.equal(
+      await remaining(),
+      0,
+      "a full batch schedules the next one immediately",
+    );
+  },
+);
+
+test(
+  "C1-C4/C30/C32: contract enums, publish acknowledgements, search status, unknown keys and scrubber paths",
+  { skip },
+  async () => {
+    const c = await ctx();
+    const schemas = createOpenApiDocument(c.app).components.schemas;
+    assert.ok(
+      !schemas.RegistrationStatusChangeRequestDto.properties.status.enum.includes(
+        "RECEIVED",
+      ),
+    );
+    for (const name of [
+      "CreateRegistrationSessionRequestDto",
+      "UpdateRegistrationSessionRequestDto",
+      "AdminRegistrationSessionDto",
+    ]) {
+      assert.ok(
+        schemas[name].properties.recurrence.enum.includes(null),
+        `${name}.recurrence`,
+      );
+    }
+    assert.ok(
+      schemas.CreateRegistrationSessionRequestDto.properties.ageReferenceRule.enum.includes(
+        null,
+      ),
+    );
+    assert.deepEqual([...schemas.PublishApprovalsDto.required].sort(), [
+      "ageRuleApproved",
+      "scheduleApproved",
+    ]);
+    for (const key of ["scheduleApproved", "ageRuleApproved"]) {
+      assert.deepEqual(schemas.PublishApprovalsDto.properties[key].enum, [
+        true,
+      ]);
+    }
+
+    // Unknown JSON member names are never echoed (they may carry PII).
+    const session = await publishedSession(c);
+    const base = regBody(session.id);
+    const phoneKey = "60123456789";
+    const res = await submit(c, {
+      ...base,
+      [phoneKey]: true,
+      guardian: { ...base.guardian, ["guardian@example.test"]: 1 },
+    });
+    assert.equal(res.status, 400);
+    assert.ok(
+      !res.text.includes(phoneKey) &&
+        !res.text.includes("guardian@example.test"),
+    );
+    assert.deepEqual(
+      res.body.fieldErrors.filter((e) => e.code === "UNKNOWN_FIELD"),
+      [
+        { field: "body", code: "UNKNOWN_FIELD" },
+        { field: "guardian", code: "UNKNOWN_FIELD" },
+      ],
+    );
+
+    // Search is a read: 200, not 201.
+    const search = await api(c, "/admin/academy/registrations/search", {
+      method: "POST",
+      token: "admin",
+      body: { q: "Syn" },
+    });
+    assert.equal(search.status, 200);
+
+    // Scrubber matches the path, never the query string.
+    const unrelated = {
+      request: {
+        url: "https://api.example.test/v1/academy/offerings?returnTo=/academy/sessions",
+        data: { keep: true },
+      },
+      exception: { values: [{ value: "kept" }] },
+    };
+    assert.deepEqual(
+      scrubRegistrationEvent(structuredClone(unrelated)),
+      unrelated,
+    );
+    assert.equal(
+      scrubRegistrationEvent({
+        transaction: "POST /v1/academy/registrations",
+        message: "x",
+      }).message,
+      "Registration request failed",
+    );
+    assert.equal(
+      scrubRegistrationEvent({
+        request: { url: "/academy/sessionsX", data: 1 },
+      }).request.data,
+      1,
+      "whole segments only",
+    );
+    assert.equal(
+      scrubRegistrationEvent({
+        request: {
+          url: "https://api.example.test/v1/admin/academy/registration-policies/x",
+          data: 1,
+        },
+      }).request.data,
+      undefined,
+    );
+  },
+);
+
+test(
+  "C7: a direct SQL confirmation that deadlocks with the status API never yields a 5xx",
+  { skip },
+  async () => {
+    const c = await ctx();
+    const session = await publishedSession(c, { capacity: 5 });
+    const reg = await createRegistration(c, session.id);
+    let markLocked;
+    const locked = new Promise((resolve) => {
+      markLocked = resolve;
+    });
+    let goDirect;
+    const direct = new Promise((resolve) => {
+      goDirect = resolve;
+    });
+    let directPid;
+    const directTx = settle(
+      c.client.$transaction(
+        async (tx) => {
+          const [{ pid }] = await tx.$queryRawUnsafe(
+            "SELECT pg_backend_pid() AS pid",
+          );
+          directPid = pid;
+          await tx.$queryRawUnsafe(
+            `SELECT id FROM academy_registrations WHERE id = '${reg.id}' FOR UPDATE`,
+          );
+          markLocked();
+          await direct;
+          // The trigger now needs the offering, which the API holds: deadlock.
+          await tx.$executeRawUnsafe(
+            `UPDATE academy_registrations SET status = 'CONFIRMED' WHERE id = '${reg.id}'`,
+          );
+        },
+        { timeout: 60000, maxWait: 15000 },
+      ),
+    );
+    await locked;
+    const baseline = await waitingLocks(c);
+    const apiCall = setStatus(c, reg.id, "CONFIRMED", 1);
+    await waitForWaiters(c, baseline, 1, "API waits for the registration row", {
+      blockedBy: directPid,
+    });
+    goDirect();
+    const [response, directResult] = await Promise.all([apiCall, directTx]);
+    assert.ok(
+      [200, 409].includes(response.status),
+      `API returned ${response.status}: ${response.text}`,
+    );
+    if (response.status === 409) {
+      assert.equal(
+        response.body.code,
+        "INVALID_TRANSITION",
+        "already confirmed directly",
+      );
+      assert.equal(directResult.ok, true);
+    }
+    assert.equal(
+      (await c.client.academyRegistration.findUnique({ where: { id: reg.id } }))
+        .status,
+      "CONFIRMED",
+    );
   },
 );

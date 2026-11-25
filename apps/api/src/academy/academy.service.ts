@@ -378,11 +378,26 @@ export class AcademyService {
       });
     }
 
-    return this.prisma.client.membershipPlanOfferingEligibility.upsert({
-      where: { planId_offeringId: { planId, offeringId } },
-      create: { planId, offeringId },
-      update: {},
-    });
+    try {
+      return await this.prisma.client.membershipPlanOfferingEligibility.upsert({
+        where: { planId_offeringId: { planId, offeringId } },
+        create: { planId, offeringId },
+        update: {},
+      });
+    } catch (error) {
+      // A registration session attached after the check above is refused by
+      // the database isolation trigger; report it with the same coded 409.
+      if (
+        error instanceof Error &&
+        error.message.includes("OFFERING_REGISTRATION_ONLY")
+      ) {
+        throw new ConflictException({
+          code: "OFFERING_REGISTRATION_ONLY",
+          message: "Registration cohorts cannot be linked to membership plans",
+        });
+      }
+      throw error;
+    }
   }
 
   listAthleteMemberships(organizationId: string, athleteId: string) {

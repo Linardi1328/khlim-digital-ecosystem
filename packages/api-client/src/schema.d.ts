@@ -2005,8 +2005,11 @@ export interface components {
             }[];
         };
         RegistrationStatusChangeRequestDto: {
-            /** @enum {string} */
-            status: "RECEIVED" | "UNDER_REVIEW" | "CONFIRMED" | "REJECTED" | "CANCELLED";
+            /**
+             * @description Target status; RECEIVED is only ever the initial state
+             * @enum {string}
+             */
+            status: "UNDER_REVIEW" | "CONFIRMED" | "REJECTED" | "CANCELLED";
             /**
              * @description Required for REJECTED and CANCELLED
              * @enum {string}
@@ -2122,17 +2125,21 @@ export interface components {
             /** @description Never below confirmed seats */
             capacity?: number;
         };
+        PublishApprovalsDto: {
+            /**
+             * @description Must be true
+             * @enum {boolean}
+             */
+            scheduleApproved: true;
+            /**
+             * @description Must be true
+             * @enum {boolean}
+             */
+            ageRuleApproved: true;
+        };
         PublishRegistrationSessionRequestDto: {
             expectedVersion: number;
-            /**
-             * @example {
-             *       "scheduleApproved": true,
-             *       "ageRuleApproved": true
-             *     }
-             */
-            approvals: {
-                [key: string]: boolean;
-            };
+            approvals: components["schemas"]["PublishApprovalsDto"];
         };
         VersionRequestDto: {
             expectedVersion: number;
@@ -2153,6 +2160,9 @@ export interface components {
             updatedAt: string;
         };
         AdminRegistrationPolicyListDto: {
+            /** @description The approved policy, always present here even when older than the history page */
+            current: components["schemas"]["AdminRegistrationPolicyDto"] | null;
+            /** @description Newest 50 policy versions */
             items: components["schemas"]["AdminRegistrationPolicyDto"][];
         };
         CreateRegistrationPolicyRequestDto: {
@@ -3364,7 +3374,7 @@ export interface operations {
             };
         };
         responses: {
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
