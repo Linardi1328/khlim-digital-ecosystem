@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { Suspense, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { AdminShell } from "../../components/layout/AdminShell";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { DataTable, type Column } from "../../components/ui/DataTable";
@@ -14,7 +15,9 @@ import { Tabs } from "../../components/ui/Tabs";
 import { adminApi } from "../../lib/admin-api";
 import type { AthleteItem } from "../../lib/types";
 
-export default function AthletesPage() {
+function AthletesPageContent() {
+  const searchParams = useSearchParams();
+  const athleteId = searchParams.get("athleteId");
   const [athletes, setAthletes] = useState<AthleteItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -41,8 +44,16 @@ export default function AthletesPage() {
         setLoading(false);
       }
     }
-    load();
+    void load();
   }, []);
+
+  // Keep deep-linked athlete selection synchronized with client-side navigation.
+  useEffect(() => {
+    if (!athleteId) return;
+    const match = athletes.find((item) => item.id === athleteId);
+    setSelectedAthlete(match ?? null);
+    if (match) setDetailTab("profile");
+  }, [athleteId, athletes]);
 
   const filtered = athletes.filter((ath) => {
     const matchesSearch =
@@ -459,5 +470,13 @@ export default function AthletesPage() {
         </Drawer>
       </div>
     </AdminShell>
+  );
+}
+
+export default function AthletesPage() {
+  return (
+    <Suspense fallback={<p>Loading athlete records…</p>}>
+      <AthletesPageContent />
+    </Suspense>
   );
 }

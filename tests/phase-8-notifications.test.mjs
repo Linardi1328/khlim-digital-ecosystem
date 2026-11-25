@@ -22,7 +22,7 @@ test("Admin notifications are targeted, persistent, and MFA protected", async ()
   assert.match(controller, /@RequireMfa\(\)/);
   assert.match(service, /ALL_GUARDIANS/);
   assert.match(service, /programmeOfferingId/);
-  assert.match(page, /Send notification/);
+  assert.match(page, /Send in-app notification/);
 });
 
 test("portal exposes unread/read notification lifecycle", async () => {

@@ -25,10 +25,16 @@ test("Admin surfaces use the official KHLIM Sports Academy logo", async () => {
   const sidebar = await read("apps/admin/components/layout/AdminSidebar.tsx");
   const layout = await read("apps/admin/app/layout.tsx");
 
-  await access(new URL("apps/admin/public/khs-academy-logo.webp", root));
-  assert.match(shell, /\/khs-academy-logo\.webp/);
-  assert.match(sidebar, /\/khs-academy-logo\.webp/);
-  assert.match(layout, /\/khs-academy-logo\.webp/);
+  await access(new URL("apps/admin/public/brand/khs-academy-crest.png", root));
+  await access(
+    new URL("apps/admin/public/brand/khs-academy-wordmark.png", root),
+  );
+  await access(
+    new URL("apps/admin/public/brand/khlim-corporate-logo.png", root),
+  );
+  assert.match(shell, /\/brand\/khs-academy-crest\.png/);
+  assert.match(sidebar, /\/brand\/khs-academy-crest\.png/);
+  assert.match(layout, /\/brand\/khlim-corporate-logo\.png/);
 });
 
 test("Admin console implements all required reusable UI components", async () => {
@@ -53,7 +59,7 @@ test("Admin console implements all required reusable UI components", async () =>
   const formSection = await read("apps/admin/components/ui/FormSection.tsx");
 
   assert.match(shell, /AdminSidebar/);
-  assert.match(sidebar, /ADMIN_NAV_ITEMS/);
+  assert.match(sidebar, /ADMIN_SECTIONS/);
   assert.match(sidebar, /#F59E0B/);
   assert.match(header, /Operations Console/);
   assert.match(pageHeader, /PageHeader/);
@@ -73,8 +79,18 @@ test("Admin console implements all required reusable UI components", async () =>
   assert.match(formSection, /FormSection/);
 });
 
-test("Admin sidebar routes include the operations and access-control domains", async () => {
+test("Admin sections preserve the operations and access-control domains", async () => {
   const sidebar = await read("apps/admin/components/layout/AdminSidebar.tsx");
+  const sections = await read("apps/admin/components/layout/admin-sections.ts");
+  const tabs = await read(
+    "apps/admin/components/layout/AdminSectionNavigation.tsx",
+  );
+
+  assert.match(sidebar, /ADMIN_SECTIONS\.filter/);
+  assert.match(sidebar, /canViewAdminSection/);
+  assert.match(tabs, /canViewAdminPage/);
+  assert.match(tabs, /aria-current/);
+  assert.match(tabs, /How to use/);
 
   for (const label of [
     "Dashboard",
@@ -85,7 +101,7 @@ test("Admin sidebar routes include the operations and access-control domains", a
     "Athletes",
     "Guardians",
     "Payments",
-    "Venues",
+    "Venues & Courts",
     "Scheduling",
     "Editorial Studio",
     "Notifications",
@@ -94,12 +110,12 @@ test("Admin sidebar routes include the operations and access-control domains", a
     "Audit Log",
     "Settings",
   ]) {
-    assert.match(sidebar, new RegExp(`label:\\s*"${label}"`));
+    assert.match(sections, new RegExp(`label:\\s*"${label}"`));
   }
 
-  assert.match(sidebar, /roles:\s*MANAGEMENT/);
-  assert.match(sidebar, /roles:\s*FINANCE/);
-  assert.match(sidebar, /roles:\s*SESSION_OPERATIONS/);
+  assert.match(sections, /roles:\s*MANAGEMENT/);
+  assert.match(sections, /roles:\s*FINANCE/);
+  assert.match(sections, /roles:\s*SESSIONS/);
   assert.match(sidebar, /minHeight:\s*44/);
 });
 

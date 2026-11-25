@@ -397,6 +397,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/operations-data/offerings/{id}/roster": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** View eligible athlete profiles in one Academy offering */
+        get: operations["AdminOperationsDataController_getOfferingRoster"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/operations-data/membership-plans": {
         parameters: {
             query?: never;
@@ -1315,6 +1332,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["SchedulingController_complete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/scheduling/sessions/{id}/roster": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["SchedulingController_roster"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2706,6 +2739,25 @@ export interface operations {
             };
         };
     };
+    AdminOperationsDataController_getOfferingRoster: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     AdminOperationsDataController_listMembershipPlans: {
         parameters: {
             query?: never;
@@ -4075,6 +4127,25 @@ export interface operations {
         requestBody?: never;
         responses: {
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    SchedulingController_roster: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

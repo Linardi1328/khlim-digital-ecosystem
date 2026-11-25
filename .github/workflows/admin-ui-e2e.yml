@@ -68,3 +68,46 @@ jobs:
             test-results/
           if-no-files-found: ignore
           retention-days: 7
+
+  authenticated-mocked-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_PUBLIC_ADMIN_DEMO_MODE: "false"
+      NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:3001/v1
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:4000
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: synthetic-browser-test-public-key
+      PLAYWRIGHT_ADMIN_BASE_URL: http://127.0.0.1:3002
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: "24"
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.15.0 --activate
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Build real-auth-mode Admin against synthetic local origins
+        env:
+          VERCEL: "1"
+        run: pnpm --filter @khlim/admin build
+      - name: Start Admin
+        run: pnpm --filter @khlim/admin start > /tmp/admin-auth-browser.log 2>&1 &
+      - name: Wait for Admin
+        run: |
+          for attempt in {1..30}; do
+            if curl --fail --silent "$PLAYWRIGHT_ADMIN_BASE_URL/" --output /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/admin-auth-browser.log
+          exit 1
+      - name: Run isolated authenticated Admin browser tests
+        run: pnpm exec playwright test --config=playwright.admin.auth.config.mjs

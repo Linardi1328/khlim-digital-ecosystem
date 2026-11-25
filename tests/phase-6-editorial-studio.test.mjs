@@ -28,7 +28,7 @@ test("public website consumes published editorial API data", async () => {
   assert.match(helper, /cache\s*:\s*"no-store"/);
 });
 test("Admin navigation exposes Editorial Studio", async () => {
-  const nav = await read("apps/admin/components/layout/AdminSidebar.tsx");
+  const nav = await read("apps/admin/components/layout/admin-sections.ts");
   assert.match(nav, /\/editorial/);
   assert.match(nav, /Editorial Studio/);
 });

@@ -1,0 +1,12 @@
+# Preserve every built-in rule. This narrowly excludes a reviewed false positive
+# in an earlier synthetic browser-test commit (not a real credential).
+# Do NOT exempt future commits, other paths, or other rule identifiers.
+filter = '''
+  get(attributes, "git.sha", "") == "ea238e5ade6bcd96ccbf66f27d800fa8ad86a8de" &&
+  get(attributes, "path", "") == "tests/e2e/admin-authenticated-flows.spec.mjs" &&
+  finding["rule_id"] == "generic-password" &&
+  filter.containsAny(finding["line"], ["await login(page,"])
+'''
+
+[extend]
+useDefault = true

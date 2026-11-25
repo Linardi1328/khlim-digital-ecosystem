@@ -26,6 +26,7 @@ const IDS = Object.freeze({
   guardian: "40404040-4040-4040-8040-404040404040",
   target: "50505050-5050-4050-8050-505050505050",
   superAdminTarget: "60606060-6060-4060-8060-606060606060",
+  eventStaff: "70707070-7070-4070-8070-707070707070",
 });
 
 const SUBJECTS = Object.freeze({
@@ -35,6 +36,7 @@ const SUBJECTS = Object.freeze({
   guardian: "pre-alpha-admin-guardian",
   target: "pre-alpha-admin-target",
   superAdminTarget: "pre-alpha-admin-super-target",
+  eventStaff: "pre-alpha-admin-event-staff",
 });
 
 function databaseTestsEnabled() {
@@ -124,6 +126,14 @@ function installJwtDouble(jwt) {
       "target-aal2",
       makeIdentity(SUBJECTS.target, "target.admin-http@example.test", "aal2"),
     ],
+    [
+      "event-staff-aal2",
+      makeIdentity(
+        SUBJECTS.eventStaff,
+        "event-staff.admin-http@example.test",
+        "aal2",
+      ),
+    ],
   ]);
 
   jwt.verify = async (token) => {
@@ -190,6 +200,11 @@ async function seed(client) {
         authProviderSubject: SUBJECTS.superAdminTarget,
         email: "super-target.admin-http@example.test",
       },
+      {
+        id: IDS.eventStaff,
+        authProviderSubject: SUBJECTS.eventStaff,
+        email: "event-staff.admin-http@example.test",
+      },
     ],
   });
 
@@ -202,6 +217,7 @@ async function seed(client) {
       { userId: IDS.target, role: "GUARDIAN" },
       { userId: IDS.target, role: "COACH" },
       { userId: IDS.superAdminTarget, role: "SUPER_ADMIN" },
+      { userId: IDS.eventStaff, role: "EVENT_STAFF" },
     ],
   });
 
@@ -217,6 +233,9 @@ async function seed(client) {
   await createOrganizationStaffMembership(client, IDS.target, ["COACH"]);
   await createOrganizationStaffMembership(client, IDS.superAdminTarget, [
     "SUPER_ADMIN",
+  ]);
+  await createOrganizationStaffMembership(client, IDS.eventStaff, [
+    "EVENT_STAFF",
   ]);
 }
 
@@ -320,6 +339,85 @@ test(
           );
           assert.equal(management.response.status, 200);
           assert.equal(management.body.id, IDS.target);
+        },
+      );
+
+      await t.test(
+        "roster and attendance endpoints reject coaches, event staff, and low-MFA academy staff",
+        async () => {
+          const sessionId = "00000000-0000-4000-8000-000000000003";
+          for (const path of [
+            `/v1/admin/scheduling/sessions/${sessionId}/roster`,
+            `/v1/admin/scheduling/sessions/${sessionId}/attendance`,
+            "/v1/admin/operations-data/offerings/00000000-0000-4000-8000-000000000002/roster",
+          ]) {
+            for (const token of ["target-aal2", "event-staff-aal2"]) {
+              const response = await jsonRequest(baseUrl, path, { token });
+              assertError(response, 403, /Insufficient permissions/);
+            }
+            const lowAal = await jsonRequest(baseUrl, path, {
+              token: "academy-aal1",
+            });
+            assertError(lowAal, 403, /MFA assurance level 2 is required/);
+          }
+          for (const token of [
+            "target-aal2",
+            "event-staff-aal2",
+            "academy-aal1",
+          ]) {
+            const response = await jsonRequest(
+              baseUrl,
+              `/v1/admin/scheduling/sessions/${sessionId}/attendance`,
+              {
+                method: "PUT",
+                token,
+                body: {
+                  athleteId: "00000000-0000-4000-8000-000000000004",
+                  status: "PRESENT",
+                },
+              },
+            );
+            assert.equal(response.response.status, 403);
+          }
+        },
+      );
+
+      await t.test(
+        "notification recipient IDs must resolve within the requesting organization",
+        async () => {
+          const before = await client.notification.count({
+            where: { organizationId: KHLIM_ORGANIZATION_ID },
+          });
+          for (const badTarget of [
+            { audience: "USER", userId: IDS.guardian },
+            {
+              audience: "OFFERING",
+              programmeOfferingId: "80808080-8080-4080-8080-808080808080",
+            },
+          ]) {
+            const result = await jsonRequest(
+              baseUrl,
+              "/v1/admin/notifications",
+              {
+                method: "POST",
+                token: "management-aal2",
+                body: {
+                  type: "ANNOUNCEMENT",
+                  title: "Synthetic access control test",
+                  body: "No message should be delivered",
+                  ...badTarget,
+                },
+              },
+            );
+            assert.equal(result.response.status, 404);
+          }
+          assert.equal(
+            await client.notification.count({
+              where: { organizationId: KHLIM_ORGANIZATION_ID },
+            }),
+            before,
+            "rejected audiences must never create notification records",
+          );
         },
       );
 

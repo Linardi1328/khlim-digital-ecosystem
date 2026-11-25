@@ -1,148 +1,15 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAdminAuth } from "../../lib/auth-context";
-import type { StaffRole } from "../../lib/types";
-
-export interface NavItem {
-  href: string;
-  label: string;
-  icon: string;
-  badge?: string | number;
-  roles?: StaffRole[];
-}
-
-const MANAGEMENT: StaffRole[] = ["SUPER_ADMIN", "MANAGEMENT"];
-const ACADEMY_MANAGEMENT: StaffRole[] = [
-  "SUPER_ADMIN",
-  "MANAGEMENT",
-  "ACADEMY_ADMIN",
-];
-const REPORTING: StaffRole[] = [
-  "SUPER_ADMIN",
-  "MANAGEMENT",
-  "FINANCE_ADMIN",
-  "ACADEMY_ADMIN",
-  "HEAD_COACH",
-];
-const PLAYER_OPERATIONS: StaffRole[] = [
-  "SUPER_ADMIN",
-  "MANAGEMENT",
-  "ACADEMY_ADMIN",
-  "HEAD_COACH",
-  "COACH",
-];
-const SESSION_OPERATIONS: StaffRole[] = [
-  "SUPER_ADMIN",
-  "MANAGEMENT",
-  "ACADEMY_ADMIN",
-  "HEAD_COACH",
-  "COACH",
-  "EVENT_STAFF",
-];
-const FINANCE: StaffRole[] = ["SUPER_ADMIN", "MANAGEMENT", "FINANCE_ADMIN"];
-
-export const ADMIN_NAV_ITEMS: NavItem[] = [
-  { href: "/", label: "Dashboard", icon: "📊" },
-  { href: "/reports", label: "Reports", icon: "📈", roles: REPORTING },
-  {
-    href: "/insights",
-    label: "KPI & Health",
-    icon: "🩺",
-    roles: REPORTING,
-  },
-  {
-    href: "/insights/campaigns",
-    label: "3x3 Campaign",
-    icon: "🎯",
-    badge: "24 Oct",
-    roles: ACADEMY_MANAGEMENT,
-  },
-  {
-    href: "/programmes",
-    label: "Programmes",
-    icon: "🏀",
-    roles: ACADEMY_MANAGEMENT,
-  },
-  {
-    href: "/offerings",
-    label: "Offerings",
-    icon: "🏟️",
-    roles: ACADEMY_MANAGEMENT,
-  },
-  {
-    href: "/plans",
-    label: "Membership Plans",
-    icon: "🏷️",
-    roles: ACADEMY_MANAGEMENT,
-  },
-  {
-    href: "/leads",
-    label: "Leads",
-    icon: "📥",
-    roles: ACADEMY_MANAGEMENT,
-  },
-  {
-    href: "/memberships",
-    label: "Memberships",
-    icon: "🏅",
-    roles: PLAYER_OPERATIONS,
-  },
-  {
-    href: "/athletes",
-    label: "Athletes",
-    icon: "👦",
-    roles: PLAYER_OPERATIONS,
-  },
-  {
-    href: "/guardians",
-    label: "Guardians",
-    icon: "👥",
-    roles: PLAYER_OPERATIONS,
-  },
-  { href: "/payments", label: "Payments", icon: "💳", roles: FINANCE },
-  {
-    href: "/venues",
-    label: "Venues",
-    icon: "📍",
-    roles: ACADEMY_MANAGEMENT,
-  },
-  {
-    href: "/scheduling",
-    label: "Scheduling",
-    icon: "📅",
-    roles: SESSION_OPERATIONS,
-  },
-  {
-    href: "/editorial",
-    label: "Editorial Studio",
-    icon: "📰",
-    roles: ACADEMY_MANAGEMENT,
-  },
-  {
-    href: "/moderation",
-    label: "Moderation",
-    icon: "🛡️",
-    roles: MANAGEMENT,
-  },
-  {
-    href: "/notifications",
-    label: "Notifications",
-    icon: "🔔",
-    roles: ACADEMY_MANAGEMENT,
-  },
-  {
-    href: "/users",
-    label: "Accounts & Access",
-    icon: "🔐",
-    roles: MANAGEMENT,
-  },
-  { href: "/staff", label: "Staff", icon: "👔", roles: MANAGEMENT },
-  { href: "/audit", label: "Audit Log", icon: "📜", roles: MANAGEMENT },
-  { href: "/settings", label: "Settings", icon: "⚙️", roles: MANAGEMENT },
-];
+import {
+  ADMIN_SECTIONS,
+  canViewAdminSection,
+  canViewAdminPage,
+  getAdminSectionForPath,
+} from "./admin-sections";
 
 export interface AdminSidebarProps {
   isCollapsed?: boolean;
@@ -158,17 +25,15 @@ export function AdminSidebar({
   const pathname = usePathname();
   const { role } = useAdminAuth();
 
-  const isRouteActive = (href: string) => {
-    if (href === "/") return pathname === "/" || pathname === "/dashboard";
-    if (href === "/insights") return pathname === "/insights";
-    return pathname.startsWith(href);
-  };
+  const activeWorkspace = getAdminSectionForPath(pathname);
+  const activeSection = activeWorkspace?.section;
+  const [expandedSection, setExpandedSection] = useState<string | null>(
+    activeSection?.href ?? null,
+  );
 
-  const isVisibleInWorkView = (item: NavItem) => {
-    if (!item.roles) return true;
-    if (role === "SUPER_ADMIN") return true;
-    return Boolean(role && item.roles.includes(role));
-  };
+  useEffect(() => {
+    if (activeSection) setExpandedSection(activeSection.href);
+  }, [pathname, activeSection?.href]);
 
   return (
     <aside
@@ -213,7 +78,7 @@ export function AdminSidebar({
           }}
         >
           <img
-            src="/khs-academy-logo.webp"
+            src="/brand/khs-academy-crest.png"
             alt=""
             aria-hidden="true"
             width={37}
@@ -273,51 +138,138 @@ export function AdminSidebar({
       </div>
 
       <nav
+        aria-label="Admin sections"
+        className="admin-sidebar-nav"
         style={{
           flex: 1,
           overflowY: "auto",
           padding: "12px 8px",
           display: "flex",
           flexDirection: "column",
-          gap: "2px",
+          gap: 2,
         }}
       >
-        {ADMIN_NAV_ITEMS.map((item) => {
-          if (!isVisibleInWorkView(item)) return null;
-
-          const active = isRouteActive(item.href);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onNavigate}
-              aria-current={active ? "page" : undefined}
-              title={isCollapsed ? item.label : undefined}
-              style={{
-                minHeight: 44,
-                boxSizing: "border-box",
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                padding: isCollapsed ? "8px 0" : "8px 12px",
-                justifyContent: isCollapsed ? "center" : "flex-start",
-                borderRadius: "8px",
-                fontSize: "0.875rem",
-                fontWeight: active ? 700 : 500,
-                color: active ? "#FFFFFF" : "#D4D4D8",
-                backgroundColor: active ? "#27272A" : "transparent",
-                borderLeft: active
-                  ? "3px solid #F59E0B"
-                  : "3px solid transparent",
-                textDecoration: "none",
-              }}
-            >
+        {ADMIN_SECTIONS.filter((section) =>
+          canViewAdminSection(section, role),
+        ).map((section) => {
+          const pages = section.pages.filter((page) =>
+            canViewAdminPage(page, role),
+          );
+          const active = activeSection?.href === section.href;
+          const expanded = expandedSection === section.href;
+          const hasSubpages = pages.length > 1;
+          const rowStyle: React.CSSProperties = {
+            minHeight: 44,
+            boxSizing: "border-box",
+            display: "flex",
+            alignItems: "center",
+            width: "100%",
+            gap: 12,
+            padding: isCollapsed ? "8px 0" : "8px 12px",
+            justifyContent: isCollapsed ? "center" : "flex-start",
+            borderRadius: 8,
+            fontSize: ".875rem",
+            fontWeight: active ? 750 : 550,
+            color: active ? "#FFFFFF" : "#D4D4D8",
+            backgroundColor: active ? "#27272A" : "transparent",
+            borderLeft: active ? "3px solid #F59E0B" : "3px solid transparent",
+            textDecoration: "none",
+          };
+          const contents = (
+            <>
               <span style={{ fontSize: "1.125rem" }} aria-hidden="true">
-                {item.icon}
+                {section.icon}
               </span>
-              {!isCollapsed && <span style={{ flex: 1 }}>{item.label}</span>}
-              {!isCollapsed && item.badge && <span>{item.badge}</span>}
-            </Link>
+              {!isCollapsed && (
+                <>
+                  <span style={{ flex: 1, textAlign: "left" }}>
+                    {section.label}
+                  </span>
+                  {hasSubpages && (
+                    <span
+                      aria-hidden="true"
+                      className={
+                        expanded
+                          ? "admin-nav-chevron admin-nav-chevron-open"
+                          : "admin-nav-chevron"
+                      }
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="16"
+                        height="16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        focusable="false"
+                      >
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </span>
+                  )}
+                </>
+              )}
+            </>
+          );
+
+          return (
+            <div key={section.href} className="admin-nav-group">
+              {hasSubpages && !isCollapsed ? (
+                <button
+                  type="button"
+                  className="admin-nav-section-button"
+                  style={rowStyle}
+                  aria-expanded={expanded}
+                  aria-controls={`admin-subpages-${section.href.replaceAll("/", "-") || "overview"}`}
+                  onClick={() =>
+                    setExpandedSection((previous) =>
+                      previous === section.href ? null : section.href,
+                    )
+                  }
+                >
+                  {contents}
+                </button>
+              ) : (
+                <Link
+                  href={section.href}
+                  onClick={onNavigate}
+                  aria-current={!hasSubpages && active ? "page" : undefined}
+                  prefetch={false}
+                  title={isCollapsed ? section.label : undefined}
+                  style={rowStyle}
+                >
+                  {contents}
+                </Link>
+              )}
+              {hasSubpages && !isCollapsed && expanded && (
+                <div
+                  id={`admin-subpages-${section.href.replaceAll("/", "-") || "overview"}`}
+                  className="admin-nav-subpages"
+                >
+                  {pages.map((page) => {
+                    const selected = activeWorkspace?.page.href === page.href;
+                    return (
+                      <Link
+                        key={page.href}
+                        href={page.href}
+                        prefetch={false}
+                        onClick={onNavigate}
+                        aria-current={selected ? "page" : undefined}
+                        className={
+                          selected
+                            ? "admin-nav-subpage admin-nav-subpage-current"
+                            : "admin-nav-subpage"
+                        }
+                      >
+                        {page.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           );
         })}
       </nav>
