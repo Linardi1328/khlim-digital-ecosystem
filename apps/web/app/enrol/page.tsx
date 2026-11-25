@@ -127,6 +127,10 @@ function EnrolmentWizardContent() {
     getMissingCommerceBusinessFields(businessDetails);
 
   useEffect(() => {
+    if (!enrolmentAvailable) {
+      setOfferingsLoading(false);
+      return;
+    }
     let cancelled = false;
     apiService
       .getPublicOfferings()
@@ -143,7 +147,7 @@ function EnrolmentWizardContent() {
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, [enrolmentAvailable, t]);
 
   useEffect(() => {
     if (

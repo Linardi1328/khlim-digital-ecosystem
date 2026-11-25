@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { apiService } from "../../../lib/api-service";
+import { isFeatureAvailable } from "../../../lib/feature-availability";
 import { installmentStatusLabel } from "../../../lib/display-labels";
 import { useFamily } from "../../../lib/family-context";
 import { useI18n } from "../../../lib/i18n-context";
@@ -29,11 +30,12 @@ import {
 export default function PaymentsPage() {
   const { t, formatCurrency, formatDate } = useI18n();
   const { activeChild } = useFamily();
+  const portalAvailable = isFeatureAvailable("parentPortal");
   const [billings, setBillings] = useState<MembershipBillingResponse[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!activeChild) {
+    if (!portalAvailable || !activeChild) {
       setBillings([]);
       setLoading(false);
       return;
@@ -62,7 +64,7 @@ export default function PaymentsPage() {
       })
       .catch(() => setBillings([]))
       .finally(() => setLoading(false));
-  }, [activeChild]);
+  }, [activeChild, portalAvailable]);
 
   const installments: Array<{
     membershipId: string;

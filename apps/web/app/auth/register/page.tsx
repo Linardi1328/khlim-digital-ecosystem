@@ -78,19 +78,21 @@ export default function RegisterPage() {
         minHeight: "100dvh",
         boxSizing: "border-box",
         display: "grid",
+        gridTemplateColumns: "minmax(0, 1fr)",
         placeItems: "center",
         backgroundColor: "#f4f4f5",
-        padding: "16px 24px",
+        padding: "16px clamp(12px, 4vw, 24px)",
       }}
     >
-      <div style={{ width: "100%", maxWidth: 480 }}>
+      <div style={{ width: "100%", maxWidth: 480, minWidth: 0 }}>
         <div
           style={{
             minHeight: 44,
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            gap: 12,
+            flexWrap: "wrap",
+            gap: "8px 12px",
             marginBottom: 12,
           }}
         >
@@ -241,7 +243,7 @@ export default function RegisterPage() {
               </>
             )}
           </CardContent>
-          <CardFooter style={{ justifyContent: "center" }}>
+          <CardFooter style={{ justifyContent: "center", textAlign: "center" }}>
             <Link href="/auth/login">
               {t("auth.register.haveAccount")} {t("nav.login")}
             </Link>

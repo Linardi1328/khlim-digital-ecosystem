@@ -115,21 +115,62 @@ test("homepage showcases verified honours and unnamed representatives", async ({
 test("gallery photographs use consistent 4:3 frames without cropping", async ({
   page,
 }) => {
+  const youthMediaEnabled =
+    process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED === "1";
   const samples = [
-    ["/", "#achievements .verified-milestone-photo"],
-    ["/", "#player-spotlight .verified-milestone-photo"],
-    ["/spotlight", "#verified-team-honours .verified-milestone-photo"],
-    ["/spotlight", "#representative-milestones .verified-milestone-photo"],
-    ["/spotlight", "#club-event-gallery .spotlight-gallery-photo"],
+    [
+      "/",
+      "#achievements .verified-milestone-media",
+      "#achievements .verified-milestone-photo",
+    ],
+    [
+      "/",
+      "#player-spotlight .verified-milestone-media",
+      "#player-spotlight .verified-milestone-photo",
+    ],
+    [
+      "/spotlight",
+      "#verified-team-honours .verified-milestone-media",
+      "#verified-team-honours .verified-milestone-photo",
+    ],
+    [
+      "/spotlight",
+      "#representative-milestones .verified-milestone-media",
+      "#representative-milestones .verified-milestone-photo",
+    ],
+    [
+      "/spotlight",
+      "#club-event-gallery .spotlight-gallery-image-wrapper",
+      "#club-event-gallery .spotlight-gallery-photo",
+    ],
   ];
 
   let currentRoute = "";
-  for (const [route, selector] of samples) {
+  for (const [route, frameSelector, photoSelector] of samples) {
     if (route !== currentRoute) {
       await page.goto(route, { waitUntil: "domcontentloaded" });
       currentRoute = route;
     }
-    const photo = page.locator(selector).first();
+    const frame = page.locator(frameSelector).first();
+    await frame.scrollIntoViewIfNeeded();
+    await expect(frame).toBeVisible();
+
+    const frameRatio = await frame.evaluate((el) => {
+      const box = el.getBoundingClientRect();
+      return box.width / box.height;
+    });
+    expect(Math.abs(frameRatio - 4 / 3)).toBeLessThan(0.02);
+
+    if (!youthMediaEnabled) {
+      // Fail-closed default: no youth photography or direct photo links rendered
+      await expect(page.locator(photoSelector)).toHaveCount(0);
+      await expect(
+        frame.locator('a[href*="/media/achievements/"]'),
+      ).toHaveCount(0);
+      continue;
+    }
+
+    const photo = page.locator(photoSelector).first();
     await photo.scrollIntoViewIfNeeded();
     await expect
       .poll(() =>
@@ -138,11 +179,11 @@ test("gallery photographs use consistent 4:3 frames without cropping", async ({
       .toBe(true);
 
     const dimensions = await photo.evaluate((image) => {
-      const frame = image.closest(
+      const container = image.closest(
         ".verified-milestone-media, .spotlight-gallery-image-wrapper",
       );
-      if (!frame) throw new Error("Image is missing a media frame");
-      const frameBox = frame.getBoundingClientRect();
+      if (!container) throw new Error("Image is missing a media frame");
+      const frameBox = container.getBoundingClientRect();
       const photoBox = image.getBoundingClientRect();
       return {
         frameRatio: frameBox.width / frameBox.height,

@@ -19,7 +19,11 @@ const baseStyle: React.CSSProperties = {
   transition: "all 0.15s ease-in-out",
   textDecoration: "none",
   border: "1px solid transparent",
-  whiteSpace: "nowrap",
+  whiteSpace: "normal",
+  textAlign: "center",
+  maxWidth: "100%",
+  boxSizing: "border-box",
+  overflowWrap: "break-word",
   userSelect: "none",
 };
 

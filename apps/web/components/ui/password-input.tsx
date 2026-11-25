@@ -62,6 +62,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
           flexDirection: "column",
           gap: "6px",
           width: "100%",
+          minWidth: 0,
         }}
       >
         <label
@@ -74,7 +75,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
         >
           {label}
         </label>
-        <div style={{ position: "relative" }}>
+        <div style={{ position: "relative", minWidth: 0 }}>
           <input
             ref={ref}
             id={inputId}
@@ -90,6 +91,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
               backgroundColor: "#FFFFFF",
               color: "#18181B",
               width: "100%",
+              minWidth: 0,
               boxSizing: "border-box",
               fontFamily: "inherit",
               transition: "border-color 0.15s ease",

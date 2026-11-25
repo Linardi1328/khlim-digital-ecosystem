@@ -49,17 +49,18 @@ export default function ForgotPasswordPage() {
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: "#F4F4F5",
-        padding: "16px 24px",
+        padding: "16px clamp(12px, 4vw, 24px)",
       }}
     >
-      <div style={{ width: "100%", maxWidth: "440px" }}>
+      <div style={{ width: "100%", maxWidth: "440px", minWidth: 0 }}>
         <div
           style={{
             minHeight: 44,
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            gap: 12,
+            flexWrap: "wrap",
+            gap: "8px 12px",
             marginBottom: 16,
           }}
         >

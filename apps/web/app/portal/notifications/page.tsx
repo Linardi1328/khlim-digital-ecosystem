@@ -5,16 +5,22 @@ import { PortalShell } from "../../../components/portal/portal-shell";
 import { Badge } from "../../../components/ui/badge";
 import { Card } from "../../../components/ui/card";
 import { apiService } from "../../../lib/api-service";
+import { isFeatureAvailable } from "../../../lib/feature-availability";
 import { notificationTypeLabel } from "../../../lib/display-labels";
 import { useI18n } from "../../../lib/i18n-context";
 import type { PortalNotificationItem } from "../../../lib/types";
 
 export default function NotificationsPage() {
   const { t, formatDate, formatTime } = useI18n();
+  const portalAvailable = isFeatureAvailable("parentPortal");
   const [items, setItems] = useState<PortalNotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const load = useCallback(async () => {
+    if (!portalAvailable) {
+      setLoading(false);
+      return;
+    }
     try {
       setError("");
       setItems(await apiService.listMyNotifications());
@@ -23,7 +29,7 @@ export default function NotificationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [portalAvailable, t]);
   useEffect(() => {
     void load();
   }, [load]);

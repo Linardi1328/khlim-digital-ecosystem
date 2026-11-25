@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, type ReactNode } from "react";
+import React, { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "../../lib/i18n-context";
@@ -10,6 +10,7 @@ import { LocaleSwitcher } from "../layout/locale-switcher";
 import { PublicHeader } from "../layout/public-header";
 import { PublicFooter } from "../layout/public-footer";
 import { ComingSoonPanel } from "../layout/coming-soon-panel";
+import { resolveCampaignSource } from "../../lib/campaign-source";
 import { isFeatureAvailable } from "../../lib/feature-availability";
 import { ChildSwitcher } from "./child-switcher";
 
@@ -23,6 +24,15 @@ export function PortalShell({ children }: PortalShellProps) {
   const { t } = useI18n();
   const { guardianProfile, isAuthenticated, isLoading, logout } = useAuth();
   const portalAvailable = isFeatureAvailable("parentPortal");
+  const [campaignSource, setCampaignSource] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!portalAvailable && typeof window !== "undefined") {
+      setCampaignSource(
+        resolveCampaignSource(new URLSearchParams(window.location.search)),
+      );
+    }
+  }, [portalAvailable]);
 
   useEffect(() => {
     if (portalAvailable && !isLoading && !isAuthenticated) {
@@ -35,9 +45,12 @@ export function PortalShell({ children }: PortalShellProps) {
       <div
         style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
       >
-        <PublicHeader />
-        <ComingSoonPanel feature="parentPortal" />
-        <PublicFooter />
+        <PublicHeader campaignSource={campaignSource} />
+        <ComingSoonPanel
+          feature="parentPortal"
+          campaignSource={campaignSource}
+        />
+        <PublicFooter campaignSource={campaignSource} />
       </div>
     );
   }

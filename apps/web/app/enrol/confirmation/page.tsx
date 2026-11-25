@@ -1,9 +1,19 @@
 "use client";
 
-import React, { Suspense, useCallback, useEffect, useState } from "react";
+import React, {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { apiService } from "../../../lib/api-service";
+import {
+  getQueryCampaignSource,
+  resolveCampaignSource,
+} from "../../../lib/campaign-source";
 import { useI18n } from "../../../lib/i18n-context";
 import type {
   AthleteMembershipItem,
@@ -26,6 +36,15 @@ interface VerifiedState {
 function ConfirmationContent() {
   const { t } = useI18n();
   const searchParams = useSearchParams();
+  const queryCampaign = useMemo(
+    () => getQueryCampaignSource(searchParams),
+    [searchParams],
+  );
+  const [storedCampaign, setStoredCampaign] = useState<string | null>(null);
+  useEffect(() => {
+    setStoredCampaign(resolveCampaignSource(searchParams));
+  }, [searchParams]);
+  const campaignSource = queryCampaign ?? storedCampaign;
   const enrolmentAvailable = isFeatureAvailable("academyEnrolmentCheckout");
   const athleteId = searchParams.get("athleteId");
   const membershipId = searchParams.get("membershipId");
@@ -76,9 +95,12 @@ function ConfirmationContent() {
       <div
         style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
       >
-        <PublicHeader />
-        <ComingSoonPanel feature="academyEnrolmentCheckout" />
-        <PublicFooter />
+        <PublicHeader campaignSource={campaignSource} />
+        <ComingSoonPanel
+          feature="academyEnrolmentCheckout"
+          campaignSource={campaignSource}
+        />
+        <PublicFooter campaignSource={campaignSource} />
       </div>
     );
   }

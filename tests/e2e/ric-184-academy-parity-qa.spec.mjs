@@ -221,22 +221,72 @@ test.describe("RIC-184 Academy information, V1 availability, localization & QA",
     await expect(page.locator("#training-sessions")).toContainText("已确认");
   });
 
-  test("V1 feature availability blocks direct navigation to deferred routes and hides demo preview", async ({
+  test("V1 feature availability blocks direct navigation to deferred routes, avoids unnecessary API calls, preserves campaign attribution, and hides demo preview", async ({
     page,
   }) => {
     await setupPublicMocks(page);
     await page.setViewportSize({ width: 1280, height: 800 });
 
+    const forbiddenRequests = [];
+    page.on("request", (req) => {
+      const url = req.url();
+      if (
+        url.includes("/academy/offerings") ||
+        url.includes("/me/schedule") ||
+        url.includes("/me/notifications") ||
+        url.includes("/athletes/")
+      ) {
+        forbiddenRequests.push(url);
+      }
+    });
+
     for (const deferredRoute of [
-      "/enrol",
-      "/enrol/confirmation",
-      "/portal",
-      "/portal/dashboard",
+      "/enrol?source=ric184-gate",
+      "/enrol/confirmation?source=ric184-gate",
+      "/portal?source=ric184-gate",
+      "/portal/dashboard?source=ric184-gate",
+      "/portal/schedule?source=ric184-gate",
+      "/portal/notifications?source=ric184-gate",
+      "/portal/players/synthetic-athlete-1?source=ric184-gate",
     ]) {
       await page.goto(deferredRoute, { waitUntil: "networkidle" });
       await expect(page.locator("main")).toContainText("Coming Soon");
-      await expect(page.locator('main a[href*="/interest"]')).toBeVisible();
+      const interestCta = page.locator('main a[href*="/interest"]').first();
+      await expect(interestCta).toBeVisible();
+      await expect(interestCta).toHaveAttribute(
+        "href",
+        /\/interest\?source=ric184-gate/,
+      );
+      await expect(page.getByRole("button", { name: "Continue" })).toHaveCount(
+        0,
+      );
+      await expect(page.locator('aside[aria-label*="Portal" i]')).toHaveCount(
+        0,
+      );
     }
+
+    expect(
+      forbiddenRequests,
+      `Deferred routes must not fetch feature-specific APIs while disabled: ${forbiddenRequests.join(", ")}`,
+    ).toEqual([]);
+
+    // Verify Coming Soon localizes cleanly in BM and ZH-Hans
+    await page.goto("/enrol?source=ric184-gate", { waitUntil: "networkidle" });
+    await page
+      .locator(".public-header-locale select")
+      .first()
+      .selectOption("ms");
+    await expect(page.locator("main")).toContainText("Akan Datang");
+    await page
+      .locator(".public-header-locale select")
+      .first()
+      .selectOption("zh-Hans");
+    await expect(page.locator("main")).toContainText("即将开放");
+    await page
+      .locator(".public-header-locale select")
+      .first()
+      .selectOption("en");
+    await expect(page.locator("html")).toHaveAttribute("lang", "en");
 
     // Unfinished editorial demo preview is hidden (404)
     const demoRes = await page.goto(
@@ -279,6 +329,32 @@ test.describe("RIC-184 Academy information, V1 availability, localization & QA",
         expect(
           overflow,
           `Horizontal overflow on ${route} at ${vp.width}px: ${overflow}px`,
+        ).toBeLessThanOrEqual(2);
+      }
+    }
+  });
+
+  test("Account registration has zero horizontal overflow across all 7 viewports in EN, MS, and ZH-Hans", async ({
+    page,
+  }) => {
+    await setupPublicMocks(page);
+    await page.goto("/auth/register", { waitUntil: "networkidle" });
+    const localeSelect = page.locator("select[aria-label]").first();
+
+    for (const locale of ["en", "ms", "zh-Hans"]) {
+      await localeSelect.selectOption(locale);
+      await expect(page.locator("html")).toHaveAttribute("lang", locale);
+
+      for (const vp of VIEWPORTS) {
+        await page.setViewportSize(vp);
+        const overflow = await page.evaluate(
+          () =>
+            document.documentElement.scrollWidth -
+            document.documentElement.clientWidth,
+        );
+        expect(
+          overflow,
+          `Horizontal overflow on /auth/register (${locale}) at ${vp.width}px: ${overflow}px`,
         ).toBeLessThanOrEqual(2);
       }
     }

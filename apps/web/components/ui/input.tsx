@@ -28,6 +28,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           flexDirection: "column",
           gap: "6px",
           width: "100%",
+          minWidth: 0,
         }}
       >
         {label && (
@@ -56,6 +57,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             backgroundColor: "#FFFFFF",
             color: "#18181B",
             width: "100%",
+            minWidth: 0,
             boxSizing: "border-box",
             fontFamily: "inherit",
             transition: "border-color 0.15s ease",

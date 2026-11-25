@@ -38,9 +38,9 @@ const en = {
   "academy.trainingSessions.workingDayPendingInline":
     "Saturday — pending recurring booking confirmation",
   "academy.trainingSessions.workingDayNote":
-    "Saturday is our current working practice day, pending final confirmation of recurring venue booking. Specific start dates, capacity, and booking confirmation will be shared once confirmed.",
+    "Saturday is our current proposed working practice day; recurring court booking is not yet confirmed. First training date, session capacity, and live registration availability will be published only after booking confirmation.",
   "academy.trainingSessions.registrationPendingNote":
-    "Online session reservations are not open yet. Register your interest now and our team will contact you once the recurring schedule is finalized.",
+    "Live session registration is not open yet. Submitting Register Interest records your enquiry for staff follow-up and does not confirm a registration or reserve a spot.",
   "academy.trainingSessions.slot10to12.ageGroup": "Ages 10–12",
   "academy.trainingSessions.slot10to12.summary":
     "Foundational ball handling, footwork, shooting mechanics, and team spacing tailored for U12 players.",
@@ -140,9 +140,9 @@ const ms: Catalogue = {
   "academy.trainingSessions.workingDayPendingInline":
     "Sabtu — menunggu pengesahan tempahan berkala",
   "academy.trainingSessions.workingDayNote":
-    "Sabtu ialah cadangan hari latihan semasa kami, sementara menunggu pengesahan muktamad tempahan gelanggang berkala. Tarikh mula, kapasiti, dan pengesahan tempahan akan dikongsi setelah disahkan.",
+    "Sabtu ialah cadangan hari latihan semasa; tempahan gelanggang berkala belum disahkan lagi. Tarikh latihan pertama, kapasiti sesi, dan ketersediaan pendaftaran langsung hanya akan diterbitkan selepas tempahan disahkan.",
   "academy.trainingSessions.registrationPendingNote":
-    "Tempahan sesi dalam talian belum dibuka lagi. Daftar minat anda sekarang dan pasukan kami akan menghubungi anda setelah jadual berkala dimuktamadkan.",
+    "Pendaftaran sesi langsung belum dibuka lagi. Menghantar Daftar Minat hanya merekodkan pertanyaan untuk susulan kakitangan dan bukan pendaftaran yang disahkan atau tempahan tempat.",
   "academy.trainingSessions.slot10to12.ageGroup": "Umur 10–12",
   "academy.trainingSessions.slot10to12.summary":
     "Kawalan bola asas, gerak kaki, teknik jaringan, dan ruang berpasukan yang disesuaikan untuk pemain U12.",
@@ -239,9 +239,9 @@ const zhHans: Catalogue = {
   "academy.trainingSessions.workingDayPendingInline":
     "星期六 — 待场地长期预订最终确认",
   "academy.trainingSessions.workingDayNote":
-    "目前暂定星期六为常规训练日，尚待场地长期预订最终确认。具体开课日期、名额及预订确认将在敲定后另行公布。",
+    "星期六为目前拟定的训练日，常规场地长期预订尚未最终确认。首次开课日期、班次名额及正式报名开放情况将在场地预订确认后另行公布。",
   "academy.trainingSessions.registrationPendingNote":
-    "在线训练班次预约尚未开放。欢迎先登记意向，待长期场地排期确认后我们的团队将第一时间联系您。",
+    "正式训练班次报名尚未开放。提交“登记意向”仅用于团队跟进联系，不代表已完成正式报名或预留名额。",
   "academy.trainingSessions.slot10to12.ageGroup": "10–12 岁",
   "academy.trainingSessions.slot10to12.summary":
     "面向 U12 球员的运球基础、脚步移动、投篮基本功与团队空间意识训练。",
@@ -333,9 +333,9 @@ const zhHant: Catalogue = {
   "academy.trainingSessions.workingDayPendingInline":
     "星期六 — 待場地長期預訂最終確認",
   "academy.trainingSessions.workingDayNote":
-    "目前暫定星期六為常規訓練日，尚待場地長期預訂最終確認。具體開課日期、名額及預訂確認將在敲定後另行公布。",
+    "星期六為目前擬定的訓練日，常規場地長期預訂尚未最終確認。首次開課日期、班次名額及正式報名開放情況將在場地預訂確認後另行公布。",
   "academy.trainingSessions.registrationPendingNote":
-    "線上訓練班次預約尚未開放。歡迎先登記意向，待長期場地排期確認後我們的團隊將第一時間聯繫您。",
+    "正式訓練班次報名尚未開放。提交「登記意向」僅用於團隊跟進聯繫，不代表已完成正式報名或預留名額。",
   "academy.trainingSessions.slot10to12.ageGroup": "10–12 歲",
   "academy.trainingSessions.slot10to12.summary":
     "面向 U12 球員的運球基礎、腳步移動、投籃基本功與團隊空間意識訓練。",
@@ -430,9 +430,9 @@ const hi: Catalogue = {
   "academy.trainingSessions.workingDayPendingInline":
     "शनिवार — आवर्ती बुकिंग की अंतिम पुष्टि लंबित",
   "academy.trainingSessions.workingDayNote":
-    "शनिवार हमारा वर्तमान प्रस्तावित अभ्यास दिन है, जो आवर्ती स्थल बुकिंग की अंतिम पुष्टि के अधीन है। पुष्टि होने के बाद सत्र तिथियां, क्षमता और बुकिंग विवरण साझा किए जाएंगे।",
+    "शनिवार हमारा वर्तमान प्रस्तावित अभ्यास दिन है; आवर्ती कोर्ट बुकिंग अभी तक पुष्ट नहीं हुई है। पहली प्रशिक्षण तिथि, सत्र क्षमता और लाइव पंजीकरण उपलब्धता बुकिंग पुष्टि के बाद ही प्रकाशित की जाएगी।",
   "academy.trainingSessions.registrationPendingNote":
-    "ऑनलाइन सत्र आरक्षण अभी खुले नहीं हैं। अभी अपनी रुचि दर्ज करें और आवर्ती कार्यक्रम तय होने पर हमारी टीम आपसे संपर्क करेगी।",
+    "लाइव सत्र पंजीकरण अभी खुला नहीं है। रुचि दर्ज करना केवल स्टाफ फ़ॉलो-अप के लिए पूछताछ दर्ज करता है और यह पुष्ट पंजीकरण या आरक्षित स्थान नहीं है।",
   "academy.trainingSessions.slot10to12.ageGroup": "आयु 10–12",
   "academy.trainingSessions.slot10to12.summary":
     "U12 खिलाड़ियों के लिए बुनियादी बॉल हैंडलिंग, फुटवर्क, शूटिंग तकनीक और टीम स्पेसिंग।",
