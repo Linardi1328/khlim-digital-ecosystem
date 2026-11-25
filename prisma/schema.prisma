@@ -107,26 +107,26 @@ enum PaymentProviderEventProcessingStatus {
 }
 
 model User {
-  id                           String                    @id @default(uuid()) @db.Uuid
-  authProviderSubject          String                    @unique @map("auth_provider_subject")
+  id                           String                   @id @default(uuid()) @db.Uuid
+  authProviderSubject          String                   @unique @map("auth_provider_subject")
   email                        String?
-  status                       UserStatus                @default(ACTIVE)
-  preferredLocale              String                    @default("en") @map("preferred_locale")
-  createdAt                    DateTime                  @default(now()) @map("created_at")
-  updatedAt                    DateTime                  @updatedAt @map("updated_at")
+  status                       UserStatus               @default(ACTIVE)
+  preferredLocale              String                   @default("en") @map("preferred_locale")
+  createdAt                    DateTime                 @default(now()) @map("created_at")
+  updatedAt                    DateTime                 @updatedAt @map("updated_at")
   roleAssignments              UserRoleAssignment[]
   organizationMemberships      OrganizationMembership[]
   guardianProfile              GuardianProfile?
   coachProfile                 CoachProfile?
-  athleteProfile               AthleteProfile?           @relation("AthleteAccount")
-  guardianAthleteLinks         GuardianAthleteLink[]      @relation("GuardianFamilyLinks")
-  createdGuardianAthleteLinks  GuardianAthleteLink[]      @relation("CreatedFamilyLinks")
-  createdGuardianInvitations   GuardianInvitation[]       @relation("CreatedGuardianInvitations")
-  acceptedGuardianInvitations  GuardianInvitation[]       @relation("AcceptedGuardianInvitations")
-  purchasedMemberships         Membership[]               @relation("MembershipPurchaser")
+  athleteProfile               AthleteProfile?          @relation("AthleteAccount")
+  guardianAthleteLinks         GuardianAthleteLink[]    @relation("GuardianFamilyLinks")
+  createdGuardianAthleteLinks  GuardianAthleteLink[]    @relation("CreatedFamilyLinks")
+  createdGuardianInvitations   GuardianInvitation[]     @relation("CreatedGuardianInvitations")
+  acceptedGuardianInvitations  GuardianInvitation[]     @relation("AcceptedGuardianInvitations")
+  purchasedMemberships         Membership[]             @relation("MembershipPurchaser")
   billingProfiles              BillingProfile[]
-  acceptedMembershipAgreements MembershipAgreement[]      @relation("MembershipAgreementAcceptor")
-  payments                     Payment[]                  @relation("PaymentPayer")
+  acceptedMembershipAgreements MembershipAgreement[]    @relation("MembershipAgreementAcceptor")
+  payments                     Payment[]                @relation("PaymentPayer")
 
   @@index([status])
   @@map("users")
@@ -145,30 +145,31 @@ model UserRoleAssignment {
 }
 
 model Organization {
-  id                    String                   @id @default(uuid()) @db.Uuid
-  slug                  String                   @unique @db.VarChar(80)
-  name                  String                   @db.VarChar(180)
-  status                String                   @default("ACTIVE") @db.VarChar(24)
-  createdAt             DateTime                 @default(now()) @map("created_at")
-  updatedAt             DateTime                 @updatedAt @map("updated_at")
-  memberships           OrganizationMembership[]
-  setting               OrganizationSetting?
-  branding              OrganizationBranding?
-  sports                OrganizationSport[]
-  venues                Venue[]
-  programmes            Programme[]
-  programmeOfferings    ProgrammeOffering[]
-  membershipPlans       MembershipPlan[]
-  academyMemberships    Membership[]
-  trainingSessions      TrainingSession[]
-  notifications         Notification[]
-  billingProfiles       BillingProfile[]
-  paymentMethods        PaymentMethod[]
-  payments              Payment[]
-  paymentProviderEvents PaymentProviderEvent[]
-  editorialEntries      EditorialEntry[]
-  auditEvents           AuditEvent[]
-  academyLeads          AcademyLead[]
+  id                          String                      @id @default(uuid()) @db.Uuid
+  slug                        String                      @unique @db.VarChar(80)
+  name                        String                      @db.VarChar(180)
+  status                      String                      @default("ACTIVE") @db.VarChar(24)
+  createdAt                   DateTime                    @default(now()) @map("created_at")
+  updatedAt                   DateTime                    @updatedAt @map("updated_at")
+  memberships                 OrganizationMembership[]
+  setting                     OrganizationSetting?
+  branding                    OrganizationBranding?
+  sports                      OrganizationSport[]
+  venues                      Venue[]
+  programmes                  Programme[]
+  programmeOfferings          ProgrammeOffering[]
+  membershipPlans             MembershipPlan[]
+  academyMemberships          Membership[]
+  trainingSessions            TrainingSession[]
+  notifications               Notification[]
+  billingProfiles             BillingProfile[]
+  paymentMethods              PaymentMethod[]
+  payments                    Payment[]
+  paymentProviderEvents       PaymentProviderEvent[]
+  editorialEntries            EditorialEntry[]
+  auditEvents                 AuditEvent[]
+  academyLeads                AcademyLead[]
+  academyRegistrationPolicies AcademyRegistrationPolicy[]
 
   @@index([status])
   @@map("organizations")
@@ -266,14 +267,14 @@ model CoachProfile {
 }
 
 model AthleteProfile {
-  id                  String                 @id @default(uuid()) @db.Uuid
-  userId              String?                @unique @map("user_id") @db.Uuid
-  displayName         String                 @map("display_name")
-  dateOfBirth         DateTime               @map("date_of_birth") @db.Date
-  preferredLocale     String                 @default("en") @map("preferred_locale")
-  createdAt           DateTime               @default(now()) @map("created_at")
-  updatedAt           DateTime               @updatedAt @map("updated_at")
-  user                User?                  @relation("AthleteAccount", fields: [userId], references: [id], onDelete: SetNull)
+  id                  String                @id @default(uuid()) @db.Uuid
+  userId              String?               @unique @map("user_id") @db.Uuid
+  displayName         String                @map("display_name")
+  dateOfBirth         DateTime              @map("date_of_birth") @db.Date
+  preferredLocale     String                @default("en") @map("preferred_locale")
+  createdAt           DateTime              @default(now()) @map("created_at")
+  updatedAt           DateTime              @updatedAt @map("updated_at")
+  user                User?                 @relation("AthleteAccount", fields: [userId], references: [id], onDelete: SetNull)
   guardianLinks       GuardianAthleteLink[]
   guardianInvitations GuardianInvitation[]
   memberships         Membership[]
@@ -353,6 +354,7 @@ model Venue {
   courts         Court[]
   offerings      ProgrammeOffering[]
 
+  @@unique([organizationId, id])
   @@index([organizationId, active])
   @@map("venues")
 }
@@ -390,31 +392,34 @@ model Programme {
   offerings      ProgrammeOffering[]
 
   @@unique([organizationId, code])
+  @@unique([organizationId, id])
   @@index([organizationId, sportId, active])
   @@map("programmes")
 }
 
 model ProgrammeOffering {
-  id                 String                              @id @default(uuid()) @db.Uuid
-  organizationId     String                              @map("organization_id") @db.Uuid
-  programmeId        String                              @map("programme_id") @db.Uuid
-  venueId            String?                             @map("venue_id") @db.Uuid
-  name               String
-  capacity           Int
-  enrollmentOpensAt  DateTime?                           @map("enrollment_opens_at")
-  enrollmentClosesAt DateTime?                           @map("enrollment_closes_at")
-  startsOn           DateTime?                           @map("starts_on") @db.Date
-  endsOn             DateTime?                           @map("ends_on") @db.Date
-  status             ProgrammeOfferingStatus             @default(DRAFT)
-  createdAt          DateTime                            @default(now()) @map("created_at")
-  updatedAt          DateTime                            @updatedAt @map("updated_at")
-  organization       Organization                        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  programme          Programme                           @relation(fields: [programmeId], references: [id], onDelete: Restrict)
-  venue              Venue?                              @relation(fields: [venueId], references: [id], onDelete: SetNull)
-  planEligibilities  MembershipPlanOfferingEligibility[]
-  memberships        Membership[]
-  academyLeads       AcademyLead[]
+  id                  String                              @id @default(uuid()) @db.Uuid
+  organizationId      String                              @map("organization_id") @db.Uuid
+  programmeId         String                              @map("programme_id") @db.Uuid
+  venueId             String?                             @map("venue_id") @db.Uuid
+  name                String
+  capacity            Int
+  enrollmentOpensAt   DateTime?                           @map("enrollment_opens_at")
+  enrollmentClosesAt  DateTime?                           @map("enrollment_closes_at")
+  startsOn            DateTime?                           @map("starts_on") @db.Date
+  endsOn              DateTime?                           @map("ends_on") @db.Date
+  status              ProgrammeOfferingStatus             @default(DRAFT)
+  createdAt           DateTime                            @default(now()) @map("created_at")
+  updatedAt           DateTime                            @updatedAt @map("updated_at")
+  organization        Organization                        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  programme           Programme                           @relation(fields: [programmeId], references: [id], onDelete: Restrict)
+  venue               Venue?                              @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  planEligibilities   MembershipPlanOfferingEligibility[]
+  memberships         Membership[]
+  academyLeads        AcademyLead[]
+  registrationSession AcademyRegistrationSession?
 
+  @@unique([organizationId, id])
   @@index([organizationId, programmeId, status])
   @@index([organizationId, venueId, status])
   @@map("programme_offerings")
@@ -457,26 +462,26 @@ model MembershipPlanOfferingEligibility {
 }
 
 model Membership {
-  id                  String            @id @default(uuid()) @db.Uuid
-  organizationId      String            @map("organization_id") @db.Uuid
-  athleteId           String            @map("athlete_id") @db.Uuid
-  programmeOfferingId String            @map("programme_offering_id") @db.Uuid
-  membershipPlanId    String            @map("membership_plan_id") @db.Uuid
-  purchasedByUserId   String?           @map("purchased_by_user_id") @db.Uuid
-  status              MembershipStatus  @default(PENDING)
-  startsAt            DateTime?         @map("starts_at")
-  endsAt              DateTime?         @map("ends_at")
-  activatedAt         DateTime?         @map("activated_at")
-  suspendedAt         DateTime?         @map("suspended_at")
-  cancelledAt         DateTime?         @map("cancelled_at")
-  completedAt         DateTime?         @map("completed_at")
-  createdAt           DateTime          @default(now()) @map("created_at")
-  updatedAt           DateTime          @updatedAt @map("updated_at")
-  organization        Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  athlete             AthleteProfile    @relation(fields: [athleteId], references: [id], onDelete: Restrict)
-  programmeOffering   ProgrammeOffering @relation(fields: [programmeOfferingId], references: [id], onDelete: Restrict)
-  membershipPlan      MembershipPlan    @relation(fields: [membershipPlanId], references: [id], onDelete: Restrict)
-  purchasedBy         User?             @relation("MembershipPurchaser", fields: [purchasedByUserId], references: [id], onDelete: SetNull)
+  id                  String                @id @default(uuid()) @db.Uuid
+  organizationId      String                @map("organization_id") @db.Uuid
+  athleteId           String                @map("athlete_id") @db.Uuid
+  programmeOfferingId String                @map("programme_offering_id") @db.Uuid
+  membershipPlanId    String                @map("membership_plan_id") @db.Uuid
+  purchasedByUserId   String?               @map("purchased_by_user_id") @db.Uuid
+  status              MembershipStatus      @default(PENDING)
+  startsAt            DateTime?             @map("starts_at")
+  endsAt              DateTime?             @map("ends_at")
+  activatedAt         DateTime?             @map("activated_at")
+  suspendedAt         DateTime?             @map("suspended_at")
+  cancelledAt         DateTime?             @map("cancelled_at")
+  completedAt         DateTime?             @map("completed_at")
+  createdAt           DateTime              @default(now()) @map("created_at")
+  updatedAt           DateTime              @updatedAt @map("updated_at")
+  organization        Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  athlete             AthleteProfile        @relation(fields: [athleteId], references: [id], onDelete: Restrict)
+  programmeOffering   ProgrammeOffering     @relation(fields: [programmeOfferingId], references: [id], onDelete: Restrict)
+  membershipPlan      MembershipPlan        @relation(fields: [membershipPlanId], references: [id], onDelete: Restrict)
+  purchasedBy         User?                 @relation("MembershipPurchaser", fields: [purchasedByUserId], references: [id], onDelete: SetNull)
   agreements          MembershipAgreement[]
   paymentSchedule     PaymentSchedule?
   payments            Payment[]
@@ -533,13 +538,13 @@ model PaymentMethod {
   providerPaymentMethodReference String              @map("provider_payment_method_reference")
   methodType                     String              @map("method_type")
   brand                          String?
-  lastFour                       String?              @map("last_four")
-  expiryMonth                    Int?                 @map("expiry_month")
-  expiryYear                     Int?                 @map("expiry_year")
+  lastFour                       String?             @map("last_four")
+  expiryMonth                    Int?                @map("expiry_month")
+  expiryYear                     Int?                @map("expiry_year")
   status                         PaymentMethodStatus @default(ACTIVE)
-  createdAt                      DateTime             @default(now()) @map("created_at")
-  updatedAt                      DateTime             @updatedAt @map("updated_at")
-  organization                   Organization         @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdAt                      DateTime            @default(now()) @map("created_at")
+  updatedAt                      DateTime            @updatedAt @map("updated_at")
+  organization                   Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   billingProfile                 BillingProfile      @relation(fields: [billingProfileId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerPaymentMethodReference])
@@ -554,12 +559,12 @@ model PaymentSchedule {
   installmentCount              Int                   @map("installment_count")
   amountPerInstallmentMinor     Int                   @map("amount_per_installment_minor")
   currency                      String
-  startsAt                      DateTime               @map("starts_at")
+  startsAt                      DateTime              @map("starts_at")
   status                        PaymentScheduleStatus @default(PENDING)
-  providerSubscriptionReference String?                @map("provider_subscription_reference")
-  createdAt                     DateTime               @default(now()) @map("created_at")
-  updatedAt                     DateTime               @updatedAt @map("updated_at")
-  membership                    Membership             @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+  providerSubscriptionReference String?               @map("provider_subscription_reference")
+  createdAt                     DateTime              @default(now()) @map("created_at")
+  updatedAt                     DateTime              @updatedAt @map("updated_at")
+  membership                    Membership            @relation(fields: [membershipId], references: [id], onDelete: Restrict)
   installments                  PaymentInstallment[]
 
   @@index([status])
@@ -806,25 +811,25 @@ enum AcademyLeadStatus {
 }
 
 model AcademyLead {
-  id                  String             @id @default(uuid()) @db.Uuid
-  organizationId      String             @map("organization_id") @db.Uuid
-  guardianName        String             @map("guardian_name") @db.VarChar(120)
-  phone               String             @db.VarChar(32)
-  email               String?            @db.VarChar(254)
-  childAge            Int                @map("child_age")
-  programmeOfferingId String?            @map("programme_offering_id") @db.Uuid
-  source              String?            @db.VarChar(64)
-  status              AcademyLeadStatus  @default(NEW)
-  notes               String?            @db.VarChar(2000)
-  consentAt           DateTime           @map("consent_at")
-  consentVersion      String             @map("consent_version") @db.VarChar(32)
-  idempotencyKey      String?            @map("idempotency_key") @db.VarChar(128)
-  payloadHash         String?            @map("payload_hash") @db.VarChar(64)
-  createdAt           DateTime           @default(now()) @map("created_at")
-  updatedAt           DateTime           @updatedAt @map("updated_at")
+  id                  String            @id @default(uuid()) @db.Uuid
+  organizationId      String            @map("organization_id") @db.Uuid
+  guardianName        String            @map("guardian_name") @db.VarChar(120)
+  phone               String            @db.VarChar(32)
+  email               String?           @db.VarChar(254)
+  childAge            Int               @map("child_age")
+  programmeOfferingId String?           @map("programme_offering_id") @db.Uuid
+  source              String?           @db.VarChar(64)
+  status              AcademyLeadStatus @default(NEW)
+  notes               String?           @db.VarChar(2000)
+  consentAt           DateTime          @map("consent_at")
+  consentVersion      String            @map("consent_version") @db.VarChar(32)
+  idempotencyKey      String?           @map("idempotency_key") @db.VarChar(128)
+  payloadHash         String?           @map("payload_hash") @db.VarChar(64)
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
 
-  organization        Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  programmeOffering   ProgrammeOffering? @relation(fields: [programmeOfferingId], references: [id], onDelete: SetNull)
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  programmeOffering ProgrammeOffering? @relation(fields: [programmeOfferingId], references: [id], onDelete: SetNull)
 
   @@unique([organizationId, idempotencyKey])
   @@index([organizationId, status, createdAt])
@@ -844,4 +849,166 @@ model SubmissionRateLimit {
 
   @@index([expiresAt])
   @@map("submission_rate_limits")
+}
+
+enum AcademyRegistrationStatus {
+  RECEIVED
+  UNDER_REVIEW
+  CONFIRMED
+  REJECTED
+  CANCELLED
+}
+
+enum AcademyRegistrationSessionState {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum AcademyAgeReferenceRule {
+  FIXED_DATE
+  SESSION_START_DATE
+  REGISTRATION_DATE
+}
+
+enum AcademySessionRecurrence {
+  NONE
+  WEEKLY
+}
+
+enum AcademyRegistrationPolicyStatus {
+  DRAFT
+  APPROVED
+  RETIRED
+}
+
+enum AcademyConsentType {
+  GUARDIAN_AUTHORITY
+  REGISTRATION_PRIVACY
+  MARKETING
+  PHOTOGRAPHY
+}
+
+/// Versioned consent/policy configuration. Never seeded; approval is recorded
+/// from the authenticated actor only. At most one APPROVED row per organization
+/// (partial unique index in the migration).
+model AcademyRegistrationPolicy {
+  id               String                          @id @default(uuid()) @db.Uuid
+  organizationId   String                          @map("organization_id") @db.Uuid
+  policyVersion    String                          @map("policy_version") @db.VarChar(64)
+  status           AcademyRegistrationPolicyStatus @default(DRAFT)
+  content          Json
+  version          Int                             @default(1)
+  createdByUserId  String?                         @map("created_by_user_id") @db.Uuid
+  approvedByUserId String?                         @map("approved_by_user_id") @db.Uuid
+  approvedAt       DateTime?                       @map("approved_at")
+  retiredAt        DateTime?                       @map("retired_at")
+  createdAt        DateTime                        @default(now()) @map("created_at")
+  updatedAt        DateTime                        @updatedAt @map("updated_at")
+  organization     Organization                    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  consents         AcademyRegistrationConsent[]
+
+  @@unique([organizationId, policyVersion])
+  @@unique([organizationId, id])
+  @@index([organizationId, status])
+  @@map("academy_registration_policies")
+}
+
+/// Schedule/publication facts for one dedicated ProgrammeOffering cohort.
+/// Capacity, venue and enrollment window live on the offering; age bounds live
+/// on the programme.
+model AcademyRegistrationSession {
+  id                  String                          @id @default(uuid()) @db.Uuid
+  organizationId      String                          @map("organization_id") @db.Uuid
+  programmeOfferingId String                          @unique @map("programme_offering_id") @db.Uuid
+  coachDisplayName    String?                         @map("coach_display_name") @db.VarChar(120)
+  weekday             Int?                            @db.SmallInt
+  startTime           String?                         @map("start_time") @db.VarChar(5)
+  endTime             String?                         @map("end_time") @db.VarChar(5)
+  timezone            String                          @default("Asia/Kuala_Lumpur") @db.VarChar(64)
+  firstSessionDate    DateTime?                       @map("first_session_date") @db.Date
+  recurrence          AcademySessionRecurrence?
+  ageReferenceRule    AcademyAgeReferenceRule?        @map("age_reference_rule")
+  ageReferenceDate    DateTime?                       @map("age_reference_date") @db.Date
+  publicationState    AcademyRegistrationSessionState @default(DRAFT) @map("publication_state")
+  version             Int                             @default(1)
+  publishedAt         DateTime?                       @map("published_at")
+  publishedByUserId   String?                         @map("published_by_user_id") @db.Uuid
+  closedAt            DateTime?                       @map("closed_at")
+  createdAt           DateTime                        @default(now()) @map("created_at")
+  updatedAt           DateTime                        @updatedAt @map("updated_at")
+  offering            ProgrammeOffering               @relation(fields: [organizationId, programmeOfferingId], references: [organizationId, id], onDelete: Restrict)
+  registrations       AcademyRegistration[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, programmeOfferingId])
+  @@index([organizationId, publicationState])
+  @@map("academy_registration_sessions")
+}
+
+/// Immutable-by-default snapshot of a public submission. Not an athlete,
+/// guardian account or membership; no identity documents are collected.
+model AcademyRegistration {
+  id                           String                       @id @default(uuid()) @db.Uuid
+  referenceCode                String                       @unique @map("reference_code") @db.VarChar(16)
+  organizationId               String                       @map("organization_id") @db.Uuid
+  sessionId                    String                       @map("session_id") @db.Uuid
+  status                       AcademyRegistrationStatus    @default(RECEIVED)
+  statusReasonCode             String?                      @map("status_reason_code") @db.VarChar(40)
+  statusChangedAt              DateTime?                    @map("status_changed_at")
+  statusChangedByUserId        String?                      @map("status_changed_by_user_id") @db.Uuid
+  version                      Int                          @default(1)
+  sessionNameSnapshot          String                       @map("session_name_snapshot") @db.VarChar(180)
+  playerFullName               String                       @map("player_full_name") @db.VarChar(120)
+  playerDateOfBirth            DateTime                     @map("player_date_of_birth") @db.Date
+  ageAtReference               Int                          @map("age_at_reference") @db.SmallInt
+  ageReferenceDateUsed         DateTime                     @map("age_reference_date_used") @db.Date
+  playerGender                 String                       @map("player_gender") @db.VarChar(16)
+  playerJerseySize             String                       @map("player_jersey_size") @db.VarChar(8)
+  playerPhone                  String?                      @map("player_phone") @db.VarChar(32)
+  guardianFullName             String                       @map("guardian_full_name") @db.VarChar(120)
+  guardianPhone                String                       @map("guardian_phone") @db.VarChar(32)
+  guardianRelationship         String                       @map("guardian_relationship") @db.VarChar(24)
+  guardianAuthorityConfirmed   Boolean                      @map("guardian_authority_confirmed")
+  emergencyContactName         String                       @map("emergency_contact_name") @db.VarChar(120)
+  emergencyContactPhone        String                       @map("emergency_contact_phone") @db.VarChar(32)
+  emergencyContactRelationship String                       @map("emergency_contact_relationship") @db.VarChar(24)
+  source                       String?                      @db.VarChar(64)
+  idempotencyOperation         String                       @default("ACADEMY_REGISTRATION_CREATE") @map("idempotency_operation") @db.VarChar(40)
+  idempotencyKeyHmac           String                       @map("idempotency_key_hmac") @db.VarChar(64)
+  payloadHmac                  String                       @map("payload_hmac") @db.VarChar(64)
+  hmacKeyVersion               String                       @map("hmac_key_version") @db.VarChar(16)
+  anonymizedAt                 DateTime?                    @map("anonymized_at")
+  createdAt                    DateTime                     @default(now()) @map("created_at")
+  updatedAt                    DateTime                     @updatedAt @map("updated_at")
+  session                      AcademyRegistrationSession   @relation(fields: [organizationId, sessionId], references: [organizationId, id], onDelete: Restrict)
+  consents                     AcademyRegistrationConsent[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, idempotencyOperation, idempotencyKeyHmac])
+  @@index([organizationId, status, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([organizationId, sessionId, status])
+  @@map("academy_registrations")
+}
+
+model AcademyRegistrationConsent {
+  id             String                    @id @default(uuid()) @db.Uuid
+  organizationId String                    @map("organization_id") @db.Uuid
+  registrationId String                    @map("registration_id") @db.Uuid
+  policyId       String                    @map("policy_id") @db.Uuid
+  consentType    AcademyConsentType        @map("consent_type")
+  granted        Boolean
+  policyVersion  String                    @map("policy_version") @db.VarChar(64)
+  locale         String                    @db.VarChar(8)
+  contentSha256  String                    @map("content_sha256") @db.VarChar(64)
+  acceptedAt     DateTime                  @default(now()) @map("accepted_at")
+  withdrawnAt    DateTime?                 @map("withdrawn_at")
+  createdAt      DateTime                  @default(now()) @map("created_at")
+  registration   AcademyRegistration       @relation(fields: [organizationId, registrationId], references: [organizationId, id], onDelete: Restrict)
+  policy         AcademyRegistrationPolicy @relation(fields: [organizationId, policyId], references: [organizationId, id], onDelete: Restrict)
+
+  @@unique([registrationId, consentType])
+  @@index([organizationId, consentType, granted])
+  @@index([policyId])
+  @@map("academy_registration_consents")
 }
