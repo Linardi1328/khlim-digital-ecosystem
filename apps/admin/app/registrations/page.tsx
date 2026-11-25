@@ -123,6 +123,7 @@ function AcademyRegistrationsContent() {
   const [listError, setListError] = useState<string | null>(null);
   const [authErrorKind, setAuthErrorKind] =
     useState<AdminRegistrationErrorKind | null>(null);
+  const [authInvalidationCount, setAuthInvalidationCount] = useState(0);
 
   // Filters & bounded pagination
   const [searchResetKey, setSearchResetKey] = useState(0);
@@ -152,6 +153,7 @@ function AcademyRegistrationsContent() {
   } | null>(null);
 
   const authGenerationRef = useRef(0);
+  const authInvalidatedRef = useRef(false);
   const isMountedRef = useRef(true);
   const searchTimerRef = useRef<number | null>(null);
   const listRequestSeq = useRef(0);
@@ -204,6 +206,7 @@ function AcademyRegistrationsContent() {
   // whenever authentication context (user, org, role, MFA, or eligibility) changes.
   useLayoutEffect(() => {
     authGenerationRef.current += 1;
+    authInvalidatedRef.current = false;
     listRequestSeq.current += 1;
     detailRequestSeq.current += 1;
     sessionFilterSeq.current += 1;
@@ -248,6 +251,7 @@ function AcademyRegistrationsContent() {
         return;
       }
       authGenerationRef.current += 1;
+      authInvalidatedRef.current = true;
       listRequestSeq.current += 1;
       detailRequestSeq.current += 1;
       sessionFilterSeq.current += 1;
@@ -282,13 +286,15 @@ function AcademyRegistrationsContent() {
       setDetailLoading(false);
       setAuthErrorKind(kind);
       setListError(message);
+      // Propagate global 401/403 invalidation synchronously to every mounted child tab
+      setAuthInvalidationCount((prev) => prev + 1);
     },
     [isCurrentAuthGen],
   );
 
   const handleSessionsChange = useCallback(
     (nextSessions: AdminRegistrationSessionDto[]) => {
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current || authInvalidatedRef.current) return;
       setAuthoritativeSessions(nextSessions);
       setSessionsFilterError(null);
       setSessionsFilterLoading(false);
@@ -808,6 +814,11 @@ function AcademyRegistrationsContent() {
     { id: "policies", label: "Consent Policies", icon: "📜" },
   ];
 
+  const isAuthInvalidated =
+    authErrorKind === "UNAUTHENTICATED" || authErrorKind === "FORBIDDEN";
+  const childAuthContextKey = `${authContextKey}:inv-${authInvalidationCount}`;
+  const childIsEligible = isEligible && !isAuthInvalidated;
+
   return (
     <AdminShell>
       <div
@@ -830,10 +841,38 @@ function AcademyRegistrationsContent() {
           onChange={(tabId) => setActiveTab(tabId)}
         />
 
+        {isAuthInvalidated && activeTab !== "registrations" && listError ? (
+          <div
+            data-testid="registrations-error-state"
+            style={{ marginBottom: 16 }}
+          >
+            <ErrorState
+              title={
+                authErrorKind === "UNAUTHENTICATED"
+                  ? "Session Expired"
+                  : "Access Restricted"
+              }
+              message={listError}
+              onRetry={
+                authErrorKind === "UNAUTHENTICATED"
+                  ? () => void logout()
+                  : () => {
+                      authInvalidatedRef.current = false;
+                      setAuthErrorKind(null);
+                      setListError(null);
+                      setAuthInvalidationCount((prev) => prev + 1);
+                      void fetchAuthoritativeSessionFilter();
+                      void fetchRegistrations();
+                    }
+              }
+            />
+          </div>
+        ) : null}
+
         {activeTab === "sessions" && (
           <AdminTrainingSessionsTab
-            isEligible={isEligible}
-            authContextKey={authContextKey}
+            isEligible={childIsEligible}
+            authContextKey={childAuthContextKey}
             onSessionsChange={handleSessionsChange}
             onAuthError={handleGlobalAuthError}
           />
@@ -841,9 +880,9 @@ function AcademyRegistrationsContent() {
 
         {activeTab === "policies" && (
           <AdminConsentPoliciesTab
-            isEligible={isEligible}
+            isEligible={childIsEligible}
             canApprovePolicies={canApprovePolicies}
-            authContextKey={authContextKey}
+            authContextKey={childAuthContextKey}
             onAuthError={handleGlobalAuthError}
           />
         )}

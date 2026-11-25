@@ -1494,4 +1494,187 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
     );
     await expect(page.getByRole("dialog")).toHaveCount(0);
   });
+
+  test("Global 401/403 invalidation from one concurrent request blocks delayed responses in other mounted components", async ({
+    page,
+  }) => {
+    // Part A (Parent fetchAuthoritativeSessionFilter 401 -> Child AdminTrainingSessionsTab delayed response):
+    // Parent's session filter read returns 401 while the mounted Sessions tab has a delayed
+    // session list response in flight. Releasing the delayed child response MUST NOT restore old data.
+    let releaseParent401;
+    const parent401Gate = new Promise((resolve) => {
+      releaseParent401 = resolve;
+    });
+    let parentReadStarted;
+    const parentReadStartedPromise = new Promise((resolve) => {
+      parentReadStarted = resolve;
+    });
+
+    let releaseChildSessions;
+    const childSessionsGate = new Promise((resolve) => {
+      releaseChildSessions = resolve;
+    });
+    let childSessionsStarted;
+    const childSessionsStartedPromise = new Promise((resolve) => {
+      childSessionsStarted = resolve;
+    });
+
+    let sessionGetCount = 0;
+
+    await page.route(/\/v1\/admin\/academy\/registrations(\?.*)?$/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          items: [],
+          total: 0,
+          page: 1,
+          limit: 20,
+          totalPages: 1,
+        }),
+      }),
+    );
+
+    await page.route(
+      /\/v1\/admin\/academy\/registration-sessions$/,
+      async (route) => {
+        sessionGetCount += 1;
+        // 1st GET is parent's always-active session filter -> returns 401 once released
+        if (sessionGetCount === 1) {
+          parentReadStarted();
+          await parent401Gate;
+          return route.fulfill({
+            status: 401,
+            contentType: "application/json",
+            body: JSON.stringify({
+              statusCode: 401,
+              message: "Unauthorized",
+              error: "Unauthorized",
+            }),
+          });
+        }
+        // 2nd GET is mounted child AdminTrainingSessionsTab -> delayed success response
+        childSessionsStarted();
+        await childSessionsGate;
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            items: [
+              makeSyntheticSession({
+                id: "00000000-0000-4000-8000-000000000951",
+                name: "Leaked Concurrent Session",
+                publicationState: "PUBLISHED",
+              }),
+            ],
+          }),
+        });
+      },
+    );
+
+    await page.goto("/registrations", { waitUntil: "domcontentloaded" });
+    await parentReadStartedPromise;
+
+    // Switch to Training Sessions tab while parent's session filter read is still in flight
+    await page.getByRole("tab", { name: /Training Sessions/i }).click();
+    await childSessionsStartedPromise;
+
+    // Release parent 401 -> propagates global invalidation to mounted AdminTrainingSessionsTab
+    releaseParent401();
+    await expect(page.getByTestId("registrations-error-state")).toContainText(
+      "Session Expired",
+    );
+
+    // Now release the child tab's delayed session response -> MUST NOT populate old data!
+    releaseChildSessions();
+    await page.waitForTimeout(250);
+    await expect(page.locator("body")).not.toContainText(
+      "Leaked Concurrent Session",
+    );
+    await expect(page.getByTestId("registrations-error-state")).toContainText(
+      "Session Expired",
+    );
+
+    // Part B (Child 403 -> Parent delayed session filter response):
+    // On a fresh reload, parent's authoritative session filter is delayed while the mounted
+    // Consent Policies tab receives HTTP 403. Releasing parent's delayed response MUST NOT restore filter data.
+    await page.unroute(/\/v1\/admin\/academy\/registrations(\?.*)?$/);
+    await page.unroute(/\/v1\/admin\/academy\/registration-sessions$/);
+
+    let releaseDelayedParentFilter;
+    const delayedParentFilterGate = new Promise((resolve) => {
+      releaseDelayedParentFilter = resolve;
+    });
+    let parentFilterStarted;
+    const parentFilterStartedPromise = new Promise((resolve) => {
+      parentFilterStarted = resolve;
+    });
+
+    await page.route(/\/v1\/admin\/academy\/registrations(\?.*)?$/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          items: [],
+          total: 0,
+          page: 1,
+          limit: 20,
+          totalPages: 1,
+        }),
+      }),
+    );
+
+    await page.route(
+      /\/v1\/admin\/academy\/registration-sessions$/,
+      async (route) => {
+        parentFilterStarted();
+        await delayedParentFilterGate;
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            items: [
+              makeSyntheticSession({
+                id: "00000000-0000-4000-8000-000000000952",
+                name: "Leaked Parent Filter Session",
+                publicationState: "PUBLISHED",
+              }),
+            ],
+          }),
+        });
+      },
+    );
+
+    await page.route(/\/v1\/admin\/academy\/registration-policies$/, (route) =>
+      route.fulfill({
+        status: 403,
+        contentType: "application/json",
+        body: JSON.stringify({
+          statusCode: 403,
+          message: "MFA AAL2 required",
+          error: "Forbidden",
+        }),
+      }),
+    );
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await parentFilterStartedPromise;
+
+    // Open Consent Policies tab -> receives 403 -> triggers global invalidation in parent
+    await page.getByRole("tab", { name: /Consent Policies/i }).click();
+    await expect(page.getByTestId("registrations-error-state")).toContainText(
+      "Access Restricted",
+    );
+
+    // Release delayed parent session filter response -> MUST NOT populate session count or dropdown!
+    releaseDelayedParentFilter();
+    await page.waitForTimeout(250);
+    await expect(
+      page.getByRole("tab", { name: /Training Sessions/i }),
+    ).toContainText("0");
+    await page.getByRole("tab", { name: /Registrations/i }).click();
+    await expect(
+      page.getByTestId("registration-session-filter"),
+    ).not.toContainText("Leaked Parent Filter Session");
+  });
 });

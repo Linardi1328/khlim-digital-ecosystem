@@ -270,10 +270,31 @@ async function startRealNestApi() {
     return identity;
   };
 
-  // Deterministic clean slate on disposable local test DB
-  await prisma.$executeRawUnsafe(
-    `TRUNCATE TABLE academy_registration_consents, academy_registrations, academy_registration_sessions, academy_registration_policies RESTART IDENTITY CASCADE`,
-  );
+  // Require a freshly provisioned empty disposable database (never TRUNCATE existing data)
+  const [
+    existingPolicies,
+    existingSessions,
+    existingRegistrations,
+    existingConsents,
+  ] = await Promise.all([
+    prisma.academyRegistrationPolicy.count(),
+    prisma.academyRegistrationSession.count(),
+    prisma.academyRegistration.count(),
+    prisma.academyRegistrationConsent.count(),
+  ]);
+
+  if (
+    existingPolicies > 0 ||
+    existingSessions > 0 ||
+    existingRegistrations > 0 ||
+    existingConsents > 0
+  ) {
+    throw new Error(
+      `Refusing to run against non-empty database: found existing academy registration rows ` +
+        `(policies=${existingPolicies}, sessions=${existingSessions}, registrations=${existingRegistrations}, consents=${existingConsents}). ` +
+        "Provision a freshly created empty disposable local PostgreSQL database before running this harness.",
+    );
+  }
 
   await prisma.organization.upsert({
     where: { id: ORG_ID },

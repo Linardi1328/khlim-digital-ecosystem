@@ -5,7 +5,7 @@
 - **Pull Request:** [#127](https://github.com/Linardi1328/khlim-digital-ecosystem/pull/127) (**Draft** — not merge or deployment authorized)
 - **Frontend Branch:** `antigravity/ric-191-academy-registration-v1-20261125`
 - **Stacked Base Branch (PR #125 / RIC-184):** `antigravity/ric-184-academy-parity-qa-20261124` (`4869d996d27144271c04bf2417244a9b6b568d08`)
-- **Verified Backend Dependency (PR #126 / RIC-190):** `codex/ric-190-academy-registration-v1-20261124` (`34ad43313f908f956ac55fd145676488e7379258`)
+- **Verified Backend Dependency (PR #126 / RIC-190):** `codex/ric-190-academy-registration-v1-20261124` (`e3c89de41441d022825bd6ee1082c30ea98e5a7a` — frozen migration & merge-prep revision; schema identical to `34ad43313f908f956ac55fd145676488e7379258`)
 
 ---
 
@@ -37,12 +37,15 @@
   - `apps/admin/app/registrations/page.tsx`
   - `apps/admin/components/registrations/admin-training-sessions-tab.tsx`
   - `apps/admin/components/registrations/admin-consent-policies-tab.tsx`
-- **HTTP 401/403 Cleanup**: immediately bumps `authGenerationRef`, aborts in-flight read controllers, cancels debounce timers, clears all sensitive data and pending UI state (including resetting `<SearchInput key={searchResetKey} />` so un-flushed debounced local search text cannot survive or re-emit after a 401/403).
+- **HTTP 401/403 Global Propagation**: `handleGlobalAuthError` immediately bumps `authGenerationRef`, sets `authInvalidatedRef`, aborts in-flight read controllers, clears all sensitive data and pending UI state (including remounting `<SearchInput key={searchResetKey} />`), and increments `authInvalidationCount` (rotating `authContextKey` and setting `isEligible={false}` on every mounted child tab synchronously while surfacing the global `Session Expired` / `Access Restricted` state across all tabs).
 - **Deterministic Regression Proof** (`tests/e2e/ric-191-admin-registrations.spec.mjs`):
   1. Delays an in-flight `PATCH .../registrations/:id/status` response, switches auth context while the modal/drawer is open, releases the stale HTTP 200 response → verifies old player name, `KAR-OLDORG01`, success banner, detail drawer, and stale refreshes never reappear.
   2. Delays a follow-up `GET .../registrations/:id` after `409 STALE_VERSION`, switches auth context, releases the stale detail → verifies zero stale PII reappearance.
   3. Delays a Training Session `POST .../close` mutation and a Consent Policy `POST .../retire` mutation across auth-context switches → verifies stale session/policy banners and records never leak.
   4. Enters a sensitive phone number in `<SearchInput>`, triggers a `401` before debounce flush → verifies `input[type="search"]` immediately resets to `""` and all sensitive records clear.
+  5. Cross-component concurrent `401`/`403` propagation (both directions):
+     - Parent `fetchAuthoritativeSessionFilter` returns `401` while mounted child `AdminTrainingSessionsTab` has a delayed session list response in flight → releasing child's delayed response never restores `Leaked Concurrent Session`.
+     - Mounted child `AdminConsentPoliciesTab` returns `403` while parent `fetchAuthoritativeSessionFilter` has a delayed response in flight → releasing parent's delayed response never restores `Leaked Parent Filter Session`.
 
 ---
 
@@ -74,15 +77,16 @@
 ### B. Mocked Browser Playwright Suites (Production Builds)
 - `tests/e2e/ric-191-public-registration.spec.mjs` (`chromium-desktop`): **5 passed, 0 failed, 0 skipped**
 - `tests/e2e/ric-184-academy-parity-qa.spec.mjs` (`chromium-desktop`): **5 passed, 0 failed, 0 skipped**
-- `tests/e2e/ric-191-admin-registrations.spec.mjs` (`admin-desktop` + `admin-mobile`): **10 passed, 0 failed, 0 skipped** (includes delayed-mutation auth-context isolation tests + 7-viewport overflow checks `360–1440px`)
-- `tests/e2e/admin-ui.spec.mjs` (`admin-desktop`): **29 passed, 0 failed, 1 intentional mobile-only skip** (`mobile drawer navigation opens and reaches programmes`; 1 retry on pre-existing `/payments` work-view switch)
+- `tests/e2e/ric-191-admin-registrations.spec.mjs` (`admin-desktop` + `admin-mobile`): **12 passed, 0 failed, 0 skipped** (includes delayed-mutation auth-context isolation, cross-component 401/403 propagation in both directions, and 7-viewport overflow checks `360–1440px`)
+- `tests/e2e/admin-ui.spec.mjs` (`admin-desktop`): **29 passed, 0 failed, 1 intentional mobile-only skip** (`mobile drawer navigation opens and reaches programmes`)
 
 ### C. Reproducible Local PostgreSQL 16 + Real PR #126 NestJS API Integrated Acceptance
 Repository-owned harness: [`tests/integration/ric-191-integrated-acceptance.mjs`](../../tests/integration/ric-191-integrated-acceptance.mjs)
 Full procedure & real-vs-simulated auth documentation: [`docs/implementation/ric-191-integrated-acceptance-procedure.md`](../implementation/ric-191-integrated-acceptance-procedure.md)
 
-- **Fail-closed safety checks verified**: refuses unset `KHLIM_TEST_DATABASE=1`, refuses non-local DB hosts, refuses DB names without `test`.
-- **12/12 steps PASSED** against disposable Docker `postgres:16-alpine` (all 18 Prisma migrations deployed) + real PR #126 NestJS `AppModule` (`34ad433`) + built `@khlim/web` & `@khlim/admin` (automatically torn down on exit):
+- **Persistent-database confirmation**: Zero persistent local or hosted databases were ever used to apply earlier RIC-190 migration revisions. Every migration and acceptance run executed exclusively against an ephemeral `docker run --rm ... postgres:16-alpine` container destroyed immediately on exit.
+- **Fail-closed safety checks verified**: refuses unset `KHLIM_TEST_DATABASE=1`, refuses non-local DB hosts, refuses DB names without `test`, performs **zero** `TRUNCATE` operations, and **fails closed on non-empty registration tables** (verified by confirming a 2nd run against the populated disposable DB exited with `Refusing to run against non-empty database`).
+- **12/12 steps PASSED** against freshly provisioned empty disposable Docker `postgres:16-alpine` (all 18 Prisma migrations deployed) + real PR #126 NestJS `AppModule` (`e3c89de4`) + built `@khlim/web` & `@khlim/admin` (automatically torn down via `trap cleanup EXIT`):
   1. `SUPER_ADMIN` creates `SYNTHETIC-V1` consent policy draft via Admin UI → PostgreSQL.
   2. `SUPER_ADMIN` approves `SYNTHETIC-V1` (real API RBAC returns HTTP `403` for `ACADEMY_ADMIN`).
   3. Staff creates & publishes synthetic training session (`capacity = 1`) with unchecked approvals.

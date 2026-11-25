@@ -13,8 +13,9 @@ The harness refuses to run unless **all** of the following hold:
 1. `KHLIM_TEST_DATABASE=1` is explicitly set.
 2. `DATABASE_URL` targets a local loopback hostname only (`localhost`, `127.0.0.1`, or `::1`).
 3. The target PostgreSQL database name contains `test` (e.g. `khlim_ric191_test`).
-4. Only synthetic records (`Synthetic Int Player One`, `SYNTHETIC-V1`, `synthetic://...`), synthetic tokens, and ephemeral per-run HMAC keys (`KHLIM_REGISTRATION_HMAC_KEYS`) are used.
-5. No hosted staging/production environment, Supabase Cloud instance, or payment provider is contacted.
+4. The target database is a **freshly provisioned empty disposable database** — the harness performs zero `TRUNCATE` or destructive resets and fails closed if any existing rows are present in `academy_registration_policies`, `academy_registration_sessions`, `academy_registrations`, or `academy_registration_consents`.
+5. Only synthetic records (`Synthetic Int Player One`, `SYNTHETIC-V1`, `synthetic://...`), synthetic tokens, and ephemeral per-run HMAC keys (`KHLIM_REGISTRATION_HMAC_KEYS`) are used.
+6. No hosted staging/production environment, Supabase Cloud instance, or payment provider is contacted.
 
 ---
 
@@ -40,7 +41,16 @@ Until PR #125 (`RIC-184`) and PR #126 (`RIC-190`) merge to `main`, run against a
 set -euo pipefail
 SRC_WT="$(pwd)"
 INT_WT="/tmp/khlim-ric191-int-wt"
-BACKEND_SHA="34ad43313f908f956ac55fd145676488e7379258"
+BACKEND_SHA="e3c89de41441d022825bd6ee1082c30ea98e5a7a"
+
+cleanup() {
+  docker rm -f khlim-ric191-pg >/dev/null 2>&1 || true
+  if [ -d "$INT_WT" ]; then
+    git -C "$SRC_WT" worktree remove --force "$INT_WT" 2>/dev/null || rm -rf "$INT_WT"
+  fi
+}
+trap cleanup EXIT
+cleanup
 
 # 1. Create detached worktree at the verified RIC-190 backend commit and overlay RIC-184 + RIC-191 frontend files
 git -C "$SRC_WT" worktree add --detach "$INT_WT" "$BACKEND_SHA"
@@ -60,7 +70,7 @@ git -C "$SRC_WT" diff --name-only "$MERGE_BASE" -- \
     fi
   done
 
-# 2. Start disposable local PostgreSQL 16 container (use an ephemeral local password)
+# 2. Start a freshly provisioned disposable local PostgreSQL 16 container (ephemeral password)
 export LOCAL_TEST_PG_PASS="$(openssl rand -hex 12)"
 docker run --rm -d \
   --name khlim-ric191-pg \
@@ -74,7 +84,7 @@ until docker exec khlim-ric191-pg pg_isready -U postgres -d khlim_ric191_test >/
   sleep 0.5
 done
 
-# 3. Install, migrate, build against local API, and execute all 12 steps
+# 3. Install, migrate, build against local API, and execute all 12 steps (trap EXIT handles teardown on success or failure)
 cd "$INT_WT"
 export DATABASE_URL="postgresql://postgres:${LOCAL_TEST_PG_PASS}@127.0.0.1:5491/khlim_ric191_test"
 export KHLIM_TEST_DATABASE=1
@@ -86,10 +96,6 @@ NEXT_PUBLIC_ADMIN_DEMO_MODE="true" \
   pnpm build
 
 node tests/integration/ric-191-integrated-acceptance.mjs
-
-# 4. Deterministic teardown
-docker rm -f khlim-ric191-pg
-git -C "$SRC_WT" worktree remove --force "$INT_WT"
 ```
 
 ---
