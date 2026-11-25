@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { DatabaseModule } from "../database/database.module";
+import { AcademyModule } from "../academy/academy.module";
 import { AdminAccessController } from "./admin-access.controller";
 import { AdminController } from "./admin.controller";
 import { AdminGovernanceController } from "./admin-governance.controller";
@@ -11,7 +12,7 @@ import { AdminOrganizationAccessService } from "./admin-organization-access.serv
 import { AdminService } from "./admin.service";
 
 @Module({
-  imports: [DatabaseModule],
+  imports: [DatabaseModule, AcademyModule],
   controllers: [
     AdminAccessController,
     AdminController,
