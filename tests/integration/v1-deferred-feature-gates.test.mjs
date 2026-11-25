@@ -52,7 +52,8 @@ const skip = databaseTestsEnabled()
 const FLAGS = ["KHLIM_ENABLE_V1_ENROLMENT", "KHLIM_ENABLE_V1_PORTAL"];
 const originalPaymentProvider = process.env.PAYMENT_PROVIDER;
 const syntheticBillId = `synthetic-gates-${RUN}`;
-const syntheticCheckoutUrl = `https://www.billplz-sandbox.com/bills/${syntheticBillId}`;
+const syntheticCheckoutBase = "https://www.billplz-sandbox.com/bills";
+const syntheticCheckoutUrl = `${syntheticCheckoutBase}/${syntheticBillId}`;
 for (const flag of FLAGS) delete process.env[flag];
 
 const USERS = {
@@ -541,12 +542,9 @@ test(
     try {
       const list = await call(c, "GET", "/me/athletes", { token: "guardian" });
       assert.equal(list.status, 200, JSON.stringify(list.body));
-      const unlinked = await call(
-        c,
-        "GET",
-        `/athletes/${c.athlete.id}`,
-        { token: "otherGuardian" },
-      );
+      const unlinked = await call(c, "GET", `/athletes/${c.athlete.id}`, {
+        token: "otherGuardian",
+      });
       assert.equal(unlinked.status, 403);
       assert.equal(unlinked.body?.message, "Athlete access is not permitted");
       const second = await c.client.programmeOffering.create({
