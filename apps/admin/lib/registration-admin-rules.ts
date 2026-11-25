@@ -14,6 +14,36 @@ import type {
   UpdateRegistrationSessionRequestDto,
 } from "@khlim/api-client";
 
+export interface AdminAuthContextFingerprint {
+  userId: string | null;
+  organizationId?: string | null;
+  role: string | null;
+  isAuthenticated: boolean;
+  mfaSatisfied: boolean;
+  isDemoMode: boolean;
+  isEligible: boolean;
+}
+
+/**
+ * Deterministic fingerprint representing the active Admin authentication and
+ * authorization boundary. Any change (logout, user switch, organization switch,
+ * role switch, MFA downgrade, or eligibility change) rotates the key and
+ * invalidates all in-flight async reads, mutations, and follow-up reads.
+ */
+export function buildAdminAuthContextKey(
+  ctx: AdminAuthContextFingerprint,
+): string {
+  return [
+    ctx.userId ?? "anon",
+    ctx.organizationId ?? "default-org",
+    ctx.role ?? "none",
+    ctx.isAuthenticated ? "auth" : "unauth",
+    ctx.mfaSatisfied ? "aal2" : "no-mfa",
+    ctx.isDemoMode ? "demo" : "live",
+    ctx.isEligible ? "eligible" : "ineligible",
+  ].join(":");
+}
+
 export const REGISTRATION_STATUS_OPTIONS: readonly RegistrationStatus[] = [
   "RECEIVED",
   "UNDER_REVIEW",
@@ -543,6 +573,7 @@ export type AdminRegistrationErrorKind =
   | "INVALID_TRANSITION"
   | "SESSION_INCOMPLETE"
   | "SESSION_NOT_EDITABLE"
+  | "SESSION_NOT_AVAILABLE"
   | "POLICY_VERSION_EXISTS"
   | "POLICY_NOT_APPROVABLE"
   | "POLICY_INVALID_STATE"
@@ -557,6 +588,7 @@ export interface ClassifiedAdminRegistrationError {
   code: string | null;
   message: string;
   fieldErrors: RegistrationErrorFieldDto[];
+  retryAfterSeconds: number | null;
 }
 
 function readErrorShape(error: unknown): {
@@ -564,15 +596,29 @@ function readErrorShape(error: unknown): {
   code: string | null;
   fieldErrors: RegistrationErrorFieldDto[];
   details: Record<string, unknown> | null;
+  retryAfterSeconds: number | null;
 } {
   if (!error || typeof error !== "object") {
-    return { status: null, code: null, fieldErrors: [], details: null };
+    return {
+      status: null,
+      code: null,
+      fieldErrors: [],
+      details: null,
+      retryAfterSeconds: null,
+    };
   }
   const candidate = error as {
     status?: unknown;
     responseBody?: unknown;
+    retryAfterSeconds?: unknown;
   };
   const status = typeof candidate.status === "number" ? candidate.status : null;
+  const retryAfterSeconds =
+    typeof candidate.retryAfterSeconds === "number" &&
+    Number.isFinite(candidate.retryAfterSeconds) &&
+    candidate.retryAfterSeconds > 0
+      ? Math.ceil(candidate.retryAfterSeconds)
+      : null;
   let code: string | null = null;
   let fieldErrors: RegistrationErrorFieldDto[] = [];
   let details: Record<string, unknown> | null = null;
@@ -597,7 +643,7 @@ function readErrorShape(error: unknown): {
       details = body.details as Record<string, unknown>;
     }
   }
-  return { status, code, fieldErrors, details };
+  return { status, code, fieldErrors, details, retryAfterSeconds };
 }
 
 /**
@@ -607,13 +653,15 @@ function readErrorShape(error: unknown): {
 export function classifyAdminRegistrationError(
   error: unknown,
 ): ClassifiedAdminRegistrationError {
-  const { status, code, fieldErrors, details } = readErrorShape(error);
+  const { status, code, fieldErrors, details, retryAfterSeconds } =
+    readErrorShape(error);
 
   if (status === 401) {
     return {
       kind: "UNAUTHENTICATED",
       code: null,
       fieldErrors: [],
+      retryAfterSeconds: null,
       message:
         "Your staff session has expired or is no longer authenticated. Please sign in again to continue.",
     };
@@ -623,6 +671,7 @@ export function classifyAdminRegistrationError(
       kind: "FORBIDDEN",
       code: null,
       fieldErrors: [],
+      retryAfterSeconds: null,
       message:
         "Access denied. This action requires an authorized staff role with verified AAL2 MFA.",
     };
@@ -634,6 +683,7 @@ export function classifyAdminRegistrationError(
         kind: "STALE_VERSION",
         code,
         fieldErrors,
+        retryAfterSeconds: null,
         message:
           "This record was modified by another administrator since you opened it. The latest version has been loaded—please review before submitting again.",
       };
@@ -642,6 +692,7 @@ export function classifyAdminRegistrationError(
         kind: "CAPACITY_EXCEEDED",
         code,
         fieldErrors,
+        retryAfterSeconds: null,
         message:
           "Unable to confirm registration because the selected session has reached its configured seat capacity.",
       };
@@ -652,6 +703,7 @@ export function classifyAdminRegistrationError(
         kind: "CAPACITY_BELOW_CONFIRMED",
         code,
         fieldErrors,
+        retryAfterSeconds: null,
         message:
           confirmed !== null
             ? `Capacity cannot be lower than the ${confirmed} already confirmed registration(s).`
@@ -663,8 +715,18 @@ export function classifyAdminRegistrationError(
         kind: "INVALID_TRANSITION",
         code,
         fieldErrors,
+        retryAfterSeconds: null,
         message:
           "That lifecycle transition is not permitted for the record's current state. Refresh to inspect the latest state.",
+      };
+    case "SESSION_NOT_AVAILABLE":
+      return {
+        kind: "SESSION_NOT_AVAILABLE",
+        code,
+        fieldErrors,
+        retryAfterSeconds: null,
+        message:
+          "This training session is no longer open or has already been closed. Refresh to view its current state before retrying.",
       };
     case "SESSION_INCOMPLETE": {
       const summary = fieldErrors
@@ -674,6 +736,7 @@ export function classifyAdminRegistrationError(
         kind: "SESSION_INCOMPLETE",
         code,
         fieldErrors,
+        retryAfterSeconds: null,
         message: summary
           ? `Session cannot be published yet: ${summary}`
           : "Session is incomplete or its programme/sport is inactive and cannot be published yet.",
@@ -684,6 +747,7 @@ export function classifyAdminRegistrationError(
         kind: "SESSION_NOT_EDITABLE",
         code,
         fieldErrors,
+        retryAfterSeconds: null,
         message:
           "One or more fields cannot be edited in this session's current state.",
       };
@@ -692,6 +756,7 @@ export function classifyAdminRegistrationError(
         kind: "POLICY_VERSION_EXISTS",
         code,
         fieldErrors: [{ field: "policyVersion", code: "INVALID_VALUE" }],
+        retryAfterSeconds: null,
         message:
           "A consent policy with that version identifier already exists in this organization. Choose a new unique version.",
       };
@@ -700,6 +765,7 @@ export function classifyAdminRegistrationError(
         kind: "POLICY_NOT_APPROVABLE",
         code,
         fieldErrors,
+        retryAfterSeconds: null,
         message:
           "This consent policy cannot be approved (for example, synthetic policy versions cannot be approved in hosted staging or production).",
       };
@@ -708,6 +774,7 @@ export function classifyAdminRegistrationError(
         kind: "POLICY_INVALID_STATE",
         code,
         fieldErrors,
+        retryAfterSeconds: null,
         message:
           "This consent policy is not in a valid state for that action. Refresh to view the latest policy status.",
       };
@@ -720,6 +787,7 @@ export function classifyAdminRegistrationError(
         kind: "NOT_FOUND",
         code,
         fieldErrors,
+        retryAfterSeconds: null,
         message:
           "The requested record could not be found or is inactive in your active organization.",
       };
@@ -728,6 +796,7 @@ export function classifyAdminRegistrationError(
         kind: "VALIDATION",
         code,
         fieldErrors,
+        retryAfterSeconds: null,
         message:
           fieldErrors.length > 0
             ? fieldErrors
@@ -740,22 +809,49 @@ export function classifyAdminRegistrationError(
         kind: "RATE_LIMITED",
         code,
         fieldErrors,
-        message: "Too many requests. Please wait a moment before retrying.",
+        retryAfterSeconds,
+        message: retryAfterSeconds
+          ? `Too many requests. Please wait about ${retryAfterSeconds} seconds before retrying.`
+          : "Too many requests. Please wait a moment before retrying.",
+      };
+    case "REGISTRATION_PERSISTENCE_FAILED":
+      return {
+        kind: "UNAVAILABLE",
+        code,
+        fieldErrors,
+        retryAfterSeconds,
+        message: retryAfterSeconds
+          ? `The database was temporarily busy and could not complete this update. No partial change was saved—please wait about ${retryAfterSeconds} seconds and retry.`
+          : "The database was temporarily busy and could not complete this update. No partial change was saved—please wait a moment and retry.",
       };
     case "SERVICE_TEMPORARILY_UNAVAILABLE":
       return {
         kind: "UNAVAILABLE",
         code,
         fieldErrors,
-        message:
-          "Academy registration service is temporarily unavailable. Please try again shortly.",
+        retryAfterSeconds,
+        message: retryAfterSeconds
+          ? `Academy registration service is temporarily unavailable. Please wait about ${retryAfterSeconds} seconds and try again.`
+          : "Academy registration service is temporarily unavailable. Please try again shortly.",
       };
     default:
+      if (status === 503) {
+        return {
+          kind: "UNAVAILABLE",
+          code,
+          fieldErrors,
+          retryAfterSeconds,
+          message: retryAfterSeconds
+            ? `Service is temporarily busy. Please wait about ${retryAfterSeconds} seconds and retry.`
+            : "Service is temporarily unavailable. Please wait a moment and retry.",
+        };
+      }
       if (status !== null) {
         return {
           kind: "GENERIC",
           code,
           fieldErrors,
+          retryAfterSeconds,
           message:
             "The registration request could not be completed. Please retry or check service status.",
         };
@@ -764,6 +860,7 @@ export function classifyAdminRegistrationError(
         kind: "GENERIC",
         code: null,
         fieldErrors: [],
+        retryAfterSeconds: null,
         message:
           "Unable to reach the Academy registration service. Check your connection and retry.",
       };

@@ -31,6 +31,7 @@ export {
   SESSION_RECURRENCE_OPTIONS,
   SHA256_HEX_REGEX,
   TIME_24H_REGEX,
+  buildAdminAuthContextKey,
   buildSessionCreatePayload,
   buildSessionUpdatePayload,
   classifyAdminRegistrationError,

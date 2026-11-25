@@ -11,6 +11,7 @@ export type AccountRole = StaffRole | "GUARDIAN" | "ATHLETE";
 
 export interface AdminUser {
   id: string;
+  organizationId?: string | null;
   email: string;
   displayName: string;
   role: StaffRole;
@@ -23,6 +24,7 @@ export interface AdminUser {
 
 export interface AdminSession {
   id: string;
+  organizationId?: string | null;
   email: string | null;
   displayName: string;
   preferredLocale: string;

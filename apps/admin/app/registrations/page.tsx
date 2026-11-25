@@ -35,6 +35,7 @@ import { AdminTrainingSessionsTab } from "../../components/registrations/admin-t
 import { AdminConsentPoliciesTab } from "../../components/registrations/admin-consent-policies-tab";
 import { useAdminAuth } from "../../lib/auth-context";
 import {
+  buildAdminAuthContextKey,
   changeAdminRegistrationStatus,
   classifyAdminRegistrationError,
   formatRegistrationReasonCode,
@@ -87,12 +88,19 @@ function AcademyRegistrationsContent() {
     mfaSatisfied,
     logout,
   } = useAdminAuth();
-  const staffUserId = user?.id ?? null;
-  const staffKey = `${staffUserId ?? "anon"}:${role ?? "none"}`;
   const canView = hasRole(["SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN"]);
   const canApprovePolicies = hasRole(["SUPER_ADMIN", "MANAGEMENT"]);
   const isEligible =
     canView && (isDemoMode || (isAuthenticated && mfaSatisfied));
+  const authContextKey = buildAdminAuthContextKey({
+    userId: user?.id ?? null,
+    organizationId: user?.organizationId ?? null,
+    role,
+    isAuthenticated,
+    mfaSatisfied,
+    isDemoMode,
+    isEligible,
+  });
 
   const [activeTab, setActiveTab] = useState<string>("registrations");
 
@@ -117,6 +125,7 @@ function AcademyRegistrationsContent() {
     useState<AdminRegistrationErrorKind | null>(null);
 
   // Filters & bounded pagination
+  const [searchResetKey, setSearchResetKey] = useState(0);
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
@@ -142,6 +151,9 @@ function AcademyRegistrationsContent() {
     message: string;
   } | null>(null);
 
+  const authGenerationRef = useRef(0);
+  const isMountedRef = useRef(true);
+  const searchTimerRef = useRef<number | null>(null);
   const listRequestSeq = useRef(0);
   const detailRequestSeq = useRef(0);
   const sessionFilterSeq = useRef(0);
@@ -149,19 +161,56 @@ function AcademyRegistrationsContent() {
   const detailAbortRef = useRef<AbortController | null>(null);
   const sessionFilterAbortRef = useRef<AbortController | null>(null);
 
+  const isCurrentAuthGen = useCallback(
+    (gen: number) => isMountedRef.current && authGenerationRef.current === gen,
+    [],
+  );
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      authGenerationRef.current += 1;
+      if (searchTimerRef.current !== null) {
+        window.clearTimeout(searchTimerRef.current);
+        searchTimerRef.current = null;
+      }
+      listAbortRef.current?.abort();
+      detailAbortRef.current?.abort();
+      sessionFilterAbortRef.current?.abort();
+    };
+  }, []);
+
   // Debounce POST search input so we never hammer the search endpoint
   useEffect(() => {
-    const timer = window.setTimeout(() => {
+    if (searchTimerRef.current !== null) {
+      window.clearTimeout(searchTimerRef.current);
+    }
+    const authGen = authGenerationRef.current;
+    searchTimerRef.current = window.setTimeout(() => {
+      searchTimerRef.current = null;
+      if (!isCurrentAuthGen(authGen)) return;
       setDebouncedSearch(searchInput.trim());
     }, 300);
-    return () => window.clearTimeout(timer);
-  }, [searchInput]);
+    return () => {
+      if (searchTimerRef.current !== null) {
+        window.clearTimeout(searchTimerRef.current);
+        searchTimerRef.current = null;
+      }
+    };
+  }, [searchInput, isCurrentAuthGen]);
 
-  // Clear ALL sensitive PII & cached org data immediately on user, role, or eligibility change
+  // Clear ALL sensitive PII, search/filter inputs, and cached org data immediately
+  // whenever authentication context (user, org, role, MFA, or eligibility) changes.
   useLayoutEffect(() => {
+    authGenerationRef.current += 1;
     listRequestSeq.current += 1;
     detailRequestSeq.current += 1;
     sessionFilterSeq.current += 1;
+    if (searchTimerRef.current !== null) {
+      window.clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
+    }
     listAbortRef.current?.abort();
     detailAbortRef.current?.abort();
     sessionFilterAbortRef.current?.abort();
@@ -172,41 +221,74 @@ function AcademyRegistrationsContent() {
     setSessionsFilterError(null);
     setSelectedId(null);
     setSelectedDetail(null);
+    setDetailLoading(false);
+    setSearchResetKey((prev) => prev + 1);
     setSearchInput("");
     setDebouncedSearch("");
     setStatusFilter("ALL");
     setSessionFilter("ALL");
+    setPage(1);
+    setTargetStatus("");
+    setReasonCode("");
     setListError(null);
     setDetailError(null);
     setStatusFeedback(null);
     setAuthErrorKind(null);
     setConfirmOpen(false);
     setIsUpdatingStatus(false);
-  }, [staffUserId, role, isEligible]);
+  }, [authContextKey]);
 
   const handleGlobalAuthError = useCallback(
-    (kind: AdminRegistrationErrorKind, message: string) => {
+    (
+      kind: AdminRegistrationErrorKind,
+      message: string,
+      expectedGen?: number,
+    ) => {
+      if (expectedGen !== undefined && !isCurrentAuthGen(expectedGen)) {
+        return;
+      }
+      authGenerationRef.current += 1;
       listRequestSeq.current += 1;
       detailRequestSeq.current += 1;
       sessionFilterSeq.current += 1;
+      if (searchTimerRef.current !== null) {
+        window.clearTimeout(searchTimerRef.current);
+        searchTimerRef.current = null;
+      }
       listAbortRef.current?.abort();
       detailAbortRef.current?.abort();
       sessionFilterAbortRef.current?.abort();
       setRegistrations([]);
+      setTotalItems(0);
+      setTotalPages(1);
       setAuthoritativeSessions([]);
+      setSessionsFilterError(null);
       setSelectedId(null);
       setSelectedDetail(null);
+      setSearchResetKey((prev) => prev + 1);
+      setSearchInput("");
+      setDebouncedSearch("");
+      setStatusFilter("ALL");
+      setSessionFilter("ALL");
+      setPage(1);
+      setTargetStatus("");
+      setReasonCode("");
+      setConfirmOpen(false);
+      setIsUpdatingStatus(false);
+      setStatusFeedback(null);
+      setDetailError(null);
       setLoading(false);
       setSessionsFilterLoading(false);
       setDetailLoading(false);
       setAuthErrorKind(kind);
       setListError(message);
     },
-    [],
+    [isCurrentAuthGen],
   );
 
   const handleSessionsChange = useCallback(
     (nextSessions: AdminRegistrationSessionDto[]) => {
+      if (!isMountedRef.current) return;
       setAuthoritativeSessions(nextSessions);
       setSessionsFilterError(null);
       setSessionsFilterLoading(false);
@@ -216,7 +298,8 @@ function AcademyRegistrationsContent() {
 
   // Authoritative session list for the Registrations filter dropdown
   const fetchAuthoritativeSessionFilter = useCallback(async () => {
-    void staffKey;
+    void authContextKey;
+    const authGen = authGenerationRef.current;
     if (!isEligible) {
       sessionFilterSeq.current += 1;
       sessionFilterAbortRef.current?.abort();
@@ -235,26 +318,34 @@ function AcademyRegistrationsContent() {
 
     try {
       const response = await listAdminRegistrationSessions(controller.signal);
-      if (seq !== sessionFilterSeq.current) return;
+      if (!isCurrentAuthGen(authGen) || seq !== sessionFilterSeq.current) {
+        return;
+      }
       const items = Array.isArray(response.items) ? response.items : [];
       setAuthoritativeSessions(items);
     } catch (error: unknown) {
-      if (controller.signal.aborted || seq !== sessionFilterSeq.current) return;
+      if (
+        controller.signal.aborted ||
+        !isCurrentAuthGen(authGen) ||
+        seq !== sessionFilterSeq.current
+      ) {
+        return;
+      }
       const classified = classifyAdminRegistrationError(error);
       if (
         classified.kind === "UNAUTHENTICATED" ||
         classified.kind === "FORBIDDEN"
       ) {
-        handleGlobalAuthError(classified.kind, classified.message);
+        handleGlobalAuthError(classified.kind, classified.message, authGen);
         return;
       }
       setSessionsFilterError(classified.message);
     } finally {
-      if (seq === sessionFilterSeq.current) {
+      if (isCurrentAuthGen(authGen) && seq === sessionFilterSeq.current) {
         setSessionsFilterLoading(false);
       }
     }
-  }, [isEligible, staffKey, handleGlobalAuthError]);
+  }, [isEligible, authContextKey, isCurrentAuthGen, handleGlobalAuthError]);
 
   useEffect(() => {
     void fetchAuthoritativeSessionFilter();
@@ -264,7 +355,8 @@ function AcademyRegistrationsContent() {
   }, [fetchAuthoritativeSessionFilter]);
 
   const fetchRegistrations = useCallback(async () => {
-    void staffKey;
+    void authContextKey;
+    const authGen = authGenerationRef.current;
     if (!isEligible) {
       listRequestSeq.current += 1;
       listAbortRef.current?.abort();
@@ -312,35 +404,42 @@ function AcademyRegistrationsContent() {
               signal: controller.signal,
             });
 
-      if (seq !== listRequestSeq.current) return;
+      if (!isCurrentAuthGen(authGen) || seq !== listRequestSeq.current) return;
 
       setRegistrations(res.items);
       setTotalItems(res.total);
       setTotalPages(Math.max(1, res.totalPages));
     } catch (error: unknown) {
-      if (controller.signal.aborted || seq !== listRequestSeq.current) return;
+      if (
+        controller.signal.aborted ||
+        !isCurrentAuthGen(authGen) ||
+        seq !== listRequestSeq.current
+      ) {
+        return;
+      }
       const classified = classifyAdminRegistrationError(error);
       if (
         classified.kind === "UNAUTHENTICATED" ||
         classified.kind === "FORBIDDEN"
       ) {
-        handleGlobalAuthError(classified.kind, classified.message);
+        handleGlobalAuthError(classified.kind, classified.message, authGen);
       } else {
         setListError(classified.message);
       }
     } finally {
-      if (seq === listRequestSeq.current) {
+      if (isCurrentAuthGen(authGen) && seq === listRequestSeq.current) {
         setLoading(false);
       }
     }
   }, [
     isEligible,
-    staffKey,
+    authContextKey,
     debouncedSearch,
     statusFilter,
     sessionFilter,
     page,
     pageSize,
+    isCurrentAuthGen,
     handleGlobalAuthError,
   ]);
 
@@ -356,6 +455,7 @@ function AcademyRegistrationsContent() {
   const loadRegistrationDetail = useCallback(
     async (id: string) => {
       if (!isEligible) return;
+      const authGen = authGenerationRef.current;
       detailAbortRef.current?.abort();
       const controller = new AbortController();
       detailAbortRef.current = controller;
@@ -371,10 +471,16 @@ function AcademyRegistrationsContent() {
 
       try {
         const detail = await getAdminRegistrationDetail(id, controller.signal);
-        if (seq !== detailRequestSeq.current) return;
+        if (!isCurrentAuthGen(authGen) || seq !== detailRequestSeq.current) {
+          return;
+        }
         setSelectedDetail(detail);
       } catch (error: unknown) {
-        if (controller.signal.aborted || seq !== detailRequestSeq.current) {
+        if (
+          controller.signal.aborted ||
+          !isCurrentAuthGen(authGen) ||
+          seq !== detailRequestSeq.current
+        ) {
           return;
         }
         const classified = classifyAdminRegistrationError(error);
@@ -382,17 +488,17 @@ function AcademyRegistrationsContent() {
           classified.kind === "UNAUTHENTICATED" ||
           classified.kind === "FORBIDDEN"
         ) {
-          handleGlobalAuthError(classified.kind, classified.message);
+          handleGlobalAuthError(classified.kind, classified.message, authGen);
         } else {
           setDetailError(classified.message);
         }
       } finally {
-        if (seq === detailRequestSeq.current) {
+        if (isCurrentAuthGen(authGen) && seq === detailRequestSeq.current) {
           setDetailLoading(false);
         }
       }
     },
-    [isEligible, handleGlobalAuthError],
+    [isEligible, isCurrentAuthGen, handleGlobalAuthError],
   );
 
   const handleCloseDrawer = () => {
@@ -426,15 +532,23 @@ function AcademyRegistrationsContent() {
     if (!selectedDetail || !targetStatus || isUpdatingStatus) return;
     if (reasonRequired && !reasonCode) return;
 
+    const authGen = authGenerationRef.current;
+    const detailId = selectedDetail.id;
+    const expectedVersion = selectedDetail.version;
+    const requestedStatus = targetStatus;
+    const requestedReason = reasonRequired && reasonCode ? reasonCode : null;
+
     setIsUpdatingStatus(true);
     setStatusFeedback(null);
 
     try {
-      const updated = await changeAdminRegistrationStatus(selectedDetail.id, {
-        status: targetStatus,
-        ...(reasonRequired && reasonCode ? { reasonCode } : {}),
-        expectedVersion: selectedDetail.version,
+      const updated = await changeAdminRegistrationStatus(detailId, {
+        status: requestedStatus,
+        ...(requestedReason ? { reasonCode: requestedReason } : {}),
+        expectedVersion,
       });
+
+      if (!isCurrentAuthGen(authGen)) return;
 
       setConfirmOpen(false);
       setSelectedDetail(updated);
@@ -461,6 +575,7 @@ function AcademyRegistrationsContent() {
       void fetchRegistrations();
       void fetchAuthoritativeSessionFilter();
     } catch (error: unknown) {
+      if (!isCurrentAuthGen(authGen)) return;
       setConfirmOpen(false);
       const classified = classifyAdminRegistrationError(error);
 
@@ -468,15 +583,16 @@ function AcademyRegistrationsContent() {
         classified.kind === "UNAUTHENTICATED" ||
         classified.kind === "FORBIDDEN"
       ) {
-        handleGlobalAuthError(classified.kind, classified.message);
+        handleGlobalAuthError(classified.kind, classified.message, authGen);
         return;
       }
 
-      // On STALE_VERSION or INVALID_TRANSITION, refresh the authoritative record
-      // and require staff to review again (never auto-replay stale updates).
+      // On STALE_VERSION, INVALID_TRANSITION, or SESSION_NOT_AVAILABLE, refresh the authoritative record
+      // and session filter under the same auth-generation guard (never auto-replay stale updates).
       if (
         classified.kind === "STALE_VERSION" ||
-        classified.kind === "INVALID_TRANSITION"
+        classified.kind === "INVALID_TRANSITION" ||
+        classified.kind === "SESSION_NOT_AVAILABLE"
       ) {
         setStatusFeedback({
           variant: "warning",
@@ -484,8 +600,24 @@ function AcademyRegistrationsContent() {
         });
         setTargetStatus("");
         setReasonCode("");
+        void fetchAuthoritativeSessionFilter();
+
+        detailAbortRef.current?.abort();
+        const followUpController = new AbortController();
+        detailAbortRef.current = followUpController;
+        const followUpSeq = ++detailRequestSeq.current;
         try {
-          const fresh = await getAdminRegistrationDetail(selectedDetail.id);
+          const fresh = await getAdminRegistrationDetail(
+            detailId,
+            followUpController.signal,
+          );
+          if (
+            followUpController.signal.aborted ||
+            !isCurrentAuthGen(authGen) ||
+            followUpSeq !== detailRequestSeq.current
+          ) {
+            return;
+          }
           setSelectedDetail(fresh);
           setRegistrations((prev) =>
             prev.map((row) =>
@@ -500,8 +632,16 @@ function AcademyRegistrationsContent() {
             ),
           );
         } catch {
-          // Keep warning visible even if refresh fails
+          // Keep warning visible if still in the same auth context
         }
+        return;
+      }
+
+      if (classified.kind === "UNAVAILABLE") {
+        setStatusFeedback({
+          variant: "warning",
+          message: classified.message,
+        });
         return;
       }
 
@@ -510,7 +650,9 @@ function AcademyRegistrationsContent() {
         message: classified.message,
       });
     } finally {
-      setIsUpdatingStatus(false);
+      if (isCurrentAuthGen(authGen)) {
+        setIsUpdatingStatus(false);
+      }
     }
   };
 
@@ -691,7 +833,7 @@ function AcademyRegistrationsContent() {
         {activeTab === "sessions" && (
           <AdminTrainingSessionsTab
             isEligible={isEligible}
-            staffKey={staffKey}
+            authContextKey={authContextKey}
             onSessionsChange={handleSessionsChange}
             onAuthError={handleGlobalAuthError}
           />
@@ -701,7 +843,7 @@ function AcademyRegistrationsContent() {
           <AdminConsentPoliciesTab
             isEligible={isEligible}
             canApprovePolicies={canApprovePolicies}
-            staffKey={staffKey}
+            authContextKey={authContextKey}
             onAuthError={handleGlobalAuthError}
           />
         )}
@@ -719,6 +861,7 @@ function AcademyRegistrationsContent() {
               }}
             >
               <SearchInput
+                key={searchResetKey}
                 value={searchInput}
                 onChange={(val) => {
                   setSearchInput(val);

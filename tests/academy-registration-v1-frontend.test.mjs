@@ -522,6 +522,71 @@ describe("RIC-191 Academy Registration V1 frontend helpers & contract rules", ()
     );
     assert.deepEqual(validRes.errors, {});
     assert.equal(validRes.payload?.policyVersion, "SYNTHETIC-TEST-2026");
+
+    // 34ad433 contract additions: retryable 503 REGISTRATION_PERSISTENCE_FAILED (with Retry-After) & 409 SESSION_NOT_AVAILABLE
+    const { buildAdminAuthContextKey, classifyAdminRegistrationError } =
+      await import("../apps/admin/lib/registration-admin-rules.ts");
+
+    // Auth-context fingerprint must rotate on user, org, role, auth, MFA, or eligibility change
+    const baseCtx = {
+      userId: "user-a",
+      organizationId: "org-a",
+      role: "SUPER_ADMIN",
+      isAuthenticated: true,
+      mfaSatisfied: true,
+      isDemoMode: false,
+      isEligible: true,
+    };
+    const baseKey = buildAdminAuthContextKey(baseCtx);
+    assert.notEqual(
+      buildAdminAuthContextKey({ ...baseCtx, userId: "user-b" }),
+      baseKey,
+    );
+    assert.notEqual(
+      buildAdminAuthContextKey({ ...baseCtx, organizationId: "org-b" }),
+      baseKey,
+    );
+    assert.notEqual(
+      buildAdminAuthContextKey({ ...baseCtx, role: "ACADEMY_ADMIN" }),
+      baseKey,
+    );
+    assert.notEqual(
+      buildAdminAuthContextKey({ ...baseCtx, isAuthenticated: false }),
+      baseKey,
+    );
+    assert.notEqual(
+      buildAdminAuthContextKey({ ...baseCtx, mfaSatisfied: false }),
+      baseKey,
+    );
+    assert.notEqual(
+      buildAdminAuthContextKey({ ...baseCtx, isEligible: false }),
+      baseKey,
+    );
+
+    const deadlock503 = classifyAdminRegistrationError({
+      status: 503,
+      retryAfterSeconds: 30,
+      responseBody: {
+        statusCode: 503,
+        code: "REGISTRATION_PERSISTENCE_FAILED",
+        message: "deadlock retries exhausted",
+      },
+    });
+    assert.equal(deadlock503.kind, "UNAVAILABLE");
+    assert.equal(deadlock503.code, "REGISTRATION_PERSISTENCE_FAILED");
+    assert.equal(deadlock503.retryAfterSeconds, 30);
+    assert.match(deadlock503.message, /30 seconds/);
+
+    const closed409 = classifyAdminRegistrationError({
+      status: 409,
+      responseBody: {
+        statusCode: 409,
+        code: "SESSION_NOT_AVAILABLE",
+        message: "session closed",
+      },
+    });
+    assert.equal(closed409.kind, "SESSION_NOT_AVAILABLE");
+    assert.match(closed409.message, /closed/i);
   });
 
   test("Complete 3-language localization parity (en, ms, zh-Hans) for all academyReg keys", async () => {

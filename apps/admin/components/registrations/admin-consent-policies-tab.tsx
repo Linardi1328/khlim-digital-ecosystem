@@ -72,14 +72,14 @@ function readContentEntry(
 export interface AdminConsentPoliciesTabProps {
   isEligible: boolean;
   canApprovePolicies: boolean;
-  staffKey: string;
+  authContextKey: string;
   onAuthError: (kind: AdminRegistrationErrorKind, message: string) => void;
 }
 
 export function AdminConsentPoliciesTab({
   isEligible,
   canApprovePolicies,
-  staffKey,
+  authContextKey,
   onAuthError,
 }: AdminConsentPoliciesTabProps) {
   const [currentPolicy, setCurrentPolicy] =
@@ -114,10 +114,27 @@ export function AdminConsentPoliciesTab({
     useState<AdminRegistrationPolicyDto | null>(null);
   const [mutating, setMutating] = useState(false);
 
+  const authGenerationRef = useRef(0);
+  const isMountedRef = useRef(true);
   const listSeq = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
 
+  const isCurrentAuthGen = useCallback(
+    (gen: number) => isMountedRef.current && authGenerationRef.current === gen,
+    [],
+  );
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      authGenerationRef.current += 1;
+      abortRef.current?.abort();
+    };
+  }, []);
+
   useLayoutEffect(() => {
+    authGenerationRef.current += 1;
     listSeq.current += 1;
     abortRef.current?.abort();
     setCurrentPolicy(null);
@@ -126,14 +143,19 @@ export function AdminConsentPoliciesTab({
     setBanner(null);
     setInspectPolicy(null);
     setCreateOpen(false);
+    setDraftVersion("");
+    setDraftContent(createEmptyPolicyContentMap());
     setApproveTarget(null);
     setRetireTarget(null);
     setFieldErrors({});
     setFormError(null);
-  }, [staffKey, isEligible]);
+    setCreating(false);
+    setMutating(false);
+  }, [authContextKey]);
 
   const fetchPolicies = useCallback(async () => {
-    void staffKey;
+    void authContextKey;
+    const authGen = authGenerationRef.current;
     if (!isEligible) {
       setCurrentPolicy(null);
       setHistoryItems([]);
@@ -151,27 +173,36 @@ export function AdminConsentPoliciesTab({
 
     try {
       const response = await listAdminRegistrationPolicies(controller.signal);
-      if (seq !== listSeq.current) return;
+      if (!isCurrentAuthGen(authGen) || seq !== listSeq.current) return;
       setCurrentPolicy(response.current ?? null);
       setHistoryItems(Array.isArray(response.items) ? response.items : []);
     } catch (error: unknown) {
-      if (controller.signal.aborted || seq !== listSeq.current) return;
+      if (
+        controller.signal.aborted ||
+        !isCurrentAuthGen(authGen) ||
+        seq !== listSeq.current
+      ) {
+        return;
+      }
       const classified = classifyAdminRegistrationError(error);
       if (
         classified.kind === "UNAUTHENTICATED" ||
         classified.kind === "FORBIDDEN"
       ) {
+        authGenerationRef.current += 1;
         setCurrentPolicy(null);
         setHistoryItems([]);
         onAuthError(classified.kind, classified.message);
+        setLoading(false);
+        return;
       }
       setLoadError(classified.message);
     } finally {
-      if (seq === listSeq.current) {
+      if (isCurrentAuthGen(authGen) && seq === listSeq.current) {
         setLoading(false);
       }
     }
-  }, [isEligible, staffKey, onAuthError]);
+  }, [isEligible, authContextKey, isCurrentAuthGen, onAuthError]);
 
   useEffect(() => {
     void fetchPolicies();
@@ -228,10 +259,12 @@ export function AdminConsentPoliciesTab({
       return;
     }
 
+    const authGen = authGenerationRef.current;
     setFieldErrors({});
     setCreating(true);
     try {
       const created = await createAdminRegistrationPolicy(validated.payload);
+      if (!isCurrentAuthGen(authGen)) return;
       setCreateOpen(false);
       setBanner({
         variant: "success",
@@ -239,13 +272,16 @@ export function AdminConsentPoliciesTab({
       });
       await fetchPolicies();
     } catch (error: unknown) {
+      if (!isCurrentAuthGen(authGen)) return;
       const classified = classifyAdminRegistrationError(error);
       if (
         classified.kind === "UNAUTHENTICATED" ||
         classified.kind === "FORBIDDEN"
       ) {
+        authGenerationRef.current += 1;
         setCreateOpen(false);
         onAuthError(classified.kind, classified.message);
+        setCreating(false);
         return;
       }
       if (classified.fieldErrors.length > 0) {
@@ -257,18 +293,24 @@ export function AdminConsentPoliciesTab({
       }
       setFormError(classified.message);
     } finally {
-      setCreating(false);
+      if (isCurrentAuthGen(authGen)) {
+        setCreating(false);
+      }
     }
   };
 
   const handleConfirmApprove = async () => {
     if (!approveTarget || !canApprovePolicies || mutating) return;
+    const authGen = authGenerationRef.current;
+    const targetId = approveTarget.id;
+    const targetVersion = approveTarget.version;
     setMutating(true);
     setBanner(null);
     try {
-      const approved = await approveAdminRegistrationPolicy(approveTarget.id, {
-        expectedVersion: approveTarget.version,
+      const approved = await approveAdminRegistrationPolicy(targetId, {
+        expectedVersion: targetVersion,
       });
+      if (!isCurrentAuthGen(authGen)) return;
       setApproveTarget(null);
       setBanner({
         variant: "success",
@@ -276,13 +318,16 @@ export function AdminConsentPoliciesTab({
       });
       await fetchPolicies();
     } catch (error: unknown) {
+      if (!isCurrentAuthGen(authGen)) return;
       const classified = classifyAdminRegistrationError(error);
       setApproveTarget(null);
       if (
         classified.kind === "UNAUTHENTICATED" ||
         classified.kind === "FORBIDDEN"
       ) {
+        authGenerationRef.current += 1;
         onAuthError(classified.kind, classified.message);
+        setMutating(false);
         return;
       }
       setBanner({
@@ -291,18 +336,24 @@ export function AdminConsentPoliciesTab({
       });
       await fetchPolicies();
     } finally {
-      setMutating(false);
+      if (isCurrentAuthGen(authGen)) {
+        setMutating(false);
+      }
     }
   };
 
   const handleConfirmRetire = async () => {
     if (!retireTarget || !canApprovePolicies || mutating) return;
+    const authGen = authGenerationRef.current;
+    const targetId = retireTarget.id;
+    const targetVersion = retireTarget.version;
     setMutating(true);
     setBanner(null);
     try {
-      const retired = await retireAdminRegistrationPolicy(retireTarget.id, {
-        expectedVersion: retireTarget.version,
+      const retired = await retireAdminRegistrationPolicy(targetId, {
+        expectedVersion: targetVersion,
       });
+      if (!isCurrentAuthGen(authGen)) return;
       setRetireTarget(null);
       setBanner({
         variant: "success",
@@ -310,13 +361,16 @@ export function AdminConsentPoliciesTab({
       });
       await fetchPolicies();
     } catch (error: unknown) {
+      if (!isCurrentAuthGen(authGen)) return;
       const classified = classifyAdminRegistrationError(error);
       setRetireTarget(null);
       if (
         classified.kind === "UNAUTHENTICATED" ||
         classified.kind === "FORBIDDEN"
       ) {
+        authGenerationRef.current += 1;
         onAuthError(classified.kind, classified.message);
+        setMutating(false);
         return;
       }
       setBanner({
@@ -325,7 +379,9 @@ export function AdminConsentPoliciesTab({
       });
       await fetchPolicies();
     } finally {
-      setMutating(false);
+      if (isCurrentAuthGen(authGen)) {
+        setMutating(false);
+      }
     }
   };
 

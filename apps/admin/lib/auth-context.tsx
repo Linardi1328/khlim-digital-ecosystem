@@ -82,6 +82,7 @@ function toAdminUser(session: AdminSession): AdminUser | null {
 
   return {
     id: session.id,
+    organizationId: session.organizationId ?? null,
     email: session.email ?? "",
     displayName: session.displayName,
     role,

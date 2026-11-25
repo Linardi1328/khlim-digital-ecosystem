@@ -65,14 +65,14 @@ function formatMytDateTime(isoString: string | null | undefined): string {
 
 export interface AdminTrainingSessionsTabProps {
   isEligible: boolean;
-  staffKey: string;
+  authContextKey: string;
   onSessionsChange: (sessions: AdminRegistrationSessionDto[]) => void;
   onAuthError: (kind: AdminRegistrationErrorKind, message: string) => void;
 }
 
 export function AdminTrainingSessionsTab({
   isEligible,
-  staffKey,
+  authContextKey,
   onSessionsChange,
   onAuthError,
 }: AdminTrainingSessionsTabProps) {
@@ -112,17 +112,37 @@ export function AdminTrainingSessionsTab({
     useState<AdminRegistrationSessionDto | null>(null);
   const [closing, setClosing] = useState(false);
 
+  const authGenerationRef = useRef(0);
+  const isMountedRef = useRef(true);
   const listSeq = useRef(0);
   const listAbortRef = useRef<AbortController | null>(null);
   const selectorsAbortRef = useRef<AbortController | null>(null);
 
+  const isCurrentAuthGen = useCallback(
+    (gen: number) => isMountedRef.current && authGenerationRef.current === gen,
+    [],
+  );
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      authGenerationRef.current += 1;
+      listAbortRef.current?.abort();
+      selectorsAbortRef.current?.abort();
+    };
+  }, []);
+
   useLayoutEffect(() => {
+    authGenerationRef.current += 1;
     listSeq.current += 1;
     listAbortRef.current?.abort();
     selectorsAbortRef.current?.abort();
     setSessions([]);
     setProgrammes([]);
     setVenues([]);
+    setSelectorsLoading(false);
+    setSelectorsError(null);
     setLoadError(null);
     setBanner(null);
     setDrawerMode(null);
@@ -134,10 +154,14 @@ export function AdminTrainingSessionsTab({
     setPublishError(null);
     setFormError(null);
     setFieldErrors({});
-  }, [staffKey, isEligible]);
+    setSaving(false);
+    setPublishing(false);
+    setClosing(false);
+  }, [authContextKey]);
 
   const fetchSessions = useCallback(async () => {
-    void staffKey;
+    void authContextKey;
+    const authGen = authGenerationRef.current;
     if (!isEligible) {
       setSessions([]);
       setLoading(false);
@@ -154,28 +178,43 @@ export function AdminTrainingSessionsTab({
 
     try {
       const response = await listAdminRegistrationSessions(controller.signal);
-      if (seq !== listSeq.current) return;
+      if (!isCurrentAuthGen(authGen) || seq !== listSeq.current) return;
       const items = Array.isArray(response.items) ? response.items : [];
       setSessions(items);
       onSessionsChange(items);
     } catch (error: unknown) {
-      if (controller.signal.aborted || seq !== listSeq.current) return;
+      if (
+        controller.signal.aborted ||
+        !isCurrentAuthGen(authGen) ||
+        seq !== listSeq.current
+      ) {
+        return;
+      }
       const classified = classifyAdminRegistrationError(error);
       if (
         classified.kind === "UNAUTHENTICATED" ||
         classified.kind === "FORBIDDEN"
       ) {
+        authGenerationRef.current += 1;
         setSessions([]);
         onSessionsChange([]);
         onAuthError(classified.kind, classified.message);
+        setLoading(false);
+        return;
       }
       setLoadError(classified.message);
     } finally {
-      if (seq === listSeq.current) {
+      if (isCurrentAuthGen(authGen) && seq === listSeq.current) {
         setLoading(false);
       }
     }
-  }, [isEligible, staffKey, onSessionsChange, onAuthError]);
+  }, [
+    isEligible,
+    authContextKey,
+    isCurrentAuthGen,
+    onSessionsChange,
+    onAuthError,
+  ]);
 
   useEffect(() => {
     void fetchSessions();
@@ -184,13 +223,8 @@ export function AdminTrainingSessionsTab({
     };
   }, [fetchSessions]);
 
-  useEffect(() => {
-    return () => {
-      selectorsAbortRef.current?.abort();
-    };
-  }, []);
-
   const loadReferenceSelectors = useCallback(async () => {
+    const authGen = authGenerationRef.current;
     selectorsAbortRef.current?.abort();
     const controller = new AbortController();
     selectorsAbortRef.current = controller;
@@ -201,27 +235,30 @@ export function AdminTrainingSessionsTab({
         listAuthoritativeProgrammes(controller.signal),
         listAuthoritativeVenues(controller.signal),
       ]);
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || !isCurrentAuthGen(authGen)) return;
       setProgrammes(Array.isArray(progItems) ? progItems : []);
       setVenues(Array.isArray(venueItems) ? venueItems : []);
     } catch (error: unknown) {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || !isCurrentAuthGen(authGen)) return;
       const classified = classifyAdminRegistrationError(error);
       if (
         classified.kind === "UNAUTHENTICATED" ||
         classified.kind === "FORBIDDEN"
       ) {
+        authGenerationRef.current += 1;
         onAuthError(classified.kind, classified.message);
+        setSelectorsLoading(false);
+        return;
       }
       setSelectorsError(
         "Unable to load authoritative programmes and venues. Retry before creating or editing.",
       );
     } finally {
-      if (!controller.signal.aborted) {
+      if (!controller.signal.aborted && isCurrentAuthGen(authGen)) {
         setSelectorsLoading(false);
       }
     }
-  }, [onAuthError]);
+  }, [isCurrentAuthGen, onAuthError]);
 
   const openCreateDrawer = () => {
     setBanner(null);
@@ -316,12 +353,14 @@ export function AdminTrainingSessionsTab({
       return;
     }
 
+    const authGen = authGenerationRef.current;
     setSaving(true);
     try {
       if (drawerMode === "create") {
         const created = await createAdminRegistrationSession(
           buildSessionCreatePayload(form),
         );
+        if (!isCurrentAuthGen(authGen)) return;
         closeDrawer();
         setBanner({
           variant: "success",
@@ -338,6 +377,7 @@ export function AdminTrainingSessionsTab({
           editingSession.id,
           patchPayload,
         );
+        if (!isCurrentAuthGen(authGen)) return;
         closeDrawer();
         setBanner({
           variant: "success",
@@ -346,13 +386,16 @@ export function AdminTrainingSessionsTab({
         await fetchSessions();
       }
     } catch (error: unknown) {
+      if (!isCurrentAuthGen(authGen)) return;
       const classified = classifyAdminRegistrationError(error);
       if (
         classified.kind === "UNAUTHENTICATED" ||
         classified.kind === "FORBIDDEN"
       ) {
+        authGenerationRef.current += 1;
         closeDrawer();
         onAuthError(classified.kind, classified.message);
+        setSaving(false);
         return;
       }
 
@@ -371,7 +414,9 @@ export function AdminTrainingSessionsTab({
         await fetchSessions();
       }
     } finally {
-      setSaving(false);
+      if (isCurrentAuthGen(authGen)) {
+        setSaving(false);
+      }
     }
   };
 
@@ -389,19 +434,20 @@ export function AdminTrainingSessionsTab({
     if (!publishTarget || publishing || !scheduleApproved || !ageRuleApproved) {
       return;
     }
+    const authGen = authGenerationRef.current;
+    const targetId = publishTarget.id;
+    const targetVersion = publishTarget.version;
     setPublishing(true);
     setPublishError(null);
     try {
-      const published = await publishAdminRegistrationSession(
-        publishTarget.id,
-        {
-          expectedVersion: publishTarget.version,
-          approvals: {
-            scheduleApproved: true,
-            ageRuleApproved: true,
-          },
+      const published = await publishAdminRegistrationSession(targetId, {
+        expectedVersion: targetVersion,
+        approvals: {
+          scheduleApproved: true,
+          ageRuleApproved: true,
         },
-      );
+      });
+      if (!isCurrentAuthGen(authGen)) return;
       setPublishTarget(null);
       setScheduleApproved(false);
       setAgeRuleApproved(false);
@@ -411,13 +457,16 @@ export function AdminTrainingSessionsTab({
       });
       await fetchSessions();
     } catch (error: unknown) {
+      if (!isCurrentAuthGen(authGen)) return;
       const classified = classifyAdminRegistrationError(error);
       if (
         classified.kind === "UNAUTHENTICATED" ||
         classified.kind === "FORBIDDEN"
       ) {
+        authGenerationRef.current += 1;
         setPublishTarget(null);
         onAuthError(classified.kind, classified.message);
+        setPublishing(false);
         return;
       }
       setPublishError(classified.message);
@@ -428,18 +477,24 @@ export function AdminTrainingSessionsTab({
         await fetchSessions();
       }
     } finally {
-      setPublishing(false);
+      if (isCurrentAuthGen(authGen)) {
+        setPublishing(false);
+      }
     }
   };
 
   const handleConfirmClose = async () => {
     if (!closeTarget || closing) return;
+    const authGen = authGenerationRef.current;
+    const targetId = closeTarget.id;
+    const targetVersion = closeTarget.version;
     setClosing(true);
     setBanner(null);
     try {
-      const closed = await closeAdminRegistrationSession(closeTarget.id, {
-        expectedVersion: closeTarget.version,
+      const closed = await closeAdminRegistrationSession(targetId, {
+        expectedVersion: targetVersion,
       });
+      if (!isCurrentAuthGen(authGen)) return;
       setCloseTarget(null);
       setBanner({
         variant: "success",
@@ -447,13 +502,16 @@ export function AdminTrainingSessionsTab({
       });
       await fetchSessions();
     } catch (error: unknown) {
+      if (!isCurrentAuthGen(authGen)) return;
       const classified = classifyAdminRegistrationError(error);
       setCloseTarget(null);
       if (
         classified.kind === "UNAUTHENTICATED" ||
         classified.kind === "FORBIDDEN"
       ) {
+        authGenerationRef.current += 1;
         onAuthError(classified.kind, classified.message);
+        setClosing(false);
         return;
       }
       setBanner({
@@ -467,7 +525,9 @@ export function AdminTrainingSessionsTab({
         await fetchSessions();
       }
     } finally {
-      setClosing(false);
+      if (isCurrentAuthGen(authGen)) {
+        setClosing(false);
+      }
     }
   };
 
