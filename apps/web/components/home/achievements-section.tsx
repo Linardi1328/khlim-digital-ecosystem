@@ -11,6 +11,7 @@ import {
   resolveAchievementStories,
   type AchievementStory,
   type ResolvedAchievementsResult,
+  canRenderYouthMedia,
 } from "../../lib/editorial-content";
 import { fetchPublishedAchievements } from "../../lib/editorial-api";
 import {
@@ -33,11 +34,8 @@ function AchievementCard({
 }) {
   const { t } = useI18n();
   const story = preview ? rawStory : localizeAchievementStory(rawStory, t);
-  const youthMediaRightsConfirmed =
-    process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED === "1";
-  const hasVerifiedImage = Boolean(
-    story.imageUrl && story.photoRightsVerified && youthMediaRightsConfirmed,
-  );
+  // Shared server-of-record gate: flag AND documented guardian consent.
+  const hasVerifiedImage = canRenderYouthMedia(story);
   const backgroundImage = hasVerifiedImage
     ? `linear-gradient(180deg, rgba(9, 9, 11, 0.08), rgba(9, 9, 11, 0.84)), url("${story.imageUrl}")`
     : `linear-gradient(180deg, rgba(9, 9, 11, 0.1), rgba(9, 9, 11, 0.84)), ${story.placeholderGradient}`;

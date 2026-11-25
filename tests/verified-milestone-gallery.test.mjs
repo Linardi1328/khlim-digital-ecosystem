@@ -31,7 +31,10 @@ test("verified photos are categorized by subject", async () => {
     assert.equal(story.photoRightsVerified, true);
     assert.equal(story.status, "published");
     assert.ok(story.imageUrl?.startsWith("/media/achievements/"));
-    await access(new URL(`apps/web/public${story.imageUrl}`, root));
+    // Restricted youth media: not served from the public tree.
+    await assert.rejects(
+      access(new URL(`apps/web/public${story.imageUrl}`, root)),
+    );
   }
 });
 
@@ -53,10 +56,30 @@ test("the historical gallery respects the youth rights flag and fails closed by 
     assert.equal(canRenderYouthMedia(verifiedTeamResults[0]), false);
     assert.equal(canRenderYouthMedia(representative), false);
 
-    // 3. Explicit value "1" with individually approved media -> allowed
+    // 3. Explicit value "1" but no documented guardian consent -> blocked
     process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED = "1";
-    assert.equal(canRenderYouthMedia(verifiedTeamResults[0]), true);
-    assert.equal(canRenderYouthMedia(representative), true);
+    assert.equal(canRenderYouthMedia(verifiedTeamResults[0]), false);
+    assert.equal(canRenderYouthMedia(representative), false);
+
+    // 3b. Flag "1" AND a documented consent entry for that exact URL -> allowed
+    const approvals = [
+      {
+        url: verifiedTeamResults[0].imageUrl,
+        consentRef: "TEST-CONSENT-1",
+        channels: ["website"],
+        reviewBy: "2999-12-31",
+      },
+    ];
+    assert.equal(canRenderYouthMedia(verifiedTeamResults[0], approvals), true);
+    assert.equal(canRenderYouthMedia(representative, approvals), false);
+    // Expired, channel-mismatched or reference-less entries do not authorize.
+    for (const bad of [
+      { ...approvals[0], reviewBy: "2000-01-01" },
+      { ...approvals[0], channels: ["print"] },
+      { ...approvals[0], consentRef: " " },
+    ]) {
+      assert.equal(canRenderYouthMedia(verifiedTeamResults[0], [bad]), false);
+    }
 
     // 4. Explicit value "1" with individually unapproved media -> blocked
     assert.equal(canRenderYouthMedia(unapprovedStory), false);

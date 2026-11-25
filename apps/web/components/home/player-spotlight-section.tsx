@@ -7,6 +7,7 @@ import {
   publishedPlayerSpotlights,
   verifiedRepresentativeMilestones,
   type PlayerSpotlightArticle,
+  canRenderYouthMedia,
 } from "../../lib/editorial-content";
 import { fetchPublishedSpotlights } from "../../lib/editorial-api";
 import {
@@ -30,13 +31,8 @@ function SpotlightCard({
   campaignSource?: string | null;
 }) {
   const { t } = useI18n();
-  const youthMediaRightsConfirmed =
-    process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED === "1";
-  const hasVerifiedImage = Boolean(
-    article.imageUrl &&
-    article.photoRightsVerified &&
-    youthMediaRightsConfirmed,
-  );
+  // Shared server-of-record gate: flag AND documented guardian consent.
+  const hasVerifiedImage = canRenderYouthMedia(article);
   const backgroundImage = hasVerifiedImage
     ? `linear-gradient(180deg, rgba(9, 9, 11, 0.04), rgba(9, 9, 11, 0.76)), url("${article.imageUrl}")`
     : `linear-gradient(180deg, rgba(9, 9, 11, 0.06), rgba(9, 9, 11, 0.8)), ${article.placeholderGradient}`;
