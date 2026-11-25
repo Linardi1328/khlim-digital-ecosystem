@@ -8,7 +8,11 @@ import {
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import type { AuthenticatedUserContext } from "../auth/authenticated-user";
-import { RequireAnyRole, RequireMfa } from "../auth/authorization.decorators";
+import {
+  RequireAnyRole,
+  RequireLaunchedFeature,
+  RequireMfa,
+} from "../auth/authorization.decorators";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { NotificationsService } from "./notifications.service";
 
@@ -26,11 +30,13 @@ export class NotificationsController {
   constructor(private readonly notifications: NotificationsService) {}
 
   @Get("me/notifications")
+  @RequireLaunchedFeature("V1_PORTAL", { staffBypass: true })
   listMine(@CurrentUser() user: AuthenticatedUserContext) {
     return this.notifications.listMine(organizationId(user), user.id);
   }
 
   @Post("me/notifications/:receiptId/read")
+  @RequireLaunchedFeature("V1_PORTAL", { staffBypass: true })
   markRead(
     @CurrentUser() user: AuthenticatedUserContext,
     @Param("receiptId") receiptId: string,

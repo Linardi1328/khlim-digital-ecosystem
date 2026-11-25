@@ -10,7 +10,11 @@ import {
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import type { AuthenticatedUserContext } from "../auth/authenticated-user";
-import { RequireAnyRole, RequireMfa } from "../auth/authorization.decorators";
+import {
+  RequireAnyRole,
+  RequireLaunchedFeature,
+  RequireMfa,
+} from "../auth/authorization.decorators";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { NotificationsService } from "../notifications/notifications.service";
 import { SchedulingService } from "./scheduling.service";
@@ -32,6 +36,7 @@ export class SchedulingController {
   ) {}
 
   @Get("me/schedule")
+  @RequireLaunchedFeature("V1_PORTAL", { staffBypass: true })
   mySchedule(@CurrentUser() user: AuthenticatedUserContext) {
     return this.scheduling.listMySchedule(organizationId(user), user.id);
   }

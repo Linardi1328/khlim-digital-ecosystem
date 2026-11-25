@@ -16,6 +16,7 @@ import {
   Public,
   RequireAnyRole,
   RequireAthleteAccess,
+  RequireLaunchedFeature,
   RequireMfa,
 } from "../auth/authorization.decorators";
 import { CurrentUser } from "../auth/current-user.decorator";
@@ -39,6 +40,7 @@ export class BillingController {
   constructor(private readonly billing: BillingService) {}
 
   @Get("athletes/:athleteId/memberships/:membershipId/billing")
+  @RequireLaunchedFeature("V1_PORTAL", { staffBypass: true })
   @ApiBearerAuth("supabase")
   @RequireAthleteAccess("read")
   getMembershipBilling(
@@ -54,6 +56,7 @@ export class BillingController {
   }
 
   @Post("athletes/:athleteId/memberships/:membershipId/checkout")
+  @RequireLaunchedFeature("V1_ENROLMENT")
   @ApiBearerAuth("supabase")
   @RequireAthleteAccess("manage")
   @ApiOperation({
