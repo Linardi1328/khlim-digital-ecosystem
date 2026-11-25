@@ -781,6 +781,7 @@
 /* All gallery media occupy a consistent 4:3 frame, regardless of source
    orientation. Contain prevents cutting off players, trophies or signage. */
 .spotlight-gallery-image-wrapper {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;

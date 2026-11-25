@@ -117,24 +117,26 @@
 
   .inner {
     height: 68px !important;
-    padding: 0 12px !important;
+    padding: 0 10px !important;
+    gap: 8px !important;
   }
 
   .brand {
-    gap: 8px !important;
+    gap: 6px !important;
     min-width: 0;
+    flex-shrink: 1 !important;
   }
 
   .brandLogo {
     width: auto !important;
-    height: 48px !important;
+    height: 44px !important;
   }
 
   .brandTagline {
     display: block !important;
     margin-top: 2px !important;
-    font-size: 0.5rem !important;
-    letter-spacing: 0.025em !important;
+    font-size: 0.46875rem !important;
+    letter-spacing: 0.01em !important;
     line-height: 1.1 !important;
   }
 
@@ -144,9 +146,9 @@
 
   .locale select {
     width: auto;
-    min-width: 122px !important;
+    min-width: 112px !important;
     max-width: none;
-    padding: 6px 24px 6px 8px !important;
+    padding: 6px 22px 6px 8px !important;
     font-size: 0.75rem !important;
   }
 
