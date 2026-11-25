@@ -47,6 +47,8 @@ const en = {
   "home.khero.points.progress": "Milestones and achievements",
   "home.khero.points.cta": "Open Member Portal",
   "home.academyHero.pathwayBadge": "U9 · U12 · U15 Pathway",
+  "home.programmes.catalogueLoadError":
+    "Programme listings are temporarily unavailable. Please try again.",
 } as const;
 
 type Key = keyof typeof en;
@@ -103,6 +105,8 @@ const ms: Catalogue = {
   "home.khero.points.progress": "Pencapaian dan kemajuan",
   "home.khero.points.cta": "Buka Portal Ahli",
   "home.academyHero.pathwayBadge": "Laluan U9 · U12 · U15",
+  "home.programmes.catalogueLoadError":
+    "Senarai program tidak dapat dimuatkan buat masa ini. Sila cuba lagi.",
 };
 
 const zhHans: Catalogue = {
@@ -151,6 +155,7 @@ const zhHans: Catalogue = {
   "home.khero.points.progress": "里程碑与成就",
   "home.khero.points.cta": "打开会员门户",
   "home.academyHero.pathwayBadge": "U9 · U12 · U15 梯队路径",
+  "home.programmes.catalogueLoadError": "暂时无法加载课程列表。请重试。",
 };
 
 const zhHant: Catalogue = {
@@ -199,6 +204,7 @@ const zhHant: Catalogue = {
   "home.khero.points.progress": "里程碑與成就",
   "home.khero.points.cta": "開啟會員入口",
   "home.academyHero.pathwayBadge": "U9 · U12 · U15 梯隊路徑",
+  "home.programmes.catalogueLoadError": "暫時無法載入課程列表。請重試。",
 };
 
 const hi: Catalogue = {
@@ -252,6 +258,8 @@ const hi: Catalogue = {
   "home.khero.points.progress": "मील के पत्थर और उपलब्धियां",
   "home.khero.points.cta": "सदस्य पोर्टल खोलें",
   "home.academyHero.pathwayBadge": "U9 · U12 · U15 पाथवे",
+  "home.programmes.catalogueLoadError":
+    "फ़िलहाल कार्यक्रम सूची लोड नहीं हो सकी। कृपया फिर से प्रयास करें।",
 };
 
 export const homeAcademyWebMessages = {
