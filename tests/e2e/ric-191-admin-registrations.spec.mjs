@@ -1821,6 +1821,34 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
     await page.getByTestId("auth-recovery-btn").click();
     await expect(page.getByText("KAR-7H3QK9XM")).toBeVisible();
     await expect(page.getByTestId("registrations-error-state")).toHaveCount(0);
+
+    // Part 3: PR #129 HTTP 403 FEATURE_NOT_AVAILABLE renders distinct deferred-feature state with 0 auto-retries
+    await page.unroute(/\/v1\/admin\/academy\/registrations(\?.*)?$/);
+    let deferredCalls = 0;
+    await page.route(/\/v1\/admin\/academy\/registrations(\?.*)?$/, (route) => {
+      deferredCalls += 1;
+      return route.fulfill({
+        status: 403,
+        contentType: "application/json",
+        body: JSON.stringify({
+          statusCode: 403,
+          code: "FEATURE_NOT_AVAILABLE",
+          feature: "V1_PORTAL",
+          message: "This feature is not available yet",
+        }),
+      });
+    });
+
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(page.getByTestId("registrations-error-state")).toContainText(
+      "Feature Not Available",
+    );
+    await expect(
+      page.getByTestId("registrations-error-state"),
+    ).not.toContainText("Access Restricted");
+    await expect(page.getByTestId("auth-recovery-btn")).toHaveCount(0);
+    await page.waitForTimeout(250);
+    expect(deferredCalls).toBe(1);
   });
 
   test("Admin usability: readable labels, safe missing age, discoverable mobile tabs, and drawer responsiveness at 360px-1440px", async ({

@@ -2,9 +2,10 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import type {
-  PublicRegistrationSessionDto,
-  RegistrationConfigDto,
+import {
+  isFeatureNotAvailableError,
+  type PublicRegistrationSessionDto,
+  type RegistrationConfigDto,
 } from "@khlim/api-client";
 import { apiService } from "../../lib/api-service";
 import {
@@ -23,6 +24,7 @@ import { Skeleton } from "../ui/skeleton";
 export type AcademyAvailabilityState =
   | { status: "loading" }
   | { status: "error" }
+  | { status: "deferred" }
   | { status: "closed"; config: RegistrationConfigDto }
   | { status: "empty"; config: RegistrationConfigDto }
   | {
@@ -71,8 +73,12 @@ export function PublishedRegistrationSessions({
         config,
         sessions: sessionsResponse.items,
       });
-    } catch {
-      setInternalState({ status: "error" });
+    } catch (error) {
+      setInternalState(
+        isFeatureNotAvailableError(error)
+          ? { status: "deferred" }
+          : { status: "error" },
+      );
     }
   }, []);
 
@@ -99,9 +105,13 @@ export function PublishedRegistrationSessions({
           config,
           sessions: sessionsResponse.items,
         });
-      } catch {
+      } catch (error) {
         if (!active) return;
-        setInternalState({ status: "error" });
+        setInternalState(
+          isFeatureNotAvailableError(error)
+            ? { status: "deferred" }
+            : { status: "error" },
+        );
       }
     };
     void run();
@@ -250,6 +260,63 @@ export function PublishedRegistrationSessions({
             </div>
           </Alert>
         </div>
+      )}
+
+      {state.status === "deferred" && (
+        <Card
+          data-testid="registration-sessions-deferred"
+          style={{
+            padding: 28,
+            borderRadius: 16,
+            border: "1px solid #e4e4e7",
+            background: "#fafafa",
+            display: "flex",
+            flexDirection: "column",
+            gap: 14,
+          }}
+        >
+          <div>
+            <Badge variant="neutral" size="sm">
+              {t("academyReg.sessions.deferredBadge")}
+            </Badge>
+          </div>
+          <h4
+            style={{
+              margin: 0,
+              fontSize: "1.2rem",
+              fontWeight: 800,
+              color: "#18181b",
+            }}
+          >
+            {t("academyReg.sessions.deferredTitle")}
+          </h4>
+          <p
+            style={{
+              margin: 0,
+              color: "#52525b",
+              fontSize: "0.94rem",
+              lineHeight: 1.6,
+              maxWidth: 640,
+            }}
+          >
+            {t("academyReg.sessions.deferredBody")}
+          </p>
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              flexWrap: "wrap",
+              paddingTop: 4,
+            }}
+          >
+            <Link
+              href={interestHref}
+              style={{ ...getButtonStyles("primary", "md"), minHeight: 44 }}
+            >
+              {t("nav.registerInterest")}
+            </Link>
+          </div>
+        </Card>
       )}
 
       {state.status === "closed" && (

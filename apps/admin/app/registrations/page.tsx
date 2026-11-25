@@ -87,6 +87,21 @@ function cleanPhoneDigits(phone: string): string {
   return digits;
 }
 
+function readDetailString(
+  record: Record<string, unknown> | null | undefined,
+  key: string,
+): string | null {
+  const value = record?.[key];
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+function readDetailBool(
+  record: Record<string, unknown> | null | undefined,
+  key: string,
+): boolean {
+  return record?.[key] === true;
+}
+
 function AcademyRegistrationsContent() {
   const {
     user,
@@ -131,6 +146,8 @@ function AcademyRegistrationsContent() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
+  const [listErrorKind, setListErrorKind] =
+    useState<AdminRegistrationErrorKind | null>(null);
   const [authErrorKind, setAuthErrorKind] =
     useState<AdminRegistrationErrorKind | null>(null);
   const [authInvalidationCount, setAuthInvalidationCount] = useState(0);
@@ -248,6 +265,7 @@ function AcademyRegistrationsContent() {
     setTargetStatus("");
     setReasonCode("");
     setListError(null);
+    setListErrorKind(null);
     setDetailError(null);
     setStatusFeedback(null);
     setAuthErrorKind(null);
@@ -395,6 +413,7 @@ function AcademyRegistrationsContent() {
 
     setLoading(true);
     setListError(null);
+    setListErrorKind(null);
 
     try {
       const normalizedStatus =
@@ -445,6 +464,7 @@ function AcademyRegistrationsContent() {
       ) {
         handleGlobalAuthError(classified.kind, classified.message, authGen);
       } else {
+        setListErrorKind(classified.kind);
         setListError(classified.message);
       }
     } finally {
@@ -1107,9 +1127,17 @@ function AcademyRegistrationsContent() {
             ) : listError ? (
               <div data-testid="registrations-error-state">
                 <ErrorState
-                  title="Failed to Load Registrations"
+                  title={
+                    listErrorKind === "FEATURE_NOT_AVAILABLE"
+                      ? "Feature Not Available"
+                      : "Failed to Load Registrations"
+                  }
                   message={listError}
-                  onRetry={() => void fetchRegistrations()}
+                  onRetry={
+                    listErrorKind === "FEATURE_NOT_AVAILABLE"
+                      ? undefined
+                      : () => void fetchRegistrations()
+                  }
                 />
               </div>
             ) : registrations.length === 0 ? (
@@ -1298,7 +1326,7 @@ function AcademyRegistrationsContent() {
                   <div>
                     <div style={{ color: "#64748B" }}>Full Name</div>
                     <div style={{ fontWeight: 600, color: "#0F172A" }}>
-                      {selectedDetail.player.fullName ||
+                      {readDetailString(selectedDetail.player, "fullName") ||
                         selectedDetail.playerFullName}
                     </div>
                   </div>
@@ -1306,7 +1334,7 @@ function AcademyRegistrationsContent() {
                     <div style={{ color: "#64748B" }}>Date of Birth</div>
                     <div style={{ fontWeight: 600, color: "#0F172A" }}>
                       {formatDobWithAge(
-                        selectedDetail.player.dateOfBirth,
+                        readDetailString(selectedDetail.player, "dateOfBirth"),
                         selectedDetail.ageAtReference,
                       )}
                     </div>
@@ -1314,13 +1342,17 @@ function AcademyRegistrationsContent() {
                   <div>
                     <div style={{ color: "#64748B" }}>Gender</div>
                     <div style={{ fontWeight: 500, color: "#0F172A" }}>
-                      {formatPlayerGender(selectedDetail.player.gender)}
+                      {formatPlayerGender(
+                        readDetailString(selectedDetail.player, "gender"),
+                      )}
                     </div>
                   </div>
                   <div>
                     <div style={{ color: "#64748B" }}>Jersey Size</div>
                     <div style={{ fontWeight: 500, color: "#0F172A" }}>
-                      {formatJerseySize(selectedDetail.player.jerseySize)}
+                      {formatJerseySize(
+                        readDetailString(selectedDetail.player, "jerseySize"),
+                      )}
                     </div>
                   </div>
                   <div>
@@ -1331,7 +1363,8 @@ function AcademyRegistrationsContent() {
                         color: "#0F172A",
                       }}
                     >
-                      {selectedDetail.player.phone || "Not provided"}
+                      {readDetailString(selectedDetail.player, "phone") ||
+                        "Not provided"}
                     </div>
                   </div>
                 </div>
@@ -1364,7 +1397,10 @@ function AcademyRegistrationsContent() {
                     <div>
                       <div style={{ color: "#64748B" }}>Full Name</div>
                       <div style={{ fontWeight: 600, color: "#0F172A" }}>
-                        {selectedDetail.guardian.fullName || "—"}
+                        {readDetailString(
+                          selectedDetail.guardian,
+                          "fullName",
+                        ) || "—"}
                       </div>
                     </div>
                     <div>
@@ -1376,14 +1412,18 @@ function AcademyRegistrationsContent() {
                           fontFamily: "monospace",
                         }}
                       >
-                        {selectedDetail.guardian.phone || "—"}
+                        {readDetailString(selectedDetail.guardian, "phone") ||
+                          "—"}
                       </div>
                     </div>
                     <div>
                       <div style={{ color: "#64748B" }}>Relationship</div>
                       <div style={{ color: "#0F172A" }}>
                         {formatRelationshipLabel(
-                          selectedDetail.guardian.relationship,
+                          readDetailString(
+                            selectedDetail.guardian,
+                            "relationship",
+                          ),
                         )}
                       </div>
                     </div>
@@ -1392,37 +1432,47 @@ function AcademyRegistrationsContent() {
                         Authority Confirmed
                       </div>
                       <div style={{ fontWeight: 600, color: "#065F46" }}>
-                        {selectedDetail.guardian.authorityConfirmed
+                        {readDetailBool(
+                          selectedDetail.guardian,
+                          "authorityConfirmed",
+                        )
                           ? "Yes"
                           : "No"}
                       </div>
                     </div>
                   </div>
 
-                  {selectedDetail.guardian.phone ? (
-                    <div style={{ marginTop: 12 }}>
-                      <a
-                        href={`https://wa.me/${cleanPhoneDigits(selectedDetail.guardian.phone)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 8,
-                          backgroundColor: "#16A34A",
-                          color: "#FFFFFF",
-                          padding: "8px 14px",
-                          borderRadius: 8,
-                          fontSize: "0.8125rem",
-                          fontWeight: 600,
-                          textDecoration: "none",
-                        }}
-                      >
-                        <span>Manual WhatsApp Contact</span>
-                        <span aria-hidden="true">↗</span>
-                      </a>
-                    </div>
-                  ) : null}
+                  {(() => {
+                    const guardianPhone = readDetailString(
+                      selectedDetail.guardian,
+                      "phone",
+                    );
+                    if (!guardianPhone) return null;
+                    return (
+                      <div style={{ marginTop: 12 }}>
+                        <a
+                          href={`https://wa.me/${cleanPhoneDigits(guardianPhone)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 8,
+                            backgroundColor: "#16A34A",
+                            color: "#FFFFFF",
+                            padding: "8px 14px",
+                            borderRadius: 8,
+                            fontSize: "0.8125rem",
+                            fontWeight: 600,
+                            textDecoration: "none",
+                          }}
+                        >
+                          <span>Manual WhatsApp Contact</span>
+                          <span aria-hidden="true">↗</span>
+                        </a>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div
@@ -1445,7 +1495,10 @@ function AcademyRegistrationsContent() {
                     <div>
                       <div style={{ color: "#64748B" }}>Full Name</div>
                       <div style={{ fontWeight: 600, color: "#0F172A" }}>
-                        {selectedDetail.emergencyContact.fullName || "—"}
+                        {readDetailString(
+                          selectedDetail.emergencyContact,
+                          "fullName",
+                        ) || "—"}
                       </div>
                     </div>
                     <div>
@@ -1457,14 +1510,20 @@ function AcademyRegistrationsContent() {
                           fontFamily: "monospace",
                         }}
                       >
-                        {selectedDetail.emergencyContact.phone || "—"}
+                        {readDetailString(
+                          selectedDetail.emergencyContact,
+                          "phone",
+                        ) || "—"}
                       </div>
                     </div>
                     <div>
                       <div style={{ color: "#64748B" }}>Relationship</div>
                       <div style={{ color: "#0F172A" }}>
                         {formatRelationshipLabel(
-                          selectedDetail.emergencyContact.relationship,
+                          readDetailString(
+                            selectedDetail.emergencyContact,
+                            "relationship",
+                          ),
                         )}
                       </div>
                     </div>
@@ -1505,60 +1564,77 @@ function AcademyRegistrationsContent() {
                   <div
                     style={{ display: "flex", flexDirection: "column", gap: 8 }}
                   >
-                    {selectedDetail.consents.map((record, index) => (
-                      <div
-                        key={`${record.type ?? "consent"}-${index}`}
-                        style={{
-                          padding: "10px 12px",
-                          borderRadius: 8,
-                          backgroundColor: "#F8FAFC",
-                          border: "1px solid #E2E8F0",
-                          fontSize: "0.8rem",
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 4,
-                        }}
-                      >
+                    {selectedDetail.consents.map((record, index) => {
+                      const consentType = readDetailString(record, "type");
+                      const consentGranted = readDetailBool(record, "granted");
+                      const consentPolicyVersion = readDetailString(
+                        record,
+                        "policyVersion",
+                      );
+                      const consentLocale = readDetailString(record, "locale");
+                      const consentAcceptedAt = readDetailString(
+                        record,
+                        "acceptedAt",
+                      );
+                      const consentSha256 = readDetailString(
+                        record,
+                        "contentSha256",
+                      );
+                      return (
                         <div
+                          key={`${consentType ?? "consent"}-${index}`}
                           style={{
+                            padding: "10px 12px",
+                            borderRadius: 8,
+                            backgroundColor: "#F8FAFC",
+                            border: "1px solid #E2E8F0",
+                            fontSize: "0.8rem",
                             display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            gap: 8,
-                            flexWrap: "wrap",
+                            flexDirection: "column",
+                            gap: 4,
                           }}
                         >
-                          <strong style={{ color: "#0F172A" }}>
-                            {formatConsentTypeLabel(record.type)}
-                          </strong>
-                          <span
-                            style={{
-                              fontWeight: 700,
-                              color: record.granted ? "#065F46" : "#64748B",
-                            }}
-                          >
-                            {record.granted ? "Granted" : "Not granted"}
-                          </span>
-                        </div>
-                        <div style={{ color: "#475569" }}>
-                          Policy: <code>{record.policyVersion || "—"}</code> ·
-                          Locale: {formatLocaleLabel(record.locale)} · Accepted:{" "}
-                          {formatMytDateTime(record.acceptedAt)}
-                        </div>
-                        {record.contentSha256 ? (
                           <div
                             style={{
-                              color: "#64748B",
-                              fontFamily: "monospace",
-                              fontSize: "0.72rem",
-                              overflowWrap: "anywhere",
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              gap: 8,
+                              flexWrap: "wrap",
                             }}
                           >
-                            SHA-256: {record.contentSha256}
+                            <strong style={{ color: "#0F172A" }}>
+                              {formatConsentTypeLabel(consentType)}
+                            </strong>
+                            <span
+                              style={{
+                                fontWeight: 700,
+                                color: consentGranted ? "#065F46" : "#64748B",
+                              }}
+                            >
+                              {consentGranted ? "Granted" : "Not granted"}
+                            </span>
                           </div>
-                        ) : null}
-                      </div>
-                    ))}
+                          <div style={{ color: "#475569" }}>
+                            Policy: <code>{consentPolicyVersion || "—"}</code> ·
+                            Locale: {formatLocaleLabel(consentLocale)} ·
+                            Accepted: {formatMytDateTime(consentAcceptedAt)}
+                          </div>
+                          {consentSha256 ? (
+                            <div
+                              style={{
+                                color: "#64748B",
+                                fontFamily: "monospace",
+                                fontSize: "0.72rem",
+                                overflowWrap: "anywhere",
+                              }}
+                            >
+                              SHA-256: {consentSha256}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

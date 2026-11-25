@@ -10,6 +10,7 @@ import React, {
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
+  isFeatureNotAvailableError,
   parseRegistrationErrorBody,
   type CreateRegistrationRequestDto,
   type PublicRegistrationSessionDto,
@@ -99,6 +100,7 @@ interface PendingSubmissionAttempt {
 type LoadState =
   | { kind: "loading" }
   | { kind: "error" }
+  | { kind: "deferred" }
   | { kind: "closed"; config: RegistrationConfigDto }
   | { kind: "empty"; config: RegistrationConfigDto }
   | {
@@ -264,8 +266,12 @@ export function AcademyRegistrationFlow() {
           setStalePreselectedSession(true);
         }
       }
-    } catch {
-      setLoadState({ kind: "error" });
+    } catch (error) {
+      setLoadState(
+        isFeatureNotAvailableError(error)
+          ? { kind: "deferred" }
+          : { kind: "error" },
+      );
     }
   }, [querySessionId]);
 
@@ -742,6 +748,15 @@ export function AcademyRegistrationFlow() {
         }
 
         if (
+          isFeatureNotAvailableError(error) ||
+          code === "FEATURE_NOT_AVAILABLE"
+        ) {
+          setPendingAttempt(null);
+          setBannerError(t("academyReg.error.FEATURE_NOT_AVAILABLE"));
+          return;
+        }
+
+        if (
           code === "IDEMPOTENCY_KEY_REQUIRED" ||
           code === "IDEMPOTENCY_KEY_INVALID"
         ) {
@@ -1135,6 +1150,65 @@ export function AcademyRegistrationFlow() {
             </div>
           </Alert>
         </div>
+      )}
+
+      {loadState.kind === "deferred" && (
+        <Card
+          data-testid="registration-page-deferred"
+          style={{
+            padding: "36px 24px",
+            borderRadius: 20,
+            border: "1px solid #e4e4e7",
+            background: "#fafafa",
+            textAlign: "center",
+          }}
+        >
+          <div style={{ marginBottom: 14 }}>
+            <Badge variant="neutral" size="md">
+              {t("academyReg.sessions.deferredBadge")}
+            </Badge>
+          </div>
+          <h2
+            style={{
+              margin: "0 0 12px",
+              fontSize: "1.45rem",
+              color: "#18181b",
+            }}
+          >
+            {t("academyReg.sessions.deferredTitle")}
+          </h2>
+          <p
+            style={{
+              margin: "0 auto 24px",
+              maxWidth: 540,
+              color: "#52525b",
+              lineHeight: 1.6,
+            }}
+          >
+            {t("academyReg.sessions.deferredBody")}
+          </p>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
+            <Link
+              href={interestHref}
+              style={{ ...getButtonStyles("primary", "lg"), minHeight: 44 }}
+            >
+              {t("nav.registerInterest")}
+            </Link>
+            <Link
+              href={academyHref}
+              style={{ ...getButtonStyles("outline", "lg"), minHeight: 44 }}
+            >
+              {t("academyReg.page.backToAcademy")}
+            </Link>
+          </div>
+        </Card>
       )}
 
       {loadState.kind === "closed" && (

@@ -587,6 +587,36 @@ describe("RIC-191 Academy Registration V1 frontend helpers & contract rules", ()
     });
     assert.equal(closed409.kind, "SESSION_NOT_AVAILABLE");
     assert.match(closed409.message, /closed/i);
+
+    // PR #129 deferred feature gate (HTTP 403 + FEATURE_NOT_AVAILABLE) stays distinct from ordinary 403 auth failures
+    const { isFeatureNotAvailableError } =
+      await import("../packages/api-client/src/academy-registration-v1.ts");
+    const deferredFeatureErr = {
+      status: 403,
+      responseBody: {
+        statusCode: 403,
+        code: "FEATURE_NOT_AVAILABLE",
+        feature: "V1_ENROLMENT",
+        message: "This feature is not available yet",
+      },
+    };
+    const ordinary403Err = {
+      status: 403,
+      responseBody: {
+        statusCode: 403,
+        message: "MFA AAL2 required",
+      },
+    };
+    assert.equal(isFeatureNotAvailableError(deferredFeatureErr), true);
+    assert.equal(isFeatureNotAvailableError(ordinary403Err), false);
+    assert.equal(
+      classifyAdminRegistrationError(deferredFeatureErr).kind,
+      "FEATURE_NOT_AVAILABLE",
+    );
+    assert.equal(
+      classifyAdminRegistrationError(ordinary403Err).kind,
+      "FORBIDDEN",
+    );
   });
 
   test("Admin display label formatters map raw API enums cleanly and handle missing ages safely", async () => {

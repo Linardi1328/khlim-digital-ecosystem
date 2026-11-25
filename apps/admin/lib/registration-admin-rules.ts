@@ -709,6 +709,7 @@ export function formatFieldErrorMessage(field: string, code: string): string {
 export type AdminRegistrationErrorKind =
   | "UNAUTHENTICATED"
   | "FORBIDDEN"
+  | "FEATURE_NOT_AVAILABLE"
   | "STALE_VERSION"
   | "CAPACITY_EXCEEDED"
   | "CAPACITY_BELOW_CONFIRMED"
@@ -806,6 +807,16 @@ export function classifyAdminRegistrationError(
       retryAfterSeconds: null,
       message:
         "Your staff session has expired or is no longer authenticated. Please sign in again to continue.",
+    };
+  }
+  if (status === 403 && code === "FEATURE_NOT_AVAILABLE") {
+    return {
+      kind: "FEATURE_NOT_AVAILABLE",
+      code,
+      fieldErrors: [],
+      retryAfterSeconds: null,
+      message:
+        "This feature is currently deferred or disabled by server configuration and is not available yet.",
     };
   }
   if (status === 403) {

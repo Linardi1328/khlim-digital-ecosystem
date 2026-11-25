@@ -15,6 +15,10 @@ const en = {
     "Online Academy registration is not open yet",
   "academyReg.sessions.closedBody":
     "Published training sessions are not open for registration right now. You can still register your interest and our Academy team will notify you once registration opens.",
+  "academyReg.sessions.deferredBadge": "Feature Not Available Yet",
+  "academyReg.sessions.deferredTitle": "This feature is not available yet",
+  "academyReg.sessions.deferredBody":
+    "Online registration for this feature is currently deferred by server configuration. You may register your interest and our Academy team will notify you once it launches.",
   "academyReg.sessions.emptyBadge": "No Available Sessions",
   "academyReg.sessions.emptyTitle": "No training sessions currently available",
   "academyReg.sessions.emptyBody":
@@ -218,6 +222,8 @@ const en = {
     "Your submission token was invalid. Please start a new submission attempt.",
   "academyReg.error.REGISTRATION_CLOSED":
     "Academy registration is currently closed. You may register your interest instead.",
+  "academyReg.error.FEATURE_NOT_AVAILABLE":
+    "This feature is not available yet. Please register your interest and our Academy team will contact you once it launches.",
   "academyReg.error.CONSENT_VERSION_MISMATCH":
     "The consent policy has been updated. Please review the latest wording and confirm your consent again.",
   "academyReg.error.SESSION_NOT_AVAILABLE":
@@ -279,6 +285,10 @@ const ms: Catalogue = {
     "Pendaftaran Akademi dalam talian belum dibuka lagi",
   "academyReg.sessions.closedBody":
     "Sesi latihan yang diterbitkan belum dibuka untuk pendaftaran buat masa ini. Anda masih boleh mendaftar minat dan pasukan Akademi kami akan memaklumkan anda apabila pendaftaran dibuka.",
+  "academyReg.sessions.deferredBadge": "Ciri Belum Tersedia",
+  "academyReg.sessions.deferredTitle": "Ciri ini belum tersedia buat masa ini",
+  "academyReg.sessions.deferredBody":
+    "Pendaftaran dalam talian bagi ciri ini ditangguhkan oleh konfigurasi pelayan buat masa ini. Anda boleh mendaftar minat dan pasukan Akademi kami akan memaklumkan anda apabila ia dilancarkan.",
   "academyReg.sessions.emptyBadge": "Tiada Sesi Tersedia",
   "academyReg.sessions.emptyTitle": "Tiada sesi latihan tersedia buat masa ini",
   "academyReg.sessions.emptyBody":
@@ -474,6 +484,8 @@ const ms: Catalogue = {
     "Token penghantaran tidak sah. Sila mulakan percubaan penghantaran baharu.",
   "academyReg.error.REGISTRATION_CLOSED":
     "Pendaftaran Akademi ditutup buat masa ini. Anda boleh mendaftar minat sebaliknya.",
+  "academyReg.error.FEATURE_NOT_AVAILABLE":
+    "Ciri ini belum tersedia buat masa ini. Sila daftar minat anda dan pasukan Akademi kami akan menghubungi anda apabila ia dilancarkan.",
   "academyReg.error.CONSENT_VERSION_MISMATCH":
     "Polisi persetujuan telah dikemas kini. Sila semak teks terkini dan sahkan persetujuan anda semula.",
   "academyReg.error.SESSION_NOT_AVAILABLE":
@@ -530,6 +542,10 @@ const zhHans: Catalogue = {
   "academyReg.sessions.closedTitle": "学院在线报名尚未开放",
   "academyReg.sessions.closedBody":
     "目前暂未开放训练班次在线报名。您仍可先登记意向，报名开放后学院团队将第一时间通知您。",
+  "academyReg.sessions.deferredBadge": "功能尚未开放",
+  "academyReg.sessions.deferredTitle": "此功能暂未开放",
+  "academyReg.sessions.deferredBody":
+    "该功能的在线服务目前由服务器配置暂缓开放。欢迎先登记意向，功能上线后学院团队将及时通知您。",
   "academyReg.sessions.emptyBadge": "暂无可报班次",
   "academyReg.sessions.emptyTitle": "目前暂无可报名的训练班次",
   "academyReg.sessions.emptyBody":
@@ -712,6 +728,8 @@ const zhHans: Catalogue = {
     "提交令牌无效，请发起新的报名提交。",
   "academyReg.error.REGISTRATION_CLOSED":
     "学院报名目前未开放，您可以先登记意向。",
+  "academyReg.error.FEATURE_NOT_AVAILABLE":
+    "此功能暂未开放。请先登记意向，功能上线后学院团队将与您联系。",
   "academyReg.error.CONSENT_VERSION_MISMATCH":
     "同意条款已更新。请阅读最新版本并重新勾选确认。",
   "academyReg.error.SESSION_NOT_AVAILABLE":

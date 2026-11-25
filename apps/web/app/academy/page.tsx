@@ -10,6 +10,7 @@ import React, {
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { isFeatureNotAvailableError } from "@khlim/api-client";
 import { apiService } from "../../lib/api-service";
 import {
   buildUrlWithSource,
@@ -62,8 +63,12 @@ function AcademyContent() {
         config,
         sessions: sessionsResponse.items,
       });
-    } catch {
-      setAvailabilityState({ status: "error" });
+    } catch (error) {
+      setAvailabilityState(
+        isFeatureNotAvailableError(error)
+          ? { status: "deferred" }
+          : { status: "error" },
+      );
     }
   }, []);
 
@@ -89,9 +94,13 @@ function AcademyContent() {
           config,
           sessions: sessionsResponse.items,
         });
-      } catch {
+      } catch (error) {
         if (!active) return;
-        setAvailabilityState({ status: "error" });
+        setAvailabilityState(
+          isFeatureNotAvailableError(error)
+            ? { status: "deferred" }
+            : { status: "error" },
+        );
       }
     };
     void run();

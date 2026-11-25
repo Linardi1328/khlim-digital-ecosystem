@@ -1,118 +1,78 @@
-# RIC-191 — KHLIM Academy Registration V1 Frontend Validation Report
+# RIC-191 — KHLIM Academy Registration V1 Frontend Validation & Integration Report
 
 - **Linear Issue:** https://linear.app/rbl-productions/issue/RIC-191 (Parent: RIC-189)
 - **Repository:** `Linardi1328/khlim-digital-ecosystem`
-- **Pull Request:** [#127](https://github.com/Linardi1328/khlim-digital-ecosystem/pull/127) (**Draft** — not merge or deployment authorized)
+- **Pull Request:** [#127](https://github.com/Linardi1328/khlim-digital-ecosystem/pull/127) (**Draft** — not merge, deploy, migration, or activation authorized)
 - **Frontend Branch:** `antigravity/ric-191-academy-registration-v1-20261125`
-- **Stacked Base Branch (PR #125 / RIC-184):** `antigravity/ric-184-academy-parity-qa-20261124` (`4869d996d27144271c04bf2417244a9b6b568d08`)
-- **Verified Backend Dependency (PR #126 / RIC-190):** `codex/ric-190-academy-registration-v1-20261124` (`e3c89de41441d022825bd6ee1082c30ea98e5a7a` — frozen migration & merge-prep revision; schema identical to `34ad43313f908f956ac55fd145676488e7379258`)
+- **Reconciled Approved Base (`origin/main`):** `da0c9d72912bcd6a3ab238cdfbb122a21434d3c2`
+  - Includes **RIC-190 / PR #126** squash merge (`c8df69a6e977aa6f83dc952122defdf593b91d6a`) with both frozen migrations (`20261125000000_academy_registration_v1` and `20261126000000_academy_registration_lock_corrections`).
+  - Includes **RIC-184 / PR #125** squash merge (`da0c9d72912bcd6a3ab238cdfbb122a21434d3c2`), preserving all accepted responsive fixes, PR #118/#119 outage recovery changes, and youth-media fail-closed behavior.
+- **Pending Combined Integration Dependency:** PR #129 (`codex/v1-media-privacy-deferred-gates-20261126`, currently `OPEN` at `91cc15e4d74f945935d5cb29573c928493ce18b8`). Client-side HTTP `403` `FEATURE_NOT_AVAILABLE` deferred-feature handling is already implemented and tested; final combined acceptance will be re-run once PR #129 is independently reviewed and merged.
 
 ---
 
-## 1. Delivered Scope (Frontend-Only)
+## 1. Visual Review & Security Remediation Disposition (`V01`–`V09`, `T01`, `T02`)
 
-1. **Public Customer Registration Journey (`apps/web`)**:
-   - `/academy` live published sessions section (`PublishedRegistrationSessions`) with closed, empty, and outage + retry states.
-   - `/academy/register` 3-step registration flow (`AcademyRegistrationFlow`): Player & Session (date-only DOB, MYT eligibility guidance) → Guardian & Emergency Contact (Malaysian phone validation) → Explicit Unchecked Consents (fail-closed `academy-consent-registry.ts`, `APPROVED_CONSENT_WORDING_REGISTRY` intentionally empty) → Non-reserving inline `KAR-...` receipt (`reservesPlace: false`).
-   - Idempotent retry (`Idempotency-Key` preserved across retries, accepts HTTP `201` & HTTP `200` replay, double-submit protection, `Retry-After` handling on `429`/`503`, zero PII in URLs/storage, EN / MS / ZH-Hans localization).
-2. **Admin Registrations Queue & Authoritative Session Filter (`apps/admin/app/registrations/page.tsx`)**:
-   - Session filter populated from `GET /v1/admin/academy/registration-sessions` (independent of current page, with loading/empty/error + inline Retry states).
-   - Body-only `POST /v1/admin/academy/registrations/search` (HTTP `200`) supporting Malaysian local phone (`012-...`) and E.164 (`+6012...`) blind-index search.
-   - Audited detail drawer (`GET /v1/admin/academy/registrations/:id`) and explicit status transition workflow (`PATCH .../status`, excluding `"RECEIVED"`, `expectedVersion`, mandatory reason codes for `REJECTED`/`CANCELLED`, terminal state lock, retryable `503 REGISTRATION_PERSISTENCE_FAILED` with `Retry-After` guidance, and `409 SESSION_NOT_AVAILABLE` refresh).
-3. **Functional Admin Training Sessions (`apps/admin/components/registrations/admin-training-sessions-tab.tsx`)**:
-   - Session list with programme & age eligibility rule, venue & coach, MYT + ISO weekday schedule, first session date, recurrence, server-authoritative confirmed/remaining/queue seat counts, and `DRAFT` / `PUBLISHED` / `CLOSED` badges.
-   - Incomplete draft creation/editing using authoritative `/admin/operations-data/programmes` & `/venues` selectors (`null`-preserving, `PUBLISHED_EDITABLE` restrictions, `expectedVersion`).
-   - Explicit Publish modal requiring both unchecked `scheduleApproved` and `ageRuleApproved` acknowledgements, plus explicit terminal Close modal.
-4. **Functional Admin Consent Policies (`apps/admin/components/registrations/admin-consent-policies-tab.tsx`)**:
-   - Consumes `{ current, items }` from `GET /v1/admin/academy/registration-policies`, displaying the current approved policy separately (or closed-registration notice when `current: null`) alongside the newest-50 history table.
-   - Draft creation validating policy version plus 4 categories × 3 locales (`en`, `ms`, `zh-Hans`) `ref` and 64-char lowercase hex `sha256` without fabricating legal wording.
-   - `SUPER_ADMIN` / `MANAGEMENT`-only Approve & Retire workflows with explicit confirmation dialogs (replacement auto-retirement warning on approve; immediate registration closure warning on retire). `ACADEMY_ADMIN` sees a read-only notice and zero approve/retire controls.
+| ID | Category | Finding Summary | Disposition & Verification |
+| :--- | :--- | :--- | :--- |
+| **V01** | P1 Public | Contradictory static RIC-184 pending-booking / registration-not-open messaging alongside live RIC-190 sessions on `/academy` | **Fixed.** Lifted server-authoritative availability state (`loading \| error \| deferred \| closed \| empty \| open`) into `apps/web/app/academy/page.tsx`. When open, `Register Now` is primary in Hero & Final CTA, authoritative published session cards render first, contradictory pending-booking cards are hidden, `What Happens Next` adapts to live V1 registration, and `Register Interest` remains clearly secondary. Distinct honest closed/empty/error/deferred states remain preserved when not open. |
+| **V02** | P2 Public Mobile | 405px horizontal overflow on the 390px receipt capture caused by non-wrapping receipt badge | **Fixed.** Added `.registration-receipt-badge` (`white-space: normal; text-align: center; max-width: 100%`). Verified `scrollWidth === clientWidth === 390` at 390px and `<= 2px` overflow across all 7 viewports (`360–1440px`) in `en`, `ms`, and `zh-Hans`. |
+| **V03** | P2 Public Mobile | Squeezed two-column `<dl>` metadata on Receipt, Step 3 Review, and published session cards at narrow widths | **Fixed.** Added responsive `.registration-meta-dl`, `.registration-review-dl`, and `.registration-session-dl` stacking rules (`@media (max-width: 560px)`). |
+| **V04** | P2 Public Mobile | Competing gold `Register Interest` header CTA & quick-action bar during active `/academy/register` flow | **Fixed.** `PublicHeader` detects `/academy/register` and removes the competing gold `Register Interest` button from desktop actions and the mobile quick-actions bar (demoting the mobile sheet menu item to `outline`), while preserving navigation, locale switching, and campaign attribution. |
+| **V05** | P2 Public Mobile | Mobile progress indicator alignment, primary CTA prominence, and excessive vertical spacing on `/academy/register` | **Fixed.** Improved `StepIndicator` connector alignment (`calc(100% / (steps.length * 2))`), `aria-current="step"`, compact mobile padding (`.registration-main`, `.registration-card-body`), and full-width mobile primary actions stacked above `Back` (`.registration-step-actions`). |
+| **V06** | P2 Admin Mobile | Right-hand `Consent Policies` tab clipped/hidden off-screen on 360px–390px mobile viewports | **Fixed.** Added responsive `.admin-tabs` wrapping pill styles at `<= 640px` in `Tabs.tsx` and `apps/admin/app/globals.css`. Verified bounding boxes of all 3 tabs stay fully inside `360px` and `390px` viewports. |
+| **V07** | P2 Admin Mobile | Narrow-screen squeezing in Registration Detail, Session Editor, and Consent Policy Create drawers (including long `ref` / 64-char SHA-256 inputs) | **Fixed.** Updated `Drawer.tsx` (`100dvh`, responsive padding, 40×40 accessible close button), added `.admin-detail-grid`, `.admin-form-grid-venue-capacity`, `.admin-policy-ref-grid` (stacking `ref` over `sha256` at `<= 720px`), `minWidth: 0` on `<fieldset>`, wider weekday/time breakpoints, and full-width `.admin-drawer-actions`. Exact `ref` and `sha256` values preserved untouched. |
+| **V08** | P2 Admin Usability | Raw uppercase API enum strings (`MALE`, `YM`, `MOTHER`, `GRANDPARENT`, `GUARDIAN_AUTHORITY`, `UNDER_REVIEW`, etc.) shown directly in Admin UI | **Fixed.** Added pure display-label formatters in `apps/admin/lib/registration-admin-rules.ts` (`formatPlayerGender`, `formatJerseySize`, `formatRelationshipLabel`, `formatConsentTypeLabel`, `formatLocaleLabel`, `formatRegistrationStatusLabel`, `formatPublicationStateLabel`, `formatPolicyStatusLabel`) while keeping API requests/payloads strictly on exact schema enums. |
+| **V09** | P2 Admin Usability | Missing/null `ageAtReference` rendered dangling `" yrs"` or `"(Age  at ref)"` | **Fixed.** Added `formatAgeAtReference` (returns `"—"` for null/undefined/NaN/negative) and `formatDobWithAge` (omits age suffix when missing), covered by unit & Playwright regression tests. |
+| **T01** | P1 Admin Auth | Parent-component refetch loophole in `apps/admin/app/registrations/page.tsx` where `fetchRegistrations()` cleared `authErrorKind` and allowed tab switches/filter/pagination actions to refetch after `401`/`403` | **Fixed.** Blocked `fetchRegistrations`, `fetchAuthoritativeSessionFilter`, `loadRegistrationDetail`, `handleConfirmStatusUpdate`, and search debounce whenever `authInvalidatedRef.current` is true; removed `setAuthErrorKind(null)` from `fetchRegistrations()`; unmounted `<FilterBar>`, `<DataTable>`, and `<Pagination>` while invalidated; restricted recovery strictly to explicit `auth-recovery-btn` (`Sign In Again` via `logout()` on `401`, `Re-verify Access` via `refreshSession()` on `403`) or genuine `authContextKey` rotation. |
+| **T02** | Integration / Contract | Replace temporary DTO interfaces with direct generated OpenAPI schema aliases and verify against both frozen RIC-190 migrations + PR #129 `FEATURE_NOT_AVAILABLE` gate | **Fixed.** Rebased cleanly onto approved `main` (`da0c9d72`), replaced all 31 temporary DTO interfaces in `packages/api-client/src/academy-registration-v1.ts` with direct `components["schemas"][...]` aliases from `./schema`, added distinct HTTP `403 FEATURE_NOT_AVAILABLE` deferred-feature handling (zero auto-retries, preserving global `403` auth invalidation for all other `403` responses), and verified 12/12 real PostgreSQL acceptance steps against both frozen migrations. |
 
 ---
 
-## 2. Asynchronous Authentication-Context Isolation (Privacy Hardening)
+## 2. Verification Summary (Reconciled on `da0c9d72`)
 
-- **Deterministic Auth-Context Fingerprint** (`buildAdminAuthContextKey` in `apps/admin/lib/registration-admin-rules.ts`): captures `userId`, optional `organizationId` (supported in `AdminUser` / `AdminSession` in `apps/admin/lib/types.ts` and `apps/admin/lib/auth-context.tsx`), `role`, `isAuthenticated`, `mfaSatisfied`, `isDemoMode`, and `isEligible`.
-- **Monotonic Generation Guards (`authGenerationRef` + `isMountedRef`)**: applied across every async read, mutation, follow-up detail read (`STALE_VERSION` / `INVALID_TRANSITION` / `SESSION_NOT_AVAILABLE`), `catch`, and `finally` handler in:
-  - `apps/admin/app/registrations/page.tsx`
-  - `apps/admin/components/registrations/admin-training-sessions-tab.tsx`
-  - `apps/admin/components/registrations/admin-consent-policies-tab.tsx`
-- **HTTP 401/403 Global Propagation**: `handleGlobalAuthError` immediately bumps `authGenerationRef`, sets `authInvalidatedRef`, aborts in-flight read controllers, clears all sensitive data and pending UI state (including remounting `<SearchInput key={searchResetKey} />`), and increments `authInvalidationCount` (rotating `authContextKey` and setting `isEligible={false}` on every mounted child tab synchronously while surfacing the global `Session Expired` / `Access Restricted` state across all tabs).
-- **Deterministic Regression Proof** (`tests/e2e/ric-191-admin-registrations.spec.mjs`):
-  1. Delays an in-flight `PATCH .../registrations/:id/status` response, switches auth context while the modal/drawer is open, releases the stale HTTP 200 response → verifies old player name, `KAR-OLDORG01`, success banner, detail drawer, and stale refreshes never reappear.
-  2. Delays a follow-up `GET .../registrations/:id` after `409 STALE_VERSION`, switches auth context, releases the stale detail → verifies zero stale PII reappearance.
-  3. Delays a Training Session `POST .../close` mutation and a Consent Policy `POST .../retire` mutation across auth-context switches → verifies stale session/policy banners and records never leak.
-  4. Enters a sensitive phone number in `<SearchInput>`, triggers a `401` before debounce flush → verifies `input[type="search"]` immediately resets to `""` and all sensitive records clear.
-  5. Cross-component concurrent `401`/`403` propagation (both directions):
-     - Parent `fetchAuthoritativeSessionFilter` returns `401` while mounted child `AdminTrainingSessionsTab` has a delayed session list response in flight → releasing child's delayed response never restores `Leaked Concurrent Session`.
-     - Mounted child `AdminConsentPoliciesTab` returns `403` while parent `fetchAuthoritativeSessionFilter` has a delayed response in flight → releasing parent's delayed response never restores `Leaked Parent Filter Session`.
-
----
-
-## 3. Contract Reconciliation Against PR #126 (`34ad43313f908f956ac55fd145676488e7379258`)
-
-- **Strict TypeScript Schema Parity**: verified via `tsc --noEmit --strict` in an isolated temporary integration worktree that **19/19 DTOs** in `packages/api-client/src/academy-registration-v1.ts` are strictly assignable against PR #126's generated `packages/api-client/src/schema.d.ts` (zero drift).
-- **`34ad433` Behavioral Parity**:
-  - Nullable `current: AdminRegistrationPolicyDto | null` and consistent `{ current, items }` snapshot handling.
-  - Replacement approval dialog explicitly warns that approving replaces and retires the active policy (backed by backend `ACADEMY_REGISTRATION_POLICY_RETIRED` audit event).
-  - HTTP `200` Admin `POST /search` and HTTP `200` identical public `Idempotency-Key` replay.
-  - True-only `PublishApprovalsDto` (`scheduleApproved: true; ageRuleApproved: true`).
-  - Retryable HTTP `503 REGISTRATION_PERSISTENCE_FAILED` with `Retry-After` guidance (`ApiError.retryAfterSeconds`) and `409 SESSION_NOT_AVAILABLE` refresh.
-- **Post-Merge Swap Plan**: PR #127 remains cleanly stacked on PR #125 with zero backend/Prisma/OpenAPI edits. Once PR #125 and PR #126 merge to `main`, rebase PR #127 onto `main` and replace the temporary interfaces in `packages/api-client/src/academy-registration-v1.ts` with direct `components["schemas"][...]` aliases from `schema.d.ts`.
-
----
-
-## 4. Verification Summary (Mocked vs. Real PostgreSQL Integrated)
-
-### A. Static Checks, Builds & Unit Tests (Frontend Worktree)
+### A. Static Checks, Direct Schema Typechecks & Unit Tests
 - `pnpm format:check` — **PASS**
-- `pnpm i18n:audit` — **PASS** (0 hard-coded user-facing strings)
+- `pnpm i18n:audit` — **PASS** (0 hard-coded user-facing strings across EN/MS/ZH-Hans)
 - `pnpm lint` — **PASS**
-- `pnpm typecheck` — **PASS**
+- `pnpm prisma:generate` — **PASS**
+- Uncached `tsc --noEmit` (`@khlim/api-client`, `@khlim/web`, `@khlim/admin`, `@khlim/api`) — **PASS (0 errors)** against direct `schema.d.ts` aliases
 - `pnpm openapi:check` — **PASS**
-- `pnpm test` — **PASS (446 passed, 0 failed, 0 skipped)**
-- `pnpm build` (`@khlim/web`, `@khlim/admin`, `@khlim/api`) — **PASS (3/3)**
-- Secret scanning & prohibited-path diff check — **PASS** (0 backend, Prisma, RLS, workflow, or `vercel.json` changes)
+- `pnpm test` — **PASS (`451 passed, 0 failed, 0 skipped`)**
+- `pnpm build` (`@khlim/api`, `@khlim/admin`, `@khlim/web`) — **PASS (`3/3`)**
+- Prohibited-path & secret scan check — **PASS** (0 edits to `apps/api`, `prisma`, `supabase`, `.github`, `openapi`, `schema.d.ts`, `vercel.json`, or youth media assets)
 
-### B. Mocked Browser Playwright Suites (Production Builds)
-- `tests/e2e/ric-191-public-registration.spec.mjs` (`chromium-desktop`): **5 passed, 0 failed, 0 skipped**
-- `tests/e2e/ric-184-academy-parity-qa.spec.mjs` (`chromium-desktop`): **5 passed, 0 failed, 0 skipped**
-- `tests/e2e/ric-191-admin-registrations.spec.mjs` (`admin-desktop` + `admin-mobile`): **12 passed, 0 failed, 0 skipped** (includes delayed-mutation auth-context isolation, cross-component 401/403 propagation in both directions, and 7-viewport overflow checks `360–1440px`)
-- `tests/e2e/admin-ui.spec.mjs` (`admin-desktop`): **29 passed, 0 failed, 1 intentional mobile-only skip** (`mobile drawer navigation opens and reaches programmes`)
+### B. GitHub-Equivalent Playwright Browser Suites (Production Builds)
+- `tests/e2e/ric-191-public-registration.spec.mjs` (`desktop`, `tablet`, `mobile` projects): **15 passed, 0 failed, 0 skipped** — covers open `/academy` CTA hierarchy & contradiction removal, closed/empty/outage states, 3-step flow, non-reserving receipt, idempotent `200` replay, consent reset on locale switch, header CTA suppression on `/academy/register`, and 7-viewport (`360–1440px`) zero-overflow checks including Receipt in `en`, `ms`, `zh-Hans`.
+- `tests/e2e/ric-184-academy-parity-qa.spec.mjs` (`desktop`, `tablet`, `mobile`): **24 passed, 0 failed, 0 skipped** — confirms 100% preservation of RIC-184 parity & responsive fixes.
+- `tests/e2e/web-preview.spec.mjs` (`desktop`, `tablet`, `mobile`): **119 passed, 0 failed, 4 skipped** (existing viewport-conditional skips).
+- `tests/e2e/ric-191-admin-registrations.spec.mjs` (`admin-desktop`, `admin-tablet`, `admin-mobile`): **24 passed, 0 failed, 0 skipped** — covers authoritative session filter, POST search (`200`), detail & status transitions, Sessions & Consent Policies CRUD/publish/approve/retire, delayed-mutation auth-context isolation, cross-component concurrent `401`/`403` invalidation, post-`401`/`403` tab-switch zero-refetch regression, PR #129 `403 FEATURE_NOT_AVAILABLE` non-retrying deferred state, discoverable mobile tabs, readable display labels, safe missing age (`—`), and 7-viewport drawer responsiveness (`360–1440px`).
+- `tests/e2e/admin-ui.spec.mjs` (`admin-desktop`): **29 passed (28 first-pass + 1 retry pass), 0 failed, 1 intentional mobile-only skip**.
 
-### C. Reproducible Local PostgreSQL 16 + Real PR #126 NestJS API Integrated Acceptance
+### C. Fresh Disposable PostgreSQL 16 + Real NestJS + Web + Admin Integrated Acceptance
 Repository-owned harness: [`tests/integration/ric-191-integrated-acceptance.mjs`](../../tests/integration/ric-191-integrated-acceptance.mjs)
-Full procedure & real-vs-simulated auth documentation: [`docs/implementation/ric-191-integrated-acceptance-procedure.md`](../implementation/ric-191-integrated-acceptance-procedure.md)
 
-- **Persistent-database confirmation**: Zero persistent local or hosted databases were ever used to apply earlier RIC-190 migration revisions. Every migration and acceptance run executed exclusively against an ephemeral `docker run --rm ... postgres:16-alpine` container destroyed immediately on exit.
-- **Fail-closed safety checks verified**: refuses unset `KHLIM_TEST_DATABASE=1`, refuses non-local DB hosts, refuses DB names without `test`, performs **zero** `TRUNCATE` operations, and **fails closed on non-empty registration tables** (verified by confirming a 2nd run against the populated disposable DB exited with `Refusing to run against non-empty database`).
-- **12/12 steps PASSED** against freshly provisioned empty disposable Docker `postgres:16-alpine` (all 18 Prisma migrations deployed) + real PR #126 NestJS `AppModule` (`e3c89de4`) + built `@khlim/web` & `@khlim/admin` (automatically torn down via `trap cleanup EXIT`):
-  1. `SUPER_ADMIN` creates `SYNTHETIC-V1` consent policy draft via Admin UI → PostgreSQL.
-  2. `SUPER_ADMIN` approves `SYNTHETIC-V1` (real API RBAC returns HTTP `403` for `ACADEMY_ADMIN`).
-  3. Staff creates & publishes synthetic training session (`capacity = 1`) with unchecked approvals.
-  4. Parent submits 3-step public registration via `/academy` → `/academy/register` with Malaysian local phone (`012-345 6789`) → real HTTP `201` (`KAR-CKBDPEJW`).
+- **Fresh Disposable DB & Frozen Migrations:** Ephemeral `docker run --rm ... postgres:16-alpine` container deployed all **19** Prisma migrations, explicitly verified both frozen RIC-190 migrations applied (`20261125000000_academy_registration_v1` and `20261126000000_academy_registration_lock_corrections`), enforced fail-closed non-empty DB guard with zero `TRUNCATE`, and tore down cleanly via `trap cleanup EXIT`.
+- **12/12 Integrated Acceptance Steps PASSED** (real PostgreSQL + real NestJS `AppModule` + built `@khlim/web` & `@khlim/admin`):
+  1. `SUPER_ADMIN` creates `SYNTHETIC-V1` consent policy draft in PostgreSQL.
+  2. `SUPER_ADMIN` approves `SYNTHETIC-V1` (verified real API HTTP `403` for `ACADEMY_ADMIN`).
+  3. Staff creates & publishes synthetic training session (`capacity = 1`) with initially unchecked approvals.
+  4. Parent submits public registration via `/academy` → `/academy/register` → real HTTP `201` (`KAR-4CATQ43N`).
   5. Parent receives non-reserving receipt (`reservesPlace: false`).
-  6. Admin locates `KAR-CKBDPEJW` via authoritative session filter & Malaysian local phone `POST /search` (HTTP `200`, HMAC blind index) and opens detail drawer.
-  7. Admin confirms `KAR-CKBDPEJW` (`RECEIVED → CONFIRMED`).
+  6. Admin locates `KAR-4CATQ43N` via authoritative session filter & Malaysian local phone `POST /search` (HTTP `200`, HMAC blind index).
+  7. Admin confirms `KAR-4CATQ43N` (`RECEIVED → CONFIRMED`).
   8. Confirmed seat count updates authoritatively to `1 / 1 confirmed` (`0 remaining`).
-  9. Confirming a 2nd `RECEIVED` registration (`KAR-79Q44RSA`) fails (`CAPACITY_EXCEEDED`), and new public submit fails (`409 SESSION_FULL`).
-  10. Terminal session closure blocks new submissions (`409 SESSION_NOT_AVAILABLE`).
-  11. Identical retry with original `Idempotency-Key` returns HTTP `200` with `KAR-CKBDPEJW` even after session closure.
+  9. Capacity enforcement blocks confirming a 2nd registration (`CAPACITY_EXCEEDED`) and rejects new public submission (`409 SESSION_FULL`).
+  10. Terminal session closure rejects new submission (`409 SESSION_NOT_AVAILABLE`).
+  11. Identical `Idempotency-Key` replay returns HTTP `200` (`KAR-4CATQ43N`) even after closure.
   12. Retiring current policy `SYNTHETIC-V1` immediately closes public registration (`registrationOpen: false`).
 
 ---
 
-## 5. Sanitized Visual Evidence (24 Screenshots)
+## 3. Remaining Production Release Gates (Not Cleared Here)
 
-All 24 sanitized screenshots (`01`–`24`, zero real PII, all visually inspected) are included in the Antigravity owner review artifact package (not committed as 7.9 MB of binaries into git history) and can be deterministically regenerated locally in seconds:
-
-- `01`–`09`, `13`–`14`: Public `/academy` published sessions (desktop & mobile), 3-step `/academy/register` flow, non-reserving receipt, closed state, validation/full errors, and mobile Bahasa Melayu & Simplified Chinese flows (`RIC191_SCREENSHOT_DIR=./ric191-screenshots PLAYWRIGHT_BASE_URL=http://127.0.0.1:3191 pnpm exec playwright test -c playwright.preview.config.mjs tests/e2e/ric-191-public-registration.spec.mjs --project=chromium-desktop`).
-- `10`–`12`, `15`–`24`: Admin Registrations queue, audited detail drawer, status confirmation dialog, Training Sessions (empty, draft form, publish approval dialog, published list, terminal close dialog), and Consent Policies (no-current-policy warning, 4×3 draft form, active approved policy & history, approve-replacement dialog, retire-current-policy dialog) (`RIC191_SCREENSHOT_DIR=./ric191-screenshots PLAYWRIGHT_ADMIN_BASE_URL=http://127.0.0.1:3192 pnpm exec playwright test -c playwright.admin.config.mjs tests/e2e/ric-191-admin-registrations.spec.mjs --project=admin-desktop`).
-
----
-
-## 6. Remaining Merge Dependencies & Production Release Gates
-
-1. **Merge Dependencies**: Merge PR #125 (`RIC-184`) and PR #126 (`RIC-190`) to `main`, then rebase PR #127 onto `main`, swap temporary DTO interfaces to direct `schema.d.ts` aliases, and re-run full validation on the combined revision.
-2. **Owner Legal Sign-Off**: Formally approve EN / MS / ZH-Hans wording for all 4 consent categories, register approved refs & SHA-256 hashes in `APPROVED_CONSENT_WORDING_REGISTRY` (`apps/web/lib/academy-consent-registry.ts`), and approve the production policy via AAL2 `SUPER_ADMIN`/`MANAGEMENT`.
-3. **Operational & Hosted Staging Readiness**: Finalize authoritative venues, coaches, recurring MYT schedules, capacity, and age rules; provision hosted `KHLIM_REGISTRATION_HMAC_KEYS`; apply migrations; verify AAL2 staff accounts; and complete Esther's integrated owner review (target: Dec 15, 2026).
+1. **PR #129 Combined Acceptance:** Once PR #129 (`codex/v1-media-privacy-deferred-gates-20261126`) is reviewed and merged to `main`, re-reconcile PR #127 onto updated `main` (preserving removed youth photos and empty `APPROVED_YOUTH_MEDIA`) and run final combined acceptance.
+2. **Owner Legal Consent Sign-Off:** Formally approve EN / MS / ZH-Hans legal wording for all 4 consent categories, register approved refs & SHA-256 digests in `APPROVED_CONSENT_WORDING_REGISTRY` (currently intentionally empty), and approve the production policy via AAL2 `SUPER_ADMIN`/`MANAGEMENT`.
+3. **Business Disclosure & Youth Media Rights:** Complete corporate business disclosure details (currently honestly gated in footer) and keep youth-media publication gated behind documented guardian consent.
+4. **Infrastructure & Security Gates:** Configure C29 trusted proxy headers in hosted environments, verify hosted AAL2 MFA enforcement for staff accounts, provision hosted `KHLIM_REGISTRATION_HMAC_KEYS`, and apply frozen migrations only under explicit deployment authorization.
+5. **Operational Schedule Approval & Owner Review:** Finalize authoritative Academy venues, coaches, MYT schedules, capacities, and age rules, and complete Esther's integrated owner review (target: Dec 15, 2026).
