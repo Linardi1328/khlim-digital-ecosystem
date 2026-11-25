@@ -35,6 +35,18 @@ export default function AthletesPage() {
       try {
         const list = await adminApi.listAthletes();
         setAthletes(list);
+        // Deep link from an authorized offering roster to the existing
+        // protected athlete detail drawer; no athlete PII in query params.
+        const athleteId = new URLSearchParams(window.location.search).get(
+          "athleteId",
+        );
+        if (athleteId) {
+          const selected = list.find((item) => item.id === athleteId);
+          if (selected) {
+            setSelectedAthlete(selected);
+            setDetailTab("profile");
+          }
+        }
       } catch (err) {
         console.warn("Failed to load athletes:", err);
       } finally {

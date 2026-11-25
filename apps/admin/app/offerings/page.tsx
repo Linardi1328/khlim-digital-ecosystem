@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import { AdminShell } from "../../components/layout/AdminShell";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { DataTable, type Column } from "../../components/ui/DataTable";
@@ -16,6 +17,10 @@ import { Select } from "../../components/ui/Select";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { updateOfferingStatus } from "../../lib/admin-academy-write-api";
 import { adminApi } from "../../lib/admin-api";
+import {
+  getOfferingRoster,
+  type OfferingRoster,
+} from "../../lib/admin-academy-roster-api";
 import { ADMIN_DEMO_MODE } from "../../lib/demo-mode";
 import type {
   OfferingItem,
@@ -47,6 +52,9 @@ export default function OfferingsPage() {
   const [selectedOffering, setSelectedOffering] = useState<OfferingItem | null>(
     null,
   );
+  const [roster, setRoster] = useState<OfferingRoster | null>(null);
+  const [rosterBusy, setRosterBusy] = useState(false);
+  const [rosterError, setRosterError] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [formProgId, setFormProgId] = useState("");
   const [formVenueId, setFormVenueId] = useState("");
@@ -99,6 +107,44 @@ export default function OfferingsPage() {
 
     void load();
   }, []);
+
+  // Load only the selected offering's roster; never fetch every player's
+  // personal profile with the offering list.
+  useEffect(() => {
+    let active = true;
+    const id = selectedOffering?.id;
+    setRoster(null);
+    setRosterError(null);
+    if (!id || ADMIN_DEMO_MODE) {
+      if (id && ADMIN_DEMO_MODE) {
+        setRosterError("Real player rosters are unavailable in demo mode.");
+      }
+      return () => {
+        active = false;
+      };
+    }
+    setRosterBusy(true);
+    void getOfferingRoster(id)
+      .then((result) => {
+        if (active) setRoster(result);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setRosterError(
+            getErrorMessage(
+              error,
+              "Could not load the enrolled player roster.",
+            ),
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setRosterBusy(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedOffering?.id]);
 
   const filtered = offerings.filter((offering) => {
     const query = search.trim().toLowerCase();
@@ -447,6 +493,53 @@ export default function OfferingsPage() {
                 <strong>Capacity:</strong> {selectedOffering.enrolledCount} /{" "}
                 {selectedOffering.capacity}
               </div>
+              <section aria-label="Enrolled players">
+                <h3 style={{ margin: "8px 0" }}>Registered players</h3>
+                <p style={{ color: "#52525b", fontSize: 13, marginTop: 0 }}>
+                  Active, pending and suspended membership records for this
+                  offering. Training attendance includes active members only.
+                </p>
+                {rosterBusy && <p role="status">Loading registered players…</p>}
+                {rosterError && <p role="alert">{rosterError}</p>}
+                {roster && (
+                  <>
+                    {roster.truncated && (
+                      <p role="status">
+                        Showing the first 200 memberships. Contact management
+                        for the full roster.
+                      </p>
+                    )}
+                    {roster.members.length === 0 ? (
+                      <p>No registered memberships found for this offering.</p>
+                    ) : (
+                      <ul style={{ paddingLeft: 18 }}>
+                        {roster.members.map((member) => (
+                          <li
+                            key={member.membershipId}
+                            style={{ padding: "8px 0" }}
+                          >
+                            <Link
+                              href={`/athletes?athleteId=${encodeURIComponent(member.athleteId)}`}
+                            >
+                              {member.athleteName}
+                            </Link>
+                            <span
+                              style={{
+                                marginLeft: 8,
+                                fontSize: 12,
+                                color: "#52525b",
+                              }}
+                            >
+                              {member.membershipStatus} ·{" "}
+                              {member.membershipPlanName}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                )}
+              </section>
               {selectedOffering.status !== "INACTIVE" && (
                 <Button
                   variant="outline"
