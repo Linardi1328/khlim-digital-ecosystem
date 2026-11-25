@@ -1,66 +1,24 @@
 import assert from "node:assert/strict";
-import { access, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { chromium } from "@playwright/test";
 
 const root = new URL("../", import.meta.url);
 const read = (p) => readFile(new URL(p, root), "utf8");
 
-test("static contract: homepage hero carousel uses exactly 4 slides in specified order", async () => {
+test("static contract: homepage uses a single photo-free hero and retains the responsive carousel component", async () => {
   const page = await read("apps/web/app/page.tsx");
   const carousel = await read("apps/web/components/home/hero-carousel.tsx");
   const globalsCss = await read("apps/web/app/globals.css");
   const academyCss = await read("apps/web/app/home-academy.css");
 
-  // 1. All 4 slides in heroSlides
   assert.match(page, /id:\s*"academy-first"/);
-  assert.match(page, /id:\s*"team-huddle"/);
-  assert.match(page, /id:\s*"sideline-energy"/);
-  assert.match(page, /id:\s*"court-together"/);
-
-  // Check ordering
-  const pos1 = page.indexOf('"academy-first"');
-  const pos2 = page.indexOf('"team-huddle"');
-  const pos3 = page.indexOf('"sideline-energy"');
-  const pos4 = page.indexOf('"court-together"');
-  assert.ok(
-    pos1 < pos2,
-    "Slide 1 (team hero) must precede Slide 2 (team huddle)",
-  );
-  assert.ok(
-    pos2 < pos3,
-    "Slide 2 (team huddle) must precede Slide 3 (sideline energy)",
-  );
-  assert.ok(
-    pos3 < pos4,
-    "Slide 3 (sideline energy) must precede Slide 4 (court together)",
+  assert.doesNotMatch(page, /imageUrl(?:Mobile)?: "\/media\/(?:home|khlim)\//);
+  assert.doesNotMatch(
+    page,
+    /id:\s*"(team-huddle|sideline-energy|court-together)"/,
   );
 
-  // 2. Approved homepage carousel media is present in deployable public directory
-  const files = [
-    "apps/web/public/media/home/team-huddle-desktop.webp",
-    "apps/web/public/media/home/team-huddle-mobile.webp",
-    "apps/web/public/media/home/sideline-energy-desktop.webp",
-    "apps/web/public/media/home/sideline-energy-mobile.webp",
-    "apps/web/public/media/home/court-together-desktop.webp",
-    "apps/web/public/media/home/court-together-mobile.webp",
-  ];
-  for (const f of files) {
-    let exists = false;
-    try {
-      await access(new URL(f, root));
-      exists = true;
-    } catch {
-      exists = false;
-    }
-    assert.equal(
-      exists,
-      true,
-      `Approved carousel binary ${f} must be present in public tree`,
-    );
-  }
-
-  // 3. Carousel component contract
   assert.match(carousel, /AUTOPLAY_MS\s*=\s*6000/);
   assert.match(carousel, /onMouseEnter/);
   assert.match(carousel, /onMouseLeave/);
@@ -95,32 +53,32 @@ test("browser: 4-slide hero carousel renders, navigates, and avoids overflow acr
     const sampleSlides = [
       {
         id: "academy-first",
-        imageUrl: "/media/khlim/team-hero-wide-1920.webp",
-        imageUrlMobile: "/media/khlim/team-hero-1920.webp",
+        imageUrl: "/media/khero/meet-khero.webp",
+        imageUrlMobile: "/media/khero/meet-khero.webp",
         photoLabel: "team portrait",
         showPlaceholderLabel: false,
         placeholderGradient: "linear-gradient(#09090b, #2a1d08)",
       },
       {
         id: "team-huddle",
-        imageUrl: "/media/home/team-huddle-desktop.webp",
-        imageUrlMobile: "/media/home/team-huddle-mobile.webp",
+        imageUrl: "/media/khero/meet-khero.webp",
+        imageUrlMobile: "/media/khero/meet-khero.webp",
         photoLabel: "coach and player instruction",
         showPlaceholderLabel: false,
         placeholderGradient: "linear-gradient(#18181b, #1f2937)",
       },
       {
         id: "sideline-energy",
-        imageUrl: "/media/home/sideline-energy-desktop.webp",
-        imageUrlMobile: "/media/home/sideline-energy-mobile.webp",
+        imageUrl: "/media/khero/meet-khero.webp",
+        imageUrlMobile: "/media/khero/meet-khero.webp",
         photoLabel: "game-day energy",
         showPlaceholderLabel: false,
         placeholderGradient: "linear-gradient(#18181b, #0f172a)",
       },
       {
         id: "court-together",
-        imageUrl: "/media/home/court-together-desktop.webp",
-        imageUrlMobile: "/media/home/court-together-mobile.webp",
+        imageUrl: "/media/khero/meet-khero.webp",
+        imageUrlMobile: "/media/khero/meet-khero.webp",
         photoLabel: "team and community moment",
         showPlaceholderLabel: false,
         placeholderGradient: "linear-gradient(#111827, #4b3520)",

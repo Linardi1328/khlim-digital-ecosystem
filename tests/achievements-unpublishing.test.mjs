@@ -32,11 +32,9 @@ test("AchievementsSection preserves editorial unpublishing authority", async () 
     /const \[isLoading, setIsLoading\] = useState\(true\)/,
   );
 
-  // Must enforce verified image guard requiring imageUrl, verified photo rights, and environment flag
   assert.match(
     componentSource,
-    /hasVerifiedImage\s*=\s*Boolean\(\s*story\.imageUrl\s*&&\s*story\.photoRightsVerified\s*&&\s*youthMediaRightsConfirmed,?\s*\)/,
-    "hasVerifiedImage must require imageUrl, verified photo rights, and confirmed media rights environment flag",
+    /hasVerifiedImage = canRenderYouthMedia\(story\)/,
   );
 
   // Import the pure resolver
@@ -270,7 +268,7 @@ test("browser/component regression: unverified image URLs do not render in cards
       "Photo must not have url(...) when flag is disabled",
     );
 
-    // Scenario C: Both verified rights AND rights flag confirmed -> image URL renders
+    // Scenario C: Legacy rights flag and API boolean cannot publish an unlisted photo
     await page.unroute("**/editorial/achievements");
     await page.route("**/editorial/achievements", async (route) => {
       await route.fulfill({
@@ -288,14 +286,14 @@ test("browser/component regression: unverified image URLs do not render in cards
     await page.waitForSelector(".home-achievement-card");
     photoEl = page.locator(".home-achievement-photo");
     style = await photoEl.getAttribute("style");
-    assert.match(
+    assert.doesNotMatch(
       style,
       /unverified-youth\.webp/,
-      "Verified photo with confirmed rights must render imageUrl",
+      "A legacy flag and an API checkbox cannot authorize a photo",
     );
     assert.equal(
       await page.locator(".home-achievement-photo-label").count(),
-      0,
+      1,
     );
 
     // Scenario D: Known local slug whose rights are explicitly revoked via API (photoRightsVerified: false)
@@ -444,10 +442,11 @@ test("browser/component regression: API failures cannot resurrect withdrawn phot
       "API-owned achievements must not render images during an outage",
     );
     assert.equal(
-      await page.locator(".verified-milestone-card img").count(),
+      await page.locator(".verified-milestone-card").count(),
       3,
       "Separately verified club honours stay visible during editorial API outages",
     );
+    assert.equal(await page.locator(".verified-milestone-card img").count(), 0);
     assert.equal(
       await page.locator(".home-club-distinction-banner").count(),
       0,
@@ -537,7 +536,7 @@ test("browser/component regression: player spotlight cards fail closed like achi
     );
     assert.doesNotMatch(style, /url\(/);
 
-    // Scenario C: Both verified rights and flag enabled -> image renders
+    // Scenario C: Legacy rights flag and API boolean cannot publish an unlisted photo
     await page.unroute("**/editorial/player-spotlights");
     await page.route("**/editorial/player-spotlights", async (route) => {
       await route.fulfill({
@@ -555,12 +554,12 @@ test("browser/component regression: player spotlight cards fail closed like achi
     await page.waitForSelector(".home-spotlight-card");
     photoEl = page.locator(".home-spotlight-photo");
     style = await photoEl.getAttribute("style");
-    assert.match(
+    assert.doesNotMatch(
       style,
       /unverified-spotlight\.webp/,
-      "Spotlight card with verified rights and confirmed flag must render imageUrl",
+      "A legacy flag and an API checkbox cannot authorize a spotlight photo",
     );
-    assert.equal(await page.locator(".home-spotlight-photo-label").count(), 0);
+    assert.equal(await page.locator(".home-spotlight-photo-label").count(), 1);
   } finally {
     await browser.close();
   }
@@ -606,7 +605,7 @@ test("browser/component regression: spotlight article detail page fails closed o
     assert.doesNotMatch(style, /url\(/);
     assert.equal(await hero.locator("span").isVisible(), true);
 
-    // Verified article photo + confirmed flag -> renders imageUrl
+    // Legacy rights flag and API boolean cannot publish an unlisted photo
     await mountComponent(page, {
       component: "spotlightArticle",
       env: { NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED: "1" },
@@ -618,8 +617,8 @@ test("browser/component regression: spotlight article detail page fails closed o
     });
     hero = page.locator(".spotlight-article-hero");
     style = await hero.getAttribute("style");
-    assert.match(style, /unverified-article-photo\.webp/);
-    assert.equal(await hero.locator("span").count(), 0);
+    assert.doesNotMatch(style, /unverified-article-photo\.webp/);
+    assert.equal(await hero.locator("span").count(), 1);
   } finally {
     await browser.close();
   }

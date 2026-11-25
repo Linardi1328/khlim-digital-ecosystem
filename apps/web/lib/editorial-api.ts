@@ -1,5 +1,6 @@
 import {
   achievementStories,
+  canRenderYouthMedia,
   type AchievementStory,
   type PlayerSpotlightArticle,
 } from "./editorial-content";
@@ -28,8 +29,17 @@ const paragraphs = (value: unknown): string[] =>
   Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
-const photoRightsVerified = (entry: Entry) =>
-  Boolean(entry.photoRightsVerified);
+function publicPhoto(entry: Entry) {
+  const imageUrl = entry.imageUrl ?? undefined;
+  const approved = canRenderYouthMedia({
+    imageUrl,
+    photoRightsVerified: entry.photoRightsVerified === true,
+  });
+  return {
+    imageUrl: approved ? imageUrl : undefined,
+    photoRightsVerified: approved,
+  };
+}
 export const toAchievement = (entry: Entry): AchievementStory => {
   const matchId = entry.slug || entry.id;
   const verifiedStory = achievementStories.find(
@@ -44,11 +54,9 @@ export const toAchievement = (entry: Entry): AchievementStory => {
     eventName: entry.eventName,
     description: entry.summary,
     photoLabel: entry.photoLabel || verifiedStory?.photoLabel || entry.title,
-    // API media publication decisions are authoritative; local records supply copy only.
-    imageUrl: entry.imageUrl || undefined,
+    ...publicPhoto(entry),
     placeholderGradient: verifiedStory?.placeholderGradient || GRADIENT,
     factsVerified: entry.factsVerified,
-    photoRightsVerified: entry.photoRightsVerified === true,
     status: "published",
   };
 };
@@ -62,10 +70,9 @@ export const toSpotlight = (entry: Entry): PlayerSpotlightArticle => ({
   excerpt: entry.summary,
   articleParagraphs: paragraphs(entry.articleParagraphs),
   photoLabel: entry.photoLabel,
-  imageUrl: entry.imageUrl || undefined,
+  ...publicPhoto(entry),
   placeholderGradient: GRADIENT,
   factsVerified: entry.factsVerified,
-  photoRightsVerified: photoRightsVerified(entry),
   status: "published",
   aiAssisted: true,
 });

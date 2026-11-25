@@ -22,14 +22,14 @@ test("homepage includes achievements and Player Spotlight before supporting Kher
   );
 });
 
-test("achievement publishing requires verified facts and photo rights", async () => {
+test("achievement copy uses verified facts and photo display checks the public media list", async () => {
   const content = await read("apps/web/lib/editorial-content.ts");
   assert.match(content, /factsVerified: boolean/);
   assert.match(content, /photoRightsVerified: boolean/);
   assert.match(content, /status: EditorialPublicationStatus/);
   assert.match(content, /story\.status === "published"/);
   assert.match(content, /story\.factsVerified/);
-  assert.match(content, /story\.photoRightsVerified/);
+  assert.match(content, /PUBLIC_YOUTH_MEDIA_URLS\.has\(item\.imageUrl\)/);
   assert.match(content, /These neutral archive slots/);
 });
 

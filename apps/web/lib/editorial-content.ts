@@ -53,12 +53,10 @@ export const achievementStories: AchievementStory[] = [
     description:
       "KHLIM won the Girls KU-16 championship at the 80th CLS International Cup in Indonesia in 2026.",
     photoLabel: "80th CLS International Cup 2026 Champions",
-    imageUrl:
-      "/media/achievements/cls-international-indonesia-2026-champion.webp",
     placeholderGradient:
       "radial-gradient(circle at 75% 24%, rgba(245, 158, 11, 0.36), transparent 24%), linear-gradient(135deg, #18181b, #3f2d0b 58%, #0f172a)",
     factsVerified: true,
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "REF-ESTHER-DIRECTOR-APPROVAL-2026-10-21",
     status: "published",
   },
@@ -69,11 +67,10 @@ export const achievementStories: AchievementStory[] = [
     eventName: "Jasmine Cup 2025–2026",
     description: "KHLIM A won the Jasmine Cup 2025–2026 championship.",
     photoLabel: "Jasmine Cup 2025-2026 KHLIM A Champions",
-    imageUrl: "/media/achievements/jasmine-cup-2025-2026-khlim-a-champion.webp",
     placeholderGradient:
       "radial-gradient(circle at 28% 36%, rgba(251, 191, 36, 0.28), transparent 24%), linear-gradient(145deg, #111827, #27272a 58%, #4b3520)",
     factsVerified: true,
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "REF-ESTHER-DIRECTOR-APPROVAL-2026-10-21",
     status: "published",
   },
@@ -84,11 +81,10 @@ export const achievementStories: AchievementStory[] = [
     eventName: "Jasmine Cup 2025–2026",
     description: "KHLIM E finished in 4th place at the Jasmine Cup 2025–2026.",
     photoLabel: "Jasmine Cup 2025-2026 KHLIM E 4th Place",
-    imageUrl: "/media/achievements/jasmine-cup-2025-2026-khlim-e-fourth.webp",
     placeholderGradient:
       "radial-gradient(circle at 35% 40%, rgba(245, 158, 11, 0.22), transparent 24%), linear-gradient(135deg, #18181b, #27272a 58%, #1f2937)",
     factsVerified: true,
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "REF-ESTHER-DIRECTOR-APPROVAL-2026-10-21",
     status: "published",
   },
@@ -100,11 +96,10 @@ export const achievementStories: AchievementStory[] = [
     description:
       "KHLIM won the U15 SBA Division 1 Selangor Tournament in 2025.",
     photoLabel: "U15 SBA D1 Selangor Tournament 2025 Champions",
-    imageUrl: "/media/achievements/u15-sba-d1-selangor-2025-champion.webp",
     placeholderGradient:
       "radial-gradient(circle at 68% 60%, rgba(245, 158, 11, 0.24), transparent 25%), linear-gradient(125deg, #292524, #18181b 55%, #1f2937)",
     factsVerified: true,
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "REF-ESTHER-DIRECTOR-APPROVAL-2026-10-21",
     status: "published",
   },
@@ -116,11 +111,10 @@ export const achievementStories: AchievementStory[] = [
     description:
       "KHLIM took part in the U15 SBA Division 2 Selangor Tournament in 2025. A final placing has not been supplied.",
     photoLabel: "U15 SBA D2 Selangor Tournament 2025 Team",
-    imageUrl: "/media/achievements/u15-sba-d2-selangor-2025.webp",
     placeholderGradient:
       "radial-gradient(circle at 50% 50%, rgba(245, 158, 11, 0.2), transparent 30%), linear-gradient(135deg, #18181b, #27272a)",
     factsVerified: true,
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "REF-ESTHER-DIRECTOR-APPROVAL-2026-10-21",
     status: "published",
   },
@@ -132,11 +126,10 @@ export const achievementStories: AchievementStory[] = [
     description:
       "KHLIM finished 3rd at the U15 SBA Selangor Tournament in 2024.",
     photoLabel: "U15 SBA Selangor Tournament 2024 3rd Place",
-    imageUrl: "/media/achievements/u15-sba-selangor-2024-third.webp",
     placeholderGradient:
       "radial-gradient(circle at 40% 30%, rgba(245, 158, 11, 0.25), transparent 25%), linear-gradient(135deg, #18181b, #27272a)",
     factsVerified: true,
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "REF-ESTHER-DIRECTOR-APPROVAL-2026-10-21",
     status: "published",
   },
@@ -148,11 +141,10 @@ export const achievementStories: AchievementStory[] = [
     description:
       "KHLIM finished 1st runner-up in the U16 Division 2 SBA Selangor Tournament in 2026.",
     photoLabel: "U16 D2 SBA Selangor Tournament 2026 1st Runner-Up",
-    imageUrl: "/media/achievements/u16-d2-sba-selangor-2026-runner-up.webp",
     placeholderGradient:
       "radial-gradient(circle at 70% 30%, rgba(245, 158, 11, 0.3), transparent 25%), linear-gradient(135deg, #18181b, #3f2d0b)",
     factsVerified: true,
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "REF-ESTHER-DIRECTOR-APPROVAL-2026-10-21",
     status: "published",
   },
@@ -164,11 +156,10 @@ export const achievementStories: AchievementStory[] = [
     description:
       "KHLIM Girls U14 finished 1st runner-up in the MPBL League 2025.",
     photoLabel: "U14G MPBL League 2025 1st Runner-Up",
-    imageUrl: "/media/achievements/u14g-mpbl-2025-runner-up.webp",
     placeholderGradient:
       "radial-gradient(circle at 60% 40%, rgba(245, 158, 11, 0.25), transparent 25%), linear-gradient(135deg, #18181b, #27272a)",
     factsVerified: true,
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "REF-ESTHER-DIRECTOR-APPROVAL-2026-10-21",
     status: "published",
   },
@@ -179,11 +170,10 @@ export const achievementStories: AchievementStory[] = [
     eventName: "U14G Fastbreak League",
     description: "KHLIM Girls U14 won the Fastbreak Mini League in 2024.",
     photoLabel: "U14G Fastbreak League 2024 Champions",
-    imageUrl: "/media/achievements/u14g-fastbreak-2024-champion.webp",
     placeholderGradient:
       "radial-gradient(circle at 50% 30%, rgba(245, 158, 11, 0.35), transparent 25%), linear-gradient(135deg, #18181b, #3f2d0b)",
     factsVerified: true,
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "REF-ESTHER-DIRECTOR-APPROVAL-2026-10-21",
     status: "published",
   },
@@ -195,11 +185,10 @@ export const achievementStories: AchievementStory[] = [
     description:
       "KHLIM athletes represented their team at the 60th MABA-MATRIX 17 & Below National Basketball Championship in 2026. Individual names await confirmation.",
     photoLabel: "60th MABA-MATRIX U17 National Championship Representatives",
-    imageUrl: "/media/achievements/khlim-maba-matrix-u17-2026.webp",
     placeholderGradient:
       "radial-gradient(circle at 75% 25%, rgba(245, 158, 11, 0.3), transparent 25%), linear-gradient(135deg, #18181b, #27272a)",
     factsVerified: true,
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "REF-ESTHER-DIRECTOR-APPROVAL-2026-10-21",
     status: "published",
   },
@@ -211,11 +200,10 @@ export const achievementStories: AchievementStory[] = [
     description:
       "Another photograph of KHLIM representation at the 60th MABA-MATRIX 17 & Below National Basketball Championship 2026. Individual names await confirmation.",
     photoLabel: "60th MABA-MATRIX U17 National Championship Squad 2",
-    imageUrl: "/media/achievements/khlim-maba-matrix-u17-2026-2.webp",
     placeholderGradient:
       "radial-gradient(circle at 65% 35%, rgba(245, 158, 11, 0.3), transparent 25%), linear-gradient(135deg, #18181b, #27272a)",
     factsVerified: true,
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "REF-ESTHER-DIRECTOR-APPROVAL-2026-10-21",
     status: "published",
   },
@@ -227,11 +215,10 @@ export const achievementStories: AchievementStory[] = [
     description:
       "KHLIM players were represented at MSSM in 2024. Individual names and teams await confirmation.",
     photoLabel: "KHLIM Representative in MSSM 2024",
-    imageUrl: "/media/achievements/khlim-mssm-2024.webp",
     placeholderGradient:
       "radial-gradient(circle at 55% 45%, rgba(245, 158, 11, 0.28), transparent 25%), linear-gradient(135deg, #18181b, #27272a)",
     factsVerified: true,
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "REF-ESTHER-DIRECTOR-APPROVAL-2026-10-21",
     status: "published",
   },
@@ -243,11 +230,10 @@ export const achievementStories: AchievementStory[] = [
     description:
       "KHLIM players were represented at MSSM in 2025. Individual names and teams await confirmation.",
     photoLabel: "KHLIM Representative in MSSM 2025",
-    imageUrl: "/media/achievements/khlim-mssm-2025.webp",
     placeholderGradient:
       "radial-gradient(circle at 55% 45%, rgba(245, 158, 11, 0.28), transparent 25%), linear-gradient(135deg, #18181b, #27272a)",
     factsVerified: true,
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "REF-ESTHER-DIRECTOR-APPROVAL-2026-10-21",
     status: "published",
   },
@@ -259,11 +245,10 @@ export const achievementStories: AchievementStory[] = [
     description:
       "KHLIM players represented their teams at the U15 LMC National Cup in 2025. Individual names await confirmation.",
     photoLabel: "KHLIM Representative in U15 LMC National Cup 2025",
-    imageUrl: "/media/achievements/khlim-u15-lmc-cup-2025.webp",
     placeholderGradient:
       "radial-gradient(circle at 45% 55%, rgba(245, 158, 11, 0.25), transparent 25%), linear-gradient(135deg, #18181b, #27272a)",
     factsVerified: true,
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "REF-ESTHER-DIRECTOR-APPROVAL-2026-10-21",
     status: "published",
   },
@@ -396,10 +381,7 @@ export function getLocalizedSpotlightPreview(
 }
 
 export const publishedAchievements = achievementStories.filter(
-  (story) =>
-    story.status === "published" &&
-    story.factsVerified &&
-    story.photoRightsVerified,
+  (story) => story.status === "published" && story.factsVerified,
 );
 
 /**
@@ -530,13 +512,16 @@ export function findSpotlightArticle(
   return null;
 }
 
+// No youth photo has a documented public-use release for this build.
+const PUBLIC_YOUTH_MEDIA_URLS: ReadonlySet<string> = new Set();
+
 export function canRenderYouthMedia(
   item: { imageUrl?: string; photoRightsVerified?: boolean } | null | undefined,
 ): boolean {
   if (!item || !item.imageUrl) return false;
   return (
-    Boolean(item.photoRightsVerified) &&
-    process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED === "1"
+    item.photoRightsVerified === true &&
+    PUBLIC_YOUTH_MEDIA_URLS.has(item.imageUrl)
   );
 }
 
@@ -545,7 +530,7 @@ export interface ClubGalleryItem {
   title: string;
   description: string;
   photoLabel: string;
-  imageUrl: string;
+  imageUrl?: string;
   originalFileName: string;
   aspectRatio: "landscape" | "portrait";
   notes: string;
@@ -564,12 +549,11 @@ export const clubEventGallery: ClubGalleryItem[] = [
     description:
       "KHLIM squad seated in an on-court strategy circle reviewing game plan and defensive assignments during tournament competition.",
     photoLabel: "KHLIM team seated on court during tournament strategy circle",
-    imageUrl: "/media/achievements/club-gallery-team-huddle-circle.webp",
     originalFileName: "Copy of NIN_5719.jpg",
     aspectRatio: "landscape",
     notes:
       "Complementary matchday court moment paired with NIN_5725 lineup under hoop.",
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "DIR-AUTH-ESTHER-202610",
   },
   {
@@ -578,12 +562,11 @@ export const clubEventGallery: ClubGalleryItem[] = [
     description:
       "KHLIM 13-player squad standing united under the hoop during tournament competition.",
     photoLabel: "13 KHLIM players lined up under hoop on tournament court",
-    imageUrl: "/media/achievements/club-gallery-court-lineup-hoop.webp",
     originalFileName: "Copy of NIN_5725.jpg",
     aspectRatio: "landscape",
     notes:
       "Matchday squad lineup captured under hoop during the same court session as NIN_5719.",
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "DIR-AUTH-ESTHER-202610",
   },
   {
@@ -593,12 +576,11 @@ export const clubEventGallery: ClubGalleryItem[] = [
       "Team bench and coaching staff celebrating on-court momentum with arms raised in unison during tournament play.",
     photoLabel:
       "KHLIM bench and coaches celebrating during match play (wide perspective)",
-    imageUrl: "/media/achievements/club-gallery-sideline-celebration-wide.webp",
     originalFileName: "Copy of NIN_6916.jpg",
     aspectRatio: "landscape",
     notes:
       "Wide sideline celebration perspective; sequential pair with NIN_6971 taken 21 seconds earlier.",
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "DIR-AUTH-ESTHER-202610",
   },
   {
@@ -608,13 +590,11 @@ export const clubEventGallery: ClubGalleryItem[] = [
       "Medium-range perspective of player and coach intensity celebrating a decisive scoring run during tournament minutes.",
     photoLabel:
       "Focused sideline celebration moment during tournament match play",
-    imageUrl:
-      "/media/achievements/club-gallery-sideline-celebration-moment.webp",
     originalFileName: "Copy of NIN_6971.jpg",
     aspectRatio: "landscape",
     notes:
       "Tighter sideline angle of the celebration sequence (21 seconds after NIN_6916).",
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "DIR-AUTH-ESTHER-202610",
   },
   {
@@ -624,11 +604,10 @@ export const clubEventGallery: ClubGalleryItem[] = [
       "KHLIM substitutes and coaching staff on their feet providing vocal support and defensive encouragement during active gameplay.",
     photoLabel:
       "KHLIM bench players standing and cheering during active game play",
-    imageUrl: "/media/achievements/club-gallery-matchday-bench-cheering.webp",
     originalFileName: "Copy of NIN_7275.jpg",
     aspectRatio: "landscape",
     notes: "Active game day bench cheer with opponent in defensive transition.",
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "DIR-AUTH-ESTHER-202610",
   },
   {
@@ -637,12 +616,11 @@ export const clubEventGallery: ClubGalleryItem[] = [
     description:
       "Official studio team spirit photoshoot featuring coaches and athletes in club jerseys, showcasing dynamic poses and unity.",
     photoLabel: "KHLIM club team spirit portrait with coaches and athletes",
-    imageUrl: "/media/achievements/club-gallery-studio-squad-spirit.webp",
     originalFileName: "IMG_2398.HEIC",
     aspectRatio: "portrait",
     notes:
       "Dynamic team spirit pose from the official studio session (distinguished from formal portrait IMG_2477 2).",
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "DIR-AUTH-ESTHER-202610",
   },
   {
@@ -651,12 +629,11 @@ export const clubEventGallery: ClubGalleryItem[] = [
     description:
       "Formal club studio portrait with 3 coaching staff members and 14 players in official white home uniforms.",
     photoLabel: "Official formal portrait of KHLIM squad and coaching staff",
-    imageUrl: "/media/achievements/club-gallery-studio-team-portrait.webp",
     originalFileName: "IMG_2477 2.PNG",
     aspectRatio: "landscape",
     notes:
       "Full formal club squad portrait (distinguished from spirit pose IMG_2398).",
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "DIR-AUTH-ESTHER-202610",
   },
   {
@@ -665,11 +642,10 @@ export const clubEventGallery: ClubGalleryItem[] = [
     description:
       "Coach Jia Xuan directing an in-game timeout huddle as players unite fists together before returning to the court.",
     photoLabel: "Coach Jia Xuan and players in tournament timeout court huddle",
-    imageUrl: "/media/achievements/club-gallery-in-game-court-huddle.webp",
     originalFileName: "IMG_2814.JPG",
     aspectRatio: "landscape",
     notes: "In-game timeout instruction and team fist rally.",
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "DIR-AUTH-ESTHER-202610",
   },
   {
@@ -679,12 +655,11 @@ export const clubEventGallery: ClubGalleryItem[] = [
       "KHLIM representative honours squad and coaching staff gathered in commemorative uniforms celebrating district, state, and national achievements.",
     photoLabel:
       "Representative honours squad lineup celebrating state and national selections",
-    imageUrl: "/media/achievements/club-gallery-state-honours-lineup.webp",
     originalFileName: "IMG_2824.HEIC",
     aspectRatio: "portrait",
     notes:
       "Milestone squad portrait honoring state and national representative achievements.",
-    photoRightsVerified: true,
+    photoRightsVerified: false,
     mediaReleaseRef: "DIR-AUTH-ESTHER-202610",
   },
 ];

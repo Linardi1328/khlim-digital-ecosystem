@@ -306,28 +306,6 @@ function AcademyContent() {
           </div>
 
           <Card style={{ marginTop: 24, padding: 28 }}>
-            {/* Approved Academy youth squad training photography */}
-            <div
-              style={{
-                position: "relative",
-                width: "100%",
-                aspectRatio: "1280 / 769",
-                borderRadius: 12,
-                overflow: "hidden",
-                margin: "0 0 24px",
-                border: "1px solid #e4e4e7",
-                background: "#18181b",
-              }}
-            >
-              <Image
-                src="/media/khlim/training-group-1280.webp"
-                alt={t("academy.training.alt")}
-                fill
-                sizes="(max-width: 768px) 100vw, 1100px"
-                style={{ objectFit: "cover", objectPosition: "center 35%" }}
-              />
-            </div>
-
             <div
               data-testid="academy-training-fallback"
               style={{

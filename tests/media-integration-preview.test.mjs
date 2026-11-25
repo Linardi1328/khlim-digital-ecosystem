@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { readdirSync, statSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { describe, test } from "node:test";
 import { createRequire } from "node:module";
+import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium, expect } from "@playwright/test";
 
@@ -60,83 +61,36 @@ test("static contract: media registry enforces fail-closed rights and authorizat
   assert.equal(scorecard.minorAssetsCount, 3);
 });
 
-test("media safety: deployable public directory contains verified approved assets and no removed khlim-logo.jpg", async () => {
-  const publicDir = fileURLToPath(new URL("apps/web/public", root));
+test("media safety: the web and admin public trees contain only documented assets", () => {
+  const publicFiles = (app) => {
+    const directory = fileURLToPath(new URL(`apps/${app}/public/`, root));
+    return readdirSync(directory, { recursive: true, withFileTypes: true })
+      .filter((file) => !file.isDirectory())
+      .map((file) => relative(directory, join(file.parentPath, file.name)))
+      .sort();
+  };
 
-  function scanFiles(dir) {
-    let files = [];
-    for (const item of readdirSync(dir)) {
-      const full = `${dir}/${item}`;
-      if (statSync(full).isDirectory()) {
-        files = files.concat(scanFiles(full));
-      } else {
-        files.push(full);
-      }
-    }
-    return files;
-  }
-
-  const allPublicFiles = scanFiles(publicDir);
-
-  // 1. khlim-logo.jpg must remain deleted from public tree
-  assert.ok(
-    !allPublicFiles.some((f) => f.endsWith("khlim-logo.jpg")),
-    "khlim-logo.jpg must not be present in public tree",
-  );
-
-  // 2. Verified publication-cleared media is present in public tree
-  assert.ok(
-    allPublicFiles.some((f) => f.includes("coaches/seng-jun.webp")),
-    "seng-jun.webp must be present in public tree",
-  );
-  assert.ok(
-    allPublicFiles.some((f) => f.includes("coaches/jia-xuan.webp")),
-    "jia-xuan.webp must be present in public tree",
-  );
-  assert.ok(
-    allPublicFiles.some((f) => f.includes("coaches/puimann.webp")),
-    "puimann.webp must be present in public tree",
-  );
-  assert.ok(
-    allPublicFiles.some((f) => f.includes("coaches/woon.webp")),
-    "woon.webp must be present in public tree",
-  );
-  assert.ok(
-    allPublicFiles.some((f) => f.includes("khero/meet-khero.webp")),
-    "meet-khero.webp must be present in public tree",
-  );
-  assert.ok(
-    allPublicFiles.some((f) => f.includes("brand/academy-crest.webp")),
-    "academy-crest.webp must be present in public tree",
-  );
-
-  // 2b. Verified director-approved website media is present in public tree
-  assert.ok(
-    allPublicFiles.some((f) => f.includes("team-hero-1920")),
-    "team-hero-1920 must be present in public tree",
-  );
-  assert.ok(
-    allPublicFiles.some((f) => f.includes("team-hero-wide-1920")),
-    "team-hero-wide-1920 must be present in public tree",
-  );
-  assert.ok(
-    allPublicFiles.some((f) => f.includes("training-group-1280")),
-    "training-group-1280 must be present in public tree",
-  );
-  assert.ok(
-    allPublicFiles.some((f) => f.includes("/media/achievements/")),
-    "achievements photos must be present in public tree",
-  );
-
-  // 3. .gitignore contains staging pack directory
-  const gitignore = await read(".gitignore");
-  assert.match(gitignore, /docs\/media\/staging-pack\//);
-
-  // 4. RIGHTS-MANIFEST.md documents director confirmation
-  const manifestMd = await read("media/RIGHTS-MANIFEST.md");
-  assert.match(manifestMd, /Approved Website Media Integration/);
-  assert.match(manifestMd, /team-hero-1920\.webp/);
-  assert.match(manifestMd, /director/i);
+  assert.deepEqual(publicFiles("admin"), ["khs-academy-logo.webp"]);
+  assert.deepEqual(publicFiles("web"), [
+    "khs-academy-logo.webp",
+    "media/brand/academy-crest.webp",
+    "media/brand/kh-basketball-club.webp",
+    "media/brand/khlim-laurel-crest.webp",
+    "media/coaches/jia-xuan.webp",
+    "media/coaches/puimann.webp",
+    "media/coaches/seng-jun.webp",
+    "media/coaches/woon.webp",
+    "media/khero/khero-meaning.webp",
+    "media/khero/khero-way.webp",
+    "media/khero/meet-khero.webp",
+    "media/khlim/coach-jia-xuan.webp",
+    "media/khlim/coach-puimann.webp",
+    "media/khlim/coach-seng-jun.webp",
+    "media/khlim/coach-woon.webp",
+    "media/khlim/logo-academy.webp",
+    "media/khlim/logo-club.webp",
+    "media/khlim/logo-khlim.webp",
+  ]);
 });
 
 test("KHero transcripts and 3-language surrounding content support", async () => {

@@ -24,6 +24,11 @@ function organizationId(user: AuthenticatedUserContext): string {
   return user.organization.id;
 }
 
+// Editorial publication verifies facts. Public photo permissions are unverified.
+function stripUnverifiedMedia<T extends { imageUrl: string | null }>(entry: T) {
+  return { ...entry, imageUrl: null };
+}
+
 @ApiTags("editorial")
 @Controller()
 export class EditorialController {
@@ -31,20 +36,23 @@ export class EditorialController {
 
   @Public()
   @Get("editorial/achievements")
-  listAchievements() {
-    return this.editorial.listPublished("ACHIEVEMENT");
+  async listAchievements() {
+    const entries = await this.editorial.listPublished("ACHIEVEMENT");
+    return entries.map(stripUnverifiedMedia);
   }
 
   @Public()
   @Get("editorial/player-spotlights")
-  listSpotlights() {
-    return this.editorial.listPublished("PLAYER_SPOTLIGHT");
+  async listSpotlights() {
+    const entries = await this.editorial.listPublished("PLAYER_SPOTLIGHT");
+    return entries.map(stripUnverifiedMedia);
   }
 
   @Public()
   @Get("editorial/player-spotlights/:slug")
-  getSpotlight(@Param("slug") slug: string) {
-    return this.editorial.findPublishedSpotlight(slug);
+  async getSpotlight(@Param("slug") slug: string) {
+    const entry = await this.editorial.findPublishedSpotlight(slug);
+    return entry ? stripUnverifiedMedia(entry) : entry;
   }
 
   @Get("admin/editorial")

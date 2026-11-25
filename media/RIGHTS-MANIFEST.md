@@ -2,6 +2,31 @@
 
 This register is a production-release control, not legal proof by itself. A public-facing asset must have a documented ownership, licence or other lawful-use basis before KHLIM publishes it. Identifiable minors also require the appropriate guardian/publication consent where applicable.
 
+## 2026-11-25 V1 release classification
+
+This table governs the deployable public tree. Historical `VERIFIED` labels below
+record the supporting approvals at the time. For youth photography the available
+records establish director/operator clearance and do not verify the
+asset-specific guardian and photographer public-use permissions.
+
+| Baseline public paths | Count | Release classification | V1 disposition and evidence |
+| --- | ---: | --- | --- |
+| Web `/media/achievements/*.webp` | 23 | Unverified | Removed. Tournament, representative and gallery assets have organizational approval in the RIC-85 manifest. Asset-specific guardian and photographer evidence was unavailable. |
+| Web `/media/home/*.webp` | 6 | Unverified | Removed. Director-cleared responsive carousel variants require asset-specific guardian and photographer evidence. |
+| Web `/media/khlim/{team-hero-1920,team-hero-wide-1920,training-group-1280}.webp` | 3 | Unverified | Removed. Director-cleared hero/training files require asset-specific guardian and photographer evidence. |
+| Web `/media/brand/khs-academy-mark.webp` and `/media/khlim/logo-khs-academy.webp` | 2 | Restricted | Removed. The RIC-85 manifest scopes the KHS partner mark to confirmed partner surfaces. |
+| Web `/media/khero/coming-soon.webp` | 1 | Unverified | Removed. No approved replacement was documented for this unused placeholder. |
+| Web `/media/khero/{meet-khero,khero-meaning,khero-way}.webp` | 3 | Documented public-approved | Retained. Specific poster approvals are recorded in the October 18 register below. |
+| Web `/media/coaches/{seng-jun,jia-xuan,puimann,woon}.webp` and their `/media/khlim/coach-*.webp` versions | 8 | Documented public-approved | Retained. RIC-85 records individual permission for the four adult coach portraits and identifies both sets of derivatives. |
+| Web `/media/brand/{academy-crest,kh-basketball-club,khlim-laurel-crest}.webp`, `/media/khlim/{logo-academy,logo-club,logo-khlim}.webp` and Web and Admin `/khs-academy-logo.webp` | 8 | Documented public-approved | Retained. RIC-85 records the three logos and their variants. [PR #73](https://github.com/Linardi1328/khlim-digital-ecosystem/pull/73) documents both Web and Admin Academy logo assets. |
+
+Counts record the 54 public binaries at the RIC-190 squash. The approved Admin
+Academy logo has a pre-existing truncated WebP file. See the
+[V1 release handoff](../docs/implementation/v1-media-privacy-release-gates.md)
+for the frontend fallback, old deployment, cache and takedown requirements.
+
+## Historical rights and provenance records
+
 ## Status values
 
 - `VERIFIED`: evidence has been checked and a reference to that evidence is recorded.
@@ -16,7 +41,7 @@ This register is a production-release control, not legal proof by itself. A publ
 | `apps/web/public/media/khero/meet-khero.webp` | KHero promotional artwork | VERIFIED | User reported that Esther, director of KHLIM Basketball, confirmed the relevant rights are covered (2026-10-18). | **Active in public tree.** Approved high-res artwork integrated with 3-language accessible transcripts. |
 | `apps/web/public/media/khero/khero-meaning.webp` | KHero promotional artwork | VERIFIED | User reported that Esther, director of KHLIM Basketball, confirmed the relevant rights are covered (2026-10-18). | **Active in public tree.** Approved high-res artwork integrated with 3-language accessible transcripts. |
 | `apps/web/public/media/khero/khero-way.webp` | KHero promotional artwork | VERIFIED | User reported that Esther, director of KHLIM Basketball, confirmed the relevant rights are covered (2026-10-18). | **Active in public tree.** Approved high-res artwork integrated with 3-language accessible transcripts. |
-| `apps/web/public/media/khero/coming-soon.webp` | KHero promotional artwork | REVIEW_REQUIRED | No approved replacement was supplied in the 2026-10-18 pack. | **Retained as placeholder** in public tree to display localized Coming Soon notice without broken links. |
+| `apps/web/public/media/khero/coming-soon.webp` | KHero promotional artwork | REVIEW_REQUIRED | No approved replacement was supplied in the 2026-10-18 pack. | **Removed** from the public tree for V1. |
 
 ## Evidence record template
 
@@ -36,7 +61,7 @@ Do not put private consent forms, identity documents or other personal data in t
 
 ## Publication rule
 
-Editorial content in `apps/web/lib/editorial-content.ts` requires both `factsVerified` and `photoRightsVerified` before a real achievement/player story can enter the published set. KHero promotional images are separately gated by `NEXT_PUBLIC_KHERO_MEDIA_RIGHTS_CONFIRMED=1` or specific approved asset mapping. Spotlight player stories remain individually verified and subject to authoritative editorial publication checks.
+Public editorial photography requires asset-specific documented permission. The V1 web approval list for youth imagery is empty. The three documented KHero promotional posters use a specific approved asset mapping. Published editorial text remains subject to authoritative editorial publication checks.
 
 ## 2026-10-18 Approved Website Media Integration (Confirmed by Director Esther)
 

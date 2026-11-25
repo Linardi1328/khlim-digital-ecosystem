@@ -6,6 +6,7 @@ import { PublicHeader } from "../layout/public-header";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import {
+  canRenderYouthMedia,
   getLocalizedSpotlightPreview,
   playerSpotlightEditorialPreview,
   type PlayerSpotlightArticle,
@@ -20,13 +21,7 @@ export function SpotlightArticleContent({
   const { t } = useI18n();
   const preview = sourceArticle.slug === playerSpotlightEditorialPreview.slug;
   const article = preview ? getLocalizedSpotlightPreview(t) : sourceArticle;
-  const youthMediaRightsConfirmed =
-    process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED === "1";
-  const hasVerifiedImage = Boolean(
-    article.imageUrl &&
-    article.photoRightsVerified &&
-    youthMediaRightsConfirmed,
-  );
+  const hasVerifiedImage = canRenderYouthMedia(article);
   const backgroundImage = hasVerifiedImage
     ? `linear-gradient(180deg, rgba(9, 9, 11, 0.14), rgba(9, 9, 11, 0.82)), url("${article.imageUrl}")`
     : `linear-gradient(180deg, rgba(9, 9, 11, 0.1), rgba(9, 9, 11, 0.84)), ${article.placeholderGradient}`;
