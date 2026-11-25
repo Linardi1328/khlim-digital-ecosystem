@@ -8,8 +8,10 @@ import React, {
   useState,
   type ReactNode,
 } from "react";
+import { isFeatureNotAvailableError } from "@khlim/api-client";
 import { useAuth } from "./auth-context";
 import { apiService } from "./api-service";
+import { isFeatureAvailable } from "./feature-availability";
 import type {
   ManagedAthlete,
   ManagedAthleteLinkItem,
@@ -21,6 +23,7 @@ interface FamilyContextValue {
   athletes: ManagedAthlete[];
   activeChild: ManagedAthlete | null;
   isLoading: boolean;
+  isPortalFeatureDeferred: boolean;
   setActiveChild: (child: ManagedAthlete | null) => void;
   addChild: (dto: CreateManagedAthleteDto) => Promise<ManagedAthlete>;
   refreshFamily: () => Promise<void>;
@@ -35,9 +38,21 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   );
   const [activeChild, setActiveChild] = useState<ManagedAthlete | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isPortalFeatureDeferred, setIsPortalFeatureDeferred] = useState(false);
+
+  const familyFeatureEnabled =
+    isFeatureAvailable("parentPortal") ||
+    isFeatureAvailable("academyEnrolmentCheckout");
 
   const refreshFamily = useCallback(async () => {
     if (!isAuthenticated) {
+      setAthleteLinks([]);
+      setActiveChild(null);
+      setIsPortalFeatureDeferred(false);
+      return;
+    }
+
+    if (!familyFeatureEnabled || isPortalFeatureDeferred) {
       setAthleteLinks([]);
       setActiveChild(null);
       return;
@@ -57,25 +72,35 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         }
         return athletes[0] ?? null;
       });
-    } catch {
+    } catch (caught) {
+      if (isFeatureNotAvailableError(caught)) {
+        setIsPortalFeatureDeferred(true);
+      }
       setAthleteLinks([]);
       setActiveChild(null);
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [familyFeatureEnabled, isAuthenticated, isPortalFeatureDeferred]);
 
   useEffect(() => {
-    refreshFamily();
+    void refreshFamily();
   }, [refreshFamily]);
 
   const addChild = async (
     dto: CreateManagedAthleteDto,
   ): Promise<ManagedAthlete> => {
-    const created = await apiService.createManagedAthlete(dto);
-    await refreshFamily();
-    setActiveChild(created.athlete);
-    return created.athlete;
+    try {
+      const created = await apiService.createManagedAthlete(dto);
+      await refreshFamily();
+      setActiveChild(created.athlete);
+      return created.athlete;
+    } catch (caught) {
+      if (isFeatureNotAvailableError(caught)) {
+        setIsPortalFeatureDeferred(true);
+      }
+      throw caught;
+    }
   };
 
   return (
@@ -85,6 +110,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         athletes: athleteLinks.map((link) => link.athlete),
         activeChild,
         isLoading,
+        isPortalFeatureDeferred,
         setActiveChild,
         addChild,
         refreshFamily,

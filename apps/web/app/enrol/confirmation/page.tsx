@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { isFeatureNotAvailableError } from "@khlim/api-client";
 import { apiService } from "../../../lib/api-service";
 import {
   getQueryCampaignSource,
@@ -49,7 +50,7 @@ function ConfirmationContent() {
   const athleteId = searchParams.get("athleteId");
   const membershipId = searchParams.get("membershipId");
   const [state, setState] = useState<
-    "loading" | "verified" | "error" | "missing"
+    "loading" | "verified" | "error" | "missing" | "deferred"
   >("loading");
   const [verified, setVerified] = useState<VerifiedState | null>(null);
   const [error, setError] = useState("");
@@ -77,6 +78,10 @@ function ConfirmationContent() {
       setState("verified");
     } catch (caught) {
       setVerified(null);
+      if (isFeatureNotAvailableError(caught)) {
+        setState("deferred");
+        return;
+      }
       setError(
         caught instanceof Error
           ? caught.message
@@ -90,7 +95,7 @@ function ConfirmationContent() {
     void load();
   }, [load]);
 
-  if (!enrolmentAvailable) {
+  if (!enrolmentAvailable || state === "deferred") {
     return (
       <div
         style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}

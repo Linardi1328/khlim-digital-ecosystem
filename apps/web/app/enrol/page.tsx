@@ -3,6 +3,7 @@
 import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { isFeatureNotAvailableError } from "@khlim/api-client";
 import { useAuth } from "../../lib/auth-context";
 import { useFamily } from "../../lib/family-context";
 import { useI18n } from "../../lib/i18n-context";
@@ -119,6 +120,7 @@ function EnrolmentWizardContent() {
   const [recurringConsent, setRecurringConsent] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState("");
+  const [serverFeatureDeferred, setServerFeatureDeferred] = useState(false);
   const childCreationInFlight = useRef(false);
 
   const businessDetails = getPublicBusinessDetails();
@@ -237,14 +239,24 @@ function EnrolmentWizardContent() {
         planId: plan.id,
       });
     } catch (caught) {
-      const current = await apiService.listAthleteMemberships(athleteId);
-      const existing = current.find(
-        (membership) =>
-          membership.programmeOfferingId === offering.id &&
-          membership.membershipPlanId === plan.id &&
-          membership.status === "PENDING",
-      );
-      if (existing) return existing;
+      // Never issue an automatic recovery lookup when the server reports a deferred feature gate
+      if (isFeatureNotAvailableError(caught)) {
+        throw caught;
+      }
+      try {
+        const current = await apiService.listAthleteMemberships(athleteId);
+        const existing = current.find(
+          (membership) =>
+            membership.programmeOfferingId === offering.id &&
+            membership.membershipPlanId === plan.id &&
+            membership.status === "PENDING",
+        );
+        if (existing) return existing;
+      } catch (lookupError) {
+        if (isFeatureNotAvailableError(lookupError)) {
+          throw lookupError;
+        }
+      }
       throw caught;
     }
   };
@@ -283,6 +295,10 @@ function EnrolmentWizardContent() {
           });
           setSelectedChildId(created.id);
         } catch (caught) {
+          if (isFeatureNotAvailableError(caught)) {
+            setServerFeatureDeferred(true);
+            return;
+          }
           setError(
             caught instanceof Error
               ? caught.message
@@ -359,7 +375,12 @@ function EnrolmentWizardContent() {
           window.location.assign(checkout.checkoutUrl);
           return;
         }
-      } catch {
+      } catch (checkoutError) {
+        // Do not swallow a server-authoritative deferred feature gate or redirect into confirmation lookups
+        if (isFeatureNotAvailableError(checkoutError)) {
+          setServerFeatureDeferred(true);
+          return;
+        }
         // The pending membership remains authoritative even when a payment provider
         // is intentionally unavailable in this environment.
       }
@@ -368,6 +389,10 @@ function EnrolmentWizardContent() {
         `/enrol/confirmation?athleteId=${encodeURIComponent(athleteId)}&membershipId=${encodeURIComponent(membership.id)}`,
       );
     } catch (caught) {
+      if (isFeatureNotAvailableError(caught)) {
+        setServerFeatureDeferred(true);
+        return;
+      }
       setError(
         caught instanceof Error
           ? caught.message
@@ -378,7 +403,7 @@ function EnrolmentWizardContent() {
     }
   };
 
-  if (!enrolmentAvailable) {
+  if (!enrolmentAvailable || serverFeatureDeferred) {
     return (
       <div
         style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}

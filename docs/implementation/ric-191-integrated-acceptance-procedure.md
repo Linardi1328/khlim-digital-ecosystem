@@ -1,21 +1,22 @@
-# RIC-191 — Reproducible Local Integrated Acceptance Procedure
+# RIC-191 — Reproducible Local Integrated Acceptance Runbook
 
-This document defines the reproducible, disposable-local-database acceptance procedure for **Academy Registration V1** (`RIC-191` frontend + `RIC-190` backend).
+This runbook defines the reproducible, disposable-local-database integrated acceptance procedure for **Academy Registration V1** on the combined `main` + PR #127 revision (RIC-190 backend + RIC-184 public web + RIC-191 frontend).
 
 Harness path: [`tests/integration/ric-191-integrated-acceptance.mjs`](../../tests/integration/ric-191-integrated-acceptance.mjs)
 
 ---
 
-## 1. Safety Guarantees (Fail-Closed)
+## 1. Fail-Closed Safety Guarantees
 
-The harness refuses to run unless **all** of the following hold:
+The acceptance harness refuses to execute unless **all** of the following hold:
 
 1. `KHLIM_TEST_DATABASE=1` is explicitly set.
-2. `DATABASE_URL` targets a local loopback hostname only (`localhost`, `127.0.0.1`, or `::1`).
-3. The target PostgreSQL database name contains `test` (e.g. `khlim_ric191_test`).
-4. The target database is a **freshly provisioned empty disposable database** — the harness performs zero `TRUNCATE` or destructive resets and fails closed if any existing rows are present in `academy_registration_policies`, `academy_registration_sessions`, `academy_registrations`, or `academy_registration_consents`.
-5. Only synthetic records (`Synthetic Int Player One`, `SYNTHETIC-V1`, `synthetic://...`), synthetic tokens, and ephemeral per-run HMAC keys (`KHLIM_REGISTRATION_HMAC_KEYS`) are used.
-6. No hosted staging/production environment, Supabase Cloud instance, or payment provider is contacted.
+2. `DATABASE_URL` targets a local loopback host only (`localhost`, `127.0.0.1`, or `::1`).
+3. The target PostgreSQL database name contains `test` (e.g. `khlim_ric191_<run_id>_test`).
+4. The target database is a **freshly provisioned empty disposable database** — the harness performs zero `TRUNCATE` or destructive resets and fails closed if any existing rows exist in `academy_registration_policies`, `academy_registration_sessions`, `academy_registrations`, or `academy_registration_consents`.
+5. Every disposable resource (container name, database name, ephemeral password, and host port) is uniquely allocated per run and torn down unconditionally via `trap cleanup EXIT`.
+6. Only synthetic records (`Synthetic Int Player One`, `SYNTHETIC-V1`, `synthetic://...`), synthetic AAL2 tokens, and ephemeral per-run HMAC keys (`KHLIM_REGISTRATION_HMAC_KEYS`) are used.
+7. No hosted staging/production environment, Supabase Cloud project, or external payment provider is ever contacted.
 
 ---
 
@@ -23,74 +24,79 @@ The harness refuses to run unless **all** of the following hold:
 
 | Layer | Mode in Local Acceptance | Notes |
 | --- | --- | --- |
-| NestJS API (`apps/api`) | **Real** | Full `AppModule`, global `/v1` prefix, real controllers, services, validation, rate limiting, and audit logging. |
-| PostgreSQL 16 + Prisma Migrations | **Real** | All migrations deployed via `prisma migrate deploy`; triggers, constraints, RLS, and HMAC blind indexes execute normally. |
-| API RBAC & AAL2 Authorization | **Real** | Server-side guards enforce role & AAL2 checks against real PostgreSQL `User` and `OrganizationMembership` rows (Step 2 asserts real HTTP `403` when `ACADEMY_ADMIN` calls `POST .../approve`). |
+| NestJS API (`apps/api`) | **Real** | Full `AppModule`, global `/v1` prefix, real controllers, services, validation, rate limiting, optimistic locking, and audit logging. |
+| PostgreSQL 16 + Frozen Prisma Migrations | **Real** | All migrations deployed in order via `prisma migrate deploy`, including both frozen RIC-190 migrations (`20261125000000_academy_registration_v1` and `20261126000000_academy_registration_lock_corrections`); triggers, constraints, RLS, and HMAC blind indexes execute normally. |
+| API RBAC & AAL2 Authorization | **Real** | Server-side guards enforce role & AAL2 checks against real PostgreSQL `User` and `OrganizationMembership` rows (Step 2 verifies real HTTP `403` when `ACADEMY_ADMIN` calls `POST .../approve`). |
 | Public Website (`@khlim/web`) | **Real (zero interception)** | Built production bundle running on `127.0.0.1:3191`, talking directly to `http://127.0.0.1:3193/v1`. |
 | Admin Console (`@khlim/admin`) | **Real UI + real API** | Built production bundle running on `127.0.0.1:3192` with `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:3193/v1`. |
 | Supabase JWT Signature Verification | **Simulated (local-only)** | `SupabaseJwtService.verify` is stubbed in-process for two synthetic AAL2 tokens (`synthetic-aal2-super-admin` and `synthetic-aal2-academy-admin`) so no hosted Supabase project is required. |
-| Admin Browser Bearer Injection | **Simulated (local-only)** | Playwright intercepts `/v1/admin/**` solely to attach `Authorization: Bearer synthetic-aal2-super-admin` and calls `route.continue({ headers })` so 100% of requests and responses flow through the real NestJS server. |
+| Admin Browser Bearer Injection | **Simulated (local-only)** | Playwright intercepts `/v1/admin/**` solely to attach `Authorization: Bearer synthetic-aal2-super-admin` and calls `route.continue({ headers })` so 100% of HTTP requests and responses flow through the real NestJS server. |
 
 ---
 
-## 3. Running Before PR #126 Merges (Isolated Integration Worktree)
+## 3. Running Combined Integrated Acceptance (Current Reconciled Revision)
 
-Until PR #125 (`RIC-184`) and PR #126 (`RIC-190`) merge to `main`, run against a temporary detached worktree so PR #127 remains strictly frontend-only:
+Run directly from a clean checkout of the reconciled branch (no detached worktree overlay required now that RIC-190 and RIC-184 are merged into `main`):
 
 ```bash
 set -euo pipefail
-SRC_WT="$(pwd)"
-INT_WT="/tmp/khlim-ric191-int-wt"
-BACKEND_SHA="e3c89de41441d022825bd6ee1082c30ea98e5a7a"
+
+RUN_ID="ric191_$(date +%s)_$$"
+PG_CONTAINER="khlim-${RUN_ID}-pg"
+PG_DB="khlim_${RUN_ID}_test"
+PG_PASS="$(openssl rand -hex 12)"
 
 cleanup() {
-  docker rm -f khlim-ric191-pg >/dev/null 2>&1 || true
-  if [ -d "$INT_WT" ]; then
-    git -C "$SRC_WT" worktree remove --force "$INT_WT" 2>/dev/null || rm -rf "$INT_WT"
-  fi
+  docker rm -f "$PG_CONTAINER" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
-cleanup
 
-# 1. Create detached worktree at the verified RIC-190 backend commit and overlay RIC-184 + RIC-191 frontend files
-git -C "$SRC_WT" worktree add --detach "$INT_WT" "$BACKEND_SHA"
-MERGE_BASE=$(git -C "$SRC_WT" merge-base "$BACKEND_SHA" HEAD)
-git -C "$SRC_WT" diff --name-only "$MERGE_BASE" -- \
-  apps/web apps/admin packages/i18n \
-  packages/api-client/src/academy-registration-v1.ts \
-  packages/api-client/src/index.ts \
-  tests/integration/ric-191-integrated-acceptance.mjs \
-| while IFS= read -r rel; do
-    [ -z "$rel" ] && continue
-    if [ -f "$SRC_WT/$rel" ]; then
-      mkdir -p "$INT_WT/$(dirname "$rel")"
-      cp "$SRC_WT/$rel" "$INT_WT/$rel"
-    else
-      rm -f "$INT_WT/$rel"
-    fi
-  done
-
-# 2. Start a freshly provisioned disposable local PostgreSQL 16 container (ephemeral password)
-export LOCAL_TEST_PG_PASS="$(openssl rand -hex 12)"
+# 1. Start a uniquely named, freshly provisioned disposable PostgreSQL 16 container on an ephemeral loopback port
 docker run --rm -d \
-  --name khlim-ric191-pg \
+  --name "$PG_CONTAINER" \
   -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD="${LOCAL_TEST_PG_PASS}" \
-  -e POSTGRES_DB=khlim_ric191_test \
-  -p 127.0.0.1:5491:5432 \
-  postgres:16-alpine
+  -e "POSTGRES_PASSWORD=${PG_PASS}" \
+  -e "POSTGRES_DB=${PG_DB}" \
+  -p 127.0.0.1:0:5432 \
+  postgres:16-alpine >/dev/null
 
-until docker exec khlim-ric191-pg pg_isready -U postgres -d khlim_ric191_test >/dev/null 2>&1; do
+PG_PORT="$(docker port "$PG_CONTAINER" 5432/tcp | head -n 1 | awk -F: '{print $NF}')"
+if [ -z "$PG_PORT" ]; then
+  echo "Failed to resolve ephemeral PostgreSQL port for ${PG_CONTAINER}" >&2
+  exit 1
+fi
+
+# 2. Bounded readiness check (max 30s)
+READY=0
+for _ in $(seq 1 60); do
+  if docker exec "$PG_CONTAINER" pg_isready -U postgres -d "$PG_DB" >/dev/null 2>&1; then
+    READY=1
+    break
+  fi
   sleep 0.5
 done
+if [ "$READY" -ne 1 ]; then
+  echo "Disposable PostgreSQL container ${PG_CONTAINER} did not become ready within 30s" >&2
+  exit 1
+fi
 
-# 3. Install, migrate, build against local API, and execute all 12 steps (trap EXIT handles teardown on success or failure)
-cd "$INT_WT"
-export DATABASE_URL="postgresql://postgres:${LOCAL_TEST_PG_PASS}@127.0.0.1:5491/khlim_ric191_test"
+# 3. Deploy all Prisma migrations in order and verify both frozen RIC-190 migrations
+export DATABASE_URL="postgresql://postgres:${PG_PASS}@127.0.0.1:${PG_PORT}/${PG_DB}"
 export KHLIM_TEST_DATABASE=1
-pnpm install --frozen-lockfile --prefer-offline
+
 pnpm exec prisma migrate deploy
 pnpm prisma:generate
+
+APPLIED_FROZEN="$(docker exec "$PG_CONTAINER" psql -U postgres -d "$PG_DB" -tAc \
+  "SELECT migration_name FROM _prisma_migrations WHERE migration_name IN ('20261125000000_academy_registration_v1', '20261126000000_academy_registration_lock_corrections') AND finished_at IS NOT NULL ORDER BY migration_name;")"
+EXPECTED_FROZEN=$'20261125000000_academy_registration_v1\n20261126000000_academy_registration_lock_corrections'
+if [ "$APPLIED_FROZEN" != "$EXPECTED_FROZEN" ]; then
+  echo "Expected both frozen RIC-190 migrations to be applied in order, got:" >&2
+  echo "$APPLIED_FROZEN" >&2
+  exit 1
+fi
+
+# 4. Build against the local acceptance API origin and execute all 12 real-stack steps
 NEXT_PUBLIC_API_BASE_URL="http://127.0.0.1:3193/v1" \
 NEXT_PUBLIC_ADMIN_DEMO_MODE="true" \
   pnpm build
@@ -100,25 +106,11 @@ node tests/integration/ric-191-integrated-acceptance.mjs
 
 ---
 
-## 4. Running After PR #125 and PR #126 Merge to `main`
-
-Once both dependencies are merged and PR #127 is rebased onto `main`, omit Step 1 above and run Steps 2–4 directly in your local checkout:
-
-```bash
-export DATABASE_URL="postgresql://postgres:${LOCAL_TEST_PG_PASS}@127.0.0.1:5491/khlim_ric191_test"
-export KHLIM_TEST_DATABASE=1
-pnpm exec prisma migrate deploy
-NEXT_PUBLIC_API_BASE_URL="http://127.0.0.1:3193/v1" NEXT_PUBLIC_ADMIN_DEMO_MODE="true" pnpm build
-node tests/integration/ric-191-integrated-acceptance.mjs
-```
-
----
-
-## 5. Covered 12-Step Acceptance Flow
+## 4. Covered 12-Step Acceptance Flow
 
 1. `SUPER_ADMIN` creates synthetic consent policy draft `SYNTHETIC-V1` via Admin UI → PostgreSQL.
 2. `SUPER_ADMIN` approves `SYNTHETIC-V1` via Admin UI (and real API returns HTTP `403` for `ACADEMY_ADMIN`).
-3. Staff creates and publishes a synthetic training session (`capacity = 1`) with explicit unchecked approvals.
+3. Staff creates and publishes a synthetic training session (`capacity = 1`) with explicit initially unchecked approvals.
 4. Parent completes 3-step public registration via `/academy` → `/academy/register` with Malaysian local phone (`012-345 6789`) → real HTTP `201`.
 5. Parent receives non-reserving `KAR-...` receipt (`reservesPlace: false`).
 6. Admin locates registration via authoritative session filter and Malaysian local phone `POST /search` (HTTP `200`, HMAC blind index) and opens detail drawer.

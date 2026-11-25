@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { isFeatureNotAvailableError } from "@khlim/api-client";
 import { useFamily } from "../../../lib/family-context";
 import { useI18n } from "../../../lib/i18n-context";
 import { PortalShell } from "../../../components/portal/portal-shell";
@@ -20,6 +21,7 @@ export default function PlayersPage() {
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [serverDeferred, setServerDeferred] = useState(false);
 
   const addAthlete = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -31,6 +33,11 @@ export default function PlayersPage() {
       setDateOfBirth("");
       setOpen(false);
     } catch (caught) {
+      if (isFeatureNotAvailableError(caught)) {
+        setOpen(false);
+        setServerDeferred(true);
+        return;
+      }
       setError(
         caught instanceof Error ? caught.message : t("portal.players.addError"),
       );
@@ -40,7 +47,7 @@ export default function PlayersPage() {
   };
 
   return (
-    <PortalShell>
+    <PortalShell serverDeferred={serverDeferred}>
       <div>
         <div
           style={{

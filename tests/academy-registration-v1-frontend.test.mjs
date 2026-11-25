@@ -617,6 +617,50 @@ describe("RIC-191 Academy Registration V1 frontend helpers & contract rules", ()
       classifyAdminRegistrationError(ordinary403Err).kind,
       "FORBIDDEN",
     );
+
+    // Deferred enrolment, checkout, and parent portal consumers handle 403 FEATURE_NOT_AVAILABLE
+    // without automatic recovery lookups or retries
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const deferredConsumerPaths = [
+      "apps/web/lib/family-context.tsx",
+      "apps/web/components/portal/portal-shell.tsx",
+      "apps/web/app/enrol/page.tsx",
+      "apps/web/app/enrol/confirmation/page.tsx",
+      "apps/web/app/portal/dashboard/page.tsx",
+      "apps/web/app/portal/membership/page.tsx",
+      "apps/web/app/portal/payments/page.tsx",
+      "apps/web/app/portal/schedule/page.tsx",
+      "apps/web/app/portal/notifications/page.tsx",
+      "apps/web/app/portal/players/page.tsx",
+      "apps/web/app/portal/players/[athleteId]/page.tsx",
+    ];
+    for (const rel of deferredConsumerPaths) {
+      const src = fs.readFileSync(path.resolve(rel), "utf8");
+      assert.ok(
+        src.includes("isFeatureNotAvailableError") ||
+          src.includes("isPortalFeatureDeferred"),
+        `Expected deferred FEATURE_NOT_AVAILABLE handling in ${rel}`,
+      );
+    }
+    const enrolSrc = fs.readFileSync(
+      path.resolve("apps/web/app/enrol/page.tsx"),
+      "utf8",
+    );
+    const guardIdx = enrolSrc.indexOf(
+      "if (isFeatureNotAvailableError(caught))",
+    );
+    const recoveryLookupIdx = enrolSrc.indexOf(
+      "apiService.listAthleteMemberships(athleteId)",
+    );
+    assert.ok(
+      guardIdx > 0 && recoveryLookupIdx > guardIdx,
+      "enrol/page.tsx must short-circuit FEATURE_NOT_AVAILABLE before listAthleteMemberships recovery lookup",
+    );
+    assert.ok(
+      enrolSrc.includes("if (isFeatureNotAvailableError(checkoutError))"),
+      "enrol/page.tsx must handle FEATURE_NOT_AVAILABLE on prepareCheckout without redirecting to confirmation lookups",
+    );
   });
 
   test("Admin display label formatters map raw API enums cleanly and handle missing ages safely", async () => {

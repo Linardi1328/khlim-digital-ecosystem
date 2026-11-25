@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { PortalShell } from "../../../components/portal/portal-shell";
 import { Badge } from "../../../components/ui/badge";
 import { Card } from "../../../components/ui/card";
+import { isFeatureNotAvailableError } from "@khlim/api-client";
 import { apiService } from "../../../lib/api-service";
 import { isFeatureAvailable } from "../../../lib/feature-availability";
 import {
@@ -19,20 +20,27 @@ export default function SchedulePage() {
   const [sessions, setSessions] = useState<ScheduleSessionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [serverDeferred, setServerDeferred] = useState(false);
   useEffect(() => {
-    if (!portalAvailable) {
+    if (!portalAvailable || serverDeferred) {
       setLoading(false);
       return;
     }
     apiService
       .listMySchedule()
       .then(setSessions)
-      .catch(() => setError(t("portal.schedule.error")))
+      .catch((caught) => {
+        if (isFeatureNotAvailableError(caught)) {
+          setServerDeferred(true);
+          return;
+        }
+        setError(t("portal.schedule.error"));
+      })
       .finally(() => setLoading(false));
-  }, [portalAvailable, t]);
+  }, [portalAvailable, serverDeferred, t]);
 
   return (
-    <PortalShell>
+    <PortalShell serverDeferred={serverDeferred}>
       <div>
         <h1>{t("portal.schedule.titleAlt")}</h1>
         <p style={{ color: "#64748b" }}>{t("portal.schedule.description")}</p>

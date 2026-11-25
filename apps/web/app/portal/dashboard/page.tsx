@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { isFeatureNotAvailableError } from "@khlim/api-client";
 import { apiService } from "../../../lib/api-service";
 import { isFeatureAvailable } from "../../../lib/feature-availability";
 import { membershipStatusLabel } from "../../../lib/display-labels";
@@ -33,9 +34,10 @@ export default function DashboardPage() {
     null,
   );
   const [loading, setLoading] = useState(true);
+  const [serverDeferred, setServerDeferred] = useState(false);
 
   useEffect(() => {
-    if (!portalAvailable || !activeChild) {
+    if (!portalAvailable || serverDeferred || !activeChild) {
       setMemberships([]);
       setBilling(null);
       setLoading(false);
@@ -56,16 +58,22 @@ export default function DashboardPage() {
           setBilling(
             await apiService.getMembershipBilling(activeChild.id, current.id),
           );
-        } catch {
+        } catch (billingErr) {
+          if (isFeatureNotAvailableError(billingErr)) {
+            setServerDeferred(true);
+          }
           setBilling(null);
         }
       })
-      .catch(() => {
+      .catch((caught) => {
+        if (isFeatureNotAvailableError(caught)) {
+          setServerDeferred(true);
+        }
         setMemberships([]);
         setBilling(null);
       })
       .finally(() => setLoading(false));
-  }, [activeChild, portalAvailable]);
+  }, [activeChild, portalAvailable, serverDeferred]);
 
   const current =
     memberships.find((item) => item.status === "ACTIVE") ?? memberships[0];
@@ -77,7 +85,7 @@ export default function DashboardPage() {
     : null;
 
   return (
-    <PortalShell>
+    <PortalShell serverDeferred={serverDeferred}>
       <div>
         <h1>
           {t("portal.dashboard.welcome", {
