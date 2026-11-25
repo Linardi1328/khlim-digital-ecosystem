@@ -68,6 +68,50 @@ for (const path of publicRoutes) {
   });
 }
 
+test("programme API failure shows retry instead of no offerings", async ({
+  page,
+}) => {
+  let shouldFail = true;
+  await page.route("**/academy/offerings", async (route) => {
+    await route.fulfill({
+      status: shouldFail ? 503 : 200,
+      contentType: "application/json",
+      headers: { "access-control-allow-origin": "*" },
+      body: shouldFail ? '{"message":"temporarily unavailable"}' : "[]",
+    });
+  });
+
+  await page.goto("/programmes", { waitUntil: "domcontentloaded" });
+  await expect(page.locator('main p[role="alert"]')).toContainText(
+    "Programme listings are temporarily unavailable.",
+  );
+  await expect(
+    page.getByText("No matching open programme offerings."),
+  ).toHaveCount(0);
+
+  shouldFail = false;
+  await page.getByRole("button", { name: "Try Again" }).click();
+  await expect(
+    page.getByText("No matching open programme offerings."),
+  ).toBeVisible();
+  await expect(page.locator('main p[role="alert"]')).toHaveCount(0);
+});
+
+test("programme outage error follows selected locale", async ({ page }) => {
+  await page.route("**/academy/offerings", (route) =>
+    route.fulfill({ status: 503, body: "unavailable" }),
+  );
+  await page.goto("/programmes", { waitUntil: "domcontentloaded" });
+  await visibleLocaleSwitcher(page).selectOption("ms");
+  await expect(page.locator('main p[role="alert"]')).toContainText(
+    "Senarai program tidak dapat dimuatkan",
+  );
+  await visibleLocaleSwitcher(page).selectOption("zh-Hans");
+  await expect(page.locator('main p[role="alert"]')).toContainText(
+    "暂时无法加载课程列表。",
+  );
+});
+
 test("homepage keeps academy actions primary without inactive carousel controls", async ({
   page,
 }) => {
