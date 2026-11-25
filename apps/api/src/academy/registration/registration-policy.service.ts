@@ -172,6 +172,9 @@ export class RegistrationPolicyService {
     const { expectedVersion } = parseVersionOnly(body);
     return withSanitizedErrors(() =>
       this.prisma.client.$transaction(async (tx) => {
+        // One approval/retirement at a time per organization; always taken
+        // before any policy row lock (submit never takes this lock).
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`registration-policy:${organizationId}`}, 0))`;
         const rows = await tx.$queryRaw<
           Array<{ status: string; version: number; policy_version: string }>
         >`
@@ -250,6 +253,9 @@ export class RegistrationPolicyService {
     const { expectedVersion } = parseVersionOnly(body);
     return withSanitizedErrors(() =>
       this.prisma.client.$transaction(async (tx) => {
+        // One approval/retirement at a time per organization; always taken
+        // before any policy row lock (submit never takes this lock).
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`registration-policy:${organizationId}`}, 0))`;
         const rows = await tx.$queryRaw<
           Array<{ status: string; version: number }>
         >`

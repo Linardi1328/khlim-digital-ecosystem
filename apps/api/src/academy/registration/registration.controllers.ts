@@ -32,7 +32,13 @@ import {
   type IncomingRequest,
 } from "../academy-leads.controller";
 import {
+  AdminRegistrationPolicyDto,
+  AdminRegistrationPolicyListDto,
+  AdminRegistrationSessionDto,
+  AdminRegistrationSessionListDto,
   CreateRegistrationPolicyRequestDto,
+  CreateRegistrationSessionRequestDto,
+  UpdateRegistrationSessionRequestDto,
   CreateRegistrationRequestDto,
   PublicRegistrationSessionsDto,
   PublishRegistrationSessionRequestDto,
@@ -42,7 +48,6 @@ import {
   RegistrationListDto,
   RegistrationReceiptDto,
   RegistrationSearchRequestDto,
-  RegistrationSessionRequestDto,
   RegistrationStatusChangeRequestDto,
   VersionRequestDto,
 } from "./registration.dto";
@@ -212,12 +217,16 @@ export class AcademyRegistrationSessionAdminController {
 
   @Get()
   @ApiOperation({ summary: "List registration sessions with seat counts" })
+  @ApiResponse({ status: 200, type: AdminRegistrationSessionListDto })
+  @ApiResponse({ status: 200, type: AdminRegistrationSessionListDto })
   list(@CurrentUser() user: AuthenticatedUserContext) {
     return this.sessions.list(organizationId(user));
   }
 
   @Get(":id")
   @ApiOperation({ summary: "Registration session detail" })
+  @ApiResponse({ status: 200, type: AdminRegistrationSessionDto })
+  @ApiResponse({ status: 200, type: AdminRegistrationSessionDto })
   get(@CurrentUser() user: AuthenticatedUserContext, @Param("id") id: string) {
     return this.sessions.get(organizationId(user), id);
   }
@@ -226,9 +235,10 @@ export class AcademyRegistrationSessionAdminController {
   @ApiOperation({
     summary: "Create a draft session and its dedicated programme offering",
   })
+  @ApiResponse({ status: 201, type: AdminRegistrationSessionDto })
   create(
     @CurrentUser() user: AuthenticatedUserContext,
-    @Body() body: RegistrationSessionRequestDto,
+    @Body() body: CreateRegistrationSessionRequestDto,
   ) {
     return this.sessions.create(organizationId(user), user, body);
   }
@@ -237,10 +247,12 @@ export class AcademyRegistrationSessionAdminController {
   @ApiOperation({
     summary: "Edit a session (compare-and-set on expectedVersion)",
   })
+  @ApiResponse({ status: 200, type: AdminRegistrationSessionDto })
+  @ApiResponse({ status: 409, type: RegistrationErrorDto })
   patch(
     @CurrentUser() user: AuthenticatedUserContext,
     @Param("id") id: string,
-    @Body() body: RegistrationSessionRequestDto,
+    @Body() body: UpdateRegistrationSessionRequestDto,
   ) {
     return this.sessions.patch(organizationId(user), user, id, body);
   }
@@ -250,6 +262,8 @@ export class AcademyRegistrationSessionAdminController {
     summary:
       "Publish a complete session; records explicit schedule and age-rule approval",
   })
+  @ApiResponse({ status: 201, type: AdminRegistrationSessionDto })
+  @ApiResponse({ status: 409, type: RegistrationErrorDto })
   publish(
     @CurrentUser() user: AuthenticatedUserContext,
     @Param("id") id: string,
@@ -260,6 +274,10 @@ export class AcademyRegistrationSessionAdminController {
 
   @Post(":id/close")
   @ApiOperation({ summary: "Close a published session" })
+  @ApiResponse({ status: 201, type: AdminRegistrationSessionDto })
+  @ApiResponse({ status: 409, type: RegistrationErrorDto })
+  @ApiResponse({ status: 201, type: AdminRegistrationSessionDto })
+  @ApiResponse({ status: 409, type: RegistrationErrorDto })
   close(
     @CurrentUser() user: AuthenticatedUserContext,
     @Param("id") id: string,
@@ -280,6 +298,8 @@ export class AcademyRegistrationPolicyAdminController {
 
   @Get()
   @ApiOperation({ summary: "List consent policy versions" })
+  @ApiResponse({ status: 200, type: AdminRegistrationPolicyListDto })
+  @ApiResponse({ status: 200, type: AdminRegistrationPolicyListDto })
   list(@CurrentUser() user: AuthenticatedUserContext) {
     return this.policies.list(organizationId(user));
   }
@@ -289,6 +309,8 @@ export class AcademyRegistrationPolicyAdminController {
     summary:
       "Create a draft consent policy version (references and hashes only)",
   })
+  @ApiResponse({ status: 201, type: AdminRegistrationPolicyDto })
+  @ApiResponse({ status: 409, type: RegistrationErrorDto })
   create(
     @CurrentUser() user: AuthenticatedUserContext,
     @Body() body: CreateRegistrationPolicyRequestDto,
@@ -301,6 +323,8 @@ export class AcademyRegistrationPolicyAdminController {
   @ApiOperation({
     summary: "Approve a draft policy; approver is the authenticated user",
   })
+  @ApiResponse({ status: 201, type: AdminRegistrationPolicyDto })
+  @ApiResponse({ status: 409, type: RegistrationErrorDto })
   approve(
     @CurrentUser() user: AuthenticatedUserContext,
     @Param("id") id: string,
@@ -314,6 +338,8 @@ export class AcademyRegistrationPolicyAdminController {
   @ApiOperation({
     summary: "Retire a policy (closes registration if it was current)",
   })
+  @ApiResponse({ status: 201, type: AdminRegistrationPolicyDto })
+  @ApiResponse({ status: 409, type: RegistrationErrorDto })
   retire(
     @CurrentUser() user: AuthenticatedUserContext,
     @Param("id") id: string,

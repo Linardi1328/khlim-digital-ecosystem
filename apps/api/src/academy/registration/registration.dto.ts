@@ -297,25 +297,39 @@ export class RegistrationDetailDto extends RegistrationSummaryDto {
   consents!: Array<Record<string, unknown>>;
 }
 
-export class RegistrationSessionRequestDto {
-  @ApiPropertyOptional() programmeId?: string;
-  @ApiPropertyOptional() name?: string;
-  @ApiPropertyOptional() venueId?: string;
-  @ApiPropertyOptional() capacity?: number;
-  @ApiPropertyOptional({ type: String, nullable: true }) enrollmentOpensAt?:
-    string | null;
-  @ApiPropertyOptional({ type: String, nullable: true }) enrollmentClosesAt?:
-    string | null;
-  @ApiPropertyOptional({ type: String, nullable: true }) coachDisplayName?:
-    string | null;
-  @ApiPropertyOptional({ type: Number, nullable: true, minimum: 1, maximum: 7 })
+class RegistrationSessionScheduleFieldsDto {
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    description: "ISO date-time",
+  })
+  enrollmentOpensAt?: string | null;
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    description: "ISO date-time",
+  })
+  enrollmentClosesAt?: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 120 })
+  coachDisplayName?: string | null;
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    minimum: 1,
+    maximum: 7,
+    description: "ISO weekday, 1 = Monday",
+  })
   weekday?: number | null;
   @ApiPropertyOptional({ type: String, nullable: true, example: "14:00" })
   startTime?: string | null;
   @ApiPropertyOptional({ type: String, nullable: true, example: "16:00" })
   endTime?: string | null;
-  @ApiPropertyOptional({ type: String, nullable: true }) firstSessionDate?:
-    string | null;
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    description: "YYYY-MM-DD",
+  })
+  firstSessionDate?: string | null;
   @ApiPropertyOptional({
     type: String,
     nullable: true,
@@ -328,10 +342,125 @@ export class RegistrationSessionRequestDto {
     enum: ["FIXED_DATE", "SESSION_START_DATE", "REGISTRATION_DATE"],
   })
   ageReferenceRule?: string | null;
-  @ApiPropertyOptional({ type: String, nullable: true }) ageReferenceDate?:
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    description: "Required with FIXED_DATE, otherwise null",
+  })
+  ageReferenceDate?: string | null;
+}
+
+export class CreateRegistrationSessionRequestDto extends RegistrationSessionScheduleFieldsDto {
+  @ApiProperty({ example: UUID_EXAMPLE })
+  programmeId!: string;
+  @ApiProperty({ maxLength: 180 })
+  name!: string;
+  @ApiProperty({ example: UUID_EXAMPLE })
+  venueId!: string;
+  @ApiProperty({ minimum: 1, maximum: 10000 })
+  capacity!: number;
+}
+
+export class UpdateRegistrationSessionRequestDto extends RegistrationSessionScheduleFieldsDto {
+  @ApiProperty({ description: "Compare-and-set token from the last response" })
+  expectedVersion!: number;
+  @ApiPropertyOptional({ maxLength: 180, description: "Draft only" })
+  name?: string;
+  @ApiPropertyOptional({ description: "Draft only" })
+  venueId?: string;
+  @ApiPropertyOptional({
+    minimum: 1,
+    maximum: 10000,
+    description: "Never below confirmed seats",
+  })
+  capacity?: number;
+}
+
+export class AdminSessionProgrammeDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty({ type: Number, nullable: true }) minimumAge!: number | null;
+  @ApiProperty({ type: Number, nullable: true }) maximumAge!: number | null;
+}
+
+export class AdminSessionVenueDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty({ type: String, nullable: true }) address!: string | null;
+}
+
+export class AdminSessionSeatCountsDto {
+  @ApiProperty() RECEIVED!: number;
+  @ApiProperty() UNDER_REVIEW!: number;
+  @ApiProperty() CONFIRMED!: number;
+  @ApiProperty() REJECTED!: number;
+  @ApiProperty() CANCELLED!: number;
+}
+
+export class AdminRegistrationSessionDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() programmeOfferingId!: string;
+  @ApiProperty() name!: string;
+  @ApiProperty({ enum: ["DRAFT", "PUBLISHED", "CLOSED"] })
+  publicationState!: string;
+  @ApiProperty() version!: number;
+  @ApiProperty({ type: () => AdminSessionProgrammeDto })
+  programme!: AdminSessionProgrammeDto;
+  @ApiProperty({ type: () => AdminSessionVenueDto, nullable: true })
+  venue!: AdminSessionVenueDto | null;
+  @ApiProperty() capacity!: number;
+  @ApiProperty() seatsRemaining!: number;
+  @ApiProperty({ type: () => AdminSessionSeatCountsDto })
+  seatCounts!: AdminSessionSeatCountsDto;
+  @ApiProperty({ type: String, nullable: true }) enrollmentOpensAt!:
     string | null;
-  @ApiPropertyOptional({ description: "Required on PATCH/publish/close" })
-  expectedVersion?: number;
+  @ApiProperty({ type: String, nullable: true }) enrollmentClosesAt!:
+    string | null;
+  @ApiProperty({ type: String, nullable: true }) coachDisplayName!:
+    string | null;
+  @ApiProperty({ type: Number, nullable: true }) weekday!: number | null;
+  @ApiProperty({ type: String, nullable: true }) startTime!: string | null;
+  @ApiProperty({ type: String, nullable: true }) endTime!: string | null;
+  @ApiProperty({ example: "Asia/Kuala_Lumpur" }) timezone!: string;
+  @ApiProperty({ type: String, nullable: true }) firstSessionDate!:
+    string | null;
+  @ApiProperty({ type: String, nullable: true, enum: ["NONE", "WEEKLY"] })
+  recurrence!: string | null;
+  @ApiProperty({ type: String, nullable: true }) ageReferenceRule!:
+    string | null;
+  @ApiProperty({ type: String, nullable: true }) ageReferenceDate!:
+    string | null;
+  @ApiProperty({ type: String, nullable: true }) publishedAt!: string | null;
+  @ApiProperty({ type: String, nullable: true }) closedAt!: string | null;
+  @ApiProperty() createdAt!: string;
+  @ApiProperty() updatedAt!: string;
+}
+
+export class AdminRegistrationSessionListDto {
+  @ApiProperty({ type: () => [AdminRegistrationSessionDto] })
+  items!: AdminRegistrationSessionDto[];
+}
+
+export class AdminRegistrationPolicyDto {
+  @ApiProperty() id!: string;
+  @ApiProperty() policyVersion!: string;
+  @ApiProperty({ enum: ["DRAFT", "APPROVED", "RETIRED"] }) status!: string;
+  @ApiProperty() version!: number;
+  @ApiProperty({
+    type: "object",
+    additionalProperties: true,
+    description: "{ CONSENT_TYPE: { locale: { ref, sha256 } } }",
+  })
+  content!: Record<string, unknown>;
+  @ApiProperty({ type: String, nullable: true }) approvedAt!: string | null;
+  @ApiProperty({ type: String, nullable: true }) retiredAt!: string | null;
+  @ApiProperty() createdAt!: string;
+  @ApiProperty() updatedAt!: string;
+}
+
+export class AdminRegistrationPolicyListDto {
+  @ApiProperty({ type: () => [AdminRegistrationPolicyDto] })
+  items!: AdminRegistrationPolicyDto[];
 }
 
 export class PublishRegistrationSessionRequestDto {
@@ -357,9 +486,4 @@ export class CreateRegistrationPolicyRequestDto {
       "{ CONSENT_TYPE: { locale: { ref, sha256 } } } for all four types and three locales",
   })
   content!: Record<string, unknown>;
-}
-
-export class AdminObjectDto {
-  @ApiProperty({ type: "object", additionalProperties: true })
-  data!: Record<string, unknown>;
 }

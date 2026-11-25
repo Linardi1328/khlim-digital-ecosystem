@@ -364,6 +364,10 @@ LANGUAGE plpgsql
 SET search_path = pg_catalog, public
 AS $$
 BEGIN
+  -- Serialize with registration-session creation on the offering row so two
+  -- uncommitted transactions cannot each miss the other's insert.
+  PERFORM 1 FROM "public"."programme_offerings" o
+    WHERE o."id" = NEW."programme_offering_id" FOR SHARE;
   IF EXISTS (
     SELECT 1 FROM "public"."academy_registration_sessions" s
     WHERE s."programme_offering_id" = NEW."programme_offering_id"
@@ -380,6 +384,8 @@ LANGUAGE plpgsql
 SET search_path = pg_catalog, public
 AS $$
 BEGIN
+  PERFORM 1 FROM "public"."programme_offerings" o
+    WHERE o."id" = NEW."offering_id" FOR SHARE;
   IF EXISTS (
     SELECT 1 FROM "public"."academy_registration_sessions" s
     WHERE s."programme_offering_id" = NEW."offering_id"
@@ -396,6 +402,10 @@ LANGUAGE plpgsql
 SET search_path = pg_catalog, public
 AS $$
 BEGIN
+  -- Exclusive offering lock: waits for in-flight membership/plan-link inserts
+  -- (which hold FOR SHARE) and blocks new ones until this transaction ends.
+  PERFORM 1 FROM "public"."programme_offerings" o
+    WHERE o."id" = NEW."programme_offering_id" FOR UPDATE;
   IF EXISTS (
     SELECT 1 FROM "public"."memberships" m
     WHERE m."programme_offering_id" = NEW."programme_offering_id"
@@ -418,8 +428,60 @@ CREATE TRIGGER "plan_eligibilities_registration_isolation"
   FOR EACH ROW EXECUTE FUNCTION "public"."academy_eligibility_registration_isolation"();
 
 CREATE TRIGGER "registration_sessions_clean_offering"
-  BEFORE INSERT OR UPDATE OF "programme_offering_id" ON "public"."academy_registration_sessions"
+  BEFORE INSERT ON "public"."academy_registration_sessions"
   FOR EACH ROW EXECUTE FUNCTION "public"."academy_session_requires_clean_offering"();
+
+-- ---------------------------------------------------------------------------
+-- Immutable linkage: a session never moves to another offering/organization
+-- (that would swap its capacity authority) and a registration never moves to
+-- another session/organization or loses its receipt identity. There is no
+-- approved V1 transfer workflow. ON UPDATE CASCADE from parents therefore also
+-- fails closed.
+-- ---------------------------------------------------------------------------
+CREATE FUNCTION "public"."academy_registration_session_identity_guard"()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = pg_catalog, public
+AS $$
+BEGIN
+  IF NEW."id" IS DISTINCT FROM OLD."id"
+     OR NEW."organization_id" IS DISTINCT FROM OLD."organization_id"
+     OR NEW."programme_offering_id" IS DISTINCT FROM OLD."programme_offering_id" THEN
+    RAISE EXCEPTION 'REGISTRATION_LINKAGE_IMMUTABLE' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END
+$$;
+
+CREATE TRIGGER "registration_sessions_identity_guard"
+  BEFORE UPDATE ON "public"."academy_registration_sessions"
+  FOR EACH ROW EXECUTE FUNCTION "public"."academy_registration_session_identity_guard"();
+
+CREATE FUNCTION "public"."academy_registration_identity_guard"()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = pg_catalog, public
+AS $$
+BEGIN
+  IF NEW."id" IS DISTINCT FROM OLD."id"
+     OR NEW."organization_id" IS DISTINCT FROM OLD."organization_id"
+     OR NEW."session_id" IS DISTINCT FROM OLD."session_id"
+     OR NEW."reference_code" IS DISTINCT FROM OLD."reference_code"
+     OR NEW."session_name_snapshot" IS DISTINCT FROM OLD."session_name_snapshot"
+     OR NEW."idempotency_operation" IS DISTINCT FROM OLD."idempotency_operation"
+     OR NEW."idempotency_key_hmac" IS DISTINCT FROM OLD."idempotency_key_hmac"
+     OR NEW."payload_hmac" IS DISTINCT FROM OLD."payload_hmac"
+     OR NEW."hmac_key_version" IS DISTINCT FROM OLD."hmac_key_version"
+     OR NEW."created_at" IS DISTINCT FROM OLD."created_at" THEN
+    RAISE EXCEPTION 'REGISTRATION_LINKAGE_IMMUTABLE' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END
+$$;
+
+CREATE TRIGGER "academy_registrations_identity_guard"
+  BEFORE UPDATE ON "public"."academy_registrations"
+  FOR EACH ROW EXECUTE FUNCTION "public"."academy_registration_identity_guard"();
 
 -- ---------------------------------------------------------------------------
 -- Registration state machine and capacity, enforced for any writer. The

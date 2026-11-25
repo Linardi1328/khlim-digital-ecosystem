@@ -10,15 +10,19 @@ import {
   ORG_B,
   PrismaService,
   RUN,
+  RegistrationPolicyService,
   RegistrationPublicService,
   SupabaseJwtService,
   UnauthorizedException,
   addDays,
   captureOutput,
+  createOpenApiDocument,
+  dbText,
   databaseTestsEnabled,
   expectDbReject,
   http,
   klToday,
+  loadHmacKeyRing,
   newIp,
   newKey,
   nextPhone,
@@ -45,6 +49,9 @@ const USERS = {
   admin: { role: "ACADEMY_ADMIN", aal: "aal2" },
   adminAal1: { role: "ACADEMY_ADMIN", aal: "aal1", sameAs: "admin" },
   mgmt: { role: "MANAGEMENT", aal: "aal2" },
+  mgmtAal1: { role: "MANAGEMENT", aal: "aal1", sameAs: "mgmt" },
+  superAdmin: { role: "SUPER_ADMIN", aal: "aal2" },
+  superAal1: { role: "SUPER_ADMIN", aal: "aal1", sameAs: "superAdmin" },
   coach: { role: "COACH", aal: "aal2" },
   finance: { role: "FINANCE_ADMIN", aal: "aal2" },
   event: { role: "EVENT_STAFF", aal: "aal2" },
@@ -1614,9 +1621,16 @@ test(
     const byPhone = await api(c, "/admin/academy/registrations/search", {
       method: "POST",
       token: "admin",
-      body: { q: row.guardianPhone.replace("+60", "0") },
+      body: {
+        q: row.guardianPhone.replace("+60", "0"),
+        sessionId: session.id,
+      },
     });
-    assert.ok(byPhone.body.total >= 0);
+    assert.deepEqual(
+      byPhone.body.items.map((item) => item.id),
+      [a.id],
+      "local-format phone search finds exactly the matching registration",
+    );
     for (const body of [{ q: "x" }, { q: "xx", extra: 1 }, {}]) {
       assert.equal(
         (
@@ -2234,5 +2248,1153 @@ test(
       request: { url: "https://api.example.test/v1/me", data: { keep: true } },
     };
     assert.deepEqual(scrubRegistrationEvent(structuredClone(other)), other);
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Review remediation (F1-F4, U1-U4): deterministic concurrency tests.
+// Transactions are synchronized through held row/advisory locks and polling
+// pg_locks for waiters, never through sleeps alone.
+// ---------------------------------------------------------------------------
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitingLocks(c) {
+  const rows = await c.client.$queryRawUnsafe(
+    `SELECT count(*)::int AS n FROM pg_locks WHERE NOT granted`,
+  );
+  return rows[0].n;
+}
+
+async function waitForWaiters(c, atLeast, label) {
+  const deadline = Date.now() + 15000;
+  for (;;) {
+    if ((await waitingLocks(c)) >= atLeast) return;
+    if (Date.now() > deadline) {
+      throw new Error(
+        `timed out waiting for ${atLeast} lock waiters: ${label}`,
+      );
+    }
+    await sleep(25);
+  }
+}
+
+/** Runs `work` in an interactive transaction that stays open until released. */
+function holdTransaction(c, work) {
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  let markReady;
+  const ready = new Promise((resolve) => {
+    markReady = resolve;
+  });
+  const done = c.client.$transaction(
+    async (tx) => {
+      await work(tx);
+      markReady();
+      await gate;
+    },
+    { timeout: 60000, maxWait: 15000 },
+  );
+  done.catch(() => markReady());
+  return { ready, release, done };
+}
+
+function settle(promise) {
+  return promise.then(
+    (value) => ({ ok: true, value }),
+    (error) => ({ ok: false, error }),
+  );
+}
+
+let policyCounter = 0;
+async function rotateTo() {
+  const c = await ctx();
+  policyCounter += 1;
+  const label = `synthetic-ric190-${RUN}-r${policyCounter}`;
+  await approvePolicy(c, label);
+  currentConsent = label;
+  return label;
+}
+
+async function currentPolicyRow(c) {
+  return c.client.academyRegistrationPolicy.findFirst({
+    where: { organizationId: ORG_A, status: "APPROVED" },
+  });
+}
+
+async function newDraftPolicy(c, label) {
+  const created = await api(c, "/admin/academy/registration-policies", {
+    method: "POST",
+    token: "mgmt",
+    body: { policyVersion: label, content: policyContent(label) },
+  });
+  assert.equal(created.status, 201, created.text);
+  return created.body;
+}
+
+const RING_A = `v1:${HMAC_V1},v2:${HMAC_V2}`; // compatible rings, active v1
+const RING_B = `v2:${HMAC_V2},v1:${HMAC_V1}`; // compatible rings, active v2
+
+function instance(c, ringSpec) {
+  const service = new RegistrationPublicService(
+    c.app.get(PrismaService),
+    c.app.get(RegistrationPolicyService),
+  );
+  service.ringLoader = () =>
+    loadHmacKeyRing({ KHLIM_REGISTRATION_HMAC_KEYS: ringSpec });
+  return service;
+}
+
+test(
+  "F1: instances with compatible rings but different active signing keys never duplicate, whichever transaction wins",
+  { skip },
+  async () => {
+    const c = await ctx();
+    await rotateTo();
+    const instanceA = instance(c, RING_A);
+    const instanceB = instance(c, RING_B);
+    const versionOf = { A: "v1", B: "v2" };
+
+    for (const firstWinner of ["A", "B"]) {
+      const session = await publishedSession(c);
+      const body = regBody(session.id);
+      const key = newKey();
+      const ip = newIp();
+      const services = { A: instanceA, B: instanceB };
+      const second = firstWinner === "A" ? "B" : "A";
+
+      // Hold the offering so the first instance parks AFTER taking its advisory
+      // locks; the second instance must then queue behind those locks.
+      const holder = holdTransaction(
+        c,
+        (tx) =>
+          tx.$queryRaw`SELECT id FROM programme_offerings WHERE id = ${session.programmeOfferingId}::uuid FOR UPDATE`,
+      );
+      await holder.ready;
+      const baseline = await waitingLocks(c);
+      const first = services[firstWinner].createRegistration(body, key, ip);
+      await waitForWaiters(
+        c,
+        baseline + 1,
+        `${firstWinner} parked at offering`,
+      );
+      const queued = services[second].createRegistration(body, key, ip);
+      await waitForWaiters(
+        c,
+        baseline + 2,
+        `${second} queued on advisory lock`,
+      );
+      holder.release();
+      const [r1, r2] = await Promise.all([first, queued]);
+      await holder.done;
+
+      assert.equal(r1.replayed, false, `${firstWinner} wins`);
+      assert.equal(r2.replayed, true, `${second} replays`);
+      assert.equal(r1.receipt.id, r2.receipt.id);
+      assert.deepEqual(r1.receipt, r2.receipt);
+      assert.equal(
+        await c.client.academyRegistration.count({
+          where: { sessionId: session.id },
+        }),
+        1,
+      );
+      const row = await c.client.academyRegistration.findUnique({
+        where: { id: r1.receipt.id },
+      });
+      assert.equal(row.hmacKeyVersion, versionOf[firstWinner]);
+
+      // Identical retries through either instance return the original receipt.
+      for (const service of [instanceA, instanceB]) {
+        const retry = await service.createRegistration(body, key, newIp());
+        assert.equal(retry.replayed, true);
+        assert.deepEqual(retry.receipt, r1.receipt);
+      }
+      // A conflicting payload under the same key is rejected on both instances.
+      for (const service of [instanceA, instanceB]) {
+        await assert.rejects(
+          service.createRegistration(
+            { ...body, player: { ...body.player, jerseySize: "YL" } },
+            key,
+            newIp(),
+          ),
+          (error) => error.code === "IDEMPOTENCY_KEY_CONFLICT",
+        );
+      }
+    }
+  },
+);
+
+test(
+  "F1: sequential two-phase key rotation keeps every receipt replayable",
+  { skip },
+  async () => {
+    const c = await ctx();
+    const session = await publishedSession(c);
+    const phase0 = instance(c, `v1:${HMAC_V1}`); // before rotation
+    const phase1 = instance(c, RING_A); // new key distributed, still signing v1
+    const phase3 = instance(c, RING_B); // active signing switched to v2
+    const bodyOld = regBody(session.id);
+    const keyOld = newKey();
+    const created = await phase0.createRegistration(bodyOld, keyOld, newIp());
+    assert.equal(created.replayed, false);
+    assert.equal(
+      (await phase1.createRegistration(bodyOld, keyOld, newIp())).replayed,
+      true,
+    );
+    assert.equal(
+      (await phase3.createRegistration(bodyOld, keyOld, newIp())).replayed,
+      true,
+      "a record signed with the retained v1 key replays after the switch",
+    );
+    const bodyNew = regBody(session.id);
+    const keyNew = newKey();
+    const signedV2 = await phase3.createRegistration(bodyNew, keyNew, newIp());
+    const stored = await c.client.academyRegistration.findUnique({
+      where: { id: signedV2.receipt.id },
+    });
+    assert.equal(stored.hmacKeyVersion, "v2");
+    const viaPhase1 = await phase1.createRegistration(bodyNew, keyNew, newIp());
+    assert.equal(
+      viaPhase1.replayed,
+      true,
+      "verification-only v2 instances replay",
+    );
+    assert.deepEqual(viaPhase1.receipt, signedV2.receipt);
+    // No raw idempotency key is ever persisted.
+    const dump = JSON.stringify(
+      await c.client.$queryRawUnsafe(
+        `SELECT * FROM academy_registrations WHERE id IN ('${created.receipt.id}','${signedV2.receipt.id}')`,
+      ),
+    );
+    assert.ok(!dump.includes(keyOld) && !dump.includes(keyNew));
+  },
+);
+
+test(
+  "F2: submission versus policy retirement, both orders; replay survives retirement",
+  { skip },
+  async () => {
+    const c = await ctx();
+    await rotateTo();
+    const session = await publishedSession(c);
+    const policy = await currentPolicyRow(c);
+
+    // Order 1: the submission holds its policy share lock first, so the
+    // retirement waits and the registration commits under the accepted policy.
+    const holder = holdTransaction(
+      c,
+      (tx) =>
+        tx.$queryRaw`SELECT id FROM programme_offerings WHERE id = ${session.programmeOfferingId}::uuid FOR UPDATE`,
+    );
+    await holder.ready;
+    const baseline = await waitingLocks(c);
+    const body = regBody(session.id);
+    const key = newKey();
+    const submission = submit(c, body, { key });
+    await waitForWaiters(c, baseline + 1, "submission parked at offering");
+    const retirement = api(
+      c,
+      `/admin/academy/registration-policies/${policy.id}/retire`,
+      {
+        method: "POST",
+        token: "mgmt",
+        body: { expectedVersion: policy.version },
+      },
+    );
+    await waitForWaiters(
+      c,
+      baseline + 2,
+      "retirement waits for the share lock",
+    );
+    holder.release();
+    const [sub, ret] = await Promise.all([submission, retirement]);
+    await holder.done;
+    assert.equal(sub.status, 201, sub.text);
+    assert.equal(ret.status, 201, ret.text);
+    const consents = await c.client.academyRegistrationConsent.findMany({
+      where: { registrationId: sub.body.id },
+    });
+    assert.ok(consents.every((x) => x.policyId === policy.id));
+    assert.ok(consents.every((x) => x.policyVersion === policy.policyVersion));
+    const retired = await c.client.academyRegistrationPolicy.findUnique({
+      where: { id: policy.id },
+    });
+    assert.equal(retired.status, "RETIRED");
+    assert.deepEqual(
+      (
+        await c.client.academyRegistrationConsent.findMany({
+          where: { registrationId: sub.body.id },
+          select: { contentSha256: true },
+        })
+      ).length,
+      4,
+      "historical consent records are kept after retirement",
+    );
+
+    // With no approved policy: closed for new keys, replay still returns the receipt.
+    const config = await api(c, "/academy/registration-config");
+    assert.equal(config.body.registrationOpen, false);
+    const closed = await submit(c, regBody(session.id));
+    assert.equal(closed.body.code, "REGISTRATION_CLOSED");
+    const replay = await submit(c, body, { key });
+    assert.equal(replay.status, 200);
+    assert.deepEqual(replay.body, sub.body);
+
+    // Order 2: the retirement commits first, so the waiting submission fails closed.
+    await rotateTo();
+    const second = await publishedSession(c);
+    const approved = await currentPolicyRow(c);
+    const retireHolder = holdTransaction(c, async (tx) => {
+      await tx.$executeRawUnsafe(
+        `UPDATE academy_registration_policies SET status = 'RETIRED', retired_at = now() WHERE id = '${approved.id}'`,
+      );
+    });
+    await retireHolder.ready;
+    const waiting = await waitingLocks(c);
+    const lateBody = regBody(second.id, {
+      consentVersion: approved.policyVersion,
+    });
+    const late = submit(c, lateBody);
+    await waitForWaiters(c, waiting + 1, "submission waits on the policy row");
+    retireHolder.release();
+    const lateResult = await late;
+    await retireHolder.done;
+    assert.equal(lateResult.status, 409);
+    assert.equal(lateResult.body.code, "REGISTRATION_CLOSED");
+    assert.equal(
+      await c.client.academyRegistration.count({
+        where: { guardianPhone: lateBody.guardian.phone },
+      }),
+      0,
+    );
+    await rotateTo();
+  },
+);
+
+test(
+  "F2: submission versus approval of a replacement policy, both orders",
+  { skip },
+  async () => {
+    const c = await ctx();
+    await rotateTo();
+    const session = await publishedSession(c);
+    const oldPolicy = await currentPolicyRow(c);
+
+    // Order 1: the submission accepts the old policy first.
+    const draft1 = await newDraftPolicy(c, `synthetic-ric190-${RUN}-d1`);
+    const holder = holdTransaction(
+      c,
+      (tx) =>
+        tx.$queryRaw`SELECT id FROM programme_offerings WHERE id = ${session.programmeOfferingId}::uuid FOR UPDATE`,
+    );
+    await holder.ready;
+    const baseline = await waitingLocks(c);
+    const body = regBody(session.id);
+    const key = newKey();
+    const submission = submit(c, body, { key });
+    await waitForWaiters(c, baseline + 1, "submission parked");
+    const approval = api(
+      c,
+      `/admin/academy/registration-policies/${draft1.id}/approve`,
+      {
+        method: "POST",
+        token: "mgmt",
+        body: { expectedVersion: draft1.version },
+      },
+    );
+    await waitForWaiters(c, baseline + 2, "approval waits for the share lock");
+    holder.release();
+    const [sub, app] = await Promise.all([submission, approval]);
+    await holder.done;
+    assert.equal(sub.status, 201, sub.text);
+    assert.equal(app.status, 201, app.text);
+    const consents = await c.client.academyRegistrationConsent.findMany({
+      where: { registrationId: sub.body.id },
+    });
+    assert.ok(
+      consents.every((x) => x.policyVersion === oldPolicy.policyVersion),
+    );
+    const stale = await submit(
+      c,
+      regBody(session.id, { consentVersion: oldPolicy.policyVersion }),
+    );
+    assert.equal(stale.status, 409);
+    assert.equal(stale.body.code, "CONSENT_VERSION_MISMATCH");
+    assert.equal(
+      stale.body.details.currentConsentVersion,
+      draft1.policyVersion,
+    );
+    assert.equal(
+      (await submit(c, body, { key })).status,
+      200,
+      "replay after replacement",
+    );
+    currentConsent = draft1.policyVersion;
+
+    // Order 2: the replacement commits first; the waiting submission is told so.
+    const draft2 = await newDraftPolicy(c, `synthetic-ric190-${RUN}-d2`);
+    const current = await currentPolicyRow(c);
+    const swap = holdTransaction(c, async (tx) => {
+      await tx.$executeRawUnsafe(
+        `UPDATE academy_registration_policies SET status = 'RETIRED', retired_at = now() WHERE id = '${current.id}'`,
+      );
+      await tx.$executeRawUnsafe(
+        `UPDATE academy_registration_policies SET status = 'APPROVED', approved_at = now(), approved_by_user_id = '${c.ids.mgmt}' WHERE id = '${draft2.id}'`,
+      );
+    });
+    await swap.ready;
+    const waiting = await waitingLocks(c);
+    const lateBody = regBody(session.id, {
+      consentVersion: current.policyVersion,
+    });
+    const late = submit(c, lateBody);
+    await waitForWaiters(
+      c,
+      waiting + 1,
+      "submission waits on the retiring policy",
+    );
+    swap.release();
+    const lateResult = await late;
+    await swap.done;
+    assert.equal(lateResult.status, 409);
+    assert.equal(lateResult.body.code, "CONSENT_VERSION_MISMATCH");
+    assert.equal(
+      lateResult.body.details.currentConsentVersion,
+      draft2.policyVersion,
+    );
+    assert.equal(
+      await c.client.academyRegistration.count({
+        where: { guardianPhone: lateBody.guardian.phone },
+      }),
+      0,
+    );
+    currentConsent = draft2.policyVersion;
+    const ok = await submit(c, regBody(session.id));
+    assert.equal(ok.status, 201, ok.text);
+  },
+);
+
+test(
+  "F2: concurrent policy approvals are serialized to exactly one approved policy",
+  { skip },
+  async () => {
+    const c = await ctx();
+    await rotateTo();
+    const [d1, d2] = [
+      await newDraftPolicy(c, `synthetic-ric190-${RUN}-c1`),
+      await newDraftPolicy(c, `synthetic-ric190-${RUN}-c2`),
+    ];
+    const lockKey = `registration-policy:${ORG_A}`;
+    const holder = holdTransaction(c, (tx) =>
+      tx.$executeRawUnsafe(
+        `SELECT pg_advisory_xact_lock(hashtextextended('${lockKey}', 0))`,
+      ),
+    );
+    await holder.ready;
+    const baseline = await waitingLocks(c);
+    const approvals = [d1, d2].map((draft) =>
+      api(c, `/admin/academy/registration-policies/${draft.id}/approve`, {
+        method: "POST",
+        token: "mgmt",
+        body: { expectedVersion: draft.version },
+      }),
+    );
+    await waitForWaiters(c, baseline + 2, "both approvals queued");
+    holder.release();
+    const results = await Promise.all(approvals);
+    await holder.done;
+    assert.deepEqual(
+      results.map((r) => r.status),
+      [201, 201],
+      JSON.stringify(results.map((r) => r.body)),
+    );
+    const approved = await c.client.academyRegistrationPolicy.findMany({
+      where: { organizationId: ORG_A, status: "APPROVED" },
+    });
+    assert.equal(approved.length, 1, "exactly one approved policy");
+    const losers = await c.client.academyRegistrationPolicy.findMany({
+      where: { id: { in: [d1.id, d2.id] }, status: "RETIRED" },
+    });
+    assert.equal(
+      losers.length,
+      1,
+      "the earlier approval was retired by the later one",
+    );
+    currentConsent = approved[0].policyVersion;
+    // Concurrent approve versus retire of the same policy also stays consistent.
+    const [again, retire] = await Promise.all([
+      api(c, `/admin/academy/registration-policies/${approved[0].id}/retire`, {
+        method: "POST",
+        token: "mgmt",
+        body: { expectedVersion: approved[0].version },
+      }),
+      api(c, `/admin/academy/registration-policies/${approved[0].id}/retire`, {
+        method: "POST",
+        token: "mgmt",
+        body: { expectedVersion: approved[0].version },
+      }),
+    ]);
+    assert.deepEqual([again.status, retire.status].sort(), [201, 409]);
+    assert.equal(
+      await c.client.academyRegistrationPolicy.count({
+        where: { organizationId: ORG_A, status: "APPROVED" },
+      }),
+      0,
+    );
+    await rotateTo();
+  },
+);
+
+test(
+  "F3: admin phone search normalizes local and E.164 formats and bounds fragments",
+  { skip },
+  async () => {
+    const c = await ctx();
+    const session = await publishedSession(c);
+    const suffix = String(Math.floor(Math.random() * 9000) + 1000);
+    const phones = {
+      p1: `+601234${suffix}1`,
+      p2: `+601987${suffix}2`,
+      p3: `+601122${suffix}3`,
+    };
+    const ids = {};
+    for (const [name, phone] of Object.entries(phones)) {
+      const body = regBody(session.id);
+      body.guardian.phone = phone;
+      const res = await submit(c, body);
+      assert.equal(res.status, 201, res.text);
+      ids[name] = res.body.id;
+    }
+    const search = async (q, extra = {}) => {
+      const res = await api(c, "/admin/academy/registrations/search", {
+        method: "POST",
+        token: "admin",
+        body: { q, sessionId: session.id, ...extra },
+      });
+      assert.equal(res.status, 201, res.text);
+      return res.body.items.map((i) => i.id).sort();
+    };
+    const local = `0${phones.p1.slice(3)}`;
+    assert.deepEqual(await search(local), [ids.p1]);
+    assert.deepEqual(
+      await search(
+        `${local.slice(0, 3)}-${local.slice(3, 6)} ${local.slice(6)}`,
+      ),
+      [ids.p1],
+      "separators are ignored",
+    );
+    assert.deepEqual(await search(phones.p1), [ids.p1]);
+    assert.deepEqual(
+      await search(phones.p1.slice(4, 11)),
+      [ids.p1],
+      "bounded fragment",
+    );
+    assert.deepEqual(
+      await search(local.slice(0, 8)),
+      [ids.p1],
+      "local-format prefix",
+    );
+    assert.deepEqual(await search("0155555555"), []);
+    assert.deepEqual(
+      await search("012"),
+      [],
+      "fragments under 4 digits are ignored",
+    );
+    assert.deepEqual(await search(phones.p2), [ids.p2]);
+
+    // Cross-tenant denial: an Org B registration with the same phone is never returned.
+    const offeringB = await c.client.programmeOffering.create({
+      data: {
+        organizationId: ORG_B,
+        programmeId: c.programmeB.id,
+        venueId: c.venueB.id,
+        name: `S ${RUN} ${suffix}`,
+        capacity: 5,
+      },
+    });
+    const sessionB = await c.client.academyRegistrationSession.create({
+      data: { organizationId: ORG_B, programmeOfferingId: offeringB.id },
+    });
+    const refB = `KAR-${RUN.slice(0, 4)}${suffix}`;
+    const regB = await c.client.academyRegistration.create({
+      data: {
+        referenceCode: refB,
+        organizationId: ORG_B,
+        sessionId: sessionB.id,
+        sessionNameSnapshot: "B",
+        playerFullName: "Syn B Player",
+        playerDateOfBirth: new Date("2015-01-01"),
+        ageAtReference: 11,
+        ageReferenceDateUsed: new Date("2026-12-12"),
+        playerGender: "MALE",
+        playerJerseySize: "YM",
+        guardianFullName: "Syn B Guardian",
+        guardianPhone: phones.p1,
+        guardianRelationship: "MOTHER",
+        guardianAuthorityConfirmed: true,
+        emergencyContactName: "Syn B Contact",
+        emergencyContactPhone: "+60121110001",
+        emergencyContactRelationship: "FRIEND",
+        idempotencyKeyHmac:
+          randomUUID().replaceAll("-", "") + randomUUID().replaceAll("-", ""),
+        payloadHmac: "b".repeat(64),
+        hmacKeyVersion: "v1",
+      },
+    });
+    const unscoped = await api(c, "/admin/academy/registrations/search", {
+      method: "POST",
+      token: "admin",
+      body: { q: local },
+    });
+    assert.ok(!unscoped.body.items.some((i) => i.id === regB.id));
+    assert.ok(unscoped.body.items.some((i) => i.id === ids.p1));
+    assert.equal(
+      (
+        await api(c, "/admin/academy/registrations/search", {
+          method: "POST",
+          token: "admin",
+          body: { q: refB },
+        })
+      ).body.total,
+      0,
+    );
+  },
+);
+
+test(
+  "U1: legacy membership/plan-link versus registration-session attachment serializes in both orders",
+  { skip },
+  async () => {
+    const c = await ctx();
+    const athlete = await c.client.athleteProfile.create({
+      data: {
+        displayName: `Syn Athlete U1 ${RUN}`,
+        dateOfBirth: new Date("2015-01-01"),
+      },
+    });
+    const plan = await c.client.membershipPlan.create({
+      data: {
+        organizationId: ORG_A,
+        name: `Syn Plan U1 ${RUN}`,
+        billingFrequency: "UPFRONT",
+        upfrontAmountMinor: 100,
+      },
+    });
+    const makeOffering = (label) =>
+      c.client.programmeOffering.create({
+        data: {
+          organizationId: ORG_A,
+          programmeId: c.programmeA.id,
+          venueId: c.venueA.id,
+          name: `${label} ${RUN} ${randomUUID().slice(0, 4)}`,
+          capacity: 5,
+          status: "OPEN",
+        },
+      });
+
+    // Order 1: the membership insert is in flight; session attachment waits, then refuses.
+    const first = await makeOffering("U1a");
+    const memberTx = holdTransaction(c, (tx) =>
+      tx.membership.create({
+        data: {
+          organizationId: ORG_A,
+          athleteId: athlete.id,
+          programmeOfferingId: first.id,
+          membershipPlanId: plan.id,
+        },
+      }),
+    );
+    await memberTx.ready;
+    let baseline = await waitingLocks(c);
+    const attach = settle(
+      c.client.academyRegistrationSession.create({
+        data: { organizationId: ORG_A, programmeOfferingId: first.id },
+      }),
+    );
+    await waitForWaiters(
+      c,
+      baseline + 1,
+      "attachment waits for the membership insert",
+    );
+    memberTx.release();
+    await memberTx.done;
+    const attached = await attach;
+    assert.equal(attached.ok, false);
+    assert.match(dbText(attached.error), /OFFERING_HAS_LEGACY_USAGE/);
+    assert.equal(
+      await c.client.academyRegistrationSession.count({
+        where: { programmeOfferingId: first.id },
+      }),
+      0,
+    );
+
+    // Order 2: the attachment is in flight; the membership insert waits, then refuses.
+    const second = await makeOffering("U1b");
+    const attachTx = holdTransaction(c, (tx) =>
+      tx.academyRegistrationSession.create({
+        data: { organizationId: ORG_A, programmeOfferingId: second.id },
+      }),
+    );
+    await attachTx.ready;
+    baseline = await waitingLocks(c);
+    const member = settle(
+      c.client.membership.create({
+        data: {
+          organizationId: ORG_A,
+          athleteId: athlete.id,
+          programmeOfferingId: second.id,
+          membershipPlanId: plan.id,
+        },
+      }),
+    );
+    await waitForWaiters(
+      c,
+      baseline + 1,
+      "membership waits for the attachment",
+    );
+    attachTx.release();
+    await attachTx.done;
+    const refused = await member;
+    assert.equal(refused.ok, false);
+    assert.match(dbText(refused.error), /OFFERING_REGISTRATION_ONLY/);
+    assert.equal(
+      await c.client.membership.count({
+        where: { programmeOfferingId: second.id },
+      }),
+      0,
+    );
+
+    // Plan-link versus attachment, attachment first.
+    const third = await makeOffering("U1c");
+    const attachTx2 = holdTransaction(c, (tx) =>
+      tx.academyRegistrationSession.create({
+        data: { organizationId: ORG_A, programmeOfferingId: third.id },
+      }),
+    );
+    await attachTx2.ready;
+    baseline = await waitingLocks(c);
+    const link = settle(
+      c.client.membershipPlanOfferingEligibility.create({
+        data: { planId: plan.id, offeringId: third.id },
+      }),
+    );
+    await waitForWaiters(c, baseline + 1, "plan link waits for the attachment");
+    attachTx2.release();
+    await attachTx2.done;
+    const linkResult = await link;
+    assert.equal(linkResult.ok, false);
+    assert.match(dbText(linkResult.error), /OFFERING_REGISTRATION_ONLY/);
+
+    // Legacy path (offering row lock, then membership insert) with a concurrent
+    // attachment: the attachment queues behind the legacy transaction without
+    // deadlocking, then refuses.
+    const legacy = await makeOffering("U1d");
+    const legacyTx = holdTransaction(c, async (tx) => {
+      await tx.$queryRaw`SELECT id FROM programme_offerings WHERE id = ${legacy.id}::uuid FOR UPDATE`;
+      await tx.membership.create({
+        data: {
+          organizationId: ORG_A,
+          athleteId: athlete.id,
+          programmeOfferingId: legacy.id,
+          membershipPlanId: plan.id,
+        },
+      });
+    });
+    await legacyTx.ready;
+    baseline = await waitingLocks(c);
+    const lateAttach = settle(
+      c.client.academyRegistrationSession.create({
+        data: { organizationId: ORG_A, programmeOfferingId: legacy.id },
+      }),
+    );
+    await waitForWaiters(
+      c,
+      baseline + 1,
+      "attachment queues behind legacy flow",
+    );
+    legacyTx.release();
+    await legacyTx.done;
+    const lateResult = await lateAttach;
+    assert.equal(lateResult.ok, false);
+    assert.match(dbText(lateResult.error), /OFFERING_HAS_LEGACY_USAGE/);
+    assert.equal(
+      await c.client.membership.count({
+        where: { programmeOfferingId: legacy.id },
+      }),
+      1,
+      "legacy membership creation succeeded",
+    );
+  },
+);
+
+test(
+  "U2: simultaneous first hits from one IP are counted exactly and never error",
+  { skip },
+  async () => {
+    const c = await ctx();
+    const session = await publishedSession(c);
+    const slot = 10 * 60 * 1000;
+    const untilBoundary = slot - (Date.now() % slot);
+    if (untilBoundary < 30000) await sleep(untilBoundary + 500);
+    const total = async () => {
+      const rows = await c.client.$queryRawUnsafe(
+        `SELECT COALESCE(sum(count), 0)::int AS n FROM submission_rate_limits WHERE key LIKE 'reg:ip:%'`,
+      );
+      return rows[0].n;
+    };
+    const before = await total();
+    const ipOne = newIp();
+    const burst = await Promise.all(
+      Array.from({ length: 15 }, () =>
+        submit(c, regBody(session.id), { ip: ipOne }),
+      ),
+    );
+    assert.deepEqual(
+      [...new Set(burst.map((r) => r.status))],
+      [201],
+      burst
+        .map((r) => r.text)
+        .join(" ")
+        .slice(0, 300),
+    );
+    assert.equal((await total()) - before, 15);
+
+    const ipTwo = newIp();
+    const midpoint = await total();
+    const flood = await Promise.all(
+      Array.from({ length: 25 }, () =>
+        submit(c, regBody(session.id), { ip: ipTwo }),
+      ),
+    );
+    const statuses = flood.map((r) => r.status);
+    assert.equal(statuses.filter((s) => s === 201).length, 20);
+    assert.equal(statuses.filter((s) => s === 429).length, 5);
+    assert.ok(
+      statuses.every((s) => s === 201 || s === 429),
+      "no unexpected persistence errors",
+    );
+    assert.ok(
+      flood
+        .filter((r) => r.status === 429)
+        .every((r) => r.headers.get("retry-after") === "600"),
+    );
+    assert.equal((await total()) - midpoint, 25);
+  },
+);
+
+test(
+  "U3: policy approval and retirement authorization negatives and positives",
+  { skip },
+  async () => {
+    const c = await ctx();
+    await rotateTo();
+    const draft = await newDraftPolicy(c, `synthetic-ric190-${RUN}-auth`);
+    const before = await currentPolicyRow(c);
+    const denied = {
+      none: 401,
+      superAal1: 403,
+      mgmtAal1: 403,
+      admin: 403,
+      coach: 403,
+      finance: 403,
+      event: 403,
+      suspended: 403,
+      inactiveMember: 403,
+      foreign: 403,
+    };
+    for (const action of ["approve", "retire"]) {
+      for (const [token, status] of Object.entries(denied)) {
+        const res = await api(
+          c,
+          `/admin/academy/registration-policies/${draft.id}/${action}`,
+          {
+            method: "POST",
+            token: token === "none" ? undefined : token,
+            body: { expectedVersion: draft.version },
+          },
+        );
+        assert.equal(
+          res.status,
+          status,
+          `${action} as ${token}: ${res.text.slice(0, 100)}`,
+        );
+      }
+      const current = await api(
+        c,
+        `/admin/academy/registration-policies/${before.id}/${action}`,
+        {
+          method: "POST",
+          token: "admin",
+          body: { expectedVersion: before.version },
+        },
+      );
+      assert.equal(current.status, 403);
+    }
+    assert.equal(
+      (
+        await c.client.academyRegistrationPolicy.findUnique({
+          where: { id: draft.id },
+        })
+      ).status,
+      "DRAFT",
+    );
+    assert.equal((await currentPolicyRow(c)).id, before.id);
+
+    // Cross-tenant: an Org B policy is invisible to Org A leadership.
+    const foreignPolicy = await c.client.academyRegistrationPolicy.create({
+      data: {
+        organizationId: ORG_B,
+        policyVersion: `synthetic-b-auth-${RUN}`,
+        content: {},
+      },
+    });
+    for (const action of ["approve", "retire"]) {
+      const res = await api(
+        c,
+        `/admin/academy/registration-policies/${foreignPolicy.id}/${action}`,
+        {
+          method: "POST",
+          token: "superAdmin",
+          body: { expectedVersion: 1 },
+        },
+      );
+      assert.equal(res.status, 404);
+    }
+
+    // Authorized AAL2 SUPER_ADMIN approves; AAL2 MANAGEMENT retires.
+    const approved = await api(
+      c,
+      `/admin/academy/registration-policies/${draft.id}/approve`,
+      {
+        method: "POST",
+        token: "superAdmin",
+        body: { expectedVersion: draft.version },
+      },
+    );
+    assert.equal(approved.status, 201, approved.text);
+    assert.equal(approved.body.status, "APPROVED");
+    assert.equal(
+      (
+        await c.client.academyRegistrationPolicy.findUnique({
+          where: { id: draft.id },
+        })
+      ).approvedByUserId,
+      c.ids.superAdmin,
+    );
+    const retired = await api(
+      c,
+      `/admin/academy/registration-policies/${draft.id}/retire`,
+      {
+        method: "POST",
+        token: "mgmt",
+        body: { expectedVersion: approved.body.version },
+      },
+    );
+    assert.equal(retired.status, 201, retired.text);
+    assert.equal(retired.body.status, "RETIRED");
+    await rotateTo();
+  },
+);
+
+test(
+  "U4: registrations and sessions cannot be reassigned or lose receipt identity",
+  { skip },
+  async () => {
+    const c = await ctx();
+    await rotateTo();
+    const full = await publishedSession(c, { capacity: 1 });
+    const other = await publishedSession(c, { capacity: 5 });
+    const a = await createRegistration(c, full.id);
+    const b = await createRegistration(c, other.id);
+    assert.equal((await setStatus(c, a.id, "CONFIRMED", 1)).status, 200);
+    assert.equal((await setStatus(c, b.id, "CONFIRMED", 1)).status, 200);
+    const confirmedIn = (sessionId) =>
+      c.client.academyRegistration.count({
+        where: { sessionId, status: "CONFIRMED" },
+      });
+
+    await expectDbReject(
+      () =>
+        c.client.$executeRawUnsafe(
+          `UPDATE academy_registrations SET session_id = '${full.id}' WHERE id = '${b.id}'`,
+        ),
+      /REGISTRATION_LINKAGE_IMMUTABLE/,
+    );
+    assert.equal(await confirmedIn(full.id), 1);
+    assert.equal(await confirmedIn(other.id), 1);
+    for (const assignment of [
+      `organization_id = '${ORG_B}'`,
+      `reference_code = 'KAR-${RUN}'`,
+      `id = gen_random_uuid()`,
+      `idempotency_key_hmac = '${"f".repeat(64)}'`,
+      `payload_hmac = '${"f".repeat(64)}'`,
+      `hmac_key_version = 'v9'`,
+      `session_name_snapshot = 'changed'`,
+      `created_at = now() - interval '1 day'`,
+    ]) {
+      await expectDbReject(
+        () =>
+          c.client.$executeRawUnsafe(
+            `UPDATE academy_registrations SET ${assignment} WHERE id = '${b.id}'`,
+          ),
+        /REGISTRATION_LINKAGE_IMMUTABLE/,
+      );
+    }
+    // Session linkage is immutable too: the capacity authority cannot be swapped.
+    for (const assignment of [
+      `programme_offering_id = '${other.programmeOfferingId}'`,
+      `organization_id = '${ORG_B}'`,
+      `id = gen_random_uuid()`,
+    ]) {
+      await expectDbReject(
+        () =>
+          c.client.$executeRawUnsafe(
+            `UPDATE academy_registration_sessions SET ${assignment} WHERE id = '${full.id}'`,
+          ),
+        /REGISTRATION_LINKAGE_IMMUTABLE/,
+      );
+    }
+    await expectDbReject(
+      () =>
+        c.client.$executeRawUnsafe(
+          `UPDATE programme_offerings SET organization_id = '${ORG_B}' WHERE id = '${full.programmeOfferingId}'`,
+        ),
+      /CROSS_TENANT_REFERENCE|REGISTRATION_LINKAGE_IMMUTABLE|foreign key/i,
+    );
+    // Historical rows cannot be deleted out from under their receipts and consents.
+    await expectDbReject(
+      () =>
+        c.client.$executeRawUnsafe(
+          `DELETE FROM academy_registrations WHERE id = '${a.id}'`,
+        ),
+      /foreign key|violates/i,
+    );
+    await expectDbReject(
+      () =>
+        c.client.$executeRawUnsafe(
+          `DELETE FROM academy_registration_sessions WHERE id = '${full.id}'`,
+        ),
+      /foreign key|violates/i,
+    );
+    await expectDbReject(
+      () =>
+        c.client.$executeRawUnsafe(
+          `DELETE FROM programme_offerings WHERE id = '${full.programmeOfferingId}'`,
+        ),
+      /foreign key|violates/i,
+    );
+    // Mutable fields (status) still work and the receipt is unchanged.
+    assert.equal(
+      (await setStatus(c, b.id, "CANCELLED", 2, { reasonCode: "OTHER" }))
+        .status,
+      200,
+    );
+    assert.equal(await confirmedIn(other.id), 0);
+  },
+);
+
+test(
+  "F4/F5: generated OpenAPI documents every registration success response and required request fields",
+  { skip },
+  async () => {
+    const c = await ctx();
+    const doc = createOpenApiDocument(c.app);
+    const expected = {
+      "GET /v1/academy/registration-config": ["200"],
+      "GET /v1/academy/sessions": ["200"],
+      "POST /v1/academy/registrations": ["200", "201"],
+      "GET /v1/admin/academy/registrations": ["200"],
+      "POST /v1/admin/academy/registrations/search": ["201"],
+      "GET /v1/admin/academy/registrations/{id}": ["200"],
+      "PATCH /v1/admin/academy/registrations/{id}/status": ["200"],
+      "GET /v1/admin/academy/registration-sessions": ["200"],
+      "POST /v1/admin/academy/registration-sessions": ["201"],
+      "GET /v1/admin/academy/registration-sessions/{id}": ["200"],
+      "PATCH /v1/admin/academy/registration-sessions/{id}": ["200"],
+      "POST /v1/admin/academy/registration-sessions/{id}/publish": ["201"],
+      "POST /v1/admin/academy/registration-sessions/{id}/close": ["201"],
+      "GET /v1/admin/academy/registration-policies": ["200"],
+      "POST /v1/admin/academy/registration-policies": ["201"],
+      "POST /v1/admin/academy/registration-policies/{id}/approve": ["201"],
+      "POST /v1/admin/academy/registration-policies/{id}/retire": ["201"],
+    };
+    for (const [route, successCodes] of Object.entries(expected)) {
+      const [method, path] = route.split(" ");
+      const operation = doc.paths[path][method.toLowerCase()];
+      assert.ok(operation, route);
+      for (const code of successCodes) {
+        const response = operation.responses[code];
+        assert.ok(
+          response?.content?.["application/json"]?.schema,
+          `${route} ${code} has a response schema`,
+        );
+      }
+      const documented = Object.keys(operation.responses).filter((code) =>
+        code.startsWith("2"),
+      );
+      assert.deepEqual(
+        documented.sort(),
+        successCodes,
+        `${route} documents exactly the real success codes`,
+      );
+    }
+    const schemas = doc.components.schemas;
+    assert.deepEqual(
+      [...schemas.CreateRegistrationSessionRequestDto.required].sort(),
+      ["capacity", "name", "programmeId", "venueId"],
+    );
+    assert.deepEqual(schemas.UpdateRegistrationSessionRequestDto.required, [
+      "expectedVersion",
+    ]);
+    assert.ok(!("RegistrationSessionRequestDto" in schemas));
+
+    // Live response bodies expose exactly the documented properties.
+    const session = await publishedSession(c);
+    const live = await api(
+      c,
+      `/admin/academy/registration-sessions/${session.id}`,
+      { token: "admin" },
+    );
+    assert.deepEqual(
+      Object.keys(live.body).sort(),
+      Object.keys(schemas.AdminRegistrationSessionDto.properties).sort(),
+    );
+    assert.deepEqual(
+      Object.keys(live.body.seatCounts).sort(),
+      Object.keys(schemas.AdminSessionSeatCountsDto.properties).sort(),
+    );
+    const policies = await api(c, "/admin/academy/registration-policies", {
+      token: "admin",
+    });
+    assert.deepEqual(
+      Object.keys(policies.body.items[0]).sort(),
+      Object.keys(schemas.AdminRegistrationPolicyDto.properties).sort(),
+    );
+    const receipt = await createRegistration(c, session.id);
+    assert.deepEqual(
+      Object.keys(receipt).sort(),
+      Object.keys(schemas.RegistrationReceiptDto.properties).sort(),
+    );
+    const config = await api(c, "/academy/registration-config");
+    assert.deepEqual(
+      Object.keys(config.body).sort(),
+      Object.keys(schemas.RegistrationConfigDto.properties).sort(),
+    );
+
+    // F5: error-code mappings documented in the handoff match the implementation.
+    const noKeyRing = process.env.KHLIM_REGISTRATION_HMAC_KEYS;
+    delete process.env.KHLIM_REGISTRATION_HMAC_KEYS;
+    try {
+      assert.equal(
+        (await submit(c, regBody(session.id))).body.code,
+        "REGISTRATION_CLOSED",
+      );
+    } finally {
+      process.env.KHLIM_REGISTRATION_HMAC_KEYS = noKeyRing;
+    }
   },
 );

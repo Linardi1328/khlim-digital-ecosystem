@@ -77,6 +77,9 @@ export class RegistrationPublicService {
   private readonly logger = new Logger(RegistrationPublicService.name);
   private nextCleanupAt = 0;
 
+  /** Key-ring source; overridable so tests can model independent instances. */
+  ringLoader: () => HmacKeyRing | null = () => loadHmacKeyRing();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly policies: RegistrationPolicyService,
@@ -183,7 +186,7 @@ export class RegistrationPublicService {
     return withSanitizedErrors(async () => {
       const [policy, ring] = [
         await this.policies.getCurrentPolicy(),
-        loadHmacKeyRing(),
+        this.ringLoader(),
       ];
       if (!policy || !ring) return { registrationOpen: false, items: [] };
       const now = new Date();
@@ -282,13 +285,12 @@ export class RegistrationPublicService {
   ): Promise<{ receipt: RegistrationReceipt; replayed: boolean }> {
     const idempotencyKey = validateIdempotencyKeyHeader(idempotencyHeader);
     const parsed = parseCreateRegistration(rawBody);
-    const ring = loadHmacKeyRing();
+    const ring = this.ringLoader();
     if (!ring) throw this.closed();
 
     const keyHmacs = ring.all.map((key) =>
       hmacHex(key, "idempotency-key", idempotencyKey),
     );
-    const currentKeyHmac = keyHmacs[0]!;
     const canonical = canonicalJson(parsed);
 
     return withSanitizedErrors(async () => {
@@ -315,16 +317,7 @@ export class RegistrationPublicService {
         try {
           return await this.prisma.client.$transaction(
             (tx) =>
-              this.createInTransaction(
-                tx,
-                parsed,
-                ring,
-                currentKeyHmac,
-                canonical,
-                policy.id,
-                policy.policyVersion,
-                policy.content,
-              ),
+              this.createInTransaction(tx, parsed, ring, keyHmacs, canonical),
             {
               isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
               maxWait: 5000,
@@ -394,23 +387,43 @@ export class RegistrationPublicService {
     tx: Prisma.TransactionClient,
     parsed: ParsedRegistration,
     ring: HmacKeyRing,
-    currentKeyHmac: string,
+    keyHmacs: string[],
     canonical: string,
-    policyId: string,
-    policyVersion: string,
-    policyContent: import("./registration-admin.validation").PolicyContent,
   ): Promise<{ receipt: RegistrationReceipt; replayed: boolean }> {
     const orgId = DEFAULT_ORGANIZATION_ID;
-    // Serialize identical idempotency keys so the loser observes the winner's row.
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${currentKeyHmac}, 0))`;
+    const currentKeyHmac = keyHmacs[0]!;
+    // Lock order for submit (documented in the ADR):
+    //   1. advisory locks over EVERY candidate HMAC of this idempotency key,
+    //      in one deterministic (sorted) order
+    //   2. approved consent policy row (FOR SHARE)
+    //   3. programme offering (FOR SHARE) -> registration session (FOR SHARE)
+    //   4. registration insert
+    // Locking every candidate serializes instances whose key rings overlap,
+    // even when their active signing versions differ.
+    const lockRows = await tx.$queryRaw<Array<{ k: string }>>`
+      SELECT DISTINCT hashtextextended(h, 0)::text AS k
+      FROM unnest(${keyHmacs}::text[]) AS h
+      ORDER BY 1
+    `;
+    for (const { k } of lockRows) {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${k}::bigint)`;
+    }
     const raced = await tx.academyRegistration.findFirst({
       where: {
         organizationId: orgId,
         idempotencyOperation: REGISTRATION_OPERATION,
-        idempotencyKeyHmac: currentKeyHmac,
+        idempotencyKeyHmac: { in: keyHmacs },
       },
     });
     if (raced) return this.resolveExisting(raced, ring, canonical);
+
+    // The policy read before the transaction is only a cheap early rejection.
+    // The authoritative acceptance point is this share lock, held to commit:
+    // approval, replacement and retirement need the row exclusively.
+    const policy = await this.lockApprovedPolicy(tx, parsed.consentVersion);
+    const policyId = policy.id;
+    const policyVersion = policy.policyVersion;
+    const policyContent = policy.content;
 
     // Lock order: offering -> session (shared); registration is inserted last.
     const link = await tx.$queryRaw<Array<{ offering_id: string }>>`
@@ -551,6 +564,51 @@ export class RegistrationPublicService {
     });
 
     return { receipt: toReceipt(created), replayed: false };
+  }
+
+  private async lockApprovedPolicy(
+    tx: Prisma.TransactionClient,
+    consentVersion: string,
+  ): Promise<{
+    id: string;
+    policyVersion: string;
+    content: import("./registration-admin.validation").PolicyContent;
+  }> {
+    // A statement blocked behind an approval/retirement re-checks its WHERE
+    // clause on wake-up and may return nothing although a replacement policy
+    // just committed; a fresh statement (new snapshot) resolves that.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const rows = await tx.$queryRaw<
+        Array<{ id: string; policy_version: string }>
+      >`
+        SELECT id::text AS id, policy_version
+        FROM academy_registration_policies
+        WHERE organization_id = ${DEFAULT_ORGANIZATION_ID}::uuid
+          AND status = 'APPROVED'
+        FOR SHARE
+      `;
+      const row = rows[0];
+      if (!row) continue;
+      if (row.policy_version !== consentVersion) {
+        throw new RegistrationApiException(
+          409,
+          "CONSENT_VERSION_MISMATCH",
+          "Consent version is not current",
+          { details: { currentConsentVersion: row.policy_version } },
+        );
+      }
+      const full = await tx.academyRegistrationPolicy.findUnique({
+        where: { id: row.id },
+      });
+      if (!full) continue;
+      return {
+        id: full.id,
+        policyVersion: full.policyVersion,
+        content:
+          full.content as unknown as import("./registration-admin.validation").PolicyContent,
+      };
+    }
+    throw this.closed();
   }
 
   private sessionUnavailable(): RegistrationApiException {

@@ -73,43 +73,81 @@ scheduling route reads or writes registration sessions.
 
 ### D5. Lock order and transaction isolation
 
-All write transactions run at `READ COMMITTED` with explicit row locks, in this
-fixed order:
+All write transactions run at `READ COMMITTED` with explicit locks. One global
+order is used by every registration operation:
 
 ```
-(advisory key lock, public submit only) → ProgrammeOffering → RegistrationSession → Registration
+policy advisory lock (approve/retire only)
+  | idempotency advisory locks, all candidate HMACs sorted (submit only)
+→ consent policy row → ProgrammeOffering → RegistrationSession → Registration
 ```
 
-| Operation                         | Offering        | Session        | Registration    |
-| --------------------------------- | --------------- | -------------- | --------------- |
-| Public submit                     | `FOR SHARE`     | `FOR SHARE`    | insert          |
-| Admin status change (all)         | `FOR UPDATE`    | `FOR SHARE`    | `FOR UPDATE`    |
-| Session PATCH / publish / close   | `FOR UPDATE`    | `FOR UPDATE`   | n/a             |
-| Capacity reduction                | `FOR UPDATE`    | `FOR UPDATE`   | counts CONFIRMED |
+| Operation                       | Advisory                       | Policy row            | Offering     | Session      | Registration     |
+| ------------------------------- | ------------------------------ | --------------------- | ------------ | ------------ | ---------------- |
+| Public submit                   | every candidate key HMAC       | approved, `FOR SHARE` | `FOR SHARE`  | `FOR SHARE`  | insert           |
+| Admin status change (all)       | none                           | none                  | `FOR UPDATE` | `FOR SHARE`  | `FOR UPDATE`     |
+| Session PATCH / publish / close | none                           | none (read only)      | `FOR UPDATE` | `FOR UPDATE` | counts CONFIRMED |
+| Policy approve / retire         | `registration-policy:<org>`    | `FOR UPDATE`          | none         | none         | none             |
+| Legacy membership / plan link   | none                           | none                  | `FOR SHARE` (trigger) | none | none             |
+| Registration-session attach     | none                           | none                  | `FOR UPDATE` (trigger) | insert | none             |
 
 - Submit takes shared locks, so closing/capacity changes (exclusive) wait for
   in-flight submissions and later submissions see the new state.
 - Every confirm/cancel takes the offering exclusively, so confirmations,
   cancellations and capacity reductions for one cohort are fully serialized;
   count-then-update is therefore race-free.
-- The offering id is read unlocked first (the session→offering link is immutable),
-  then locks are taken in order and all mutable state is re-read _after_ locking.
+- The offering id is read unlocked first (the session→offering link is
+  immutable, enforced by trigger), then locks are taken in order and all mutable
+  state is re-read _after_ locking.
+- **Consent policy (RIC-190 review F2).** The policy looked up before the
+  transaction is only a cheap early rejection. The authoritative acceptance
+  point is a `FOR SHARE` lock on the approved policy row, held to commit.
+  Approval, replacement and retirement update that row, so they wait for
+  in-flight submissions and a registration can never commit under a policy that
+  stopped being approved first. A statement that wakes up after a concurrent
+  retirement/replacement is re-run once with a fresh snapshot, then returns
+  `CONSENT_VERSION_MISMATCH` (a replacement is now current) or
+  `REGISTRATION_CLOSED` (none is). Approvals and retirements for an organization
+  are serialized by one advisory lock, so concurrent approvals end with exactly
+  one `APPROVED` policy (the later one wins; the earlier is `RETIRED`).
+  Historical consent rows keep their policy id, version and content hash after
+  retirement; replay of committed registrations is evaluated before availability.
+- **Idempotency (RIC-190 review F1).** Submit first takes an advisory lock for
+  **every** candidate HMAC of the key (one per ring version), in one sorted
+  order, then re-checks existing registrations against all candidates inside the
+  transaction. Two instances with compatible rings therefore share lock
+  identifiers whichever version they sign with, and the loser observes the
+  winner's row. See "HMAC key-ring rotation protocol" for what this does and
+  does not protect.
 - Legacy billing locks `payments` then `programme_offerings`; registration
   transactions never touch payments, so no cycle exists. Legacy membership
   creation locks the offering only.
-- Idempotent retries: the submit transaction first takes
-  `pg_advisory_xact_lock` on the idempotency-key HMAC, so identical concurrent
-  requests serialize and the second sees the first's committed row. A unique
-  violation can still occur (distinct code paths, reference-code collision); it
-  is caught **outside** the aborted transaction and handled with a fresh
-  transaction/lookup, never continued inside it.
+- A unique violation (reference-code collision) is caught **outside** the
+  rolled-back transaction and handled with a fresh transaction/lookup, never
+  continued inside it.
+- **Legacy versus attachment (review U1).** The membership and plan-link
+  triggers take `FOR SHARE` on the offering row before checking for a
+  registration session; the session-insert trigger takes `FOR UPDATE` on the
+  offering row before checking for memberships/links. The two sides therefore
+  conflict on a single row in either order and the second transaction re-checks
+  after the first commits (tested both ways on PostgreSQL 16; no deadlock).
+  The API still creates the offering and session together, so no HTTP path can
+  attach a session to an existing offering.
 
 Defense in depth at the database level (works for any writer, including direct
 SQL): a trigger on `academy_registrations` locks the offering and refuses a
 transition to `CONFIRMED` beyond capacity, refuses leaving a terminal state,
 and refuses non-`RECEIVED` inserts; a trigger on `programme_offerings` refuses
 reducing capacity below confirmed seats and clearing the venue of a published
-cohort.
+cohort. Identity triggers (review U4) make a registration's `id`,
+`organization_id`, `session_id`, `reference_code`, session-name snapshot,
+idempotency/HMAC columns and `created_at` immutable, and a session's `id`,
+`organization_id` and `programme_offering_id` immutable; because the composite
+foreign keys use `ON UPDATE CASCADE`, an attempted parent key change therefore
+also fails closed. There is no V1 transfer workflow, so a CONFIRMED registration
+cannot be moved into another (for example full) session, and deleting a
+registration, session or offering that has history is blocked by `RESTRICT`
+foreign keys.
 
 ### D6. Lifecycle
 
@@ -172,8 +210,8 @@ consents are never defaulted: both booleans are required in the request.
 
 `Idempotency-Key` header, 22–128 chars `[A-Za-z0-9_-]` (≥128 bits when random).
 Stored only as `HMAC-SHA256` with a server key (`KHLIM_REGISTRATION_HMAC_KEYS`,
-`version:base64secret` comma list, first entry is current; older entries remain
-valid for replay lookup, so rotation does not break retries). Uniqueness is
+`version:base64secret` comma list, first entry is the active signing key; every entry verifies and is
+locked; see the two-phase rotation protocol below). Uniqueness is
 `(organization_id, idempotency_operation, idempotency_key_hmac)`. The payload
 hash is `HMAC(key, canonical JSON of the normalized body)`, sorted keys.
 Replay is evaluated after syntactic validation but **before** consent-version,
@@ -219,8 +257,14 @@ sheet, and retry visibility. Remains an open V1 release dependency.
 additive: three composite unique indexes, one policy table, session table,
 registration table, consent table, enums, CHECK constraints, triggers,
 RLS enabled with `anon`/`authenticated` privileges revoked (same pattern as
-`20261006120000_academy_lead_capture`). Rollback before data exists is the
-reverse `DROP` order (triggers → consent → registration → session → policy →
+`20261006120000_academy_lead_capture`). The review-remediation batch (RIC-190 PR #126) **amended this migration in
+place** instead of adding a corrective one: it was verified that
+`20261125000000_academy_registration_v1` is not on `main`, no hosted migration
+was authorized or run, deployments are disabled in `vercel.json`, and every CI
+and test database is created fresh. If anyone has applied the earlier revision
+to a database outside this PR, that database must be rebuilt (or this change
+re-cut as a corrective migration) before merge. Rollback before data exists is
+the reverse `DROP` order (triggers → consent → registration → session → policy →
 enums → the three composite unique indexes). After real data exists, prefer a
 forward fix. No migration execution was added to Vercel builds.
 
@@ -228,7 +272,7 @@ forward fix. No migration execution was added to Vercel builds.
 
 | Setting | Purpose |
 | ------- | ------- |
-| `KHLIM_REGISTRATION_HMAC_KEYS` | `version:base64secret[,version:base64secret…]`, each secret at least 32 random bytes. First entry signs new records. Unset or malformed means registration is **closed** (fail closed). Never commit or log it. Rotate by prepending a new entry and keeping the old one until old receipts no longer need replay. |
+| `KHLIM_REGISTRATION_HMAC_KEYS` | `version:base64secret[,version:base64secret…]`, each secret at least 32 random bytes. First entry signs new records. Unset or malformed means registration is **closed** (fail closed). Never commit or log it. Rotate only with the two-phase protocol in "HMAC key-ring rotation protocol" below. |
 | Approved policy row | Registration is closed until `POST /admin/academy/registration-policies/:id/approve` is performed by `SUPER_ADMIN` or `MANAGEMENT` on owner-approved wording references. Nothing is seeded. |
 | `KHLIM_ENV` | `staging` / `production` refuse approval of policy labels starting with `synthetic`. |
 
@@ -252,12 +296,16 @@ The tests refuse to run unless the database name contains `test` and the host is
 
 ```sql
 -- RIC-190 rollback (local/pre-data only). Reverse order of the migration.
+DROP TRIGGER IF EXISTS "academy_registrations_identity_guard" ON "public"."academy_registrations";
+DROP TRIGGER IF EXISTS "registration_sessions_identity_guard" ON "public"."academy_registration_sessions";
 DROP TRIGGER IF EXISTS "academy_registrations_state_guard" ON "public"."academy_registrations";
 DROP TRIGGER IF EXISTS "registration_sessions_clean_offering" ON "public"."academy_registration_sessions";
 DROP TRIGGER IF EXISTS "plan_eligibilities_registration_isolation" ON "public"."membership_plan_offering_eligibilities";
 DROP TRIGGER IF EXISTS "memberships_registration_isolation" ON "public"."memberships";
 DROP TRIGGER IF EXISTS "programme_offerings_registration_guard" ON "public"."programme_offerings";
 DROP TRIGGER IF EXISTS "programme_offerings_tenant_integrity" ON "public"."programme_offerings";
+DROP FUNCTION IF EXISTS "public"."academy_registration_identity_guard"();
+DROP FUNCTION IF EXISTS "public"."academy_registration_session_identity_guard"();
 DROP FUNCTION IF EXISTS "public"."academy_registration_state_guard"();
 DROP FUNCTION IF EXISTS "public"."academy_session_requires_clean_offering"();
 DROP FUNCTION IF EXISTS "public"."academy_eligibility_registration_isolation"();
@@ -291,6 +339,7 @@ or triggers; this repository applies migrations with `migrate deploy` only.
 - Public session list is capped at 50 sessions.
 - Closed sessions are terminal; consent withdrawal has storage (`withdrawn_at`) but no endpoint yet.
 - Legacy `PATCH /admin/academy/offerings/:id/status` is unaudited legacy behaviour; for cohorts it can only reduce availability.
+- Access auditing beyond detail reads and state changes (list/search views of minors' names, exports) is an outstanding operational decision for the owner; this change adds no further audit infrastructure.
 - Retention/anonymization columns (`anonymized_at`) exist, but no job or policy is implemented.
 - Option lists (gender, jersey size, relationships) are placeholders pending owner confirmation.
 
@@ -306,20 +355,48 @@ these two cases from the HTTP status (`401` = sign in again, `403` = not
 permitted or MFA required). A coded guard envelope should be a separate,
 explicitly reviewed change.
 
-## HMAC key-ring configuration (no key material in this repository)
+## HMAC key-ring rotation protocol (no key material in this repository)
 
 `KHLIM_REGISTRATION_HMAC_KEYS` is a comma-separated list of `version:base64secret`
 entries (version `[A-Za-z0-9]{1,16}`; each secret decodes to at least 32 bytes).
-The first entry is current. To generate a secret on a trusted machine:
-`openssl rand -base64 32`. Provision it only through the hosting provider's secret
-store for the specific environment; never in `.env` files committed to git,
-screenshots, tickets or chat. Use a different key per environment. Rotation:
-prepend a new entry (for example `v2:…,v1:…`), deploy, and keep `v1` until retries
-of receipts signed with it are no longer needed. Removing a version makes
-receipts signed with it unreplayable (the retry then returns
-`IDEMPOTENCY_KEY_CONFLICT`), so retire old versions deliberately. If the variable
-is missing or malformed, registration is closed. **This change provisions no
-secret in any environment.**
+**The first entry is the active signing key; every entry verifies and is locked
+for idempotency.** Generate a secret on a trusted machine (`openssl rand -base64 32`)
+and provision it only through the hosting provider's secret store for that
+environment; never in committed `.env` files, tickets, screenshots or chat. Use
+a different key per environment. If the variable is missing or malformed,
+registration is closed. **This change provisions no secret in any environment.**
+
+The existing format can express a safe two-phase rotation; no secret-management
+infrastructure is needed. Order matters because the value is "first = signing":
+
+1. **Distribute the verification key.** Deploy `old:…,new:…` (the current key
+   stays first, so signing is unchanged). Instances still on `old:…` keep
+   working but cannot see the new key.
+2. **Verify compatible rings.** Do not continue until **every** serving
+   instance runs a revision whose ring contains both versions. Compare the
+   version names only (never values) in the provider's environment settings and
+   the deployed revision of each instance; drain or stop any instance still on
+   the old ring.
+3. **Switch signing.** Deploy `new:…,old:…`. New receipts are signed with `new`.
+4. **Retain historical keys** for the supported replay window (at least the
+   longest retry horizon of the frontend plus a safety margin). Removing a
+   version makes receipts signed with it unreplayable (the retry would return
+   `IDEMPOTENCY_KEY_CONFLICT`, or could create a second record), so retire old
+   versions deliberately and only after that window.
+
+What is guaranteed: with compatible rings, two instances that sign with
+different active versions share advisory lock identifiers and re-check all
+candidate HMACs inside the transaction, so concurrent identical requests create
+one registration and one receipt (tested with both possible winners, identical
+retries, conflicting payloads and sequential rotation).
+
+**Unsupported (not safe):** an instance whose ring lacks a version that another
+instance signs with (for example a straggler still on `old:…` while others sign
+with `new`). That instance cannot compute or look up the other version's HMAC,
+so it can miss an existing row and create a duplicate. Locking all known
+versions cannot protect an instance that does not know the new key. Protocol
+step 2 exists to rule this out; there is no runtime check, and the system does
+not claim safety in that scenario.
 
 ## Operational dependencies and release blockers
 

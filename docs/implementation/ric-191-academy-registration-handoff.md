@@ -53,14 +53,14 @@ admin endpoints keep the existing platform shape
 | 400 | `IDEMPOTENCY_KEY_INVALID` | Header not 22–128 chars `[A-Za-z0-9_-]` |
 | 400 | `SEARCH_NOT_ALLOWED_IN_QUERY` | Admin: use POST search |
 | 400 | `UNKNOWN_QUERY_PARAMETER` | Admin list |
-| 409 | `REGISTRATION_CLOSED` | No approved consent policy / not configured |
+| 409 | `REGISTRATION_CLOSED` | No approved consent policy, or the server's HMAC key ring is not configured |
 | 409 | `CONSENT_VERSION_MISMATCH` | `details.currentConsentVersion` |
 | 409 | `SESSION_NOT_AVAILABLE` | Unknown, unpublished, closed, outside window |
 | 409 | `SESSION_FULL` | Confirmed seats reached capacity |
 | 409 | `IDEMPOTENCY_KEY_CONFLICT` | Same key, different payload |
 | 422 | `PLAYER_AGE_INELIGIBLE` | `details.minAge`, `details.maxAge` |
 | 429 | `RATE_LIMITED` | `retryAfter` seconds |
-| 503 | `SERVICE_TEMPORARILY_UNAVAILABLE` | Retry later (rate-limit store / config) |
+| 503 | `SERVICE_TEMPORARILY_UNAVAILABLE` | Rate-limit storage failure (fails closed); honour `Retry-After` |
 | 503 | `REGISTRATION_PERSISTENCE_FAILED` | Not saved. Retry with the **same** key |
 
 Status codes on success: `POST` endpoints return `201` (including admin
@@ -202,7 +202,7 @@ Organization comes from the server-resolved membership; never send one.
 | Method & path | Purpose |
 | ------------- | ------- |
 | `GET /admin/academy/registrations?status&sessionId&page&limit` | List (bounded, newest first). `q` is rejected. |
-| `POST /admin/academy/registrations/search` | `{ q, status?, sessionId?, page?, limit? }` name/phone/reference search (body, not URL) |
+| `POST /admin/academy/registrations/search` | `{ q, status?, sessionId?, page?, limit? }` name/phone/reference search (body, not URL). Phone terms accept local (`012-345 6789`), E.164 (`+60123456789`) or a fragment of 4+ digits; terms under 4 digits only match names/reference codes |
 | `GET /admin/academy/registrations/:id` | Detail (audited) |
 | `PATCH /admin/academy/registrations/:id/status` | `{ status, reasonCode?, expectedVersion }` |
 | `GET /admin/academy/registration-sessions` | List with seat counts |
@@ -252,3 +252,30 @@ Use the JSON blocks above verbatim for MSW/Playwright mocks. Error mocks:
 Payment, price, account creation, attendance, parent dashboard, receipt lookup,
 Google Sheets sync (BLOCKED pending owner approval of destination, fields,
 access).
+
+## Generated types for the admin contract (review F4)
+
+`pnpm openapi:generate` now emits response schemas for every admin session and
+policy operation (previously `unknown`):
+
+- Sessions: `AdminRegistrationSessionDto` (single), `AdminRegistrationSessionListDto`
+  (`{ items }`, newest first, at most 100). Create uses
+  `CreateRegistrationSessionRequestDto` (required: `programmeId`, `name`,
+  `venueId`, `capacity`); edit uses `UpdateRegistrationSessionRequestDto`
+  (required: `expectedVersion`; `name`/`venueId` are draft-only, structural
+  fields are draft-only, `capacity` never below confirmed seats); publish
+  `PublishRegistrationSessionRequestDto`; close `VersionRequestDto`.
+- Policies: `AdminRegistrationPolicyDto`, `AdminRegistrationPolicyListDto`;
+  create `CreateRegistrationPolicyRequestDto`; approve/retire `VersionRequestDto`.
+- Success statuses are exactly as documented in the schema: `POST` = `201`
+  (including search, publish, close, policy create/approve/retire), `PATCH` = `200`,
+  `GET` = `200`; `POST /academy/registrations` is `201` first time and `200` for
+  an identical replay.
+- A contract test compares the generated schemas with live responses and fails
+  on drift.
+
+Behaviour changes since the first handoff: policy approval/retirement are now
+serialized with submissions, so a submission racing a retirement or replacement
+can return `REGISTRATION_CLOSED` or `CONSENT_VERSION_MISMATCH` (refetch
+`registration-config` and ask the guardian to review the current text). Nothing
+else in the public request/response shapes changed.

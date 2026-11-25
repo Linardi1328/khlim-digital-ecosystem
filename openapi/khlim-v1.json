@@ -1937,7 +1937,14 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRegistrationSessionListDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1958,14 +1965,21 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RegistrationSessionRequestDto"
+                "$ref": "#/components/schemas/CreateRegistrationSessionRequestDto"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRegistrationSessionDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -1994,7 +2008,14 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRegistrationSessionDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2024,14 +2045,31 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RegistrationSessionRequestDto"
+                "$ref": "#/components/schemas/UpdateRegistrationSessionRequestDto"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRegistrationSessionDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationErrorDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2070,7 +2108,24 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRegistrationSessionDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationErrorDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2109,7 +2164,24 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRegistrationSessionDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationErrorDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2129,7 +2201,14 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRegistrationPolicyListDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2157,7 +2236,24 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRegistrationPolicyDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationErrorDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2196,7 +2292,24 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRegistrationPolicyDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationErrorDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2235,7 +2348,24 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRegistrationPolicyDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegistrationErrorDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -4512,20 +4642,121 @@
           "expectedVersion"
         ]
       },
-      "RegistrationSessionRequestDto": {
+      "AdminSessionProgrammeDto": {
         "type": "object",
         "properties": {
-          "programmeId": {
+          "id": {
             "type": "string"
           },
           "name": {
             "type": "string"
           },
-          "venueId": {
+          "minimumAge": {
+            "type": "number",
+            "nullable": true
+          },
+          "maximumAge": {
+            "type": "number",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "minimumAge",
+          "maximumAge"
+        ]
+      },
+      "AdminSessionVenueDto": {
+        "type": "object",
+        "properties": {
+          "id": {
             "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "address"
+        ]
+      },
+      "AdminSessionSeatCountsDto": {
+        "type": "object",
+        "properties": {
+          "RECEIVED": {
+            "type": "number"
+          },
+          "UNDER_REVIEW": {
+            "type": "number"
+          },
+          "CONFIRMED": {
+            "type": "number"
+          },
+          "REJECTED": {
+            "type": "number"
+          },
+          "CANCELLED": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "RECEIVED",
+          "UNDER_REVIEW",
+          "CONFIRMED",
+          "REJECTED",
+          "CANCELLED"
+        ]
+      },
+      "AdminRegistrationSessionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "programmeOfferingId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "publicationState": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "PUBLISHED",
+              "CLOSED"
+            ]
+          },
+          "version": {
+            "type": "number"
+          },
+          "programme": {
+            "$ref": "#/components/schemas/AdminSessionProgrammeDto"
+          },
+          "venue": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AdminSessionVenueDto"
+              }
+            ]
           },
           "capacity": {
             "type": "number"
+          },
+          "seatsRemaining": {
+            "type": "number"
+          },
+          "seatCounts": {
+            "$ref": "#/components/schemas/AdminSessionSeatCountsDto"
           },
           "enrollmentOpensAt": {
             "type": "string",
@@ -4541,9 +4772,121 @@
           },
           "weekday": {
             "type": "number",
+            "nullable": true
+          },
+          "startTime": {
+            "type": "string",
+            "nullable": true
+          },
+          "endTime": {
+            "type": "string",
+            "nullable": true
+          },
+          "timezone": {
+            "type": "string",
+            "example": "Asia/Kuala_Lumpur"
+          },
+          "firstSessionDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "recurrence": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "NONE",
+              "WEEKLY"
+            ]
+          },
+          "ageReferenceRule": {
+            "type": "string",
+            "nullable": true
+          },
+          "ageReferenceDate": {
+            "type": "string",
+            "nullable": true
+          },
+          "publishedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "closedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "programmeOfferingId",
+          "name",
+          "publicationState",
+          "version",
+          "programme",
+          "venue",
+          "capacity",
+          "seatsRemaining",
+          "seatCounts",
+          "enrollmentOpensAt",
+          "enrollmentClosesAt",
+          "coachDisplayName",
+          "weekday",
+          "startTime",
+          "endTime",
+          "timezone",
+          "firstSessionDate",
+          "recurrence",
+          "ageReferenceRule",
+          "ageReferenceDate",
+          "publishedAt",
+          "closedAt",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "AdminRegistrationSessionListDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminRegistrationSessionDto"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      },
+      "CreateRegistrationSessionRequestDto": {
+        "type": "object",
+        "properties": {
+          "enrollmentOpensAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO date-time"
+          },
+          "enrollmentClosesAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO date-time"
+          },
+          "coachDisplayName": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
+          },
+          "weekday": {
+            "type": "number",
             "nullable": true,
             "minimum": 1,
-            "maximum": 7
+            "maximum": 7,
+            "description": "ISO weekday, 1 = Monday"
           },
           "startTime": {
             "type": "string",
@@ -4557,7 +4900,8 @@
           },
           "firstSessionDate": {
             "type": "string",
-            "nullable": true
+            "nullable": true,
+            "description": "YYYY-MM-DD"
           },
           "recurrence": {
             "type": "string",
@@ -4578,13 +4922,119 @@
           },
           "ageReferenceDate": {
             "type": "string",
-            "nullable": true
+            "nullable": true,
+            "description": "Required with FIXED_DATE, otherwise null"
+          },
+          "programmeId": {
+            "type": "string",
+            "example": "00000000-0000-4000-8000-000000000001"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 180
+          },
+          "venueId": {
+            "type": "string",
+            "example": "00000000-0000-4000-8000-000000000001"
+          },
+          "capacity": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 10000
+          }
+        },
+        "required": [
+          "programmeId",
+          "name",
+          "venueId",
+          "capacity"
+        ]
+      },
+      "UpdateRegistrationSessionRequestDto": {
+        "type": "object",
+        "properties": {
+          "enrollmentOpensAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO date-time"
+          },
+          "enrollmentClosesAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "ISO date-time"
+          },
+          "coachDisplayName": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
+          },
+          "weekday": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 1,
+            "maximum": 7,
+            "description": "ISO weekday, 1 = Monday"
+          },
+          "startTime": {
+            "type": "string",
+            "nullable": true,
+            "example": "14:00"
+          },
+          "endTime": {
+            "type": "string",
+            "nullable": true,
+            "example": "16:00"
+          },
+          "firstSessionDate": {
+            "type": "string",
+            "nullable": true,
+            "description": "YYYY-MM-DD"
+          },
+          "recurrence": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "NONE",
+              "WEEKLY"
+            ]
+          },
+          "ageReferenceRule": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "FIXED_DATE",
+              "SESSION_START_DATE",
+              "REGISTRATION_DATE"
+            ]
+          },
+          "ageReferenceDate": {
+            "type": "string",
+            "nullable": true,
+            "description": "Required with FIXED_DATE, otherwise null"
           },
           "expectedVersion": {
             "type": "number",
-            "description": "Required on PATCH/publish/close"
+            "description": "Compare-and-set token from the last response"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 180,
+            "description": "Draft only"
+          },
+          "venueId": {
+            "type": "string",
+            "description": "Draft only"
+          },
+          "capacity": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 10000,
+            "description": "Never below confirmed seats"
           }
-        }
+        },
+        "required": [
+          "expectedVersion"
+        ]
       },
       "PublishRegistrationSessionRequestDto": {
         "type": "object",
@@ -4617,6 +5067,72 @@
         },
         "required": [
           "expectedVersion"
+        ]
+      },
+      "AdminRegistrationPolicyDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "policyVersion": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "APPROVED",
+              "RETIRED"
+            ]
+          },
+          "version": {
+            "type": "number"
+          },
+          "content": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "{ CONSENT_TYPE: { locale: { ref, sha256 } } }"
+          },
+          "approvedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "retiredAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "policyVersion",
+          "status",
+          "version",
+          "content",
+          "approvedAt",
+          "retiredAt",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "AdminRegistrationPolicyListDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdminRegistrationPolicyDto"
+            }
+          }
+        },
+        "required": [
+          "items"
         ]
       },
       "CreateRegistrationPolicyRequestDto": {

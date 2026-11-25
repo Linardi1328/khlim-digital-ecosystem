@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type { AuthenticatedUserContext } from "../../auth/authenticated-user";
 import { PrismaService } from "../../database/prisma.service";
+import { normalizePhoneNumber } from "../academy-leads.validation";
 import { Prisma } from "../../generated/prisma/client";
 import {
   REGISTRATION_TRANSITIONS,
@@ -19,6 +20,50 @@ import {
   parseUuidParam,
   type PageQuery,
 } from "./registration.validation";
+
+const PHONE_LIKE = /^\+?[\d\s().-]+$/;
+
+/**
+ * Search terms stay in the request body. Phone-like terms are normalized with
+ * the registration phone normalizer (so `012-345 6789` matches the stored
+ * `+60123456789`); other digit fragments (4+ digits) match as bounded partial
+ * numbers. Names are only matched for terms containing a letter.
+ */
+function searchConditions(
+  text: string,
+): Prisma.AcademyRegistrationWhereInput[] {
+  const conditions: Prisma.AcademyRegistrationWhereInput[] = [
+    { referenceCode: { contains: text.toUpperCase() } },
+  ];
+  if (/\p{L}/u.test(text)) {
+    conditions.push(
+      { playerFullName: { contains: text, mode: "insensitive" } },
+      { guardianFullName: { contains: text, mode: "insensitive" } },
+    );
+  }
+  if (PHONE_LIKE.test(text)) {
+    const compact = text.replace(/[\s().-]/g, "");
+    let normalized: string | null = null;
+    try {
+      normalized = normalizePhoneNumber(compact);
+    } catch {
+      normalized = null;
+    }
+    if (normalized) {
+      conditions.push({ guardianPhone: normalized });
+    }
+    const digits = compact.replace(/^\+/, "");
+    if (digits.length >= 4) {
+      conditions.push({ guardianPhone: { contains: digits } });
+      if (digits.startsWith("0")) {
+        conditions.push({
+          guardianPhone: { contains: `+60${digits.slice(1)}` },
+        });
+      }
+    }
+  }
+  return conditions;
+}
 
 type RegistrationWithSession = Prisma.AcademyRegistrationGetPayload<object>;
 
@@ -94,15 +139,7 @@ export class RegistrationAdminService {
     const where: Prisma.AcademyRegistrationWhereInput = { organizationId };
     if (query.status) where.status = query.status;
     if (query.sessionId) where.sessionId = query.sessionId;
-    if (text) {
-      const upper = text.toUpperCase();
-      where.OR = [
-        { playerFullName: { contains: text, mode: "insensitive" } },
-        { guardianFullName: { contains: text, mode: "insensitive" } },
-        { guardianPhone: { contains: text.replace(/[\s()-]/g, "") } },
-        { referenceCode: { contains: upper } },
-      ];
-    }
+    if (text) where.OR = searchConditions(text);
     const [total, rows] = await Promise.all([
       this.prisma.client.academyRegistration.count({ where }),
       this.prisma.client.academyRegistration.findMany({

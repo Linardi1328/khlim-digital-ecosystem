@@ -20,6 +20,15 @@ export const {
   RegistrationPublicService,
 } = require("../../apps/api/dist/academy/registration/registration-public.service.js");
 export const {
+  RegistrationPolicyService,
+} = require("../../apps/api/dist/academy/registration/registration-policy.service.js");
+export const {
+  loadHmacKeyRing,
+} = require("../../apps/api/dist/academy/registration/registration.crypto.js");
+export const {
+  createOpenApiDocument,
+} = require("../../apps/api/dist/openapi.js");
+export const {
   scrubRegistrationEvent,
 } = require("../../apps/api/dist/observability/registration-privacy.js");
 

@@ -2015,27 +2015,112 @@ export interface components {
             /** @example 1 */
             expectedVersion: number;
         };
-        RegistrationSessionRequestDto: {
-            programmeId?: string;
-            name?: string;
-            venueId?: string;
-            capacity?: number;
+        AdminSessionProgrammeDto: {
+            id: string;
+            name: string;
+            minimumAge: number | null;
+            maximumAge: number | null;
+        };
+        AdminSessionVenueDto: {
+            id: string;
+            name: string;
+            address: string | null;
+        };
+        AdminSessionSeatCountsDto: {
+            RECEIVED: number;
+            UNDER_REVIEW: number;
+            CONFIRMED: number;
+            REJECTED: number;
+            CANCELLED: number;
+        };
+        AdminRegistrationSessionDto: {
+            id: string;
+            programmeOfferingId: string;
+            name: string;
+            /** @enum {string} */
+            publicationState: "DRAFT" | "PUBLISHED" | "CLOSED";
+            version: number;
+            programme: components["schemas"]["AdminSessionProgrammeDto"];
+            venue: components["schemas"]["AdminSessionVenueDto"] | null;
+            capacity: number;
+            seatsRemaining: number;
+            seatCounts: components["schemas"]["AdminSessionSeatCountsDto"];
+            enrollmentOpensAt: string | null;
+            enrollmentClosesAt: string | null;
+            coachDisplayName: string | null;
+            weekday: number | null;
+            startTime: string | null;
+            endTime: string | null;
+            /** @example Asia/Kuala_Lumpur */
+            timezone: string;
+            firstSessionDate: string | null;
+            /** @enum {string|null} */
+            recurrence: "NONE" | "WEEKLY" | null;
+            ageReferenceRule: string | null;
+            ageReferenceDate: string | null;
+            publishedAt: string | null;
+            closedAt: string | null;
+            createdAt: string;
+            updatedAt: string;
+        };
+        AdminRegistrationSessionListDto: {
+            items: components["schemas"]["AdminRegistrationSessionDto"][];
+        };
+        CreateRegistrationSessionRequestDto: {
+            /** @description ISO date-time */
             enrollmentOpensAt?: string | null;
+            /** @description ISO date-time */
             enrollmentClosesAt?: string | null;
             coachDisplayName?: string | null;
+            /** @description ISO weekday, 1 = Monday */
             weekday?: number | null;
             /** @example 14:00 */
             startTime?: string | null;
             /** @example 16:00 */
             endTime?: string | null;
+            /** @description YYYY-MM-DD */
             firstSessionDate?: string | null;
             /** @enum {string|null} */
             recurrence?: "NONE" | "WEEKLY" | null;
             /** @enum {string|null} */
             ageReferenceRule?: "FIXED_DATE" | "SESSION_START_DATE" | "REGISTRATION_DATE" | null;
+            /** @description Required with FIXED_DATE, otherwise null */
             ageReferenceDate?: string | null;
-            /** @description Required on PATCH/publish/close */
-            expectedVersion?: number;
+            /** @example 00000000-0000-4000-8000-000000000001 */
+            programmeId: string;
+            name: string;
+            /** @example 00000000-0000-4000-8000-000000000001 */
+            venueId: string;
+            capacity: number;
+        };
+        UpdateRegistrationSessionRequestDto: {
+            /** @description ISO date-time */
+            enrollmentOpensAt?: string | null;
+            /** @description ISO date-time */
+            enrollmentClosesAt?: string | null;
+            coachDisplayName?: string | null;
+            /** @description ISO weekday, 1 = Monday */
+            weekday?: number | null;
+            /** @example 14:00 */
+            startTime?: string | null;
+            /** @example 16:00 */
+            endTime?: string | null;
+            /** @description YYYY-MM-DD */
+            firstSessionDate?: string | null;
+            /** @enum {string|null} */
+            recurrence?: "NONE" | "WEEKLY" | null;
+            /** @enum {string|null} */
+            ageReferenceRule?: "FIXED_DATE" | "SESSION_START_DATE" | "REGISTRATION_DATE" | null;
+            /** @description Required with FIXED_DATE, otherwise null */
+            ageReferenceDate?: string | null;
+            /** @description Compare-and-set token from the last response */
+            expectedVersion: number;
+            /** @description Draft only */
+            name?: string;
+            /** @description Draft only */
+            venueId?: string;
+            /** @description Never below confirmed seats */
+            capacity?: number;
         };
         PublishRegistrationSessionRequestDto: {
             expectedVersion: number;
@@ -2051,6 +2136,24 @@ export interface components {
         };
         VersionRequestDto: {
             expectedVersion: number;
+        };
+        AdminRegistrationPolicyDto: {
+            id: string;
+            policyVersion: string;
+            /** @enum {string} */
+            status: "DRAFT" | "APPROVED" | "RETIRED";
+            version: number;
+            /** @description { CONSENT_TYPE: { locale: { ref, sha256 } } } */
+            content: {
+                [key: string]: unknown;
+            };
+            approvedAt: string | null;
+            retiredAt: string | null;
+            createdAt: string;
+            updatedAt: string;
+        };
+        AdminRegistrationPolicyListDto: {
+            items: components["schemas"]["AdminRegistrationPolicyDto"][];
         };
         CreateRegistrationPolicyRequestDto: {
             /** @example 2026-12-v1 */
@@ -3338,7 +3441,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AdminRegistrationSessionListDto"];
+                };
             };
         };
     };
@@ -3351,7 +3456,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RegistrationSessionRequestDto"];
+                "application/json": components["schemas"]["CreateRegistrationSessionRequestDto"];
             };
         };
         responses: {
@@ -3359,7 +3464,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AdminRegistrationSessionDto"];
+                };
             };
         };
     };
@@ -3378,7 +3485,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AdminRegistrationSessionDto"];
+                };
             };
         };
     };
@@ -3393,7 +3502,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RegistrationSessionRequestDto"];
+                "application/json": components["schemas"]["UpdateRegistrationSessionRequestDto"];
             };
         };
         responses: {
@@ -3401,7 +3510,17 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AdminRegistrationSessionDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationErrorDto"];
+                };
             };
         };
     };
@@ -3424,7 +3543,17 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AdminRegistrationSessionDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationErrorDto"];
+                };
             };
         };
     };
@@ -3447,7 +3576,17 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AdminRegistrationSessionDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationErrorDto"];
+                };
             };
         };
     };
@@ -3464,7 +3603,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AdminRegistrationPolicyListDto"];
+                };
             };
         };
     };
@@ -3485,7 +3626,17 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AdminRegistrationPolicyDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationErrorDto"];
+                };
             };
         };
     };
@@ -3508,7 +3659,17 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AdminRegistrationPolicyDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationErrorDto"];
+                };
             };
         };
     };
@@ -3531,7 +3692,17 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AdminRegistrationPolicyDto"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistrationErrorDto"];
+                };
             };
         };
     };
