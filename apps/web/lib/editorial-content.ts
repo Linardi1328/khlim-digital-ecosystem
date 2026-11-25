@@ -530,14 +530,15 @@ export function findSpotlightArticle(
   return null;
 }
 
+export function isYouthMediaConfirmed(): boolean {
+  return process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED === "1";
+}
+
 export function canRenderYouthMedia(
   item: { imageUrl?: string; photoRightsVerified?: boolean } | null | undefined,
 ): boolean {
   if (!item || !item.imageUrl) return false;
-  return (
-    Boolean(item.photoRightsVerified) &&
-    process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED === "1"
-  );
+  return Boolean(item.photoRightsVerified) && isYouthMediaConfirmed();
 }
 
 export interface ClubGalleryItem {

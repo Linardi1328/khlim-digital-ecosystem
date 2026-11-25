@@ -17,6 +17,7 @@ import { TrainingSessionsSection } from "../../components/academy/training-sessi
 import { Badge } from "../../components/ui/badge";
 import { getButtonStyles } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
+import { canRenderYouthMedia } from "../../lib/editorial-content";
 import { useI18n } from "../../lib/i18n-context";
 
 function AcademyContent() {
@@ -316,27 +317,32 @@ function AcademyContent() {
           </div>
 
           <Card style={{ marginTop: 24, padding: 28 }}>
-            {/* Approved Academy youth squad training photography */}
-            <div
-              style={{
-                position: "relative",
-                width: "100%",
-                aspectRatio: "4 / 3",
-                borderRadius: 12,
-                overflow: "hidden",
-                margin: "0 0 24px",
-                border: "1px solid #e4e4e7",
-                background: "#18181b",
-              }}
-            >
-              <Image
-                src="/media/khlim/training-group-1280.webp"
-                alt={t("academy.training.alt")}
-                fill
-                sizes="(max-width: 768px) 100vw, 1100px"
-                style={{ objectFit: "contain", objectPosition: "center" }}
-              />
-            </div>
+            {/* Youth squad training photography renders only when youth media rights are explicitly confirmed */}
+            {canRenderYouthMedia({
+              imageUrl: "/media/khlim/training-group-1280.webp",
+              photoRightsVerified: true,
+            }) ? (
+              <div
+                style={{
+                  position: "relative",
+                  width: "100%",
+                  aspectRatio: "4 / 3",
+                  borderRadius: 12,
+                  overflow: "hidden",
+                  margin: "0 0 24px",
+                  border: "1px solid #e4e4e7",
+                  background: "#18181b",
+                }}
+              >
+                <Image
+                  src="/media/khlim/training-group-1280.webp"
+                  alt={t("academy.training.alt")}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 1100px"
+                  style={{ objectFit: "contain", objectPosition: "center" }}
+                />
+              </div>
+            ) : null}
 
             <div
               data-testid="academy-training-fallback"

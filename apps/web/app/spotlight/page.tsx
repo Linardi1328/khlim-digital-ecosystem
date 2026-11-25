@@ -492,7 +492,7 @@ function SpotlightArchiveContent() {
               return (
                 <figure key={item.id} className="spotlight-gallery-card">
                   <div
-                    className={`spotlight-gallery-image-wrapper${showImage ? " spotlight-gallery-image-wrapper--photo" : ""}`}
+                    className={`spotlight-gallery-image-wrapper${showImage ? " spotlight-gallery-image-wrapper--photo" : " spotlight-gallery-image-wrapper--placeholder"}`}
                   >
                     {showImage ? (
                       <a
@@ -511,11 +511,16 @@ function SpotlightArchiveContent() {
                         />
                       </a>
                     ) : (
-                      <span className="home-achievement-photo-label">
-                        {t("spotlight.archive.photoSlot", {
-                          label: item.photoLabel,
-                        })}
-                      </span>
+                      <div className="spotlight-gallery-placeholder">
+                        <span className="spotlight-gallery-placeholder-eyebrow">
+                          {t("spotlight.archive.badge")}
+                        </span>
+                        <span className="spotlight-gallery-placeholder-label">
+                          {t("spotlight.archive.photoSlot", {
+                            label: item.photoLabel,
+                          })}
+                        </span>
+                      </div>
                     )}
                   </div>
                   <figcaption className="spotlight-gallery-caption">

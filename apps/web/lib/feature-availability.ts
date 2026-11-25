@@ -104,7 +104,7 @@ export const V1_FEATURE_AVAILABILITY: Record<
     routes: ["/enrol", "/enrol/confirmation"],
     status: enrolmentEnabled ? "AVAILABLE" : "COMING_SOON",
     gateNote:
-      "Deferred pending RIC-190 authoritative session contract, RIC-191 UI, and Billplz production gate",
+      "Deferred online membership fee checkout (Billplz production gate); distinct from Academy Registration V1 (/academy/register)",
   },
   parentPortal: {
     key: "parentPortal",

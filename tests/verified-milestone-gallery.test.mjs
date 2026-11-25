@@ -89,6 +89,21 @@ test("the historical gallery respects the youth rights flag and fails closed by 
     nextConfig,
     /process\.env\.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED\s*===\s*["']1["']\s*\?\s*["']1["']\s*:\s*["']0["']/,
   );
+
+  // Homepage hero and Academy group section must also gate youth photos via canRenderYouthMedia
+  const [homePage, academyPage] = await Promise.all([
+    readFile(new URL("apps/web/app/page.tsx", root), "utf8"),
+    readFile(new URL("apps/web/app/academy/page.tsx", root), "utf8"),
+  ]);
+  assert.match(homePage, /canRenderYouthMedia\(/);
+  assert.match(
+    homePage,
+    /heroYouthMediaEnabled\s*\?\s*"\/media\/khlim\/team-hero-wide-1920\.webp"\s*:\s*undefined/,
+  );
+  assert.match(
+    academyPage,
+    /canRenderYouthMedia\(\{\s*imageUrl:\s*"\/media\/khlim\/training-group-1280\.webp"/,
+  );
 });
 
 test("home and Spotlight use distinct photo groups", async () => {

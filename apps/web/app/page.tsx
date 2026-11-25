@@ -12,6 +12,7 @@ import {
 import { trackCampaignLanding } from "../lib/posthog";
 import { useAnalyticsConsent } from "../lib/analytics-consent";
 import { useI18n } from "../lib/i18n-context";
+import { canRenderYouthMedia } from "../lib/editorial-content";
 import type { PublicOfferingItem } from "../lib/types";
 import { AcademyPillarsSection } from "../components/home/academy-pillars-section";
 import { AchievementsSection } from "../components/home/achievements-section";
@@ -110,12 +111,21 @@ function HomeContent() {
     )
     ?.venue?.name?.trim();
 
+  const heroYouthMediaEnabled = canRenderYouthMedia({
+    imageUrl: "/media/khlim/team-hero-wide-1920.webp",
+    photoRightsVerified: true,
+  });
+
   const heroSlides: HeroCarouselSlide[] = [
     {
       id: "academy-first",
-      // Approved responsive hero imagery: wide variant for desktop/tablet, full-frame variant for mobile portrait
-      imageUrl: "/media/khlim/team-hero-wide-1920.webp",
-      imageUrlMobile: "/media/khlim/team-hero-1920.webp",
+      // Youth squad hero imagery renders only when youth media rights are explicitly confirmed
+      imageUrl: heroYouthMediaEnabled
+        ? "/media/khlim/team-hero-wide-1920.webp"
+        : undefined,
+      imageUrlMobile: heroYouthMediaEnabled
+        ? "/media/khlim/team-hero-1920.webp"
+        : undefined,
       photoLabel: t("home.hero.photo.training"),
       showPlaceholderLabel: false,
       placeholderGradient:
@@ -123,8 +133,12 @@ function HomeContent() {
     },
     {
       id: "team-huddle",
-      imageUrl: "/media/home/team-huddle-desktop.webp",
-      imageUrlMobile: "/media/home/team-huddle-mobile.webp",
+      imageUrl: heroYouthMediaEnabled
+        ? "/media/home/team-huddle-desktop.webp"
+        : undefined,
+      imageUrlMobile: heroYouthMediaEnabled
+        ? "/media/home/team-huddle-mobile.webp"
+        : undefined,
       photoLabel: t("home.hero.photo.coaching"),
       showPlaceholderLabel: false,
       placeholderGradient:
@@ -132,8 +146,12 @@ function HomeContent() {
     },
     {
       id: "sideline-energy",
-      imageUrl: "/media/home/sideline-energy-desktop.webp",
-      imageUrlMobile: "/media/home/sideline-energy-mobile.webp",
+      imageUrl: heroYouthMediaEnabled
+        ? "/media/home/sideline-energy-desktop.webp"
+        : undefined,
+      imageUrlMobile: heroYouthMediaEnabled
+        ? "/media/home/sideline-energy-mobile.webp"
+        : undefined,
       photoLabel: t("home.hero.photo.gameDay"),
       showPlaceholderLabel: false,
       placeholderGradient:
@@ -141,8 +159,12 @@ function HomeContent() {
     },
     {
       id: "court-together",
-      imageUrl: "/media/home/court-together-desktop.webp",
-      imageUrlMobile: "/media/home/court-together-mobile.webp",
+      imageUrl: heroYouthMediaEnabled
+        ? "/media/home/court-together-desktop.webp"
+        : undefined,
+      imageUrlMobile: heroYouthMediaEnabled
+        ? "/media/home/court-together-mobile.webp"
+        : undefined,
       photoLabel: t("home.hero.photo.community"),
       showPlaceholderLabel: false,
       placeholderGradient:

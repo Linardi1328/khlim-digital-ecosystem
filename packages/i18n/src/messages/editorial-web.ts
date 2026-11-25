@@ -191,16 +191,16 @@ const en = {
   // V1 feature availability labels & Coming Soon states
   "feature.status.comingSoon": "Coming Soon",
   "feature.comingSoon.enrolTitle":
-    "Online Academy registration and checkout are coming soon",
+    "Online membership checkout and payments are coming soon",
   "feature.comingSoon.enrolBody":
-    "Online session reservations and fee payments are not open yet while final recurring training bookings are being confirmed. Register your interest today and our team will contact you first when Academy registration opens.",
+    "Online membership fee checkout and payments are not open yet. Academy training session registration is managed separately on the Academy Training Sessions page once recurring schedules are published. Register your interest today and our team will contact you with updates.",
   "feature.comingSoon.portalTitle": "Parent Portal is coming soon",
   "feature.comingSoon.portalBody":
     "Family schedules, attendance tracking, memberships, and KHero Points will open once live Academy cohorts begin. Register your interest now to stay updated.",
   "feature.kheroPoints.comingSoonNote":
     "KHero Points tracking in the Parent Portal is coming soon. Register your interest for upcoming Academy cohorts.",
   "feature.programmes.checkoutComingSoon":
-    "Online plan checkout is coming soon — register interest to be notified first.",
+    "Online membership fee checkout is coming soon — register interest to be notified first.",
 } as const;
 
 type Key = keyof typeof en;
@@ -393,9 +393,9 @@ const ms: Catalogue = {
 
   "feature.status.comingSoon": "Akan Datang",
   "feature.comingSoon.enrolTitle":
-    "Pendaftaran Akademi dan pembayaran dalam talian akan datang tidak lama lagi",
+    "Pembayaran keahlian dalam talian akan datang tidak lama lagi",
   "feature.comingSoon.enrolBody":
-    "Tempahan sesi dalam talian dan pembayaran yuran belum dibuka sementara pengesahan akhir jadual latihan berkala sedang dijalankan. Daftar minat anda hari ini dan pasukan kami akan menghubungi anda terlebih dahulu apabila pendaftaran Akademi dibuka.",
+    "Pembayaran yuran keahlian dalam talian belum dibuka lagi. Pendaftaran sesi latihan Akademi diuruskan secara berasingan di halaman Sesi Latihan Akademi apabila jadual berkala diterbitkan. Daftar minat anda hari ini dan pasukan kami akan menghubungi anda dengan maklumat terkini.",
   "feature.comingSoon.portalTitle":
     "Portal Ibu Bapa akan datang tidak lama lagi",
   "feature.comingSoon.portalBody":
@@ -403,7 +403,7 @@ const ms: Catalogue = {
   "feature.kheroPoints.comingSoonNote":
     "Penjejakan Mata KHero dalam Portal Ibu Bapa akan datang tidak lama lagi. Daftar minat anda untuk kohort Akademi akan datang.",
   "feature.programmes.checkoutComingSoon":
-    "Pembayaran pelan dalam talian akan datang — daftar minat untuk dimaklumkan terlebih dahulu.",
+    "Pembayaran yuran keahlian dalam talian akan datang — daftar minat untuk dimaklumkan terlebih dahulu.",
 };
 
 const zhHans: Catalogue = {
@@ -585,16 +585,16 @@ const zhHans: Catalogue = {
     "上方仍保留展示经核实的俱乐部历史荣誉记录。编辑服务恢复连接后，更多已发布动态将自动显示。",
 
   "feature.status.comingSoon": "即将开放",
-  "feature.comingSoon.enrolTitle": "在线学院报名与缴费功能即将开放",
+  "feature.comingSoon.enrolTitle": "在线会籍结账与缴费功能即将开放",
   "feature.comingSoon.enrolBody":
-    "在线训练班次预约与缴费尚未开放，我们正在最终确认常规场地排期。欢迎立即登记意向，正式开放报名时团队将优先通知您。",
+    "在线会籍费用结账与支付尚未开放。学院训练班次报名将待常规排期公布后，在学院训练班次页面单独开放。欢迎立即登记意向，团队将及时向您同步最新进展。",
   "feature.comingSoon.portalTitle": "家长门户即将开放",
   "feature.comingSoon.portalBody":
     "家庭训练日程、出勤记录、会籍管理与 KHero 积分将在学院正式开班后启用。欢迎先登记意向以获取最新通知。",
   "feature.kheroPoints.comingSoonNote":
     "家长门户中的 KHero 积分追踪功能即将开放。欢迎先登记学院课程意向。",
   "feature.programmes.checkoutComingSoon":
-    "在线方案缴费即将开放——欢迎先登记意向以获取优先通知。",
+    "在线会籍缴费即将开放——欢迎先登记意向以获取优先通知。",
 };
 
 const zhHant: Catalogue = {

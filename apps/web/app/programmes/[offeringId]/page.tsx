@@ -18,7 +18,7 @@ import {
 import { PublicFooter } from "../../../components/layout/public-footer";
 import { PublicHeader } from "../../../components/layout/public-header";
 import { Badge } from "../../../components/ui/badge";
-import { Button } from "../../../components/ui/button";
+import { Button, getButtonStyles } from "../../../components/ui/button";
 import {
   Card,
   CardContent,
@@ -26,52 +26,214 @@ import {
   CardTitle,
 } from "../../../components/ui/card";
 
+type OfferingDetailState =
+  | { status: "loading" }
+  | { status: "error" }
+  | { status: "empty" }
+  | { status: "not-found" }
+  | { status: "available"; offering: PublicOfferingItem };
+
 function OfferingDetailContent({ offeringId }: { offeringId: string }) {
   const { t, formatCurrency, formatDate } = useI18n();
   const searchParams = useSearchParams();
   const [campaignSource, setCampaignSource] = useState<string | null>(null);
 
-  const [offering, setOffering] = useState<PublicOfferingItem | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [state, setState] = useState<OfferingDetailState>({
+    status: "loading",
+  });
+  const [retryAttempt, setRetryAttempt] = useState(0);
 
   useEffect(() => {
     setCampaignSource(resolveCampaignSource(searchParams));
   }, [searchParams]);
 
   useEffect(() => {
+    let cancelled = false;
+    setState({ status: "loading" });
+
     apiService
       .getPublicOfferings()
-      .then((items) =>
-        setOffering(items.find((item) => item.id === offeringId) ?? null),
-      )
-      .catch(() => setOffering(null))
-      .finally(() => setLoading(false));
-  }, [offeringId]);
+      .then((items) => {
+        if (cancelled) return;
+        if (items.length === 0) {
+          setState({ status: "empty" });
+          return;
+        }
+        const matched = items.find((item) => item.id === offeringId);
+        if (!matched) {
+          setState({ status: "not-found" });
+          return;
+        }
+        setState({ status: "available", offering: matched });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setState({ status: "error" });
+        }
+      });
 
-  if (loading)
+    return () => {
+      cancelled = true;
+    };
+  }, [offeringId, retryAttempt]);
+
+  const programmesHref = buildUrlWithSource("/programmes", campaignSource);
+  const generalInterestHref = buildUrlWithSource("/interest", campaignSource);
+
+  if (state.status === "loading")
     return (
-      <div>
+      <div
+        style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
+      >
         <PublicHeader campaignSource={campaignSource} />
-        <main aria-busy="true" style={{ padding: 48, textAlign: "center" }}>
+        <main
+          aria-busy="true"
+          style={{ flex: 1, padding: "48px 20px", textAlign: "center" }}
+        >
           {t("programmes.loadingOffering")}
         </main>
         <PublicFooter campaignSource={campaignSource} />
       </div>
     );
 
-  if (!offering)
+  if (state.status === "error")
     return (
-      <div>
+      <div
+        style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
+      >
         <PublicHeader campaignSource={campaignSource} />
-        <main style={{ padding: 48, textAlign: "center" }}>
-          <h1>{t("programmes.unavailable")}</h1>
-          <Link href={buildUrlWithSource("/programmes", campaignSource)}>
-            {t("programmes.returnToProgrammes")}
-          </Link>
+        <main
+          style={{
+            flex: 1,
+            width: "100%",
+            maxWidth: 720,
+            margin: "0 auto",
+            padding: "48px 20px",
+            boxSizing: "border-box",
+          }}
+        >
+          <Card style={{ padding: 32, textAlign: "center" }}>
+            <h1 style={{ margin: "0 0 12px" }}>
+              {t("programmes.unavailable")}
+            </h1>
+            <p role="alert" style={{ margin: "0 0 20px", color: "#52525b" }}>
+              {t("programmes.detailLoadError")}
+            </p>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setRetryAttempt((attempt) => attempt + 1)}
+                style={{ minHeight: 44, minWidth: 44 }}
+              >
+                {t("common.retry")}
+              </Button>
+              <Link
+                href={generalInterestHref}
+                style={{
+                  ...getButtonStyles("primary", "sm"),
+                  minHeight: 44,
+                  minWidth: 44,
+                }}
+              >
+                {t("programmes.registerInterest")}
+              </Link>
+              <Link
+                href={programmesHref}
+                style={{
+                  ...getButtonStyles("outline", "sm"),
+                  minHeight: 44,
+                  minWidth: 44,
+                }}
+              >
+                {t("programmes.returnToProgrammes")}
+              </Link>
+            </div>
+          </Card>
         </main>
         <PublicFooter campaignSource={campaignSource} />
       </div>
     );
+
+  if (state.status === "empty" || state.status === "not-found") {
+    const isEmpty = state.status === "empty";
+    return (
+      <div
+        style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
+      >
+        <PublicHeader campaignSource={campaignSource} />
+        <main
+          style={{
+            flex: 1,
+            width: "100%",
+            maxWidth: 720,
+            margin: "0 auto",
+            padding: "48px 20px",
+            boxSizing: "border-box",
+          }}
+        >
+          <Card
+            data-testid={
+              isEmpty ? "offering-detail-empty" : "offering-detail-not-found"
+            }
+            style={{ padding: 32, textAlign: "center" }}
+          >
+            <h1 style={{ margin: "0 0 12px" }}>
+              {isEmpty
+                ? t("programmes.detailEmptyTitle")
+                : t("programmes.detailNotFoundTitle")}
+            </h1>
+            <p style={{ margin: "0 0 20px", color: "#52525b" }}>
+              {isEmpty
+                ? t("programmes.detailEmptyBody")
+                : t("programmes.detailNotFoundBody")}
+            </p>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              <Link
+                href={generalInterestHref}
+                style={{
+                  ...getButtonStyles("primary", "sm"),
+                  minHeight: 44,
+                  minWidth: 44,
+                }}
+              >
+                {t("programmes.registerInterest")}
+              </Link>
+              <Link
+                href={programmesHref}
+                style={{
+                  ...getButtonStyles("outline", "sm"),
+                  minHeight: 44,
+                  minWidth: 44,
+                }}
+              >
+                {t("programmes.returnToProgrammes")}
+              </Link>
+            </div>
+          </Card>
+        </main>
+        <PublicFooter campaignSource={campaignSource} />
+      </div>
+    );
+  }
+
+  const { offering } = state;
 
   const plans = offering.planEligibilities.map(({ plan }) => plan);
   const registerInterestUrl = buildUrlWithSource("/interest", campaignSource, {

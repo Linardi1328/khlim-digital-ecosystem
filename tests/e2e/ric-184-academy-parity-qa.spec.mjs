@@ -10,50 +10,49 @@ const VIEWPORTS = [
   { width: 1440, height: 900 },
 ];
 
-const MOCK_OFFERINGS = {
-  data: [
-    {
-      id: "off-u12-2026",
-      name: "U12 Youth Development",
-      capacity: 20,
-      startsOn: "2026-11-28",
-      programme: {
-        id: "prog-u12",
-        name: "Youth Development",
-        description: "Structured basketball fundamentals for ages 10–12.",
-        level: "DEVELOPMENT",
-        minimumAge: 10,
-        maximumAge: 12,
-        sport: { code: "BASKETBALL", name: "Basketball" },
-      },
-      venue: { id: "v-sg", name: "Sports Garage, Petaling Jaya" },
-      planEligibilities: [
-        {
-          plan: {
-            id: "plan-quarterly",
-            name: "Quarterly Plan",
-            billingFrequency: "UPFRONT",
-            currency: "MYR",
-            upfrontAmountMinor: 45000,
-            monthlyAmountMinor: null,
-            commitmentCycles: 1,
-            durationMonths: 3,
-            benefitsSummary: "Weekly structured training.",
-          },
-        },
-      ],
+const MOCK_OFFERINGS = [
+  {
+    id: "off-u12-2026",
+    name: "U12 Youth Development",
+    capacity: 20,
+    startsOn: "2026-11-28",
+    programme: {
+      id: "prog-u12",
+      name: "Youth Development",
+      description: "Structured basketball fundamentals for ages 10–12.",
+      level: "DEVELOPMENT",
+      minimumAge: 10,
+      maximumAge: 12,
+      sport: { code: "BASKETBALL", name: "Basketball" },
     },
-  ],
-};
+    venue: { id: "v-sg", name: "Sports Garage, Petaling Jaya" },
+    planEligibilities: [
+      {
+        plan: {
+          id: "plan-quarterly",
+          name: "Quarterly Plan",
+          billingFrequency: "UPFRONT",
+          currency: "MYR",
+          upfrontAmountMinor: 45000,
+          monthlyAmountMinor: null,
+          commitmentCycles: 1,
+          durationMonths: 3,
+          benefitsSummary: "Weekly structured training.",
+        },
+      },
+    ],
+  },
+];
 
 async function setupPublicMocks(page) {
   await page.addInitScript(() => {
     localStorage.setItem("khlim_analytics_consent", "denied");
   });
-  await page.route("**/public/offerings*", (route) =>
+  await page.route("**/academy/offerings*", (route) =>
     route.fulfill({
       status: 200,
       contentType: "application/json",
+      headers: { "access-control-allow-origin": "*" },
       body: JSON.stringify(MOCK_OFFERINGS),
     }),
   );
@@ -358,5 +357,141 @@ test.describe("RIC-184 Academy information, V1 availability, localization & QA",
         ).toBeLessThanOrEqual(2);
       }
     }
+  });
+
+  test("Homepage hero and Academy group section withhold youth photography when youth media rights are disabled", async ({
+    page,
+  }) => {
+    const youthMediaEnabled =
+      process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED === "1";
+    await setupPublicMocks(page);
+
+    const requestedYouthAssets = [];
+    page.on("request", (req) => {
+      const url = req.url();
+      if (
+        url.includes("/media/khlim/team-hero") ||
+        url.includes("/media/home/") ||
+        url.includes("/media/khlim/training-group-1280.webp") ||
+        url.includes("/media/achievements/")
+      ) {
+        requestedYouthAssets.push(url);
+      }
+    });
+
+    await page.goto("/", { waitUntil: "networkidle" });
+    await page.goto("/academy", { waitUntil: "networkidle" });
+
+    if (!youthMediaEnabled) {
+      expect(
+        requestedYouthAssets,
+        `No youth photo assets may be requested while fail-closed: ${requestedYouthAssets.join(", ")}`,
+      ).toEqual([]);
+      await expect(
+        page.locator('[data-testid="academy-training-fallback"]'),
+      ).toBeVisible();
+      await expect(page.locator('img[src*="training-group-1280"]')).toHaveCount(
+        0,
+      );
+    }
+  });
+
+  test("Programme detail distinguishes loading, unavailable (with retry), successful empty, not-found, and available states", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem("khlim_analytics_consent", "denied");
+    });
+
+    // 1. Loading -> Outage (503) -> Retry -> Available
+    let failFirst = true;
+    let releaseFirstRequest;
+    const firstRequestGate = new Promise((resolve) => {
+      releaseFirstRequest = resolve;
+    });
+    await page.route("**/academy/offerings*", async (route) => {
+      if (failFirst) {
+        await firstRequestGate;
+        await route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          headers: { "access-control-allow-origin": "*" },
+          body: '{"message":"temporarily unavailable"}',
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: { "access-control-allow-origin": "*" },
+        body: JSON.stringify(MOCK_OFFERINGS),
+      });
+    });
+
+    await page.goto("/programmes/off-u12-2026?source=ric184-detail", {
+      waitUntil: "domcontentloaded",
+    });
+    await expect(page.locator('main[aria-busy="true"]')).toContainText(
+      "Loading offering…",
+    );
+    releaseFirstRequest();
+
+    const alert = page.locator('main p[role="alert"]');
+    await expect(alert).toBeVisible();
+    await expect(alert).toContainText(
+      "Programme details are temporarily unavailable.",
+    );
+    await expect(page.getByTestId("offering-detail-empty")).toHaveCount(0);
+    await expect(page.getByTestId("offering-detail-not-found")).toHaveCount(0);
+    const interestLink = page
+      .locator('main a[href*="/interest?source=ric184-detail"]')
+      .first();
+    await expect(interestLink).toBeVisible();
+    await expect(interestLink.locator("button")).toHaveCount(0);
+
+    failFirst = false;
+    await page.getByRole("button", { name: "Try Again" }).click();
+    await expect(
+      page.getByRole("heading", { name: "U12 Youth Development" }),
+    ).toBeVisible();
+    await expect(alert).toHaveCount(0);
+
+    // 2. Successful empty catalogue ([]) -> distinct empty state
+    await page.unroute("**/academy/offerings*");
+    await page.route("**/academy/offerings*", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: { "access-control-allow-origin": "*" },
+        body: "[]",
+      }),
+    );
+    await page.goto("/programmes/off-u12-2026?source=ric184-detail", {
+      waitUntil: "domcontentloaded",
+    });
+    await expect(page.getByTestId("offering-detail-empty")).toBeVisible();
+    await expect(page.locator("main h1")).toContainText(
+      "No open programme offerings right now",
+    );
+    await expect(page.locator('main p[role="alert"]')).toHaveCount(0);
+
+    // 3. Non-empty catalogue without matching ID -> distinct not-found state
+    await page.unroute("**/academy/offerings*");
+    await page.route("**/academy/offerings*", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: { "access-control-allow-origin": "*" },
+        body: JSON.stringify(MOCK_OFFERINGS),
+      }),
+    );
+    await page.goto("/programmes/non-existent-id?source=ric184-detail", {
+      waitUntil: "domcontentloaded",
+    });
+    await expect(page.getByTestId("offering-detail-not-found")).toBeVisible();
+    await expect(page.locator("main h1")).toContainText(
+      "Programme offering not found",
+    );
+    await expect(page.locator('main p[role="alert"]')).toHaveCount(0);
   });
 });
