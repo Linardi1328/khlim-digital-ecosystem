@@ -4,6 +4,7 @@ const adminRoutes = [
   "/",
   "/leads",
   "/reports",
+  "/insights",
   "/programmes",
   "/offerings",
   "/plans",
@@ -13,7 +14,9 @@ const adminRoutes = [
   "/payments",
   "/venues",
   "/scheduling",
+  "/editorial",
   "/moderation",
+  "/notifications",
   "/users",
   "/staff",
   "/audit",
@@ -52,37 +55,54 @@ for (const path of adminRoutes) {
   });
 }
 
-test("desktop navigation reaches every core operations domain", async ({
+test("desktop nine-section navigation reaches every operations tab", async ({
   page,
   viewport,
 }) => {
   test.skip(!viewport || viewport.width < 1024, "Desktop navigation only");
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
-  for (const [label, path] of [
-    ["Leads", "/leads"],
-    ["Reports", "/reports"],
-    ["Programmes", "/programmes"],
-    ["Offerings", "/offerings"],
-    ["Membership Plans", "/plans"],
-    ["Memberships", "/memberships"],
-    ["Athletes", "/athletes"],
-    ["Guardians", "/guardians"],
-    ["Payments", "/payments"],
-    ["Venues", "/venues"],
-    ["Scheduling", "/scheduling"],
-    ["Moderation", "/moderation"],
-    ["Accounts & Access", "/users"],
-    ["Staff", "/staff"],
-    ["Audit Log", "/audit"],
-    ["Settings", "/settings"],
-  ]) {
-    await page.getByRole("link", { name: label, exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`${path}$`));
+  const sidebar = page.getByRole("navigation", { name: "Admin sections" });
+  await expect(sidebar.getByRole("link")).toHaveCount(9);
+
+  const sections = [
+    ["Overview", "Dashboard", "/"],
+    ["Overview", "Reports", "/reports"],
+    ["Overview", "KPI & Health", "/insights"],
+    ["Growth & Leads", "Leads", "/leads"],
+    ["Growth & Leads", "3x3 Campaign", "/insights/campaigns"],
+    ["Academy Setup", "Programmes", "/programmes"],
+    ["Academy Setup", "Offerings", "/offerings"],
+    ["Academy Setup", "Membership Plans", "/plans"],
+    ["Members & Families", "Memberships", "/memberships"],
+    ["Members & Families", "Athletes", "/athletes"],
+    ["Members & Families", "Guardians", "/guardians"],
+    ["Training Operations", "Scheduling", "/scheduling"],
+    ["Training Operations", "Venues & Courts", "/venues"],
+    ["Finance", "Payments", "/payments"],
+    ["Content Management", "Editorial Studio", "/editorial"],
+    ["Content Management", "Moderation", "/moderation"],
+    ["Communications", "Notifications", "/notifications"],
+    ["Team & Administration", "Accounts & Access", "/users"],
+    ["Team & Administration", "Staff", "/staff"],
+    ["Team & Administration", "Audit Log", "/audit"],
+    ["Team & Administration", "Settings", "/settings"],
+  ];
+
+  for (const [section, tab, path] of sections) {
+    await sidebar.getByRole("link", { name: section, exact: true }).click();
+    if (path !== "/payments" && path !== "/notifications") {
+      await page
+        .getByRole("navigation", { name: section + " pages" })
+        .getByRole("link", { name: tab, exact: true })
+        .click();
+    }
+    await expect(page).toHaveURL(new RegExp(path === "/" ? "/$" : path + "$"));
+    await expect(page.getByLabel("Help for " + tab)).toBeVisible();
   }
 });
 
-test("mobile drawer navigation opens and reaches programmes", async ({
+test("mobile drawer opens a section and its related tabs", async ({
   page,
   viewport,
 }) => {
@@ -90,8 +110,16 @@ test("mobile drawer navigation opens and reaches programmes", async ({
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Open navigation menu" }).click();
   await expect(page.getByText("Operations Menu")).toBeVisible();
-  await page.getByRole("link", { name: "Programmes", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Admin sections" })
+    .getByRole("link", { name: "Academy Setup", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/programmes$/);
+  await page
+    .getByRole("navigation", { name: "Academy Setup pages" })
+    .getByRole("link", { name: "Offerings", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/offerings$/);
 });
 
 test("reports expose explicit date, refresh, and export controls", async ({
@@ -140,7 +168,7 @@ test("moderation shows explicit publication decisions and safety blockers", asyn
   await expect(page.getByText(/Facts and photo rights/)).toBeVisible();
 });
 
-test("coach work view hides privileged navigation", async ({
+test("coach work view hides privileged workspaces and tabs", async ({
   page,
   viewport,
 }) => {
@@ -149,21 +177,20 @@ test("coach work view hides privileged navigation", async ({
   await page.getByRole("button", { name: "Switch active work view" }).click();
   await page.getByRole("menuitemradio", { name: "COACH", exact: true }).click();
 
-  await expect(
-    page.getByRole("link", { name: "Payments", exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByRole("link", { name: "Accounts & Access", exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByRole("link", { name: "Moderation", exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByRole("link", { name: "Reports", exact: true }),
-  ).toHaveCount(0);
+  const sidebar = page.getByRole("navigation", { name: "Admin sections" });
+  for (const restrictedSection of [
+    "Finance",
+    "Growth & Leads",
+    "Academy Setup",
+    "Content Management",
+    "Team & Administration",
+  ]) {
+    await expect(
+      sidebar.getByRole("link", { name: restrictedSection, exact: true }),
+    ).toHaveCount(0);
+  }
   await expect(page.getByText("Restricted Financial Ledger")).toBeVisible();
-
-  await page.getByRole("link", { name: "Dashboard", exact: true }).click();
+  await sidebar.getByRole("link", { name: "Overview", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByText("Finance roles only").first()).toBeVisible();
   await expect(

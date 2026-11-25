@@ -16,6 +16,7 @@ import {
 } from "../../lib/supabase-auth";
 import { ADMIN_DEMO_NOTICE } from "../../lib/demo-mode";
 import { AdminSidebar } from "./AdminSidebar";
+import { AdminSectionNavigation } from "./AdminSectionNavigation";
 import { AdminHeader } from "./AdminHeader";
 import { Drawer } from "../ui/Drawer";
 
@@ -497,6 +498,7 @@ export function AdminShell({ children }: AdminShellProps) {
             boxSizing: "border-box",
           }}
         >
+          <AdminSectionNavigation />
           {children}
         </main>
       </div>
