@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../database/prisma.service";
 import { KHLIM_USER_ROLES, type KhlimUserRole } from "../auth/roles";
 
@@ -168,6 +168,48 @@ export class AdminOperationsDataService {
       endsOn: dateOnly(row.endsOn),
       status: row.status,
     }));
+  }
+
+  async getOfferingRoster(organizationId: string, offeringId: string) {
+    const offering = await this.prisma.client.programmeOffering.findFirst({
+      where: { id: offeringId, organizationId },
+      select: { id: true, name: true, capacity: true },
+    });
+    if (!offering) {
+      throw new NotFoundException("Programme offering not found");
+    }
+
+    // Bounded by offering and organization. Read only fields needed for a
+    // roster; never send DOB, guardian contact details or payment records.
+    const rows = await this.prisma.client.membership.findMany({
+      where: {
+        organizationId,
+        programmeOfferingId: offeringId,
+        status: { in: ["ACTIVE", "PENDING", "SUSPENDED"] },
+      },
+      select: {
+        id: true,
+        status: true,
+        athleteId: true,
+        athlete: { select: { displayName: true } },
+        membershipPlan: { select: { name: true } },
+      },
+      orderBy: { createdAt: "asc" },
+      take: 201,
+    });
+    return {
+      offeringId: offering.id,
+      offeringName: offering.name,
+      capacity: offering.capacity,
+      members: rows.slice(0, 200).map((row) => ({
+        membershipId: row.id,
+        athleteId: row.athleteId,
+        athleteName: row.athlete.displayName,
+        membershipStatus: row.status,
+        membershipPlanName: row.membershipPlan.name,
+      })),
+      truncated: rows.length > 200,
+    };
   }
 
   async listMembershipPlans(organizationId: string) {
