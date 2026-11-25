@@ -60,8 +60,9 @@ const nextConfig: NextConfig = {
   output: isVercel ? undefined : "standalone",
   reactStrictMode: true,
   env: {
+    // Fail closed: youth photography requires explicit, authorized opt-in ("1").
     NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED:
-      process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED ?? "1",
+      process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED === "1" ? "1" : "0",
     NEXT_PUBLIC_STAGING_MEDIA_REVIEW:
       process.env.VERCEL_ENV === "preview" ? "1" : "0",
   },

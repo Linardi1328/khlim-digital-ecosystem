@@ -266,7 +266,7 @@ function ContactContent() {
           </Card>
         </div>
       </main>
-      <PublicFooter />
+      <PublicFooter campaignSource={campaignSource} />
     </div>
   );
 }

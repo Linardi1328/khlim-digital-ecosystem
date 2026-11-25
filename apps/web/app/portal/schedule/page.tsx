@@ -5,6 +5,7 @@ import { PortalShell } from "../../../components/portal/portal-shell";
 import { Badge } from "../../../components/ui/badge";
 import { Card } from "../../../components/ui/card";
 import { apiService } from "../../../lib/api-service";
+import { isFeatureAvailable } from "../../../lib/feature-availability";
 import {
   attendanceStatusLabel,
   sessionStatusLabel,
@@ -14,16 +15,21 @@ import type { ScheduleSessionItem } from "../../../lib/types";
 
 export default function SchedulePage() {
   const { t, formatDate, formatTime } = useI18n();
+  const portalAvailable = isFeatureAvailable("parentPortal");
   const [sessions, setSessions] = useState<ScheduleSessionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   useEffect(() => {
+    if (!portalAvailable) {
+      setLoading(false);
+      return;
+    }
     apiService
       .listMySchedule()
       .then(setSessions)
       .catch(() => setError(t("portal.schedule.error")))
       .finally(() => setLoading(false));
-  }, [t]);
+  }, [portalAvailable, t]);
 
   return (
     <PortalShell>

@@ -35,16 +35,38 @@ test("verified photos are categorized by subject", async () => {
   }
 });
 
-test("the historical gallery respects the youth rights flag", () => {
+test("the historical gallery respects the youth rights flag and fails closed by default", async () => {
   const previous = process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED;
   const representative = verifiedRepresentativeMilestones[0];
+  const unapprovedStory = {
+    ...verifiedTeamResults[0],
+    photoRightsVerified: false,
+  };
   try {
+    // 1. Environment variable unset -> fail closed
+    delete process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED;
+    assert.equal(canRenderYouthMedia(verifiedTeamResults[0]), false);
+    assert.equal(canRenderYouthMedia(representative), false);
+
+    // 2. Explicit value "0" -> fail closed
     process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED = "0";
     assert.equal(canRenderYouthMedia(verifiedTeamResults[0]), false);
     assert.equal(canRenderYouthMedia(representative), false);
+
+    // 3. Explicit value "1" with individually approved media -> allowed
     process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED = "1";
     assert.equal(canRenderYouthMedia(verifiedTeamResults[0]), true);
     assert.equal(canRenderYouthMedia(representative), true);
+
+    // 4. Explicit value "1" with individually unapproved media -> blocked
+    assert.equal(canRenderYouthMedia(unapprovedStory), false);
+    assert.equal(
+      canRenderYouthMedia({
+        imageUrl: "/media/achievements/example.webp",
+        photoRightsVerified: false,
+      }),
+      false,
+    );
   } finally {
     if (previous === undefined) {
       delete process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED;
@@ -52,6 +74,36 @@ test("the historical gallery respects the youth rights flag", () => {
       process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED = previous;
     }
   }
+
+  // Next.js config must default NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED to fail closed ("0")
+  const nextConfig = await readFile(
+    new URL("apps/web/next.config.ts", root),
+    "utf8",
+  );
+  assert.doesNotMatch(
+    nextConfig,
+    /NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED\s*\?\?\s*["']1["']/,
+    "next.config.ts must not default NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED to '1'",
+  );
+  assert.match(
+    nextConfig,
+    /process\.env\.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED\s*===\s*["']1["']\s*\?\s*["']1["']\s*:\s*["']0["']/,
+  );
+
+  // Homepage hero and Academy group section must also gate youth photos via canRenderYouthMedia
+  const [homePage, academyPage] = await Promise.all([
+    readFile(new URL("apps/web/app/page.tsx", root), "utf8"),
+    readFile(new URL("apps/web/app/academy/page.tsx", root), "utf8"),
+  ]);
+  assert.match(homePage, /canRenderYouthMedia\(/);
+  assert.match(
+    homePage,
+    /heroYouthMediaEnabled\s*\?\s*"\/media\/khlim\/team-hero-wide-1920\.webp"\s*:\s*undefined/,
+  );
+  assert.match(
+    academyPage,
+    /canRenderYouthMedia\(\{\s*imageUrl:\s*"\/media\/khlim\/training-group-1280\.webp"/,
+  );
 });
 
 test("home and Spotlight use distinct photo groups", async () => {

@@ -23,10 +23,20 @@ const en = {
   "programmes.allLevels": "All levels",
   "programmes.loadingCurrent": "Loading current offerings…",
   "programmes.noMatching": "No matching open programme offerings.",
+  "programmes.catalogueLoadError":
+    "Programme listings are temporarily unavailable. Please try again.",
   "programmes.levelLabel": "Level",
   "programmes.openDevelopment": "Open development",
   "programmes.loadingOffering": "Loading offering…",
   "programmes.unavailable": "Offering unavailable",
+  "programmes.detailLoadError":
+    "Programme details are temporarily unavailable. Please try again.",
+  "programmes.detailEmptyTitle": "No open programme offerings right now",
+  "programmes.detailEmptyBody":
+    "There are currently no published programme offerings. Register your interest to be notified when new cohorts open.",
+  "programmes.detailNotFoundTitle": "Programme offering not found",
+  "programmes.detailNotFoundBody":
+    "This programme offering could not be found or is no longer open.",
   "programmes.returnToProgrammes": "Return to programmes",
   "programmes.allProgrammes": "← All programmes",
   "programmes.academyProgramme": "Academy programme",
@@ -67,10 +77,20 @@ const ms: Catalogue = {
   "programmes.allLevels": "Semua tahap",
   "programmes.loadingCurrent": "Memuatkan tawaran semasa…",
   "programmes.noMatching": "Tiada tawaran program terbuka yang sepadan.",
+  "programmes.catalogueLoadError":
+    "Senarai program tidak dapat dimuatkan buat masa ini. Sila cuba lagi.",
   "programmes.levelLabel": "Tahap",
   "programmes.openDevelopment": "Pembangunan terbuka",
   "programmes.loadingOffering": "Memuatkan tawaran…",
   "programmes.unavailable": "Tawaran tidak tersedia",
+  "programmes.detailLoadError":
+    "Butiran program tidak dapat dimuatkan buat masa ini. Sila cuba lagi.",
+  "programmes.detailEmptyTitle": "Tiada tawaran program terbuka buat masa ini",
+  "programmes.detailEmptyBody":
+    "Tiada tawaran program diterbitkan buat masa ini. Daftar minat anda untuk dimaklumkan apabila kohort baharu dibuka.",
+  "programmes.detailNotFoundTitle": "Tawaran program tidak ditemui",
+  "programmes.detailNotFoundBody":
+    "Tawaran program ini tidak ditemui atau tidak lagi dibuka.",
   "programmes.returnToProgrammes": "Kembali ke program",
   "programmes.allProgrammes": "← Semua program",
   "programmes.academyProgramme": "Program akademi",
@@ -107,10 +127,17 @@ const zhHans: Catalogue = {
   "programmes.allLevels": "全部级别",
   "programmes.loadingCurrent": "正在加载当前班次…",
   "programmes.noMatching": "没有符合条件的开放课程班次。",
+  "programmes.catalogueLoadError": "暂时无法加载课程列表。请重试。",
   "programmes.levelLabel": "级别",
   "programmes.openDevelopment": "开放发展",
   "programmes.loadingOffering": "正在加载班次…",
   "programmes.unavailable": "班次不可用",
+  "programmes.detailLoadError": "暂时无法加载课程详情。请重试。",
+  "programmes.detailEmptyTitle": "当前暂无开放的课程班次",
+  "programmes.detailEmptyBody":
+    "目前没有已发布的课程班次。欢迎登记意向，新班次开放时我们将第一时间通知您。",
+  "programmes.detailNotFoundTitle": "未找到该课程班次",
+  "programmes.detailNotFoundBody": "未能找到此课程班次，或该班次已结束开放。",
   "programmes.returnToProgrammes": "返回课程列表",
   "programmes.allProgrammes": "← 所有课程",
   "programmes.academyProgramme": "学院课程",
@@ -147,10 +174,17 @@ const zhHant: Catalogue = {
   "programmes.allLevels": "全部級別",
   "programmes.loadingCurrent": "正在載入目前班次…",
   "programmes.noMatching": "沒有符合條件的開放課程班次。",
+  "programmes.catalogueLoadError": "暫時無法載入課程列表。請重試。",
   "programmes.levelLabel": "級別",
   "programmes.openDevelopment": "開放發展",
   "programmes.loadingOffering": "正在載入班次…",
   "programmes.unavailable": "班次不可用",
+  "programmes.detailLoadError": "暫時無法載入課程詳情。請重試。",
+  "programmes.detailEmptyTitle": "目前暫無開放的課程班次",
+  "programmes.detailEmptyBody":
+    "目前沒有已發布的課程班次。歡迎登記意向，新班次開放時我們將第一時間通知您。",
+  "programmes.detailNotFoundTitle": "找不到該課程班次",
+  "programmes.detailNotFoundBody": "未能找到此課程班次，或該班次已結束開放。",
   "programmes.returnToProgrammes": "返回課程列表",
   "programmes.allProgrammes": "← 所有課程",
   "programmes.academyProgramme": "學院課程",
@@ -188,10 +222,20 @@ const hi: Catalogue = {
   "programmes.allLevels": "सभी स्तर",
   "programmes.loadingCurrent": "वर्तमान विकल्प लोड हो रहे हैं…",
   "programmes.noMatching": "कोई मेल खाता खुला कार्यक्रम विकल्प नहीं मिला।",
+  "programmes.catalogueLoadError":
+    "फ़िलहाल कार्यक्रम सूची लोड नहीं हो सकी। कृपया फिर से प्रयास करें।",
   "programmes.levelLabel": "स्तर",
   "programmes.openDevelopment": "ओपन डेवलपमेंट",
   "programmes.loadingOffering": "विकल्प लोड हो रहा है…",
   "programmes.unavailable": "विकल्प उपलब्ध नहीं है",
+  "programmes.detailLoadError":
+    "फ़िलहाल कार्यक्रम विवरण लोड नहीं हो सका। कृपया फिर से प्रयास करें।",
+  "programmes.detailEmptyTitle": "फ़िलहाल कोई खुला कार्यक्रम विकल्प नहीं है",
+  "programmes.detailEmptyBody":
+    "वर्तमान में कोई प्रकाशित कार्यक्रम विकल्प नहीं है। नए समूह खुलने पर सूचना पाने के लिए अपनी रुचि दर्ज करें।",
+  "programmes.detailNotFoundTitle": "कार्यक्रम विकल्प नहीं मिला",
+  "programmes.detailNotFoundBody":
+    "यह कार्यक्रम विकल्प नहीं मिल सका या अब खुला नहीं है।",
   "programmes.returnToProgrammes": "कार्यक्रमों पर लौटें",
   "programmes.allProgrammes": "← सभी कार्यक्रम",
   "programmes.academyProgramme": "अकादमी कार्यक्रम",

@@ -420,24 +420,11 @@ test("browser/component regression: API failures cannot resurrect withdrawn phot
     const previewNotice = page.locator(".home-editorial-notice[role=note]");
     assert.equal(await previewNotice.isVisible(), true);
 
-    const photos = page.locator(".home-achievement-photo");
-    const count = await photos.count();
-    assert.ok(count > 0, "Archive fallback slots must be rendered");
-
-    for (let i = 0; i < count; i++) {
-      const photoStyle = await photos.nth(i).getAttribute("style");
-      assert.doesNotMatch(
-        photoStyle,
-        /url\(/,
-        "API outage must never resurrect image URLs",
-      );
-      assert.doesNotMatch(
-        photoStyle,
-        /\.webp|\.jpg|\.png/,
-        "No image files must be referenced in outage style",
-      );
-    }
-
+    assert.equal(
+      await page.locator(".home-achievement-card").count(),
+      0,
+      "API outage must not render customer-facing draft placeholder cards or resurrect API achievements",
+    );
     assert.equal(
       await page.locator(".home-achievement-card img").count(),
       0,

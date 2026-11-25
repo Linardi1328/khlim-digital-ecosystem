@@ -3,6 +3,7 @@
 import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { apiService } from "../../../../lib/api-service";
+import { isFeatureAvailable } from "../../../../lib/feature-availability";
 import { membershipStatusLabel } from "../../../../lib/display-labels";
 import { useI18n } from "../../../../lib/i18n-context";
 import type {
@@ -34,11 +35,16 @@ export default function PlayerProfilePage({
 }) {
   const { athleteId } = use(params);
   const { t, formatDate } = useI18n();
+  const portalAvailable = isFeatureAvailable("parentPortal");
   const [athlete, setAthlete] = useState<AthleteProfileResponse | null>(null);
   const [memberships, setMemberships] = useState<AthleteMembershipItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!portalAvailable) {
+      setLoading(false);
+      return;
+    }
     Promise.all([
       apiService.getAthlete(athleteId),
       apiService.listAthleteMemberships(athleteId),
@@ -52,7 +58,7 @@ export default function PlayerProfilePage({
         setMemberships([]);
       })
       .finally(() => setLoading(false));
-  }, [athleteId]);
+  }, [athleteId, portalAvailable]);
 
   return (
     <PortalShell>

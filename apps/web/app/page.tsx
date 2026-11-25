@@ -12,6 +12,7 @@ import {
 import { trackCampaignLanding } from "../lib/posthog";
 import { useAnalyticsConsent } from "../lib/analytics-consent";
 import { useI18n } from "../lib/i18n-context";
+import { canRenderYouthMedia } from "../lib/editorial-content";
 import type { PublicOfferingItem } from "../lib/types";
 import { AcademyPillarsSection } from "../components/home/academy-pillars-section";
 import { AchievementsSection } from "../components/home/achievements-section";
@@ -24,7 +25,7 @@ import { PlayerSpotlightSection } from "../components/home/player-spotlight-sect
 import { PublicFooter } from "../components/layout/public-footer";
 import { PublicHeader } from "../components/layout/public-header";
 import { Badge } from "../components/ui/badge";
-import { Button } from "../components/ui/button";
+import { Button, getButtonStyles } from "../components/ui/button";
 import {
   Card,
   CardContent,
@@ -49,7 +50,7 @@ function ageLabel(
 }
 
 function HomeContent() {
-  const { t } = useI18n();
+  const { t, formatDate } = useI18n();
   const searchParams = useSearchParams();
   const queryCampaign = useMemo(
     () => getQueryCampaignSource(searchParams),
@@ -58,6 +59,8 @@ function HomeContent() {
   const [storedCampaign, setStoredCampaign] = useState<string | null>(null);
   const [offerings, setOfferings] = useState<PublicOfferingItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [retryAttempt, setRetryAttempt] = useState(0);
 
   useEffect(() => {
     setStoredCampaign(resolveCampaignSource(searchParams));
@@ -73,12 +76,32 @@ function HomeContent() {
   }, [hasConsent, campaignSource]);
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(false);
+
     apiService
       .getPublicOfferings()
-      .then(setOfferings)
-      .catch(() => setOfferings([]))
-      .finally(() => setLoading(false));
-  }, []);
+      .then((items) => {
+        if (!cancelled) {
+          setOfferings(items);
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setOfferings([]);
+        setLoadError(true);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [retryAttempt]);
 
   const activeBasketballVenueName = offerings
     .find(
@@ -88,12 +111,21 @@ function HomeContent() {
     )
     ?.venue?.name?.trim();
 
+  const heroYouthMediaEnabled = canRenderYouthMedia({
+    imageUrl: "/media/khlim/team-hero-wide-1920.webp",
+    photoRightsVerified: true,
+  });
+
   const heroSlides: HeroCarouselSlide[] = [
     {
       id: "academy-first",
-      // Approved responsive hero imagery: wide variant for desktop/tablet, full-frame variant for mobile portrait
-      imageUrl: "/media/khlim/team-hero-wide-1920.webp",
-      imageUrlMobile: "/media/khlim/team-hero-1920.webp",
+      // Youth squad hero imagery renders only when youth media rights are explicitly confirmed
+      imageUrl: heroYouthMediaEnabled
+        ? "/media/khlim/team-hero-wide-1920.webp"
+        : undefined,
+      imageUrlMobile: heroYouthMediaEnabled
+        ? "/media/khlim/team-hero-1920.webp"
+        : undefined,
       photoLabel: t("home.hero.photo.training"),
       showPlaceholderLabel: false,
       placeholderGradient:
@@ -101,8 +133,12 @@ function HomeContent() {
     },
     {
       id: "team-huddle",
-      imageUrl: "/media/home/team-huddle-desktop.webp",
-      imageUrlMobile: "/media/home/team-huddle-mobile.webp",
+      imageUrl: heroYouthMediaEnabled
+        ? "/media/home/team-huddle-desktop.webp"
+        : undefined,
+      imageUrlMobile: heroYouthMediaEnabled
+        ? "/media/home/team-huddle-mobile.webp"
+        : undefined,
       photoLabel: t("home.hero.photo.coaching"),
       showPlaceholderLabel: false,
       placeholderGradient:
@@ -110,8 +146,12 @@ function HomeContent() {
     },
     {
       id: "sideline-energy",
-      imageUrl: "/media/home/sideline-energy-desktop.webp",
-      imageUrlMobile: "/media/home/sideline-energy-mobile.webp",
+      imageUrl: heroYouthMediaEnabled
+        ? "/media/home/sideline-energy-desktop.webp"
+        : undefined,
+      imageUrlMobile: heroYouthMediaEnabled
+        ? "/media/home/sideline-energy-mobile.webp"
+        : undefined,
       photoLabel: t("home.hero.photo.gameDay"),
       showPlaceholderLabel: false,
       placeholderGradient:
@@ -119,8 +159,12 @@ function HomeContent() {
     },
     {
       id: "court-together",
-      imageUrl: "/media/home/court-together-desktop.webp",
-      imageUrlMobile: "/media/home/court-together-mobile.webp",
+      imageUrl: heroYouthMediaEnabled
+        ? "/media/home/court-together-desktop.webp"
+        : undefined,
+      imageUrlMobile: heroYouthMediaEnabled
+        ? "/media/home/court-together-mobile.webp"
+        : undefined,
       photoLabel: t("home.hero.photo.community"),
       showPlaceholderLabel: false,
       placeholderGradient:
@@ -158,6 +202,40 @@ function HomeContent() {
             <p style={{ textAlign: "center" }}>
               {t("programmes.loadingOfferings")}
             </p>
+          ) : loadError ? (
+            <Card style={{ padding: 32, textAlign: "center" }}>
+              <p role="alert" style={{ marginBottom: 16 }}>
+                {t("home.programmes.catalogueLoadError")}
+              </p>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  gap: 12,
+                  flexWrap: "wrap",
+                }}
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setRetryAttempt((attempt) => attempt + 1)}
+                  style={{ minHeight: 44, minWidth: 44 }}
+                >
+                  {t("common.retry")}
+                </Button>
+                <Link
+                  href={buildUrlWithSource("/interest", campaignSource)}
+                  style={{
+                    ...getButtonStyles("primary", "sm"),
+                    minHeight: 44,
+                    minWidth: 44,
+                  }}
+                >
+                  {t("nav.registerInterest")}
+                </Link>
+              </div>
+            </Card>
           ) : offerings.length === 0 ? (
             <Card style={{ padding: 32, textAlign: "center" }}>
               {t("programmes.noPublishedOfferings")}
@@ -183,7 +261,9 @@ function HomeContent() {
                     </p>
                     <p>
                       {t("programmes.termStartLabel")}:{" "}
-                      {offering.startsOn ?? t("common.toBeConfirmed")}
+                      {offering.startsOn
+                        ? formatDate(offering.startsOn)
+                        : t("common.toBeConfirmed")}
                     </p>
                   </CardContent>
                   <CardFooter
@@ -249,7 +329,7 @@ function HomeContent() {
           </div>
         </section>
       </main>
-      <PublicFooter />
+      <PublicFooter campaignSource={campaignSource} />
     </div>
   );
 }

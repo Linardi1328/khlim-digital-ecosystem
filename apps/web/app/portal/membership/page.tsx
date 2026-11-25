@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiService } from "../../../lib/api-service";
+import { isFeatureAvailable } from "../../../lib/feature-availability";
 import { membershipStatusLabel } from "../../../lib/display-labels";
 import { useFamily } from "../../../lib/family-context";
 import { useI18n } from "../../../lib/i18n-context";
@@ -18,6 +19,7 @@ import { Card } from "../../../components/ui/card";
 export default function MembershipPage() {
   const { t, formatCurrency } = useI18n();
   const { activeChild } = useFamily();
+  const portalAvailable = isFeatureAvailable("parentPortal");
   const [memberships, setMemberships] = useState<AthleteMembershipItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [checkoutMembershipId, setCheckoutMembershipId] = useState<
@@ -26,7 +28,7 @@ export default function MembershipPage() {
   const [checkoutError, setCheckoutError] = useState("");
 
   useEffect(() => {
-    if (!activeChild) {
+    if (!portalAvailable || !activeChild) {
       setMemberships([]);
       setLoading(false);
       return;
@@ -37,7 +39,7 @@ export default function MembershipPage() {
       .then(setMemberships)
       .catch(() => setMemberships([]))
       .finally(() => setLoading(false));
-  }, [activeChild]);
+  }, [activeChild, portalAvailable]);
 
   const resumeCheckout = async (membershipId: string) => {
     if (!activeChild || checkoutMembershipId) return;

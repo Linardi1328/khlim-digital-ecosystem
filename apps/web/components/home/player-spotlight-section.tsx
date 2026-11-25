@@ -12,6 +12,7 @@ import { fetchPublishedSpotlights } from "../../lib/editorial-api";
 import {
   buildUrlWithSource,
   getQueryCampaignSource,
+  resolveCampaignSource,
 } from "../../lib/campaign-source";
 import { useI18n } from "../../lib/i18n-context";
 import { Button } from "../ui/button";
@@ -112,7 +113,12 @@ export function PlayerSpotlightSection({
     () => getQueryCampaignSource(searchParams),
     [searchParams],
   );
-  const effectiveCampaignSource = campaignSource ?? queryCampaign;
+  const [storedCampaign, setStoredCampaign] = useState<string | null>(null);
+  useEffect(() => {
+    setStoredCampaign(resolveCampaignSource(searchParams));
+  }, [searchParams]);
+  const effectiveCampaignSource =
+    campaignSource ?? queryCampaign ?? storedCampaign;
 
   const [remote, setRemote] = useState<PlayerSpotlightArticle[]>([]);
   useEffect(() => {

@@ -331,16 +331,16 @@ test.describe("RIC-65 Browser Registration Acceptance & Staging UX Rehearsal", (
     expect(interceptedPayload.source).not.toContain("011_0000_0002");
     expect(interceptedPayload.source).not.toContain("0000_0002");
 
-    // 3. Verify phone-like source does not enter mobile menu /enrol link
+    // 3. Verify phone-like source does not enter mobile menu CTA links
     await page.setViewportSize({ width: 390, height: 844 });
     const mobileMenuBtn = page.locator(".mobile-menu-btn");
     await expect(mobileMenuBtn).toBeVisible();
     await mobileMenuBtn.click();
-    const mobileEnrolLink = page
+    const mobileInterestLink = page
       .getByRole("dialog")
-      .locator('a[href*="/enrol"]')
+      .locator('a[href*="/interest"]')
       .first();
-    await expect(mobileEnrolLink).toHaveAttribute("href", "/enrol");
+    await expect(mobileInterestLink).toHaveAttribute("href", "/interest");
   });
 
   test("changing campaign query parameters client-side updates rendered header and footer links while components remain mounted", async ({
@@ -410,22 +410,22 @@ test.describe("RIC-65 Browser Registration Acceptance & Staging UX Rehearsal", (
       page.locator('footer a[href*="/programmes"]').first(),
     ).toHaveAttribute("href", "/programmes?source=holiday_clinic_2026");
     await expect(
-      page.locator('footer a[href*="/enrol"]').first(),
-    ).toHaveAttribute("href", "/enrol?source=holiday_clinic_2026");
+      page.locator('footer a[href*="/interest"]').first(),
+    ).toHaveAttribute("href", "/interest?source=holiday_clinic_2026");
 
-    // 4. Mobile menu enrolment link carries active campaign source in mobile viewport
+    // 4. Mobile menu CTA link carries active campaign source in mobile viewport
     await page.setViewportSize({ width: 390, height: 844 });
     const mobileMenuBtn = page.locator(".mobile-menu-btn");
     await expect(mobileMenuBtn).toBeVisible();
     await mobileMenuBtn.click();
 
-    const mobileEnrolLink = page
+    const mobileInterestLink = page
       .getByRole("dialog")
-      .locator('a[href*="/enrol"]')
+      .locator('a[href*="/interest"]')
       .first();
-    await expect(mobileEnrolLink).toHaveAttribute(
+    await expect(mobileInterestLink).toHaveAttribute(
       "href",
-      "/enrol?source=holiday_clinic_2026",
+      "/interest?source=holiday_clinic_2026",
     );
 
     // 5. Navigate to untagged route client-side and verify stored campaign source is preserved in mobile menu
@@ -437,11 +437,11 @@ test.describe("RIC-65 Browser Registration Acceptance & Staging UX Rehearsal", (
       await mobileMenuBtn.click();
     }
     await expect(
-      page.getByRole("dialog").locator('a[href*="/enrol"]').first(),
-    ).toHaveAttribute("href", "/enrol?source=holiday_clinic_2026");
+      page.getByRole("dialog").locator('a[href*="/interest"]').first(),
+    ).toHaveAttribute("href", "/interest?source=holiday_clinic_2026");
   });
 
-  test("protected staff portal routes strictly redirect unauthenticated browser sessions to login", async ({
+  test("protected staff portal routes strictly block unauthenticated browser sessions", async ({
     page,
   }) => {
     // Attempt to access staff / portal routes directly without authenticated session
@@ -449,9 +449,21 @@ test.describe("RIC-65 Browser Registration Acceptance & Staging UX Rehearsal", (
       waitUntil: "domcontentloaded",
     });
 
-    // Browser must be redirected to login via client-side auth guard
-    await expect(page).toHaveURL(/\/auth\/login(\?|$)/, { timeout: 10_000 });
-    expect(page.url()).toContain("redirect=%2Fportal%2Fdashboard");
+    await Promise.race([
+      page.waitForURL(/\/auth\/login(\?|$)/, { timeout: 10_000 }),
+      page
+        .locator("#coming-soon-heading")
+        .waitFor({ state: "visible", timeout: 10_000 }),
+    ]);
+
+    const comingSoonHeading = page.locator("#coming-soon-heading");
+    if (await comingSoonHeading.isVisible()) {
+      await expect(page.locator("main")).toContainText(/Coming Soon/i);
+    } else {
+      // Browser must be redirected to login via client-side auth guard
+      await expect(page).toHaveURL(/\/auth\/login(\?|$)/, { timeout: 10_000 });
+      expect(page.url()).toContain("redirect=%2Fportal%2Fdashboard");
+    }
     await expect(
       page.locator(
         'h1:has-text("Dashboard"), [data-testid="portal-dashboard"]',

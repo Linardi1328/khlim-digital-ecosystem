@@ -7,10 +7,12 @@ export default defineConfig({
   testDir: "./tests/e2e",
   testMatch: [
     "web-preview.spec.mjs",
+    "home-offerings-outage.spec.mjs",
     "mobile-header.spec.mjs",
     "walkthrough-visual.spec.mjs",
     "auth-accessibility.spec.mjs",
     "staging-browser-acceptance.spec.mjs",
+    "ric-184-academy-parity-qa.spec.mjs",
   ],
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),

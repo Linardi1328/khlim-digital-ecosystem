@@ -17,6 +17,9 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
           border: "1px solid #E4E4E7",
           boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
           padding: "20px",
+          boxSizing: "border-box",
+          minWidth: 0,
+          maxWidth: "100%",
           transition: hoverable ? "all 0.2s ease-in-out" : undefined,
           ...style,
         }}

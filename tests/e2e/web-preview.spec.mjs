@@ -68,6 +68,50 @@ for (const path of publicRoutes) {
   });
 }
 
+test("programme API failure shows retry instead of no offerings", async ({
+  page,
+}) => {
+  let shouldFail = true;
+  await page.route("**/academy/offerings", async (route) => {
+    await route.fulfill({
+      status: shouldFail ? 503 : 200,
+      contentType: "application/json",
+      headers: { "access-control-allow-origin": "*" },
+      body: shouldFail ? '{"message":"temporarily unavailable"}' : "[]",
+    });
+  });
+
+  await page.goto("/programmes", { waitUntil: "domcontentloaded" });
+  await expect(page.locator('main p[role="alert"]')).toContainText(
+    "Programme listings are temporarily unavailable.",
+  );
+  await expect(
+    page.getByText("No matching open programme offerings."),
+  ).toHaveCount(0);
+
+  shouldFail = false;
+  await page.getByRole("button", { name: "Try Again" }).click();
+  await expect(
+    page.getByText("No matching open programme offerings."),
+  ).toBeVisible();
+  await expect(page.locator('main p[role="alert"]')).toHaveCount(0);
+});
+
+test("programme outage error follows selected locale", async ({ page }) => {
+  await page.route("**/academy/offerings", (route) =>
+    route.fulfill({ status: 503, body: "unavailable" }),
+  );
+  await page.goto("/programmes", { waitUntil: "domcontentloaded" });
+  await visibleLocaleSwitcher(page).selectOption("ms");
+  await expect(page.locator('main p[role="alert"]')).toContainText(
+    "Senarai program tidak dapat dimuatkan",
+  );
+  await visibleLocaleSwitcher(page).selectOption("zh-Hans");
+  await expect(page.locator('main p[role="alert"]')).toContainText(
+    "暂时无法加载课程列表。",
+  );
+});
+
 test("homepage keeps academy actions primary without inactive carousel controls", async ({
   page,
 }) => {
@@ -115,21 +159,62 @@ test("homepage showcases verified honours and unnamed representatives", async ({
 test("gallery photographs use consistent 4:3 frames without cropping", async ({
   page,
 }) => {
+  const youthMediaEnabled =
+    process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED === "1";
   const samples = [
-    ["/", "#achievements .verified-milestone-photo"],
-    ["/", "#player-spotlight .verified-milestone-photo"],
-    ["/spotlight", "#verified-team-honours .verified-milestone-photo"],
-    ["/spotlight", "#representative-milestones .verified-milestone-photo"],
-    ["/spotlight", "#club-event-gallery .spotlight-gallery-photo"],
+    [
+      "/",
+      "#achievements .verified-milestone-media",
+      "#achievements .verified-milestone-photo",
+    ],
+    [
+      "/",
+      "#player-spotlight .verified-milestone-media",
+      "#player-spotlight .verified-milestone-photo",
+    ],
+    [
+      "/spotlight",
+      "#verified-team-honours .verified-milestone-media",
+      "#verified-team-honours .verified-milestone-photo",
+    ],
+    [
+      "/spotlight",
+      "#representative-milestones .verified-milestone-media",
+      "#representative-milestones .verified-milestone-photo",
+    ],
+    [
+      "/spotlight",
+      "#club-event-gallery .spotlight-gallery-image-wrapper",
+      "#club-event-gallery .spotlight-gallery-photo",
+    ],
   ];
 
   let currentRoute = "";
-  for (const [route, selector] of samples) {
+  for (const [route, frameSelector, photoSelector] of samples) {
     if (route !== currentRoute) {
       await page.goto(route, { waitUntil: "domcontentloaded" });
       currentRoute = route;
     }
-    const photo = page.locator(selector).first();
+    const frame = page.locator(frameSelector).first();
+    await frame.scrollIntoViewIfNeeded();
+    await expect(frame).toBeVisible();
+
+    const frameRatio = await frame.evaluate((el) => {
+      const box = el.getBoundingClientRect();
+      return box.width / box.height;
+    });
+    expect(Math.abs(frameRatio - 4 / 3)).toBeLessThan(0.02);
+
+    if (!youthMediaEnabled) {
+      // Fail-closed default: no youth photography or direct photo links rendered
+      await expect(page.locator(photoSelector)).toHaveCount(0);
+      await expect(
+        frame.locator('a[href*="/media/achievements/"]'),
+      ).toHaveCount(0);
+      continue;
+    }
+
+    const photo = page.locator(photoSelector).first();
     await photo.scrollIntoViewIfNeeded();
     await expect
       .poll(() =>
@@ -138,11 +223,11 @@ test("gallery photographs use consistent 4:3 frames without cropping", async ({
       .toBe(true);
 
     const dimensions = await photo.evaluate((image) => {
-      const frame = image.closest(
+      const container = image.closest(
         ".verified-milestone-media, .spotlight-gallery-image-wrapper",
       );
-      if (!frame) throw new Error("Image is missing a media frame");
-      const frameBox = frame.getBoundingClientRect();
+      if (!container) throw new Error("Image is missing a media frame");
+      const frameBox = container.getBoundingClientRect();
       const photoBox = image.getBoundingClientRect();
       return {
         frameRatio: frameBox.width / frameBox.height,
@@ -343,8 +428,24 @@ test("login page exposes branded authentication controls", async ({ page }) => {
 });
 
 for (const path of protectedRoutes) {
-  test(`unauthenticated ${path} redirects to login`, async ({ page }) => {
+  test(`unauthenticated ${path} is blocked by login redirect or V1 coming-soon gate`, async ({
+    page,
+  }) => {
     await page.goto(path, { waitUntil: "domcontentloaded" });
+    await Promise.race([
+      page.waitForURL(/\/auth\/login\?redirect=/, { timeout: 10_000 }),
+      page
+        .locator("#coming-soon-heading")
+        .waitFor({ state: "visible", timeout: 10_000 }),
+    ]);
+    const comingSoonHeading = page.locator("#coming-soon-heading");
+    if (await comingSoonHeading.isVisible()) {
+      await expect(page.locator("main")).toContainText(/Coming Soon/i);
+      await expect(page.locator('aside[aria-label*="Portal" i]')).toHaveCount(
+        0,
+      );
+      return;
+    }
     await expect(page).toHaveURL(/\/auth\/login\?redirect=/);
     expect(
       decodeURIComponent(new URL(page.url()).searchParams.get("redirect")),
@@ -352,10 +453,24 @@ for (const path of protectedRoutes) {
   });
 }
 
-test("unauthenticated enrolment redirects to login when continuing", async ({
+test("unauthenticated enrolment is blocked by login redirect or V1 coming-soon gate", async ({
   page,
 }) => {
   await page.goto("/enrol", { waitUntil: "domcontentloaded" });
+  await Promise.race([
+    page
+      .locator("#coming-soon-heading")
+      .waitFor({ state: "visible", timeout: 10_000 }),
+    page
+      .getByRole("button", { name: "Continue" })
+      .waitFor({ state: "visible", timeout: 10_000 }),
+  ]);
+  const comingSoonHeading = page.locator("#coming-soon-heading");
+  if (await comingSoonHeading.isVisible()) {
+    await expect(page.locator("main")).toContainText(/Coming Soon/i);
+    await expect(page.getByRole("button", { name: "Continue" })).toHaveCount(0);
+    return;
+  }
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page).toHaveURL(/\/auth\/login\?redirect=%2Fenrol/);
 });

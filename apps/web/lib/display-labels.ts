@@ -101,3 +101,32 @@ export function notificationTypeLabel(
       return t("portal.notifications.type.system");
   }
 }
+
+export function programmeLevelLabel(
+  level: string | null | undefined,
+  t: Translate,
+): string {
+  if (!level) return t("programmes.openDevelopment");
+  const normalized = level.trim().toLowerCase();
+  const key = `programmes.level.${normalized}`;
+  const translated = t(key);
+  return translated === key ? level : translated;
+}
+
+export function commerceBusinessFieldLabel(
+  field: string,
+  t: Translate,
+): string {
+  switch (field) {
+    case "company registration number":
+      return t("compliance.businessField.registrationNumber");
+    case "principal business address":
+      return t("compliance.businessField.businessAddress");
+    case "business email":
+      return t("compliance.businessField.email");
+    case "business telephone number":
+      return t("compliance.businessField.phone");
+    default:
+      return field;
+  }
+}

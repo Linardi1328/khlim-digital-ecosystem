@@ -461,9 +461,28 @@
   gap: 20px;
 }
 
+.academy-training-overview-grid,
+.academy-sessions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.academy-training-overview-grid {
+  margin-bottom: 20px;
+}
+
 @media (max-width: 960px) {
   .academy-coaches-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+}
+
+@media (max-width: 760px) {
+  .academy-training-overview-grid,
+  .academy-sessions-grid {
+    grid-template-columns: 1fr;
     gap: 16px;
   }
 }

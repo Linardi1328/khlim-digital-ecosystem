@@ -25,7 +25,14 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
       undefined;
 
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "4px",
+          minWidth: 0,
+        }}
+      >
         <label
           htmlFor={checkId}
           style={{
@@ -36,6 +43,7 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
             color: "#27272A",
             cursor: "pointer",
             lineHeight: 1.4,
+            minWidth: 0,
           }}
         >
           <input
@@ -55,7 +63,7 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
               ...style,
             }}
           />
-          <div>{label}</div>
+          <div style={{ minWidth: 0, overflowWrap: "break-word" }}>{label}</div>
         </label>
         {error && (
           <span

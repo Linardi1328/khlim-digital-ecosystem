@@ -142,7 +142,7 @@ function AboutContent() {
         </div>
       </main>
 
-      <PublicFooter />
+      <PublicFooter campaignSource={campaignSource} />
     </div>
   );
 }

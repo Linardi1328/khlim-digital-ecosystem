@@ -14,6 +14,7 @@ import {
   getQueryCampaignSource,
   resolveCampaignSource,
 } from "../../lib/campaign-source";
+import { isFeatureAvailable } from "../../lib/feature-availability";
 import { BrandLogo } from "./brand-logo";
 
 const footerLinkStyle: React.CSSProperties = {
@@ -157,11 +158,19 @@ function PublicFooterView({
               {t("footer.currentOfferings")}
             </Link>
             <Link
-              href={buildUrlWithSource("/enrol", campaignSource)}
+              href={buildUrlWithSource("/interest", campaignSource)}
               style={footerLinkStyle}
             >
-              {t("footer.academyEnrolment")}
+              {t("nav.registerInterest")}
             </Link>
+            {isFeatureAvailable("academyEnrolmentCheckout") ? (
+              <Link
+                href={buildUrlWithSource("/enrol", campaignSource)}
+                style={footerLinkStyle}
+              >
+                {t("footer.academyEnrolment")}
+              </Link>
+            ) : null}
             <Link
               href={buildUrlWithSource("/academy", campaignSource)}
               style={footerLinkStyle}
@@ -190,6 +199,15 @@ function PublicFooterView({
               fontSize: "0.875rem",
             }}
           >
+            <Link
+              href={buildUrlWithSource(
+                "/academy#training-sessions",
+                campaignSource,
+              )}
+              style={footerLinkStyle}
+            >
+              {t("academy.trainingSessionsCta")}
+            </Link>
             <Link
               href={buildUrlWithSource("/academy", campaignSource)}
               style={footerLinkStyle}

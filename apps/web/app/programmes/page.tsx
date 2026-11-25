@@ -10,6 +10,7 @@ import {
   resolveCampaignSource,
 } from "../../lib/campaign-source";
 import { useI18n } from "../../lib/i18n-context";
+import { programmeLevelLabel } from "../../lib/display-labels";
 import type { PublicOfferingItem } from "../../lib/types";
 import { PublicFooter } from "../../components/layout/public-footer";
 import { PublicHeader } from "../../components/layout/public-header";
@@ -49,6 +50,8 @@ function ProgrammesContent() {
 
   const [offerings, setOfferings] = useState<PublicOfferingItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [retryAttempt, setRetryAttempt] = useState(0);
   const [level, setLevel] = useState("ALL");
 
   useEffect(() => {
@@ -58,12 +61,28 @@ function ProgrammesContent() {
   const campaignSource = queryCampaign ?? storedCampaign;
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(false);
+
     apiService
       .getPublicOfferings()
-      .then(setOfferings)
-      .catch(() => setOfferings([]))
-      .finally(() => setLoading(false));
-  }, []);
+      .then((items) => {
+        if (!cancelled) setOfferings(items);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setOfferings([]);
+        setLoadError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [retryAttempt]);
 
   const levels = useMemo(
     () =>
@@ -140,7 +159,7 @@ function ProgrammesContent() {
                 size="sm"
                 onClick={() => setLevel(item)}
               >
-                {item}
+                {programmeLevelLabel(item, t)}
               </Button>
             ))}
           </div>
@@ -149,6 +168,17 @@ function ProgrammesContent() {
           <p style={{ textAlign: "center" }}>
             {t("programmes.loadingCurrent")}
           </p>
+        ) : loadError ? (
+          <Card style={{ padding: 32, textAlign: "center" }}>
+            <p role="alert">{t("programmes.catalogueLoadError")}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRetryAttempt((attempt) => attempt + 1)}
+            >
+              {t("common.retry")}
+            </Button>
+          </Card>
         ) : visible.length === 0 ? (
           <Card style={{ padding: 32, textAlign: "center" }}>
             {t("programmes.noMatching")}
@@ -179,7 +209,7 @@ function ProgrammesContent() {
                     </Badge>
                     {offering.programme.level ? (
                       <Badge variant="neutral" size="sm">
-                        {offering.programme.level}
+                        {programmeLevelLabel(offering.programme.level, t)}
                       </Badge>
                     ) : null}
                   </div>
@@ -191,8 +221,7 @@ function ProgrammesContent() {
                 <CardContent>
                   <p>
                     {t("programmes.levelLabel")}:{" "}
-                    {offering.programme.level ??
-                      t("programmes.openDevelopment")}
+                    {programmeLevelLabel(offering.programme.level, t)}
                   </p>
                   <p>
                     {t("programmes.venueLabel")}:{" "}
@@ -238,7 +267,7 @@ function ProgrammesContent() {
           </div>
         )}
       </main>
-      <PublicFooter />
+      <PublicFooter campaignSource={campaignSource} />
     </div>
   );
 }

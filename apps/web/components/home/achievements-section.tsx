@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   getLocalizedAchievementArchiveSlots,
+  localizeAchievementStory,
   verifiedTeamResults,
   resolveAchievementStories,
   type AchievementStory,
@@ -15,6 +16,7 @@ import { fetchPublishedAchievements } from "../../lib/editorial-api";
 import {
   buildUrlWithSource,
   getQueryCampaignSource,
+  resolveCampaignSource,
 } from "../../lib/campaign-source";
 import { useI18n } from "../../lib/i18n-context";
 import { Button } from "../ui/button";
@@ -23,13 +25,14 @@ import { VerifiedMilestoneGallery } from "../editorial/verified-milestone-galler
 export { resolveAchievementStories, type ResolvedAchievementsResult };
 
 function AchievementCard({
-  story,
+  story: rawStory,
   preview,
 }: {
   story: AchievementStory;
   preview: boolean;
 }) {
   const { t } = useI18n();
+  const story = preview ? rawStory : localizeAchievementStory(rawStory, t);
   const youthMediaRightsConfirmed =
     process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED === "1";
   const hasVerifiedImage = Boolean(
@@ -85,7 +88,12 @@ export function AchievementsSection({
     () => getQueryCampaignSource(searchParams),
     [searchParams],
   );
-  const effectiveCampaignSource = campaignSource ?? queryCampaign;
+  const [storedCampaign, setStoredCampaign] = useState<string | null>(null);
+  useEffect(() => {
+    setStoredCampaign(resolveCampaignSource(searchParams));
+  }, [searchParams]);
+  const effectiveCampaignSource =
+    campaignSource ?? queryCampaign ?? storedCampaign;
 
   const [remote, setRemote] = useState<AchievementStory[] | null>(null);
   const [apiError, setApiError] = useState(false);
@@ -133,6 +141,17 @@ export function AchievementsSection({
         <span>{t("home.achievements.eyebrow")}</span>
         <h2 id="home-achievements-title">{t("home.achievements.title")}</h2>
         <p>{t("home.achievements.description")}</p>
+        <p
+          className="home-club-heritage-note"
+          style={{
+            marginTop: 10,
+            fontSize: "0.84rem",
+            color: "#52525b",
+            fontWeight: 600,
+          }}
+        >
+          {t("home.achievements.clubDisclaimer")}
+        </p>
       </div>
 
       <VerifiedMilestoneGallery
@@ -199,15 +218,10 @@ export function AchievementsSection({
       ) : preview ? (
         <>
           <div className="home-editorial-notice" role="note">
-            <strong>{t("home.achievements.previewTitle")}</strong>
-            <span>{t("home.achievements.previewBody")}</span>
+            <strong>{t("home.achievements.outageTitle")}</strong>
+            <span>{t("home.achievements.outageBody")}</span>
           </div>
-          <div className="home-achievements-grid">
-            {stories.slice(0, 6).map((story) => (
-              <AchievementCard key={story.id} story={story} preview={preview} />
-            ))}
-          </div>
-          <div style={{ textAlign: "center", marginTop: 36 }}>
+          <div style={{ textAlign: "center", marginTop: 28 }}>
             <Link
               href={buildUrlWithSource(
                 "/spotlight#achievements",

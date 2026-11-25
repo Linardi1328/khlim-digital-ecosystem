@@ -50,13 +50,15 @@
 
 .home-achievement-photo {
   position: relative;
-  min-height: 300px;
+  aspect-ratio: 4 / 3;
   display: flex;
   align-items: flex-end;
   padding: 22px;
   overflow: hidden;
+  background-color: #18181b;
   background-position: center;
-  background-size: cover;
+  background-repeat: no-repeat;
+  background-size: contain;
   color: #ffffff;
   box-sizing: border-box;
 }
@@ -353,9 +355,11 @@
 
 .spotlight-archive-photo {
   position: relative;
-  min-height: 320px;
+  aspect-ratio: 4 / 3;
+  background-color: #18181b;
   background-position: center;
-  background-size: cover;
+  background-repeat: no-repeat;
+  background-size: contain;
 }
 
 .spotlight-archive-copy {
@@ -516,7 +520,7 @@
   }
 
   .home-achievement-photo {
-    min-height: 280px;
+    aspect-ratio: 4 / 3;
   }
 
   .home-spotlight-card,
@@ -555,7 +559,7 @@
   }
 
   .home-achievement-photo {
-    min-height: 310px;
+    aspect-ratio: 4 / 3;
   }
 
   .home-spotlight-section {
@@ -777,6 +781,7 @@
 /* All gallery media occupy a consistent 4:3 frame, regardless of source
    orientation. Contain prevents cutting off players, trophies or signage. */
 .spotlight-gallery-image-wrapper {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -790,6 +795,44 @@
 
 .spotlight-gallery-image-wrapper--photo {
   min-height: 0;
+}
+
+.spotlight-gallery-image-wrapper--placeholder {
+  background:
+    radial-gradient(
+      circle at 80% 22%,
+      rgba(245, 158, 11, 0.16),
+      transparent 48%
+    ),
+    linear-gradient(145deg, #18181b 0%, #27272a 100%);
+}
+
+.spotlight-gallery-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  padding: 24px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.spotlight-gallery-placeholder-eyebrow {
+  color: #fbbf24;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.spotlight-gallery-placeholder-label {
+  max-width: 28ch;
+  color: #e4e4e7;
+  font-size: 0.84rem;
+  line-height: 1.5;
 }
 
 .spotlight-gallery-photo-link,
@@ -897,8 +940,16 @@
   height: 100%;
   padding: 24px;
   box-sizing: border-box;
+  background:
+    radial-gradient(
+      circle at 82% 20%,
+      rgba(245, 158, 11, 0.09),
+      transparent 52%
+    ),
+    linear-gradient(145deg, #fafafa 0%, #f4f4f5 100%);
   color: #52525b;
   font-size: 0.875rem;
+  line-height: 1.5;
   text-align: center;
 }
 

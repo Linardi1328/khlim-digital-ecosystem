@@ -1,12 +1,17 @@
 "use client";
 
-import React, { useEffect, type ReactNode } from "react";
+import React, { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "../../lib/i18n-context";
 import { useAuth } from "../../lib/auth-context";
 import { BrandLogo } from "../layout/brand-logo";
 import { LocaleSwitcher } from "../layout/locale-switcher";
+import { PublicHeader } from "../layout/public-header";
+import { PublicFooter } from "../layout/public-footer";
+import { ComingSoonPanel } from "../layout/coming-soon-panel";
+import { resolveCampaignSource } from "../../lib/campaign-source";
+import { isFeatureAvailable } from "../../lib/feature-availability";
 import { ChildSwitcher } from "./child-switcher";
 
 export interface PortalShellProps {
@@ -18,12 +23,37 @@ export function PortalShell({ children }: PortalShellProps) {
   const router = useRouter();
   const { t } = useI18n();
   const { guardianProfile, isAuthenticated, isLoading, logout } = useAuth();
+  const portalAvailable = isFeatureAvailable("parentPortal");
+  const [campaignSource, setCampaignSource] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!portalAvailable && typeof window !== "undefined") {
+      setCampaignSource(
+        resolveCampaignSource(new URLSearchParams(window.location.search)),
+      );
+    }
+  }, [portalAvailable]);
+
+  useEffect(() => {
+    if (portalAvailable && !isLoading && !isAuthenticated) {
       router.replace(`/auth/login?redirect=${encodeURIComponent(pathname)}`);
     }
-  }, [isLoading, isAuthenticated, router, pathname]);
+  }, [portalAvailable, isLoading, isAuthenticated, router, pathname]);
+
+  if (!portalAvailable) {
+    return (
+      <div
+        style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
+      >
+        <PublicHeader campaignSource={campaignSource} />
+        <ComingSoonPanel
+          feature="parentPortal"
+          campaignSource={campaignSource}
+        />
+        <PublicFooter campaignSource={campaignSource} />
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

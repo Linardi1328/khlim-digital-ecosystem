@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiService } from "../../../lib/api-service";
+import { isFeatureAvailable } from "../../../lib/feature-availability";
 import { membershipStatusLabel } from "../../../lib/display-labels";
 import { useAuth } from "../../../lib/auth-context";
 import { useFamily } from "../../../lib/family-context";
@@ -26,6 +27,7 @@ export default function DashboardPage() {
   const { t, formatCurrency, formatDate } = useI18n();
   const { guardianProfile } = useAuth();
   const { activeChild, athletes } = useFamily();
+  const portalAvailable = isFeatureAvailable("parentPortal");
   const [memberships, setMemberships] = useState<AthleteMembershipItem[]>([]);
   const [billing, setBilling] = useState<MembershipBillingResponse | null>(
     null,
@@ -33,7 +35,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!activeChild) {
+    if (!portalAvailable || !activeChild) {
       setMemberships([]);
       setBilling(null);
       setLoading(false);
@@ -63,7 +65,7 @@ export default function DashboardPage() {
         setBilling(null);
       })
       .finally(() => setLoading(false));
-  }, [activeChild]);
+  }, [activeChild, portalAvailable]);
 
   const current =
     memberships.find((item) => item.status === "ACTIVE") ?? memberships[0];

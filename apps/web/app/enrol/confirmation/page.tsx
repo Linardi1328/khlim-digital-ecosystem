@@ -1,9 +1,19 @@
 "use client";
 
-import React, { Suspense, useCallback, useEffect, useState } from "react";
+import React, {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { apiService } from "../../../lib/api-service";
+import {
+  getQueryCampaignSource,
+  resolveCampaignSource,
+} from "../../../lib/campaign-source";
 import { useI18n } from "../../../lib/i18n-context";
 import type {
   AthleteMembershipItem,
@@ -11,6 +21,8 @@ import type {
 } from "../../../lib/types";
 import { PublicFooter } from "../../../components/layout/public-footer";
 import { PublicHeader } from "../../../components/layout/public-header";
+import { ComingSoonPanel } from "../../../components/layout/coming-soon-panel";
+import { isFeatureAvailable } from "../../../lib/feature-availability";
 import { Alert } from "../../../components/ui/alert";
 import { Badge } from "../../../components/ui/badge";
 import { Button } from "../../../components/ui/button";
@@ -24,6 +36,16 @@ interface VerifiedState {
 function ConfirmationContent() {
   const { t } = useI18n();
   const searchParams = useSearchParams();
+  const queryCampaign = useMemo(
+    () => getQueryCampaignSource(searchParams),
+    [searchParams],
+  );
+  const [storedCampaign, setStoredCampaign] = useState<string | null>(null);
+  useEffect(() => {
+    setStoredCampaign(resolveCampaignSource(searchParams));
+  }, [searchParams]);
+  const campaignSource = queryCampaign ?? storedCampaign;
+  const enrolmentAvailable = isFeatureAvailable("academyEnrolmentCheckout");
   const athleteId = searchParams.get("athleteId");
   const membershipId = searchParams.get("membershipId");
   const [state, setState] = useState<
@@ -33,6 +55,9 @@ function ConfirmationContent() {
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
+    if (!enrolmentAvailable) {
+      return;
+    }
     if (!athleteId || !membershipId) {
       setState("missing");
       return;
@@ -59,11 +84,26 @@ function ConfirmationContent() {
       );
       setState("error");
     }
-  }, [athleteId, membershipId, t]);
+  }, [athleteId, enrolmentAvailable, membershipId, t]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  if (!enrolmentAvailable) {
+    return (
+      <div
+        style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
+      >
+        <PublicHeader campaignSource={campaignSource} />
+        <ComingSoonPanel
+          feature="academyEnrolmentCheckout"
+          campaignSource={campaignSource}
+        />
+        <PublicFooter campaignSource={campaignSource} />
+      </div>
+    );
+  }
 
   const status = verified?.billing.status ?? verified?.membership.status;
   const active = status === "ACTIVE";

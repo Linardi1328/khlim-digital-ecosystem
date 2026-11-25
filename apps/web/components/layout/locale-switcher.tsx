@@ -18,7 +18,15 @@ export function LocaleSwitcher() {
   const effectiveLocale = PUBLIC_LOCALES.includes(locale) ? locale : "en";
 
   return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+    <div
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "6px",
+        minWidth: 0,
+        maxWidth: "100%",
+      }}
+    >
       <span style={{ fontSize: "0.875rem", color: "#71717A" }}>🌐</span>
       <select
         value={effectiveLocale}
@@ -26,7 +34,9 @@ export function LocaleSwitcher() {
         aria-label={t("layout.selectLanguage")}
         style={{
           minHeight: "44px",
-          minWidth: "135px",
+          minWidth: "126px",
+          maxWidth: "100%",
+          boxSizing: "border-box",
           padding: "6px 28px 6px 10px",
           fontSize: "0.8125rem",
           fontWeight: 600,

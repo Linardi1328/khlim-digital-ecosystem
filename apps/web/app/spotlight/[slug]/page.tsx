@@ -1,12 +1,23 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { SpotlightArticleContent } from "../../../components/editorial/spotlight-article-content";
-import { findSpotlightArticle } from "../../../lib/editorial-content";
+import {
+  findSpotlightArticle,
+  playerSpotlightEditorialPreview,
+} from "../../../lib/editorial-content";
 import { fetchPublishedSpotlight } from "../../../lib/editorial-api";
+import { isFeatureAvailable } from "../../../lib/feature-availability";
 
 async function resolveSpotlight(slug: string) {
   const remote = await fetchPublishedSpotlight(slug).catch(() => null);
-  return remote ?? findSpotlightArticle(slug);
+  if (remote) return remote;
+  if (
+    slug === playerSpotlightEditorialPreview.slug &&
+    !isFeatureAvailable("editorialDemoPreview")
+  ) {
+    return null;
+  }
+  return findSpotlightArticle(slug);
 }
 
 type SpotlightPageProps = {

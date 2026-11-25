@@ -62,12 +62,13 @@ export default function ResetPasswordPage() {
         minHeight: "100dvh",
         boxSizing: "border-box",
         display: "grid",
+        gridTemplateColumns: "minmax(0, 1fr)",
         placeItems: "center",
         backgroundColor: "#f4f4f5",
-        padding: "16px 24px",
+        padding: "16px clamp(12px, 4vw, 24px)",
       }}
     >
-      <div style={{ width: "100%", maxWidth: 460 }}>
+      <div style={{ width: "100%", maxWidth: 460, minWidth: 0 }}>
         <div
           style={{
             minHeight: 44,
