@@ -168,9 +168,13 @@ Hosted and owner actions that this repository change cannot perform:
 2. Purge the CDN and the `/_next/image` optimisation cache for `/media/achievements/*`,
    `/media/home/*`, `/media/khlim/team-hero*`, `/media/khlim/training-group-1280.webp`
    and `/media/khero/coming-soon.webp` after the fixed build is deployed.
-3. The repository is public and its history still contains the binaries. Decide
-   between making the repository private, an authorized history rewrite (blocked
-   by the current non-fast-forward ruleset) and a GitHub Support cached-view purge.
+3. The repository was public when reviewed and its history contains the binaries.
+   Restrict repository access promptly. Assess existing clones, forks, accessible
+   historical commits and published artifacts; plan authorized history remediation
+   where needed (the current non-fast-forward ruleset blocks a rewrite).
+   Request GitHub Support cached-view cleanup as a separate follow-up, not as
+   an alternative to restricting access or remediating accessible history.
+   Neither restriction nor cache cleanup can recall copies already downloaded.
 4. Handle takedown requests via the club's privacy contact: confirm removal from
    the live site, previous deployments and caches, and record the outcome in the
    private business record (never in this repository).

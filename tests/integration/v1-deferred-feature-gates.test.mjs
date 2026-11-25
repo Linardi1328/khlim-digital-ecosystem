@@ -17,6 +17,13 @@ const {
   SupabaseJwtService,
 } = require("../../apps/api/dist/auth/supabase-jwt.service.js");
 
+const {
+  PaymentGatewayRegistry,
+} = require("../../apps/api/dist/billing/payment-gateway.js");
+const {
+  BillplzPaymentGatewayAdapter,
+} = require("../../apps/api/dist/billing/billplz-payment-gateway.js");
+
 const ORG = "00000000-0000-4000-8000-000000000001";
 const RUN = randomUUID().slice(0, 8);
 
@@ -43,12 +50,17 @@ const skip = databaseTestsEnabled()
   : "Set KHLIM_TEST_DATABASE=1 to run database tests";
 
 const FLAGS = ["KHLIM_ENABLE_V1_ENROLMENT", "KHLIM_ENABLE_V1_PORTAL"];
+const originalPaymentProvider = process.env.PAYMENT_PROVIDER;
+const syntheticBillId = `synthetic-gates-${RUN}`;
+const syntheticCheckoutUrl = `https://www.billplz-sandbox.com/bills/${syntheticBillId}`;
 for (const flag of FLAGS) delete process.env[flag];
 
 const USERS = {
   guardian: { platformRole: "GUARDIAN", aal: "aal1" },
+  otherGuardian: { platformRole: "GUARDIAN", aal: "aal1" },
   academyAdmin: { orgRole: "ACADEMY_ADMIN", aal: "aal2" },
   finance: { orgRole: "FINANCE_ADMIN", aal: "aal2" },
+  financeAal1: { orgRole: "FINANCE_ADMIN", aal: "aal1" },
 };
 
 let ctxPromise;
@@ -62,6 +74,30 @@ async function buildContext() {
   appRef = app;
   app.setGlobalPrefix("v1");
   const client = app.get(PrismaService).client;
+  // Real adapter and signature validation, but every provider request is
+  // intercepted in-process. No real or sandbox Billplz network call is made.
+  const gatewayCalls = [];
+  app.get(PaymentGatewayRegistry).register(
+    new BillplzPaymentGatewayAdapter({
+      secretKey: "synthetic-test",
+      collectionId: "synthetic-collection",
+      xSignatureKey: "synthetic-test",
+      callbackUrl: "https://example.test/callback",
+      redirectUrl: "https://example.test/receipt",
+      sandbox: true,
+      fetchImpl: async (url, options) => {
+        assert.equal(url, "https://www.billplz-sandbox.com/api/v3/bills");
+        assert.equal(options?.method, "POST");
+        assert.equal(options?.body?.get("amount"), "18000");
+        gatewayCalls.push(url);
+        return new Response(JSON.stringify({ id: syntheticBillId }), {
+          status: 201,
+          headers: { "content-type": "application/json" },
+        });
+      },
+    }),
+  );
+  process.env.PAYMENT_PROVIDER = "billplz";
   const ids = {};
   const identities = new Map();
   for (const [name, spec] of Object.entries(USERS)) {
@@ -135,6 +171,7 @@ async function buildContext() {
       name: `Gates plan ${RUN}`,
       billingFrequency: "UPFRONT",
       upfrontAmountMinor: 18000,
+      currency: "MYR",
     },
   });
   await client.membershipPlanOfferingEligibility.create({
@@ -167,7 +204,16 @@ async function buildContext() {
 
   await app.listen(0, "127.0.0.1");
   const baseUrl = `http://127.0.0.1:${app.getHttpServer().address().port}`;
-  return { client, baseUrl, ids, athlete, membership, offering, plan };
+  return {
+    client,
+    baseUrl,
+    ids,
+    athlete,
+    membership,
+    offering,
+    plan,
+    gatewayCalls,
+  };
 }
 
 function ctx() {
@@ -178,7 +224,15 @@ function ctx() {
 after(async () => {
   for (const flag of FLAGS) delete process.env[flag];
   await ctxPromise?.catch(() => undefined);
-  await appRef?.close();
+  try {
+    await appRef?.close();
+  } finally {
+    if (originalPaymentProvider === undefined) {
+      delete process.env.PAYMENT_PROVIDER;
+    } else {
+      process.env.PAYMENT_PROVIDER = originalPaymentProvider;
+    }
+  }
 });
 
 async function call(c, method, path, { token, body } = {}) {
@@ -269,6 +323,7 @@ test(
       }),
       paymentsBefore,
     );
+    assert.equal(c.gatewayCalls.length, 0, "closed gates never call Billplz");
     // Authentication still comes first.
     assert.equal(
       (await call(c, "POST", `${athletePath}/memberships`, { body: {} }))
@@ -343,6 +398,79 @@ test(
       "the family link was not revoked",
     );
 
+    // Staff bypass only skips the launch gate, not the route's normal access
+    // policy. The guardian-only route still refuses an academy administrator.
+    const staffGuardianRoute = await call(c, "GET", "/me/athletes", {
+      token: "academyAdmin",
+    });
+    assert.equal(staffGuardianRoute.status, 403);
+    assert.equal(staffGuardianRoute.body?.message, "Insufficient permissions");
+
+    const malformedAthlete = await call(c, "GET", "/athletes/not-a-uuid", {
+      token: "academyAdmin",
+    });
+    assert.equal(malformedAthlete.status, 403);
+    assert.equal(
+      malformedAthlete.body?.message,
+      "Athlete access is not permitted",
+    );
+
+    // Staff bypass must not expose membership billing in another organization.
+    const foreignOrg = await c.client.organization.create({
+      data: {
+        slug: `synthetic-gates-foreign-${RUN}`,
+        name: "Synthetic foreign organization",
+      },
+    });
+    const foreignProgramme = await c.client.programme.create({
+      data: {
+        organizationId: foreignOrg.id,
+        sportId: (
+          await c.client.programme.findUniqueOrThrow({
+            where: { id: c.offering.programmeId },
+          })
+        ).sportId,
+        code: `GATES-FOREIGN-${RUN}`,
+        name: "Synthetic foreign programme",
+      },
+    });
+    const foreignOffering = await c.client.programmeOffering.create({
+      data: {
+        organizationId: foreignOrg.id,
+        programmeId: foreignProgramme.id,
+        name: "Synthetic foreign offering",
+        capacity: 10,
+        status: "OPEN",
+      },
+    });
+    const foreignPlan = await c.client.membershipPlan.create({
+      data: {
+        organizationId: foreignOrg.id,
+        name: "Synthetic foreign plan",
+        billingFrequency: "UPFRONT",
+        upfrontAmountMinor: 18000,
+        currency: "MYR",
+      },
+    });
+    const foreignMembership = await c.client.membership.create({
+      data: {
+        organizationId: foreignOrg.id,
+        athleteId: c.athlete.id,
+        programmeOfferingId: foreignOffering.id,
+        membershipPlanId: foreignPlan.id,
+        purchasedByUserId: c.ids.guardian,
+        status: "PENDING",
+      },
+    });
+    const foreignBilling = await call(
+      c,
+      "GET",
+      `${a}/memberships/${foreignMembership.id}/billing`,
+      { token: "academyAdmin" },
+    );
+    assert.equal(foreignBilling.status, 404);
+    assert.equal(foreignBilling.body?.message, "Membership not found");
+
     // Staff support access to athlete records is preserved while the portal is closed.
     assert.equal(
       (await call(c, "GET", a, { token: "academyAdmin" })).status,
@@ -374,12 +502,22 @@ test(
     const webhook = await call(c, "POST", "/payments/webhooks/billplz", {
       body: {},
     });
-    assert.notEqual(
-      webhook.body?.code,
-      "FEATURE_NOT_AVAILABLE",
-      "webhook processing is never feature-gated",
+    assert.equal(webhook.status, 401, JSON.stringify(webhook.body));
+    assert.equal(
+      webhook.body?.message,
+      "Billplz webhook x_signature is required",
     );
-    assert.notEqual(webhook.status, 403);
+    const reconciliationWithoutMfa = await call(
+      c,
+      "POST",
+      "/admin/billing/reconcile-stale-checkouts",
+      { token: "financeAal1" },
+    );
+    assert.equal(reconciliationWithoutMfa.status, 403);
+    assert.equal(
+      reconciliationWithoutMfa.body?.message,
+      "MFA assurance level 2 is required",
+    );
     const reconcile = await call(
       c,
       "POST",
@@ -403,6 +541,14 @@ test(
     try {
       const list = await call(c, "GET", "/me/athletes", { token: "guardian" });
       assert.equal(list.status, 200, JSON.stringify(list.body));
+      const unlinked = await call(
+        c,
+        "GET",
+        `/athletes/${c.athlete.id}`,
+        { token: "otherGuardian" },
+      );
+      assert.equal(unlinked.status, 403);
+      assert.equal(unlinked.body?.message, "Athlete access is not permitted");
       const second = await c.client.programmeOffering.create({
         data: {
           organizationId: ORG,
@@ -431,7 +577,25 @@ test(
         `/athletes/${c.athlete.id}/memberships/${c.membership.id}/checkout`,
         { token: "guardian", body: { acceptTerms: true } },
       );
-      assert.notEqual(checkout.body?.code, "FEATURE_NOT_AVAILABLE");
+      assert.equal(checkout.status, 201, JSON.stringify(checkout.body));
+      assert.equal(checkout.body?.membershipId, c.membership.id);
+      assert.equal(checkout.body?.checkoutUrl, syntheticCheckoutUrl);
+      assert.equal(checkout.body?.termsVersion, "membership-mvp-v1");
+      const payment = await c.client.payment.findUniqueOrThrow({
+        where: { id: checkout.body.paymentId },
+      });
+      assert.equal(payment.membershipId, c.membership.id);
+      assert.equal(payment.organizationId, ORG);
+      assert.equal(payment.amountMinor, 18000);
+      assert.equal(payment.currency, "MYR");
+      assert.equal(payment.provider, "billplz");
+      assert.equal(payment.providerPaymentId, syntheticBillId);
+      assert.equal(payment.status, "PROCESSING");
+      const schedule = await c.client.paymentSchedule.findUniqueOrThrow({
+        where: { membershipId: c.membership.id },
+      });
+      assert.equal(checkout.body?.paymentScheduleId, schedule.id);
+      assert.equal(c.gatewayCalls.length, 1);
     } finally {
       delete process.env.KHLIM_ENABLE_V1_PORTAL;
       delete process.env.KHLIM_ENABLE_V1_ENROLMENT;

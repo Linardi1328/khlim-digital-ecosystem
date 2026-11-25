@@ -42,9 +42,12 @@ because the allowlist test forbids youth media there.
    still serve the old files at their deployment URLs.
 2. After the fixed build is live, purge the CDN and `/_next/image` caches for the
    removed paths.
-3. The repository is public and its history contains the binaries. Choose one:
-   make the repository private, run an authorized history rewrite (the ruleset
-   currently blocks this), or request a GitHub Support cached-view purge.
+3. The repository was public when reviewed and its history contains the binaries.
+   Restrict repository access promptly, assess clones, forks, historical commits
+   and published artifacts, and plan authorized history remediation where needed
+   (the ruleset currently blocks a rewrite). Request GitHub Support cached-view
+   cleanup separately after access restriction or history remediation; a cache
+   purge alone does not restrict Git history or recall downloaded copies.
 4. Takedown handling: confirm removal across the live site, previous deployments
    and caches. Record the outcome privately, not in this repository.
 5. Provision private storage only when a specific consent exists.
