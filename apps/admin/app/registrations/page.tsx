@@ -1,0 +1,1495 @@
+"use client";
+
+import React, {
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type {
+  RegistrationDetailDto,
+  RegistrationReasonCode,
+  RegistrationStatus,
+  RegistrationSummaryDto,
+} from "@khlim/api-client";
+import { AdminShell } from "../../components/layout/AdminShell";
+import { PageHeader } from "../../components/ui/PageHeader";
+import { Tabs } from "../../components/ui/Tabs";
+import { DataTable, type Column } from "../../components/ui/DataTable";
+import { StatusBadge } from "../../components/ui/StatusBadge";
+import { SearchInput } from "../../components/ui/SearchInput";
+import { FilterBar } from "../../components/ui/FilterBar";
+import { Pagination } from "../../components/ui/Pagination";
+import { Button } from "../../components/ui/Button";
+import { Drawer } from "../../components/ui/Drawer";
+import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import { LoadingState } from "../../components/ui/LoadingState";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { ErrorState } from "../../components/ui/ErrorState";
+import {
+  AdminConsentPoliciesTab,
+  AdminRegistrationSessionsTab,
+} from "../../components/registrations/sessions-policies-readiness";
+import { useAdminAuth } from "../../lib/auth-context";
+import {
+  changeAdminRegistrationStatus,
+  classifyAdminRegistrationError,
+  formatRegistrationReasonCode,
+  getAdminRegistrationDetail,
+  getAllowedNextStatuses,
+  isReasonCodeRequired,
+  isTerminalRegistrationStatus,
+  listAdminRegistrations,
+  REGISTRATION_REASON_CODES,
+  REGISTRATION_STATUS_OPTIONS,
+  searchAdminRegistrations,
+  type AdminRegistrationErrorKind,
+} from "../../lib/registration-admin-api";
+
+function formatMytDateTime(isoString: string | null | undefined): string {
+  if (!isoString) return "—";
+  try {
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return isoString;
+    return new Intl.DateTimeFormat("en-MY", {
+      timeZone: "Asia/Kuala_Lumpur",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(date);
+  } catch {
+    return isoString;
+  }
+}
+
+function cleanPhoneDigits(phone: string): string {
+  const digits = phone.replace(/[^0-9]/g, "");
+  if (digits.startsWith("0")) {
+    return `60${digits.slice(1)}`;
+  }
+  return digits;
+}
+
+function AcademyRegistrationsContent() {
+  const {
+    user,
+    role,
+    hasRole,
+    isAuthenticated,
+    isDemoMode,
+    mfaSatisfied,
+    logout,
+  } = useAdminAuth();
+  const staffUserId = user?.id ?? null;
+  const canView = hasRole(["SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN"]);
+  const canApprovePolicies = hasRole(["SUPER_ADMIN", "MANAGEMENT"]);
+  const isEligible =
+    canView && (isDemoMode || (isAuthenticated && mfaSatisfied));
+
+  const [activeTab, setActiveTab] = useState<string>("registrations");
+
+  // List state
+  const [registrations, setRegistrations] = useState<RegistrationSummaryDto[]>(
+    [],
+  );
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
+  const [authErrorKind, setAuthErrorKind] =
+    useState<AdminRegistrationErrorKind | null>(null);
+
+  // Filters & bounded pagination
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [sessionFilter, setSessionFilter] = useState<string>("ALL");
+  const [knownSessions, setKnownSessions] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  // Detail & status transition state
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedDetail, setSelectedDetail] =
+    useState<RegistrationDetailDto | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
+  const [targetStatus, setTargetStatus] = useState<RegistrationStatus | "">("");
+  const [reasonCode, setReasonCode] = useState<RegistrationReasonCode | "">("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [statusFeedback, setStatusFeedback] = useState<{
+    variant: "success" | "warning" | "error";
+    message: string;
+  } | null>(null);
+
+  const listRequestSeq = useRef(0);
+  const detailRequestSeq = useRef(0);
+  const listAbortRef = useRef<AbortController | null>(null);
+  const detailAbortRef = useRef<AbortController | null>(null);
+
+  // Debounce POST search input so we never hammer the search endpoint
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(searchInput.trim());
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
+
+  // Clear ALL sensitive PII immediately on user, role, or eligibility change
+  useLayoutEffect(() => {
+    listRequestSeq.current += 1;
+    detailRequestSeq.current += 1;
+    listAbortRef.current?.abort();
+    detailAbortRef.current?.abort();
+    setRegistrations([]);
+    setTotalItems(0);
+    setTotalPages(1);
+    setKnownSessions([]);
+    setSelectedId(null);
+    setSelectedDetail(null);
+    setSearchInput("");
+    setDebouncedSearch("");
+    setStatusFilter("ALL");
+    setSessionFilter("ALL");
+    setListError(null);
+    setDetailError(null);
+    setStatusFeedback(null);
+    setAuthErrorKind(null);
+    setConfirmOpen(false);
+    setIsUpdatingStatus(false);
+  }, [staffUserId, role, isEligible]);
+
+  const fetchRegistrations = useCallback(async () => {
+    if (!isEligible) {
+      listRequestSeq.current += 1;
+      listAbortRef.current?.abort();
+      setRegistrations([]);
+      setSelectedDetail(null);
+      setLoading(false);
+      return;
+    }
+
+    listAbortRef.current?.abort();
+    const controller = new AbortController();
+    listAbortRef.current = controller;
+    const seq = ++listRequestSeq.current;
+
+    setLoading(true);
+    setListError(null);
+    setAuthErrorKind(null);
+
+    try {
+      const normalizedStatus =
+        statusFilter === "ALL"
+          ? undefined
+          : (statusFilter as RegistrationStatus);
+      const normalizedSession =
+        sessionFilter === "ALL" ? undefined : sessionFilter;
+
+      // Use POST /search when a search term of >= 2 chars is active; never put search terms in URLs
+      const res =
+        debouncedSearch.length >= 2
+          ? await searchAdminRegistrations(
+              {
+                q: debouncedSearch,
+                status: normalizedStatus,
+                sessionId: normalizedSession,
+                page,
+                limit: pageSize,
+              },
+              controller.signal,
+            )
+          : await listAdminRegistrations({
+              status: normalizedStatus,
+              sessionId: normalizedSession,
+              page,
+              limit: pageSize,
+              signal: controller.signal,
+            });
+
+      if (seq !== listRequestSeq.current) return;
+
+      setRegistrations(res.items);
+      setTotalItems(res.total);
+      setTotalPages(Math.max(1, res.totalPages));
+
+      // Accumulate known sessions from server responses for the session filter selector
+      setKnownSessions((prev) => {
+        const map = new Map(prev.map((item) => [item.id, item.name]));
+        for (const item of res.items) {
+          if (item.sessionId && item.sessionName) {
+            map.set(item.sessionId, item.sessionName);
+          }
+        }
+        return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+      });
+    } catch (error: unknown) {
+      if (controller.signal.aborted || seq !== listRequestSeq.current) return;
+      const classified = classifyAdminRegistrationError(error);
+      if (
+        classified.kind === "UNAUTHENTICATED" ||
+        classified.kind === "FORBIDDEN"
+      ) {
+        // Clear sensitive list and detail data on 401/403
+        setRegistrations([]);
+        setSelectedId(null);
+        setSelectedDetail(null);
+        setAuthErrorKind(classified.kind);
+      }
+      setListError(classified.message);
+    } finally {
+      if (seq === listRequestSeq.current) {
+        setLoading(false);
+      }
+    }
+  }, [
+    isEligible,
+    debouncedSearch,
+    statusFilter,
+    sessionFilter,
+    page,
+    pageSize,
+  ]);
+
+  useEffect(() => {
+    if (activeTab === "registrations") {
+      void fetchRegistrations();
+    }
+    return () => {
+      listAbortRef.current?.abort();
+    };
+  }, [activeTab, fetchRegistrations]);
+
+  const loadRegistrationDetail = useCallback(
+    async (id: string) => {
+      if (!isEligible) return;
+      detailAbortRef.current?.abort();
+      const controller = new AbortController();
+      detailAbortRef.current = controller;
+      const seq = ++detailRequestSeq.current;
+
+      setSelectedId(id);
+      setDetailLoading(true);
+      setDetailError(null);
+      setStatusFeedback(null);
+      setTargetStatus("");
+      setReasonCode("");
+      setConfirmOpen(false);
+
+      try {
+        const detail = await getAdminRegistrationDetail(id, controller.signal);
+        if (seq !== detailRequestSeq.current) return;
+        setSelectedDetail(detail);
+      } catch (error: unknown) {
+        if (controller.signal.aborted || seq !== detailRequestSeq.current) {
+          return;
+        }
+        const classified = classifyAdminRegistrationError(error);
+        if (
+          classified.kind === "UNAUTHENTICATED" ||
+          classified.kind === "FORBIDDEN"
+        ) {
+          setSelectedDetail(null);
+          setRegistrations([]);
+          setAuthErrorKind(classified.kind);
+        }
+        setDetailError(classified.message);
+      } finally {
+        if (seq === detailRequestSeq.current) {
+          setDetailLoading(false);
+        }
+      }
+    },
+    [isEligible],
+  );
+
+  const handleCloseDrawer = () => {
+    detailRequestSeq.current += 1;
+    detailAbortRef.current?.abort();
+    setSelectedId(null);
+    setSelectedDetail(null);
+    setDetailError(null);
+    setStatusFeedback(null);
+    setTargetStatus("");
+    setReasonCode("");
+    setConfirmOpen(false);
+  };
+
+  const allowedTransitions = useMemo(() => {
+    if (!selectedDetail) return [];
+    return getAllowedNextStatuses(selectedDetail.status);
+  }, [selectedDetail]);
+
+  const reasonRequired =
+    Boolean(targetStatus) &&
+    isReasonCodeRequired(targetStatus as RegistrationStatus);
+
+  const canOpenConfirm =
+    Boolean(selectedDetail) &&
+    Boolean(targetStatus) &&
+    (!reasonRequired || Boolean(reasonCode)) &&
+    !isUpdatingStatus;
+
+  const handleConfirmStatusUpdate = async () => {
+    if (!selectedDetail || !targetStatus || isUpdatingStatus) return;
+    if (reasonRequired && !reasonCode) return;
+
+    setIsUpdatingStatus(true);
+    setStatusFeedback(null);
+
+    try {
+      const updated = await changeAdminRegistrationStatus(selectedDetail.id, {
+        status: targetStatus,
+        ...(reasonRequired && reasonCode ? { reasonCode } : {}),
+        expectedVersion: selectedDetail.version,
+      });
+
+      setConfirmOpen(false);
+      setSelectedDetail(updated);
+      setTargetStatus("");
+      setReasonCode("");
+      setStatusFeedback({
+        variant: "success",
+        message: `Registration status updated to ${updated.status} (version ${updated.version}).`,
+      });
+
+      // Synchronize summary row and refresh bounded list from server
+      setRegistrations((prev) =>
+        prev.map((row) =>
+          row.id === updated.id
+            ? {
+                ...row,
+                status: updated.status,
+                version: updated.version,
+                updatedAt: updated.updatedAt,
+              }
+            : row,
+        ),
+      );
+      void fetchRegistrations();
+    } catch (error: unknown) {
+      setConfirmOpen(false);
+      const classified = classifyAdminRegistrationError(error);
+
+      if (
+        classified.kind === "UNAUTHENTICATED" ||
+        classified.kind === "FORBIDDEN"
+      ) {
+        setSelectedDetail(null);
+        setRegistrations([]);
+        setAuthErrorKind(classified.kind);
+        setListError(classified.message);
+        return;
+      }
+
+      // On STALE_VERSION or INVALID_TRANSITION, refresh the authoritative record
+      // and require staff to review again (never auto-replay stale updates).
+      if (
+        classified.kind === "STALE_VERSION" ||
+        classified.kind === "INVALID_TRANSITION"
+      ) {
+        setStatusFeedback({
+          variant: "warning",
+          message: classified.message,
+        });
+        setTargetStatus("");
+        setReasonCode("");
+        try {
+          const fresh = await getAdminRegistrationDetail(selectedDetail.id);
+          setSelectedDetail(fresh);
+          setRegistrations((prev) =>
+            prev.map((row) =>
+              row.id === fresh.id
+                ? {
+                    ...row,
+                    status: fresh.status,
+                    version: fresh.version,
+                    updatedAt: fresh.updatedAt,
+                  }
+                : row,
+            ),
+          );
+        } catch {
+          // Keep warning visible even if refresh fails
+        }
+        return;
+      }
+
+      setStatusFeedback({
+        variant: "error",
+        message: classified.message,
+      });
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  // Minimal-PII list columns (no phone numbers, DOB, or emergency contacts in table view)
+  const columns: Column<RegistrationSummaryDto>[] = [
+    {
+      key: "referenceCode",
+      header: "Reference",
+      render: (item) => (
+        <span
+          style={{
+            fontFamily: "monospace",
+            fontWeight: 700,
+            fontSize: "0.82rem",
+            color: "#0F172A",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {item.referenceCode}
+        </span>
+      ),
+    },
+    {
+      key: "playerFullName",
+      header: "Player Name",
+      render: (item) => (
+        <span style={{ fontWeight: 600, color: "#0F172A" }}>
+          {item.playerFullName}
+        </span>
+      ),
+    },
+    {
+      key: "ageAtReference",
+      header: "Age (Ref)",
+      render: (item) => (
+        <span style={{ fontWeight: 500, color: "#334155" }}>
+          {item.ageAtReference} yrs
+        </span>
+      ),
+    },
+    {
+      key: "sessionName",
+      header: "Session",
+      render: (item) => (
+        <span style={{ color: "#1E293B", fontWeight: 500 }}>
+          {item.sessionName}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (item) => <StatusBadge status={item.status} size="sm" />,
+    },
+    {
+      key: "createdAt",
+      header: "Received (MYT)",
+      render: (item) => (
+        <span style={{ fontSize: "0.8125rem", color: "#64748B" }}>
+          {formatMytDateTime(item.createdAt)}
+        </span>
+      ),
+    },
+    {
+      key: "action",
+      header: "Action",
+      render: (item) => (
+        <Button
+          size="sm"
+          variant="secondary"
+          data-testid={`review-registration-${item.id}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            void loadRegistrationDetail(item.id);
+          }}
+        >
+          Review
+        </Button>
+      ),
+    },
+  ];
+
+  if (!canView) {
+    return (
+      <AdminShell>
+        <div style={{ minWidth: 0 }}>
+          <PageHeader
+            title="Academy Registrations"
+            subtitle="Review submitted Academy registrations, manage review status, and prepare session & consent governance."
+            breadcrumbs={[
+              { label: "Academy", href: "/offerings" },
+              { label: "Academy Registrations" },
+            ]}
+          />
+          <div
+            data-testid="registrations-restricted-access"
+            style={{
+              padding: "48px 24px",
+              textAlign: "center",
+              backgroundColor: "#FFFFFF",
+              borderRadius: "12px",
+              border: "1px dashed #CBD5E1",
+              color: "#64748B",
+            }}
+          >
+            <div style={{ fontSize: "2rem", marginBottom: "8px" }}>🔒</div>
+            <h2
+              style={{
+                fontSize: "1.125rem",
+                fontWeight: 600,
+                color: "#0F172A",
+                margin: 0,
+              }}
+            >
+              Restricted Access
+            </h2>
+            <p
+              style={{
+                fontSize: "0.875rem",
+                margin: "6px auto 0",
+                maxWidth: "460px",
+                lineHeight: 1.5,
+              }}
+            >
+              Academy Registration management is restricted to authorized
+              Academy Admin, Management, and Super Admin staff with verified
+              AAL2 MFA sessions.
+            </p>
+          </div>
+        </div>
+      </AdminShell>
+    );
+  }
+
+  const hasActiveFilters =
+    statusFilter !== "ALL" ||
+    sessionFilter !== "ALL" ||
+    Boolean(searchInput.trim());
+
+  const tabs = [
+    {
+      id: "registrations",
+      label: "Registrations",
+      count: totalItems,
+      icon: "📋",
+    },
+    { id: "sessions", label: "Training Sessions", icon: "🏀" },
+    { id: "policies", label: "Consent Policies", icon: "📜" },
+  ];
+
+  return (
+    <AdminShell>
+      <div
+        className="ph-no-capture"
+        data-ph-no-capture="true"
+        style={{ minWidth: 0 }}
+      >
+        <PageHeader
+          title="Academy Registrations"
+          subtitle="Academy V1 intake queue — distinct from Academy Interest Leads and Main Team roster operations. Permanent Player IDs are not assigned at registration."
+          breadcrumbs={[
+            { label: "Academy", href: "/offerings" },
+            { label: "Academy Registrations" },
+          ]}
+        />
+
+        <Tabs
+          tabs={tabs}
+          activeTab={activeTab}
+          onChange={(tabId) => setActiveTab(tabId)}
+        />
+
+        {activeTab === "sessions" && <AdminRegistrationSessionsTab />}
+
+        {activeTab === "policies" && (
+          <AdminConsentPoliciesTab canApprovePolicies={canApprovePolicies} />
+        )}
+
+        {activeTab === "registrations" && (
+          <div role="tabpanel" id="panel-registrations">
+            <FilterBar
+              hasActiveFilters={hasActiveFilters}
+              onReset={() => {
+                setSearchInput("");
+                setDebouncedSearch("");
+                setStatusFilter("ALL");
+                setSessionFilter("ALL");
+                setPage(1);
+              }}
+            >
+              <SearchInput
+                value={searchInput}
+                onChange={(val) => {
+                  setSearchInput(val);
+                  setPage(1);
+                }}
+                placeholder="Search player, guardian, phone, or KAR ref (min 2 chars)..."
+              />
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  fontSize: "0.875rem",
+                }}
+              >
+                <label
+                  htmlFor="registration-status-filter"
+                  style={{ fontWeight: 500, color: "#475569" }}
+                >
+                  Status:
+                </label>
+                <select
+                  id="registration-status-filter"
+                  value={statusFilter}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value);
+                    setPage(1);
+                  }}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: "6px",
+                    border: "1px solid #CBD5E1",
+                    backgroundColor: "#FFFFFF",
+                    fontSize: "0.875rem",
+                    color: "#1E293B",
+                  }}
+                >
+                  <option value="ALL">All Statuses</option>
+                  {REGISTRATION_STATUS_OPTIONS.map((status) => (
+                    <option key={status} value={status}>
+                      {status.replaceAll("_", " ")}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  fontSize: "0.875rem",
+                }}
+              >
+                <label
+                  htmlFor="registration-session-filter"
+                  style={{ fontWeight: 500, color: "#475569" }}
+                >
+                  Session:
+                </label>
+                <select
+                  id="registration-session-filter"
+                  value={sessionFilter}
+                  onChange={(e) => {
+                    setSessionFilter(e.target.value);
+                    setPage(1);
+                  }}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: "6px",
+                    border: "1px solid #CBD5E1",
+                    backgroundColor: "#FFFFFF",
+                    fontSize: "0.875rem",
+                    color: "#1E293B",
+                    maxWidth: "240px",
+                  }}
+                >
+                  <option value="ALL">All Sessions</option>
+                  {knownSessions.map((session) => (
+                    <option key={session.id} value={session.id}>
+                      {session.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </FilterBar>
+
+            {searchInput.trim().length === 1 ? (
+              <div
+                role="status"
+                style={{
+                  fontSize: "0.8rem",
+                  color: "#64748B",
+                  marginBottom: 12,
+                }}
+              >
+                Enter at least 2 characters to run server-side POST search.
+              </div>
+            ) : null}
+
+            {loading ? (
+              <LoadingState message="Loading Academy registrations..." />
+            ) : listError ? (
+              <div data-testid="registrations-error-state">
+                <ErrorState
+                  title={
+                    authErrorKind === "UNAUTHENTICATED"
+                      ? "Session Expired"
+                      : authErrorKind === "FORBIDDEN"
+                        ? "Access Restricted"
+                        : "Failed to Load Registrations"
+                  }
+                  message={listError}
+                  onRetry={
+                    authErrorKind === "UNAUTHENTICATED"
+                      ? () => void logout()
+                      : () => void fetchRegistrations()
+                  }
+                />
+              </div>
+            ) : registrations.length === 0 ? (
+              <EmptyState
+                title="No registrations found"
+                description={
+                  hasActiveFilters
+                    ? "No Academy registrations match your active search or filter criteria."
+                    : "No Academy registrations have been received yet."
+                }
+              />
+            ) : (
+              <>
+                <DataTable
+                  columns={columns}
+                  data={registrations}
+                  keyExtractor={(item) => item.id}
+                  onRowClick={(item) => void loadRegistrationDetail(item.id)}
+                />
+                <Pagination
+                  currentPage={page}
+                  totalPages={totalPages}
+                  totalItems={totalItems}
+                  itemsPerPage={pageSize}
+                  onPageChange={setPage}
+                  onItemsPerPageChange={(size) => {
+                    setPageSize(Math.min(size, 100));
+                    setPage(1);
+                  }}
+                />
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Audited Registration Detail & Status Review Drawer */}
+        <Drawer
+          isOpen={Boolean(selectedId)}
+          onClose={handleCloseDrawer}
+          title={
+            selectedDetail
+              ? `Registration ${selectedDetail.referenceCode}`
+              : "Registration Details"
+          }
+          subtitle={
+            selectedDetail
+              ? `${selectedDetail.playerFullName} · Received ${formatMytDateTime(selectedDetail.createdAt)} (MYT)`
+              : undefined
+          }
+          width="620px"
+        >
+          {detailLoading ? (
+            <LoadingState message="Loading audited registration record..." />
+          ) : detailError ? (
+            <ErrorState
+              title="Unable to Load Registration Detail"
+              message={detailError}
+              onRetry={() => {
+                if (selectedId) void loadRegistrationDetail(selectedId);
+              }}
+            />
+          ) : selectedDetail ? (
+            <div
+              data-testid="registration-detail-content"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 20,
+                padding: "4px 0 24px",
+              }}
+            >
+              {/* Status & Metadata Header */}
+              <div
+                style={{
+                  backgroundColor: "#F8FAFC",
+                  border: "1px solid #E2E8F0",
+                  borderRadius: 10,
+                  padding: 16,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <StatusBadge status={selectedDetail.status} size="md" />
+                  <span
+                    style={{
+                      fontSize: "0.75rem",
+                      fontFamily: "monospace",
+                      color: "#64748B",
+                    }}
+                  >
+                    v{selectedDetail.version} · {selectedDetail.referenceCode}
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                    gap: 10,
+                    fontSize: "0.8125rem",
+                  }}
+                >
+                  <div>
+                    <div style={{ color: "#64748B" }}>Session</div>
+                    <div style={{ fontWeight: 600, color: "#0F172A" }}>
+                      {selectedDetail.sessionName}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ color: "#64748B" }}>Campaign Source</div>
+                    <div
+                      style={{
+                        fontWeight: 600,
+                        color: "#0F172A",
+                        fontFamily: selectedDetail.source
+                          ? "monospace"
+                          : "inherit",
+                      }}
+                    >
+                      {selectedDetail.source || "Direct / Unattributed"}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ color: "#64748B" }}>Received (MYT)</div>
+                    <div style={{ color: "#0F172A" }}>
+                      {formatMytDateTime(selectedDetail.createdAt)}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ color: "#64748B" }}>Last Status Change</div>
+                    <div style={{ color: "#0F172A" }}>
+                      {formatMytDateTime(selectedDetail.statusChangedAt)}
+                    </div>
+                  </div>
+                  {selectedDetail.statusReasonCode ? (
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <div style={{ color: "#64748B" }}>Status Reason</div>
+                      <div style={{ fontWeight: 600, color: "#991B1B" }}>
+                        {formatRegistrationReasonCode(
+                          selectedDetail.statusReasonCode,
+                        )}{" "}
+                        ({selectedDetail.statusReasonCode})
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              {/* Player Details */}
+              <div
+                style={{
+                  backgroundColor: "#FFFFFF",
+                  border: "1px solid #E2E8F0",
+                  borderRadius: 10,
+                  padding: 16,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 10,
+                    gap: 8,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <strong style={{ fontSize: "0.875rem", color: "#0F172A" }}>
+                    Player Details
+                  </strong>
+                  <span style={{ fontSize: "0.75rem", color: "#64748B" }}>
+                    Player ID assigned later upon athlete conversion
+                  </span>
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 12,
+                    fontSize: "0.8125rem",
+                  }}
+                >
+                  <div>
+                    <div style={{ color: "#64748B" }}>Full Name</div>
+                    <div style={{ fontWeight: 600, color: "#0F172A" }}>
+                      {selectedDetail.player.fullName ||
+                        selectedDetail.playerFullName}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ color: "#64748B" }}>Date of Birth</div>
+                    <div style={{ fontWeight: 600, color: "#0F172A" }}>
+                      {selectedDetail.player.dateOfBirth || "—"} (Age{" "}
+                      {selectedDetail.ageAtReference} at ref)
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ color: "#64748B" }}>Gender</div>
+                    <div style={{ fontWeight: 500, color: "#0F172A" }}>
+                      {selectedDetail.player.gender || "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ color: "#64748B" }}>Jersey Size</div>
+                    <div style={{ fontWeight: 500, color: "#0F172A" }}>
+                      {selectedDetail.player.jerseySize || "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ color: "#64748B" }}>Player Phone</div>
+                    <div
+                      style={{
+                        fontFamily: "monospace",
+                        color: "#0F172A",
+                      }}
+                    >
+                      {selectedDetail.player.phone || "Not provided"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Guardian & Emergency Contact */}
+              <div
+                style={{
+                  backgroundColor: "#FFFFFF",
+                  border: "1px solid #E2E8F0",
+                  borderRadius: 10,
+                  padding: 16,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 16,
+                }}
+              >
+                <div>
+                  <strong
+                    style={{
+                      display: "block",
+                      fontSize: "0.875rem",
+                      color: "#0F172A",
+                      marginBottom: 10,
+                    }}
+                  >
+                    Guardian Details
+                  </strong>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 12,
+                      fontSize: "0.8125rem",
+                    }}
+                  >
+                    <div>
+                      <div style={{ color: "#64748B" }}>Full Name</div>
+                      <div style={{ fontWeight: 600, color: "#0F172A" }}>
+                        {selectedDetail.guardian.fullName || "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ color: "#64748B" }}>Phone</div>
+                      <div
+                        style={{
+                          fontWeight: 600,
+                          color: "#0F172A",
+                          fontFamily: "monospace",
+                        }}
+                      >
+                        {selectedDetail.guardian.phone || "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ color: "#64748B" }}>Relationship</div>
+                      <div style={{ color: "#0F172A" }}>
+                        {selectedDetail.guardian.relationship || "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ color: "#64748B" }}>
+                        Authority Confirmed
+                      </div>
+                      <div style={{ fontWeight: 600, color: "#065F46" }}>
+                        {selectedDetail.guardian.authorityConfirmed
+                          ? "Yes"
+                          : "No"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {selectedDetail.guardian.phone ? (
+                    <div style={{ marginTop: 12 }}>
+                      <a
+                        href={`https://wa.me/${cleanPhoneDigits(selectedDetail.guardian.phone)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 8,
+                          backgroundColor: "#16A34A",
+                          color: "#FFFFFF",
+                          padding: "8px 14px",
+                          borderRadius: 8,
+                          fontSize: "0.8125rem",
+                          fontWeight: 600,
+                          textDecoration: "none",
+                        }}
+                      >
+                        <span>Manual WhatsApp Contact</span>
+                        <span aria-hidden="true">↗</span>
+                      </a>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div
+                  style={{
+                    borderTop: "1px solid #F1F5F9",
+                    paddingTop: 14,
+                  }}
+                >
+                  <strong
+                    style={{
+                      display: "block",
+                      fontSize: "0.875rem",
+                      color: "#0F172A",
+                      marginBottom: 10,
+                    }}
+                  >
+                    Emergency Contact
+                  </strong>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 12,
+                      fontSize: "0.8125rem",
+                    }}
+                  >
+                    <div>
+                      <div style={{ color: "#64748B" }}>Full Name</div>
+                      <div style={{ fontWeight: 600, color: "#0F172A" }}>
+                        {selectedDetail.emergencyContact.fullName || "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ color: "#64748B" }}>Phone</div>
+                      <div
+                        style={{
+                          fontWeight: 600,
+                          color: "#0F172A",
+                          fontFamily: "monospace",
+                        }}
+                      >
+                        {selectedDetail.emergencyContact.phone || "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ color: "#64748B" }}>Relationship</div>
+                      <div style={{ color: "#0F172A" }}>
+                        {selectedDetail.emergencyContact.relationship || "—"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Consent Records */}
+              <div
+                style={{
+                  backgroundColor: "#FFFFFF",
+                  border: "1px solid #E2E8F0",
+                  borderRadius: 10,
+                  padding: 16,
+                }}
+              >
+                <strong
+                  style={{
+                    display: "block",
+                    fontSize: "0.875rem",
+                    color: "#0F172A",
+                    marginBottom: 10,
+                  }}
+                >
+                  Consent Records
+                </strong>
+                {selectedDetail.consents.length === 0 ? (
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "0.8125rem",
+                      color: "#64748B",
+                    }}
+                  >
+                    No consent records returned.
+                  </p>
+                ) : (
+                  <div
+                    style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                  >
+                    {selectedDetail.consents.map((record, index) => (
+                      <div
+                        key={`${record.type ?? "consent"}-${index}`}
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: 8,
+                          backgroundColor: "#F8FAFC",
+                          border: "1px solid #E2E8F0",
+                          fontSize: "0.8rem",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 4,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            gap: 8,
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <strong style={{ color: "#0F172A" }}>
+                            {record.type || "Consent"}
+                          </strong>
+                          <span
+                            style={{
+                              fontWeight: 700,
+                              color: record.granted ? "#065F46" : "#64748B",
+                            }}
+                          >
+                            {record.granted ? "Granted" : "Not granted"}
+                          </span>
+                        </div>
+                        <div style={{ color: "#475569" }}>
+                          Policy: <code>{record.policyVersion || "—"}</code> ·
+                          Locale: <code>{record.locale || "—"}</code> ·
+                          Accepted: {formatMytDateTime(record.acceptedAt)}
+                        </div>
+                        {record.contentSha256 ? (
+                          <div
+                            style={{
+                              color: "#64748B",
+                              fontFamily: "monospace",
+                              fontSize: "0.72rem",
+                              overflowWrap: "anywhere",
+                            }}
+                          >
+                            SHA-256: {record.contentSha256}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Status Review Controls */}
+              <div
+                style={{
+                  backgroundColor: "#F8FAFC",
+                  border: "1px solid #CBD5E1",
+                  borderRadius: 10,
+                  padding: 16,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 14,
+                }}
+              >
+                <strong style={{ fontSize: "0.9rem", color: "#0F172A" }}>
+                  Review &amp; Status Transition
+                </strong>
+
+                {statusFeedback ? (
+                  <div
+                    role="alert"
+                    data-testid="status-update-feedback"
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      fontSize: "0.83rem",
+                      lineHeight: 1.45,
+                      backgroundColor:
+                        statusFeedback.variant === "success"
+                          ? "#ECFDF5"
+                          : statusFeedback.variant === "warning"
+                            ? "#FFFBEB"
+                            : "#FEF2F2",
+                      border:
+                        statusFeedback.variant === "success"
+                          ? "1px solid #A7F3D0"
+                          : statusFeedback.variant === "warning"
+                            ? "1px solid #FDE68A"
+                            : "1px solid #FECACA",
+                      color:
+                        statusFeedback.variant === "success"
+                          ? "#065F46"
+                          : statusFeedback.variant === "warning"
+                            ? "#92400E"
+                            : "#991B1B",
+                    }}
+                  >
+                    {statusFeedback.message}
+                  </div>
+                ) : null}
+
+                {isTerminalRegistrationStatus(selectedDetail.status) ? (
+                  <p
+                    data-testid="terminal-status-notice"
+                    style={{
+                      margin: 0,
+                      fontSize: "0.84rem",
+                      color: "#475569",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    This registration is in a terminal state (
+                    <strong>{selectedDetail.status}</strong>). No further status
+                    transitions are allowed.
+                  </p>
+                ) : (
+                  <>
+                    <div>
+                      <label
+                        htmlFor="registration-next-status"
+                        style={{
+                          display: "block",
+                          fontSize: "0.8125rem",
+                          fontWeight: 600,
+                          color: "#334155",
+                          marginBottom: 6,
+                        }}
+                      >
+                        Next Status
+                      </label>
+                      <select
+                        id="registration-next-status"
+                        value={targetStatus}
+                        onChange={(e) => {
+                          const next = e.target.value as
+                            RegistrationStatus | "";
+                          setTargetStatus(next);
+                          if (
+                            !next ||
+                            !isReasonCodeRequired(next as RegistrationStatus)
+                          ) {
+                            setReasonCode("");
+                          }
+                        }}
+                        style={{
+                          width: "100%",
+                          padding: "8px 12px",
+                          borderRadius: 6,
+                          border: "1px solid #CBD5E1",
+                          backgroundColor: "#FFFFFF",
+                          fontSize: "0.875rem",
+                          color: "#0F172A",
+                        }}
+                      >
+                        <option value="">Select status transition...</option>
+                        {allowedTransitions.map((status) => (
+                          <option key={status} value={status}>
+                            {status.replaceAll("_", " ")}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {reasonRequired ? (
+                      <div>
+                        <label
+                          htmlFor="registration-reason-code"
+                          style={{
+                            display: "block",
+                            fontSize: "0.8125rem",
+                            fontWeight: 600,
+                            color: "#334155",
+                            marginBottom: 6,
+                          }}
+                        >
+                          Reason Code (required for {targetStatus})
+                        </label>
+                        <select
+                          id="registration-reason-code"
+                          value={reasonCode}
+                          onChange={(e) =>
+                            setReasonCode(
+                              e.target.value as RegistrationReasonCode | "",
+                            )
+                          }
+                          style={{
+                            width: "100%",
+                            padding: "8px 12px",
+                            borderRadius: 6,
+                            border: "1px solid #CBD5E1",
+                            backgroundColor: "#FFFFFF",
+                            fontSize: "0.875rem",
+                            color: "#0F172A",
+                          }}
+                        >
+                          <option value="">Select reason code...</option>
+                          {REGISTRATION_REASON_CODES.map((item) => (
+                            <option key={item.code} value={item.code}>
+                              {item.label} ({item.code})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : null}
+
+                    {targetStatus === "CONFIRMED" ? (
+                      <div
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: 8,
+                          backgroundColor: "#FFFBEB",
+                          border: "1px solid #FDE68A",
+                          color: "#92400E",
+                          fontSize: "0.8rem",
+                          lineHeight: 1.45,
+                        }}
+                      >
+                        <strong>Note:</strong> Confirming allocates a seat in
+                        backend session capacity. It does not indicate that
+                        payment has been collected or verified.
+                      </div>
+                    ) : null}
+
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        gap: 10,
+                      }}
+                    >
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() =>
+                          void loadRegistrationDetail(selectedDetail.id)
+                        }
+                        disabled={isUpdatingStatus}
+                      >
+                        Refresh Record
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="sm"
+                        data-testid="open-status-confirm-btn"
+                        disabled={!canOpenConfirm}
+                        onClick={() => setConfirmOpen(true)}
+                      >
+                        Apply Status Change
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          ) : null}
+        </Drawer>
+
+        {/* Explicit Confirmation Dialog for Status Changes */}
+        <ConfirmDialog
+          isOpen={confirmOpen}
+          onClose={() => setConfirmOpen(false)}
+          onConfirm={() => void handleConfirmStatusUpdate()}
+          isLoading={isUpdatingStatus}
+          variant={
+            targetStatus === "REJECTED" || targetStatus === "CANCELLED"
+              ? "danger"
+              : "primary"
+          }
+          title={`Change status to ${targetStatus ? targetStatus.replaceAll("_", " ") : ""}?`}
+          confirmLabel="Confirm Status Change"
+          description={
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <p style={{ margin: 0 }}>
+                Update registration{" "}
+                <strong>{selectedDetail?.referenceCode}</strong> (
+                {selectedDetail?.playerFullName}) from{" "}
+                <strong>{selectedDetail?.status}</strong> to{" "}
+                <strong>{targetStatus}</strong>.
+              </p>
+              {reasonRequired && reasonCode ? (
+                <p style={{ margin: 0 }}>
+                  Reason:{" "}
+                  <strong>{formatRegistrationReasonCode(reasonCode)}</strong> (
+                  <code>{reasonCode}</code>)
+                </p>
+              ) : null}
+              {targetStatus === "CONFIRMED" ? (
+                <p
+                  style={{
+                    margin: 0,
+                    padding: "8px 10px",
+                    borderRadius: 6,
+                    backgroundColor: "#FFFBEB",
+                    color: "#92400E",
+                    fontSize: "0.82rem",
+                  }}
+                >
+                  Confirming allocates backend capacity for this session. It
+                  does not confirm payment collection.
+                </p>
+              ) : null}
+              {targetStatus === "REJECTED" || targetStatus === "CANCELLED" ? (
+                <p
+                  style={{
+                    margin: 0,
+                    color: "#991B1B",
+                    fontSize: "0.82rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  This status is terminal and cannot be reversed later.
+                </p>
+              ) : null}
+            </div>
+          }
+        />
+      </div>
+    </AdminShell>
+  );
+}
+
+export default function AdminRegistrationsPage() {
+  return (
+    <Suspense
+      fallback={
+        <AdminShell>
+          <LoadingState message="Loading Academy registrations..." />
+        </AdminShell>
+      }
+    >
+      <AcademyRegistrationsContent />
+    </Suspense>
+  );
+}

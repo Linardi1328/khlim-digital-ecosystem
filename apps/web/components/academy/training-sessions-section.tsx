@@ -13,6 +13,7 @@ import { useI18n } from "../../lib/i18n-context";
 import { Badge } from "../ui/badge";
 import { getButtonStyles } from "../ui/button";
 import { Card } from "../ui/card";
+import { PublishedRegistrationSessions } from "./published-registration-sessions";
 
 export function TrainingSessionsSection({
   campaignSource,
@@ -371,6 +372,9 @@ export function TrainingSessionsSection({
           </Card>
         ))}
       </div>
+
+      {/* Live Authoritative Published Training Sessions (RIC-190 / RIC-191) */}
+      <PublishedRegistrationSessions campaignSource={campaignSource} />
     </section>
   );
 }

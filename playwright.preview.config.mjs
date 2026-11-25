@@ -13,6 +13,7 @@ export default defineConfig({
     "auth-accessibility.spec.mjs",
     "staging-browser-acceptance.spec.mjs",
     "ric-184-academy-parity-qa.spec.mjs",
+    "ric-191-public-registration.spec.mjs",
   ],
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),

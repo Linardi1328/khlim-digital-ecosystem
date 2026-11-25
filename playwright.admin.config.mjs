@@ -7,6 +7,7 @@ export default defineConfig({
     "admin-kpi-observability.spec.mjs",
     "admin-governance.spec.mjs",
     "admin-walkthrough-visual.spec.mjs",
+    "ric-191-admin-registrations.spec.mjs",
   ],
   timeout: 15_000,
   expect: { timeout: 5_000 },

@@ -4,6 +4,7 @@ export type V1FeatureKey =
   | "home"
   | "academy"
   | "academyTrainingSessions"
+  | "academyRegistration"
   | "programmes"
   | "spotlight"
   | "registerInterest"
@@ -51,6 +52,13 @@ export const V1_FEATURE_AVAILABILITY: Record<
     status: "AVAILABLE",
     gateNote:
       "Owner-approved venue, lead coach, age-group time slots, and proposed practice day",
+  },
+  academyRegistration: {
+    key: "academyRegistration",
+    routes: ["/academy/register"],
+    status: "AVAILABLE",
+    gateNote:
+      "Academy Registration V1 customer flow; live openness is governed authoritatively by GET /v1/academy/registration-config",
   },
   programmes: {
     key: "programmes",

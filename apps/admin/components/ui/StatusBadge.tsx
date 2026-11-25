@@ -21,22 +21,31 @@ export function StatusBadge({
   let icon = "•";
 
   if (
-    ["ACTIVE", "PAID", "OPEN", "COMPLETED", "ENROLLED"].includes(normalized)
+    [
+      "ACTIVE",
+      "PAID",
+      "OPEN",
+      "COMPLETED",
+      "ENROLLED",
+      "CONFIRMED",
+      "PUBLISHED",
+      "APPROVED",
+    ].includes(normalized)
   ) {
     bg = "#ECFDF5";
     text = "#065F46";
     border = "#A7F3D0";
     icon = "✓";
-  } else if (normalized === "NEW") {
+  } else if (["NEW", "RECEIVED"].includes(normalized)) {
     bg = "#EFF6FF";
     text = "#1D4ED8";
     border = "#BFDBFE";
     icon = "★";
-  } else if (normalized === "CONTACTED") {
+  } else if (["CONTACTED", "UNDER_REVIEW"].includes(normalized)) {
     bg = "#FFFBEB";
     text = "#B45309";
     border = "#FDE68A";
-    icon = "💬";
+    icon = "◐";
   } else if (normalized === "QUALIFIED") {
     bg = "#F5F3FF";
     text = "#6D28D9";
@@ -54,6 +63,7 @@ export function StatusBadge({
       "FAILED",
       "SUSPENDED",
       "CANCELLED",
+      "REJECTED",
       "OVERDUE",
       "CLOSED",
       "DEACTIVATED",
@@ -63,7 +73,7 @@ export function StatusBadge({
     text = "#991B1B";
     border = "#FECACA";
     icon = "✕";
-  } else if (["EXPIRED", "INACTIVE"].includes(normalized)) {
+  } else if (["EXPIRED", "INACTIVE", "RETIRED"].includes(normalized)) {
     bg = "#F4F4F5";
     text = "#71717A";
     border = "#E4E4E7";
