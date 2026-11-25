@@ -24,7 +24,7 @@ import { PlayerSpotlightSection } from "../components/home/player-spotlight-sect
 import { PublicFooter } from "../components/layout/public-footer";
 import { PublicHeader } from "../components/layout/public-header";
 import { Badge } from "../components/ui/badge";
-import { Button } from "../components/ui/button";
+import { Button, getButtonStyles } from "../components/ui/button";
 import {
   Card,
   CardContent,
@@ -58,6 +58,8 @@ function HomeContent() {
   const [storedCampaign, setStoredCampaign] = useState<string | null>(null);
   const [offerings, setOfferings] = useState<PublicOfferingItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [retryAttempt, setRetryAttempt] = useState(0);
 
   useEffect(() => {
     setStoredCampaign(resolveCampaignSource(searchParams));
@@ -73,12 +75,32 @@ function HomeContent() {
   }, [hasConsent, campaignSource]);
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(false);
+
     apiService
       .getPublicOfferings()
-      .then(setOfferings)
-      .catch(() => setOfferings([]))
-      .finally(() => setLoading(false));
-  }, []);
+      .then((items) => {
+        if (!cancelled) {
+          setOfferings(items);
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setOfferings([]);
+        setLoadError(true);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [retryAttempt]);
 
   const activeBasketballVenueName = offerings
     .find(
@@ -158,6 +180,40 @@ function HomeContent() {
             <p style={{ textAlign: "center" }}>
               {t("programmes.loadingOfferings")}
             </p>
+          ) : loadError ? (
+            <Card style={{ padding: 32, textAlign: "center" }}>
+              <p role="alert" style={{ marginBottom: 16 }}>
+                {t("home.programmes.catalogueLoadError")}
+              </p>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  gap: 12,
+                  flexWrap: "wrap",
+                }}
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setRetryAttempt((attempt) => attempt + 1)}
+                  style={{ minHeight: 44, minWidth: 44 }}
+                >
+                  {t("common.retry")}
+                </Button>
+                <Link
+                  href={buildUrlWithSource("/interest", campaignSource)}
+                  style={{
+                    ...getButtonStyles("primary", "sm"),
+                    minHeight: 44,
+                    minWidth: 44,
+                  }}
+                >
+                  {t("nav.registerInterest")}
+                </Link>
+              </div>
+            </Card>
           ) : offerings.length === 0 ? (
             <Card style={{ padding: 32, textAlign: "center" }}>
               {t("programmes.noPublishedOfferings")}
