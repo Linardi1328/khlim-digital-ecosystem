@@ -4,7 +4,7 @@
 
 **Date:** October 2026
 
-**Status:** Full 36-Asset Media Integration — Authorized by Director Esther for KHLIM Public Website
+**Status:** Historical RIC-85 integration and director clearance. See the [current V1 release classification](../../media/RIGHTS-MANIFEST.md#2026-11-25-v1-release-classification) for which files are shipped.
 
 **Asset Source:** Esther (Official KHLIM Google Drive folder: `1hCSJ3QhtMhBxBya4yisD7PAZB76KFJSF`)
 
@@ -16,7 +16,7 @@
 
 ## 1. Complete 36-Asset Registry & Optimization Matrix
 
-All 36 original Google Drive assets have been fully reconciled and integrated as web-optimized WebP files under `apps/web/public/media/`. Every asset is authorized by Director Esther for publication on KHLIM's public website.
+The historical integration reconciled 36 original Google Drive assets into web-optimized derivatives. The approval column records Esther's organizational clearance at the time. V1 public shipment follows the current rights register.
 
 | # | Original Drive Asset | Optimized File | Intrinsic Size | Aspect Ratio | Public Placement | Alt Text / Accessible Description | Internal Tracking Ref | Public Build Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -100,7 +100,7 @@ The editorial resolver `resolveAchievementStories` implements four distinct, fai
    - Hardcoded cards are **never** resurrected.
 3. **`success` state (`remote !== null && !apiError && remote.length > 0`):**
    - Displays live published achievements and the Club Distinction banner.
-   - Any image rendering requires verified rights and explicit environment clearance (`NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED === "1"`).
+   - V1 returns editorial copy with no public photo URL. The web renderer also checks for an exact documented public asset.
 4. **`error` state (`apiError === true`):**
    - Network outage, API timeout, or offline state.
    - Renders neutral archive preview slots with the editorial preview notice.
@@ -132,7 +132,7 @@ Verified by automated unit tests in `tests/achievements-unpublishing.test.mjs`.
 ### 2.6 Khero Mascot & Public-Tree Media Safeguards
 
 - The unverified Khero promotional artwork files have been removed from the deployable public directory (`apps/web/public/media/khero/`) and replaced with safe reviewable placeholder WebP files. This ensures that direct HTTP requests to these paths do not serve unverified promotional assets, while preserving layout geometry and preventing broken links.
-- Component `KheroSection` retains the security/rights check `process.env.NEXT_PUBLIC_KHERO_MEDIA_RIGHTS_CONFIRMED === "1"`. When disabled, the section presents the standard `compliance.khero.mediaPendingRights` fallback notice, preserving full legal and rights compliance.
+- V1 retains the three individually documented KHero posters and removes the unused, unverified `coming-soon.webp` placeholder.
 - Unused asset `apps/web/public/khlim-logo.jpg` marked `REVIEW_REQUIRED` has been removed from the public deployable tree to eliminate direct HTTP 200 exposure. Rights are not inferred from approved logo WebPs.
 
 ### 2.7 Club vs. Academy Distinction

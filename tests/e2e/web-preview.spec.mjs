@@ -82,8 +82,8 @@ test("homepage keeps academy actions primary without inactive carousel controls"
   ).toBeVisible();
   await expect(hero.locator('a[href="/interest"]')).toBeVisible();
   await expect(hero.locator('a[href="/programmes"]')).toBeVisible();
-  await expect(hero.locator(".home-carousel-arrow")).toHaveCount(2);
-  await expect(hero.locator(".home-carousel-dots button")).toHaveCount(4);
+  await expect(hero.locator(".home-carousel-arrow")).toHaveCount(0);
+  await expect(hero.locator(".home-carousel-dots button")).toHaveCount(0);
 });
 
 test("homepage showcases verified honours and unnamed representatives", async ({
@@ -112,54 +112,83 @@ test("homepage showcases verified honours and unnamed representatives", async ({
   ).toHaveCount(0);
 });
 
-test("gallery photographs use consistent 4:3 frames without cropping", async ({
+test("public pages render fallbacks without requesting withheld photos", async ({
   page,
 }) => {
-  const samples = [
-    ["/", "#achievements .verified-milestone-photo"],
-    ["/", "#player-spotlight .verified-milestone-photo"],
-    ["/spotlight", "#verified-team-honours .verified-milestone-photo"],
-    ["/spotlight", "#representative-milestones .verified-milestone-photo"],
-    ["/spotlight", "#club-event-gallery .spotlight-gallery-photo"],
-  ];
-
-  let currentRoute = "";
-  for (const [route, selector] of samples) {
-    if (route !== currentRoute) {
-      await page.goto(route, { waitUntil: "domcontentloaded" });
-      currentRoute = route;
-    }
-    const photo = page.locator(selector).first();
-    await photo.scrollIntoViewIfNeeded();
-    await expect
-      .poll(() =>
-        photo.evaluate((image) => image.complete && image.naturalWidth > 0),
+  const photoRequests = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    const path = url.searchParams.get("url") ?? url.pathname;
+    if (
+      /\/media\/(?:home\/|achievements\/|khlim\/(?:team-hero|training-group))/.test(
+        path,
       )
-      .toBe(true);
+    ) {
+      photoRequests.push(path);
+    }
+  });
 
-    const dimensions = await photo.evaluate((image) => {
-      const frame = image.closest(
-        ".verified-milestone-media, .spotlight-gallery-image-wrapper",
-      );
-      if (!frame) throw new Error("Image is missing a media frame");
-      const frameBox = frame.getBoundingClientRect();
-      const photoBox = image.getBoundingClientRect();
-      return {
-        frameRatio: frameBox.width / frameBox.height,
-        fullWidth: Math.abs(frameBox.width - photoBox.width) < 2,
-        fullHeight: Math.abs(frameBox.height - photoBox.height) < 2,
-        objectFit: getComputedStyle(image).objectFit,
-        naturalWidth: image.naturalWidth,
-        naturalHeight: image.naturalHeight,
-      };
-    });
+  await page.goto("/");
+  await expect(page.locator(".home-hero-slide")).toHaveCount(1);
+  await expect(page.locator(".home-hero-slide")).toHaveCSS(
+    "background-image",
+    /gradient/,
+  );
+  await expect(page.locator(".verified-milestone-photo")).toHaveCount(0);
 
-    expect(Math.abs(dimensions.frameRatio - 4 / 3)).toBeLessThan(0.02);
-    expect(dimensions.fullWidth).toBe(true);
-    expect(dimensions.fullHeight).toBe(true);
-    expect(dimensions.objectFit).toBe("contain");
-    expect(dimensions.naturalWidth).toBeGreaterThan(0);
-    expect(dimensions.naturalHeight).toBeGreaterThan(0);
+  await page.goto("/academy");
+  await expect(page.getByTestId("academy-training-fallback")).toBeVisible();
+  await expect(
+    page.getByTestId("academy-training-fallback").getByRole("img"),
+  ).toBeVisible();
+
+  await page.goto("/spotlight");
+  await expect(page.locator(".spotlight-gallery-card")).toHaveCount(9);
+  await expect(
+    page.locator(".spotlight-gallery-photo, .verified-milestone-photo"),
+  ).toHaveCount(0);
+  expect(photoRequests).toEqual([]);
+});
+
+test("retired media URLs are absent from the production web build", async ({
+  request,
+}) => {
+  const retiredPaths = [
+    "/media/achievements/cls-international-indonesia-2026-champion.webp",
+    "/media/achievements/club-gallery-team-huddle-circle.webp",
+    "/media/home/team-huddle-desktop.webp",
+    "/media/home/team-huddle-mobile.webp",
+    "/media/khlim/team-hero-wide-1920.webp",
+    "/media/khlim/team-hero-1920.webp",
+    "/media/khlim/training-group-1280.webp",
+    "/media/khlim/logo-khs-academy.webp",
+    "/media/brand/khs-academy-mark.webp",
+    "/media/khero/coming-soon.webp",
+  ];
+  for (const path of retiredPaths) {
+    expect((await request.get(path)).status(), path).toBe(404);
+  }
+  const optimized = await request.get("/_next/image", {
+    params: { url: "/media/khlim/training-group-1280.webp", w: 640, q: 75 },
+  });
+  expect(optimized.ok()).toBe(false);
+  expect(
+    (
+      await request.get(
+        "/api/preview-media/restricted_pending_approval/youth/team-hero-1920.webp",
+      )
+    ).status(),
+  ).toBe(403);
+  expect((await request.get("/preview/media")).status()).toBe(404);
+
+  for (const path of [
+    "/media/brand/academy-crest.webp",
+    "/media/coaches/seng-jun.webp",
+    "/media/khero/meet-khero.webp",
+  ]) {
+    const response = await request.get(path);
+    expect(response.status(), path).toBe(200);
+    expect(response.headers()["content-type"]).toMatch(/^image\/webp/);
   }
 });
 

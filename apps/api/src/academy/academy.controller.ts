@@ -10,6 +10,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import type { AuthenticatedUserContext } from "../auth/authenticated-user";
 import { Public, RequireAthleteAccess } from "../auth/authorization.decorators";
 import { CurrentUser } from "../auth/current-user.decorator";
+import { requireCustomerFeature } from "../common/customer-release-gates";
 import { CreatePendingMembershipDto } from "./academy.dto";
 import { AcademyService } from "./academy.service";
 
@@ -52,6 +53,7 @@ export class AcademyController {
     @Param("athleteId") athleteId: string,
     @Body() body: CreatePendingMembershipDto,
   ) {
+    requireCustomerFeature("paidEnrolment");
     return this.academy.createPendingMembership(
       organizationId(user),
       user.id,

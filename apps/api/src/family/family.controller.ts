@@ -20,6 +20,7 @@ import {
   RequireAthleteAccess,
 } from "../auth/authorization.decorators";
 import { CurrentUser } from "../auth/current-user.decorator";
+import { requireCustomerFeature } from "../common/customer-release-gates";
 import {
   AcceptGuardianInvitationDto,
   CreateGuardianInvitationDto,
@@ -56,6 +57,7 @@ export class FamilyController {
     @CurrentUser() user: AuthenticatedUserContext,
     @Body() body: CreateManagedAthleteDto,
   ) {
+    requireCustomerFeature("parentPortal");
     return this.family.createManagedAthlete(user.id, body);
   }
 
@@ -97,6 +99,7 @@ export class FamilyController {
     @Param("athleteId") athleteId: string,
     @Body() body: CreateGuardianInvitationDto,
   ) {
+    requireCustomerFeature("parentPortal");
     return this.family.createGuardianInvitation(user.id, athleteId, body);
   }
 
@@ -122,6 +125,7 @@ export class FamilyController {
     @CurrentUser() user: AuthenticatedUserContext,
     @Body() body: AcceptGuardianInvitationDto,
   ) {
+    requireCustomerFeature("parentPortal");
     return this.family.acceptGuardianInvitation(user, body);
   }
 }

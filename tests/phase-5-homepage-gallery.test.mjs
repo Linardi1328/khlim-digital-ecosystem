@@ -21,7 +21,10 @@ test("homepage hero uses an accessible timed carousel with manual and swipe cont
   assert.match(carousel, /t\("home\.hero\.nextPhoto"\)/);
   assert.match(webCatalogue, /Show previous academy photo/);
   assert.match(webCatalogue, /Show next academy photo/);
-  assert.match(carousel, /aria-roledescription="carousel"/);
+  assert.match(
+    carousel,
+    /aria-roledescription=\{safeSlides\.length > 1 \? "carousel" : undefined\}/,
+  );
 });
 
 test("homepage media is configuration-driven without pretending placeholder photography is real", async () => {

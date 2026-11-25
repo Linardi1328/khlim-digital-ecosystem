@@ -19,6 +19,7 @@ import {
   RequireMfa,
 } from "../auth/authorization.decorators";
 import { CurrentUser } from "../auth/current-user.decorator";
+import { requireCustomerFeature } from "../common/customer-release-gates";
 import {
   DEFAULT_ORGANIZATION_ID,
   MULTI_ORGANIZATION_RUNTIME_ENABLED,
@@ -67,6 +68,7 @@ export class BillingController {
     @Param("membershipId") membershipId: string,
     @Body() body: PrepareMembershipCheckoutDto,
   ) {
+    requireCustomerFeature("paidEnrolment");
     return this.billing.prepareMembershipCheckout(
       organizationId(user),
       user.id,

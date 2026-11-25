@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
+  canRenderYouthMedia,
   getLocalizedAchievementArchiveSlots,
   verifiedTeamResults,
   resolveAchievementStories,
@@ -30,11 +31,7 @@ function AchievementCard({
   preview: boolean;
 }) {
   const { t } = useI18n();
-  const youthMediaRightsConfirmed =
-    process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED === "1";
-  const hasVerifiedImage = Boolean(
-    story.imageUrl && story.photoRightsVerified && youthMediaRightsConfirmed,
-  );
+  const hasVerifiedImage = canRenderYouthMedia(story);
   const backgroundImage = hasVerifiedImage
     ? `linear-gradient(180deg, rgba(9, 9, 11, 0.08), rgba(9, 9, 11, 0.84)), url("${story.imageUrl}")`
     : `linear-gradient(180deg, rgba(9, 9, 11, 0.1), rgba(9, 9, 11, 0.84)), ${story.placeholderGradient}`;

@@ -98,8 +98,10 @@ export function HeroCarousel({
   return (
     <section
       className="home-hero-carousel"
-      aria-roledescription="carousel"
-      aria-label={t("home.hero.carouselLabel")}
+      aria-roledescription={safeSlides.length > 1 ? "carousel" : undefined}
+      aria-label={
+        safeSlides.length > 1 ? t("home.hero.carouselLabel") : undefined
+      }
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       onFocusCapture={() => setIsPaused(true)}

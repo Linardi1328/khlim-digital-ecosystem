@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import {
   canRenderYouthMedia,
@@ -9,7 +9,7 @@ import {
 
 const root = new URL("../", import.meta.url);
 
-test("verified photos are categorized by subject", async () => {
+test("verified milestones are categorized by subject and have no public photos", async () => {
   assert.equal(verifiedTeamResults.length, 9);
   assert.equal(verifiedRepresentativeMilestones.length, 5);
 
@@ -28,30 +28,21 @@ test("verified photos are categorized by subject", async () => {
     ...verifiedRepresentativeMilestones,
   ]) {
     assert.equal(story.factsVerified, true);
-    assert.equal(story.photoRightsVerified, true);
+    assert.equal(story.photoRightsVerified, false);
     assert.equal(story.status, "published");
-    assert.ok(story.imageUrl?.startsWith("/media/achievements/"));
-    await access(new URL(`apps/web/public${story.imageUrl}`, root));
+    assert.equal(story.imageUrl, undefined);
   }
 });
 
-test("the historical gallery respects the youth rights flag", () => {
-  const previous = process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED;
-  const representative = verifiedRepresentativeMilestones[0];
-  try {
-    process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED = "0";
-    assert.equal(canRenderYouthMedia(verifiedTeamResults[0]), false);
-    assert.equal(canRenderYouthMedia(representative), false);
-    process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED = "1";
-    assert.equal(canRenderYouthMedia(verifiedTeamResults[0]), true);
-    assert.equal(canRenderYouthMedia(representative), true);
-  } finally {
-    if (previous === undefined) {
-      delete process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED;
-    } else {
-      process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED = previous;
-    }
-  }
+test("a claimed rights check cannot allow an unlisted youth URL", () => {
+  assert.equal(
+    canRenderYouthMedia({
+      imageUrl:
+        "/media/achievements/cls-international-indonesia-2026-champion.webp",
+      photoRightsVerified: true,
+    }),
+    false,
+  );
 });
 
 test("home and Spotlight use distinct photo groups", async () => {

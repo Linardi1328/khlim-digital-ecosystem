@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { access } from "node:fs/promises";
 import { test } from "node:test";
 import { chromium } from "@playwright/test";
 
@@ -43,23 +42,9 @@ test("club event gallery: data model accounts for all 9 event photographs with f
       item.photoLabel && item.photoLabel.trim().length > 0,
       `Item for ${original} must have photoLabel`,
     );
-    assert.ok(
-      item.imageUrl && item.imageUrl.startsWith("/media/achievements/"),
-      `Item for ${original} must have webp image path`,
-    );
-    assert.equal(
-      item.photoRightsVerified,
-      true,
-      `Item for ${original} must have photoRightsVerified=true`,
-    );
-    assert.ok(
-      item.mediaReleaseRef,
-      `Item for ${original} must have mediaReleaseRef documented`,
-    );
-
-    // Verify file exists on disk in deployable public tree
-    const diskPath = `apps/web/public${item.imageUrl}`;
-    await access(new URL(diskPath, root));
+    assert.equal(item.imageUrl, undefined);
+    assert.equal(item.photoRightsVerified, false);
+    assert.ok(item.mediaReleaseRef, "Keep the historical tracking reference");
   }
 
   // Factual caption verification: duplicate / companion analysis
@@ -115,7 +100,7 @@ test("club event gallery: data model accounts for all 9 event photographs with f
   );
 });
 
-test("browser: spotlight renders 9 club photos independently from editorial status", async () => {
+test("browser: spotlight retains 9 club captions independently from editorial status", async () => {
   const { mountComponent } = await import("./helpers/browser-mount.mjs");
   const browser = await chromium.launch({ headless: true });
   try {
@@ -172,18 +157,7 @@ test("browser: spotlight renders 9 club photos independently from editorial stat
       .textContent();
     assert.equal(firstCardTitle, "Pre-Game Strategy Circle");
 
-    const firstImage = galleryCards.first().locator("img");
-    assert.equal(await firstImage.count(), 1);
-    assert.match(
-      await firstImage.getAttribute("src"),
-      /club-gallery-team-huddle-circle/,
-      "Approved club photo must render as a full-frame image",
-    );
-    const firstImageLink = galleryCards.first().locator("a");
-    assert.match(
-      await firstImageLink.getAttribute("href"),
-      /club-gallery-team-huddle-circle\.webp/,
-    );
+    assert.equal(await galleryCards.locator("img, a").count(), 0);
   } finally {
     await browser.close();
   }
