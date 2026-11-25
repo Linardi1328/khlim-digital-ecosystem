@@ -1,9 +1,10 @@
 # RIC-190 merge preparation and contract freeze
 
-PR: https://github.com/Linardi1328/khlim-digital-ecosystem/pull/126
-Base `9e23be280c1784db4d3a778179bfb87e62da1f94`; reviewed implementation head
-`34ad43313f908f956ac55fd145676488e7379258`. This record is the only change
-after that head (documentation plus a freeze guard test, no behaviour change).
+[PR #126](https://github.com/Linardi1328/khlim-digital-ecosystem/pull/126)
+
+The independent review accepted all six corrective findings at
+`eef00ce5a776e68b7d983dbb3cf17831898f6606`. The follow-up commit adds the
+corrective checksum guard and updates this report.
 
 ## 1. Migration freeze
 
@@ -19,24 +20,26 @@ migration's SHA-256 checksum in `_prisma_migrations.checksum`.
 | `6a97180` | `da8d564b456d9c198d439da95d8e1e22f1ad10a3aeecd872565a48c4773f188f` | superseded, never hosted |
 
 `tests/academy-registration-migration-freeze.test.mjs` (offline, part of
-`pnpm test` and CI) fails if the frozen file changes. **Any later correction
-must be a new, separately reviewed migration**; the freeze test must not be
-edited to accept a changed checksum.
+`pnpm test` and CI) checks both migration files against their frozen checksums. Further corrections
+require a separately reviewed migration with its own checksum.
 
-## 2. Evidence that no persistent database applied an earlier revision
+## 2. Migration-history verification
 
 | Environment | How it was checked | Result |
 | --- | --- | --- |
 | GitHub Actions (all PR workflows) | Every workflow that runs `prisma migrate deploy` targets its own `localhost` service container (`.github/workflows/*.yml`), created fresh per job | Ephemeral; nothing persists |
 | Hosted staging workflows (`staging-acceptance.yml`, `ric-65-hosted-staging-acceptance.yml`) | Both are `workflow_dispatch` only, run no `migrate` command, and have **no runs on the RIC-190 branch** (`gh run list`) | Not executed for RIC-190 |
-| Vercel (API, Web, Admin) | `apps/*/vercel.json` keep `git.deploymentEnabled: false` (unchanged by this PR); no build script runs migrations; no GitHub deployment or Vercel status exists for the RIC-190 head | No deployment, no migration |
-| Developer machine used for RIC-190 | No `.env`/`DATABASE_URL` in the main checkout or the RIC-190/RIC-84 worktrees. KHLIM Postgres containers `khlim-test-postgres`, `khlim-assist-db-1`, `khlim-event-operations-lab-db-1`, `khlim-player-development-lab-db-1` stopped 2-3 months before this migration existed. `khlim-ric190-test-pg` is the disposable validation container (synthetic data only) and is removed at the end of merge preparation. | No persistent database applied any revision |
-| Hosted Supabase staging and production | **Not verified** (no access by design; hosted databases must not be queried from this work) | Owner/ops must confirm (query below) |
-| Other developers' and Antigravity's machines or worktrees | **Not verified** | Owner must confirm |
+| Vercel (API, Web, Admin) | `apps/*/vercel.json` keep `git.deploymentEnabled: false` (unchanged by this PR); no build script runs migrations; GitHub listed zero deployment records for the independently reviewed commit | Git-triggered deployments disabled |
+| RIC-190 development validation | The earlier validation record identifies `khlim-ric190-test-pg` as a disposable PostgreSQL container using synthetic data | Evidence covers the validation database |
+| Hosted Supabase staging | Owner-confirmed read-only `_prisma_migrations` lookup covering both RIC-190 migration names | 0 matching rows |
+| Hosted Supabase production | Owner-confirmed read-only `_prisma_migrations` lookup covering both RIC-190 migration names | 0 matching rows |
+| Other persistent developer databases, including Antigravity and shared developer instances | Migration-history evidence is outstanding | Owner confirmation required |
 | Containers of other projects on the same machine (KYNEXA, rivora) | Not KHLIM databases; not inspected | Not applicable |
 
-Read-only check for any environment that could not be verified (returns no row
-when the migration has never been applied):
+The hosted confirmation covers matching Prisma migration-history rows in those
+two databases at the time of the owner’s checks. It provides no schema inspection
+or coverage of other environments. The following read-only query can be used
+to check outstanding developer databases.
 
 ```sql
 SELECT migration_name, checksum, started_at, finished_at, rolled_back_at,
@@ -61,30 +64,25 @@ ORDER BY started_at;
   migration. Only a disposable database may be rebuilt with
   `prisma migrate reset`.
 
-**Owner confirmation (recorded):** the migration-history query returned zero
-rows on hosted Supabase **staging** and **production**. No hosted environment
-has applied any revision.
+## 3. Review and CI evidence
 
-## 3. Remaining review threads (7)
+GitHub reported 57 review threads, all resolved. The independent review
+accepted all six findings in section 6.
 
-The repository ruleset `main-pr-ci-protection` requires all review threads to be
-resolved before merge. Evidence at `34ad433`:
+At the independently reviewed commit, GitHub reported 12 of 12 successful
+Actions checks. The persistence suite passed all 62 tests with zero failures
+or skips. [Persistence Integrity run](https://github.com/Linardi1328/khlim-digital-ecosystem/actions/runs/45570158424)
 
-| Thread | Finding | Disposition | Evidence |
-| --- | --- | --- | --- |
-| C3 (`registration.dto.ts`) | Publish approvals must be required and true-only | Fixed | `openapi/khlim-v1.json` `PublishApprovalsDto`: `required: [scheduleApproved, ageRuleApproved]`, each `enum: [true]`; asserted in the contract test (`academy-registration-v1.test.mjs`, "C1-C4/C30/C32") |
-| C11 (test fixtures) | 29 February birthday fixture | Fixed | `shiftYears` maps 29 Feb to 28 Feb in non-leap years (`academy-registration-v1.helpers.mjs:97-103`) |
-| C16 (test sync) | Wait for the specific blocked transaction | Fixed | `waitingLocks`/`waitForWaiters` use `pg_blocking_pids`, per-backend baselines, `blockedBy` holder pid and lock type |
-| C18 (`academy.service.ts`) | Coded 409 when a session attaches during a plan link | Fixed | Database rejection translated to `OFFERING_REGISTRATION_ONLY` (`academy.service.ts:386-398`); race test "C18" |
-| C29 (`registration.controllers.ts`) | Shared rate-limit bucket behind an untrusted proxy | **Production release gate** (configuration, no code change) | ADR "Operational dependencies" item 9: `TRUST_PROXY=true` with `TRUST_PROXY_ADDRESSES` of the verified ingress, then hosted verification that `req.ip` is the client address, before public registration opens |
-| C37 (race test) | Approve versus retire, not retire versus retire | Fixed | Test "C37/C22" races approval against retirement in both orders and asserts final statuses and versions; the retire-retire check is labelled as such |
-| N18 (ADR) | Automatic retirement audit gap | Fixed | `registration-policy.service.ts` writes `ACADEMY_REGISTRATION_POLICY_RETIRED` for the replaced policy and `retiredPolicyId` on approval; test "M3/M4/M5"; ADR access-auditing section updated |
-
-Resolving the threads on GitHub is an owner action (or explicitly delegated).
+The unrelated browser test “unified spotlight page curates published achievements
+and player spotlights” failed in PPO PR validation at `6f3b4ca` and passed when
+the suite ran again at `eef00ce`. This is a known reliability observation.
+[Failed run](https://github.com/Linardi1328/khlim-digital-ecosystem/actions/runs/45569590998)
+[Successful follow-up run](https://github.com/Linardi1328/khlim-digital-ecosystem/actions/runs/45570158621)
 
 ## 4. Frozen contract for RIC-191 (Antigravity)
 
-At commit `34ad433` (unchanged since):
+The OpenAPI schema, generated client types and handoff are unchanged from
+`34ad433` through the corrective review and freeze.
 
 - OpenAPI: `openapi/khlim-v1.json`
   (https://github.com/Linardi1328/khlim-digital-ecosystem/blob/34ad43313f908f956ac55fd145676488e7379258/openapi/khlim-v1.json)
@@ -94,18 +92,20 @@ At commit `34ad433` (unchanged since):
   (https://github.com/Linardi1328/khlim-digital-ecosystem/blob/34ad43313f908f956ac55fd145676488e7379258/docs/implementation/ric-191-academy-registration-handoff.md)
 
 Contract changes after this point require a reviewed backend change and a
-regenerated client (`pnpm openapi:check` enforces consistency).
+regenerated client (`pnpm openapi:check` enforces consistency). Antigravity
+must apply both frozen migrations in order for final integrated acceptance:
+`20261125000000_academy_registration_v1`, followed by
+`20261126000000_academy_registration_lock_corrections`.
 
 ## 5. Merge requirements and approvals
 
 - Ruleset `main-pr-ci-protection` on `main`: pull request required, all review
   threads resolved, squash merge only, no force-push or deletion, extra approval
   for unattributed changes; 0 required approving reviews; no required status
-  checks are configured (all 12 Actions checks pass regardless).
-- Owner confirmations received: hosted staging and production returned zero
-  migration-history rows; the 7 earlier threads were resolved with evidence.
-- Still to resolve before merge: the review threads for the six findings in
-  section 6, and review acceptance of the corrective migration.
+  checks are configured.
+- Outstanding before merge is owner confirmation of other persistent developer
+  databases covered by section 2. Verify GitHub Actions on the exact freeze
+  commit before merging.
 - Release gates (after merge, before activation): see the ADR "Operational
   dependencies and release blockers".
 
@@ -118,8 +118,8 @@ separately reviewed migration that only replaces six trigger-function bodies
 
 - SHA-256 of its `migration.sql`:
   `43e5e20b45bdcbdc34049d6dab720e5b5d5152c3f97cd179fb5e9861454a7afb`.
-  Freeze it (add it to the freeze test) once this review is accepted and before
-  its first hosted application.
+  The freeze test pins this checksum following review acceptance and before
+  first hosted application.
 - Rollback (pre-data, functions only):
   `docs/implementation/ric-190-lock-corrections-rollback.sql` restores the six
   functions exactly as defined in the frozen migration. Verified: after
