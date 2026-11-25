@@ -20,6 +20,12 @@ export const {
   RegistrationPublicService,
 } = require("../../apps/api/dist/academy/registration/registration-public.service.js");
 export const {
+  RegistrationAdminService,
+} = require("../../apps/api/dist/academy/registration/registration-admin.service.js");
+export const {
+  Prisma,
+} = require("../../apps/api/dist/generated/prisma/client.js");
+export const {
   RegistrationPolicyService,
   resolveDeploymentTier,
 } = require("../../apps/api/dist/academy/registration/registration-policy.service.js");

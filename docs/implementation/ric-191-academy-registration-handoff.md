@@ -63,10 +63,16 @@ admin endpoints keep the existing platform shape
 | 503 | `SERVICE_TEMPORARILY_UNAVAILABLE` | Rate-limit storage failure (fails closed); honour `Retry-After` |
 | 503 | `REGISTRATION_PERSISTENCE_FAILED` | Not saved. Retry with the **same** key |
 
-Status codes on success: admin `POST …/registrations/search` returns `200`
-(it is a read; the body only keeps search terms out of URLs). Other `POST`
-endpoints return `201` (including `publish`, `close`, policy
-create/approve/retire); `PATCH` returns `200`.
+Status codes on success:
+
+- Public `POST /academy/registrations`: `201` for a new registration and `200`
+  for an identical replay (same `Idempotency-Key` and payload). **Treat both as
+  success**; the body is the same receipt.
+- Admin `POST …/registrations/search`: `200` (a read; the body only keeps search
+  terms out of URLs).
+- Admin `POST` create session, `publish`, `close`, policy create/approve/retire:
+  `201`.
+- `PATCH`: `200`. `GET`: `200`.
 
 Admin-only: `POLICY_VERSION_EXISTS`, `OFFERING_REGISTRATION_ONLY`,
 `OFFERING_HAS_LEGACY_USAGE`, `REGISTRATION_NOT_FOUND`, `SESSION_NOT_FOUND`, `POLICY_NOT_FOUND`,
@@ -455,3 +461,9 @@ else in the public request/response shapes changed.
   (`SESSION_INCOMPLETE`, field `programme.sport`).
 - Date-time inputs with impossible calendar days (for example `2026-02-30T10:00:00Z`)
   return `INVALID_DATE` instead of being silently normalized.
+- `GET …/registration-policies` `current` is typed as
+  `oneOf: [AdminRegistrationPolicyDto, null]` (validated against live responses
+  with and without an approved policy). The generated client type is
+  `AdminRegistrationPolicyDto | null`.
+- Deleting a venue used by a published cohort is refused; this only matters to
+  admin tooling, not to the parent journey.

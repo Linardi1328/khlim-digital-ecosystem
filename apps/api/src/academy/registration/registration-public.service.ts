@@ -80,6 +80,9 @@ export class RegistrationPublicService {
   /** Key-ring source; overridable so tests can model independent instances. */
   ringLoader: () => HmacKeyRing | null = () => loadHmacKeyRing();
 
+  /** Rate-limit clock; overridable so tests can pin a single window. */
+  clock: () => Date = () => new Date();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly policies: RegistrationPolicyService,
@@ -138,7 +141,7 @@ export class RegistrationPublicService {
     clientIp: string,
     guardianPhone: string,
   ): Promise<void> {
-    const now = new Date();
+    const now = this.clock();
     await this.maybeCleanup(now);
     // Counters are kept under EVERY ring version's keyed hash. Instances with
     // compatible rings but different active signing keys therefore share at

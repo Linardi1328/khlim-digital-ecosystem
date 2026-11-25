@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { after, afterEach, test } from "node:test";
 import {
   AppModule,
@@ -10,6 +10,8 @@ import {
   ORG_B,
   PrismaService,
   RUN,
+  Prisma,
+  RegistrationAdminService,
   RegistrationPolicyService,
   RegistrationPublicService,
   resolveDeploymentTier,
@@ -2431,7 +2433,7 @@ const openHolders = new Set();
  * a test forgot to release (for example after a failed wait) is released and
  * settled by the afterEach hook.
  */
-function holdTransaction(c, work, options = {}) {
+function holdTransaction(c, work, options = {}, afterRelease = null) {
   let release;
   const gate = new Promise((resolve) => {
     release = resolve;
@@ -2452,6 +2454,7 @@ function holdTransaction(c, work, options = {}) {
       await work(tx);
       markReady();
       await gate;
+      if (afterRelease) await afterRelease(tx);
     },
     { timeout: 60000, maxWait: 15000, ...options },
   );
@@ -2507,14 +2510,28 @@ async function newDraftPolicy(c, label) {
 const RING_A = `v1:${HMAC_V1},v2:${HMAC_V2}`; // compatible rings, active v1
 const RING_B = `v2:${HMAC_V2},v1:${HMAC_V1}`; // compatible rings, active v2
 
-function instance(c, ringSpec) {
+function instance(c, ringSpec, clock = null) {
   const service = new RegistrationPublicService(
     c.app.get(PrismaService),
     c.app.get(RegistrationPolicyService),
   );
   service.ringLoader = () =>
     loadHmacKeyRing({ KHLIM_REGISTRATION_HMAC_KEYS: ringSpec });
+  if (clock) service.clock = clock;
   return service;
+}
+
+/**
+ * A fixed instant 35 minutes into an hour two hours from now: one 10-minute and
+ * one 1-hour rate-limit window for the whole test, independent of wall time,
+ * with expiry in the future so cleanup never removes the test's counters.
+ */
+function pinnedRateLimitClock() {
+  const hour = 60 * 60 * 1000;
+  const instant = new Date(
+    Math.floor(Date.now() / hour) * hour + 2 * hour + 35 * 60 * 1000,
+  );
+  return () => instant;
 }
 
 test(
@@ -2898,7 +2915,8 @@ test(
       "the earlier approval was retired by the later one",
     );
     currentConsent = approved[0].policyVersion;
-    // Concurrent approve versus retire of the same policy also stays consistent.
+    // Concurrent retirement of the same policy: exactly one succeeds.
+    // (Approval versus retirement is covered by the C37 race test.)
     const [again, retire] = await Promise.all([
       api(c, `/admin/academy/registration-policies/${approved[0].id}/retire`, {
         method: "POST",
@@ -3205,20 +3223,30 @@ test(
 test(
   "U2: simultaneous first hits from one IP are counted exactly and never error",
   { skip },
-  async () => {
+  async (t) => {
     const c = await ctx();
     const session = await publishedSession(c);
-    const slot = 10 * 60 * 1000;
-    const untilBoundary = slot - (Date.now() % slot);
-    if (untilBoundary < 30000) await sleep(untilBoundary + 500);
-    const total = async () => {
+    const appService = c.app.get(RegistrationPublicService);
+    const wallClock = appService.clock;
+    appService.clock = pinnedRateLimitClock();
+    t.after(() => {
+      appService.clock = wallClock;
+    });
+    // Count only this test's own per-IP buckets (same keyed hash as the
+    // service), so unrelated counters or cleanup cannot affect the result.
+    const total = async (ip) => {
+      const hash = createHmac("sha256", Buffer.from(HMAC_V1, "base64"))
+        .update("khlim:registration:rl-ip\n")
+        .update(ip)
+        .digest("hex")
+        .slice(0, 32);
       const rows = await c.client.$queryRawUnsafe(
-        `SELECT COALESCE(sum(count), 0)::int AS n FROM submission_rate_limits WHERE key LIKE 'reg:ip:%'`,
+        `SELECT COALESCE(sum(count), 0)::int AS n FROM submission_rate_limits WHERE key LIKE 'reg:ip:${hash}:%'`,
       );
       return rows[0].n;
     };
-    const before = await total();
     const ipOne = newIp();
+    const before = await total(ipOne);
     const burst = await Promise.all(
       Array.from({ length: 15 }, () =>
         submit(c, regBody(session.id), { ip: ipOne }),
@@ -3232,10 +3260,10 @@ test(
         .join(" ")
         .slice(0, 300),
     );
-    assert.equal((await total()) - before, 15);
+    assert.equal((await total(ipOne)) - before, 15);
 
     const ipTwo = newIp();
-    const midpoint = await total();
+    const midpoint = await total(ipTwo);
     const flood = await Promise.all(
       Array.from({ length: 25 }, () =>
         submit(c, regBody(session.id), { ip: ipTwo }),
@@ -3253,7 +3281,7 @@ test(
         .filter((r) => r.status === 429)
         .every((r) => r.headers.get("retry-after") === "600"),
     );
-    assert.equal((await total()) - midpoint, 25);
+    assert.equal((await total(ipTwo)) - midpoint, 25);
   },
 );
 
@@ -3585,11 +3613,9 @@ test(
     const c = await ctx();
     await rotateTo();
     const session = await publishedSession(c, { capacity: 50 });
-    const slot = 10 * 60 * 1000;
-    const untilBoundary = slot - (Date.now() % slot);
-    if (untilBoundary < 30000) await sleep(untilBoundary + 500);
-    const instanceA = instance(c, RING_A);
-    const instanceB = instance(c, RING_B);
+    const clock = pinnedRateLimitClock();
+    const instanceA = instance(c, RING_A, clock);
+    const instanceB = instance(c, RING_B, clock);
     const ip = newIp();
     const outcomes = [];
     for (let i = 0; i < 24; i += 1) {
@@ -3614,10 +3640,18 @@ test(
   },
 );
 
-async function gatedInstance(c, ringSpec) {
+const openGates = new Set();
+
+afterEach(() => {
+  for (const gate of [...openGates]) gate.resolve();
+  openGates.clear();
+});
+
+async function gatedInstance(c, ringSpec, clock = null) {
   const policies = c.app.get(RegistrationPolicyService);
   const entered = deferred();
   const gate = deferred();
+  openGates.add(gate);
   const gated = Object.create(policies);
   gated.getCurrentPolicy = async (...args) => {
     entered.resolve();
@@ -3630,7 +3664,23 @@ async function gatedInstance(c, ringSpec) {
   );
   service.ringLoader = () =>
     loadHmacKeyRing({ KHLIM_REGISTRATION_HMAC_KEYS: ringSpec });
+  if (clock) service.clock = clock;
   return { service, entered, gate };
+}
+
+/** Fails fast if the request settles (or stalls) before reaching the gate. */
+async function reachedGate(late, pending, label) {
+  const outcome = await Promise.race([
+    late.entered.promise.then(() => "entered"),
+    pending.then(() => "settled"),
+    sleep(15000).then(() => "timed out"),
+  ]);
+  if (outcome !== "entered") {
+    late.gate.resolve();
+    throw new Error(
+      `${label}: request ${outcome} before reaching the policy gate`,
+    );
+  }
 }
 
 test(
@@ -3648,7 +3698,7 @@ test(
       const pending = settle(
         late.service.createRegistration(body, key, newIp()),
       );
-      await late.entered.promise; // its initial replay lookup has already missed
+      await reachedGate(late, pending, change); // its initial replay lookup has already missed
       const committed = await instance(c, RING_A).createRegistration(
         body,
         key,
@@ -3717,7 +3767,7 @@ test(
         newIp(),
       ),
     );
-    await late.entered.promise;
+    await reachedGate(late, pending, "conflict");
     await instance(c, RING_A).createRegistration(body, key, newIp());
     await api(c, `/admin/academy/registration-policies/${policy.id}/retire`, {
       method: "POST",
@@ -3741,21 +3791,31 @@ test(
     };
     const original = withPhone();
     const originalKey = newKey();
-    const gatedRetry = await gatedInstance(c, RING_B);
+    const limiterClock = pinnedRateLimitClock();
+    const committer = instance(c, RING_A, limiterClock);
+    const gatedRetry = await gatedInstance(c, RING_B, limiterClock);
     const retry = settle(
       gatedRetry.service.createRegistration(original, originalKey, ip),
     );
-    await gatedRetry.entered.promise;
-    const first = await instance(c, RING_A).createRegistration(
-      original,
-      originalKey,
-      ip,
-    );
-    for (let i = 0; i < 3; i += 1) {
-      await settle(
-        instance(c, RING_A).createRegistration(withPhone(), newKey(), ip),
+    await reachedGate(gatedRetry, retry, "rate-limit retry");
+    const first = await committer.createRegistration(original, originalKey, ip);
+    const fillers = [];
+    for (let i = 0; i < 2; i += 1) {
+      fillers.push(
+        await settle(committer.createRegistration(withPhone(), newKey(), ip)),
       );
     }
+    assert.ok(
+      fillers.every((outcome) => outcome.ok),
+      "fillers stay within the limit",
+    );
+    // Proof: the (IP, phone) bucket is now exhausted for this window, so the
+    // released retry must take the rate-limit rejection path.
+    const probe = await settle(
+      committer.createRegistration(withPhone(), newKey(), ip),
+    );
+    assert.equal(probe.ok, false);
+    assert.equal(probe.error.code, "RATE_LIMITED");
     gatedRetry.gate.resolve();
     const retried = await retry;
     assert.equal(retried.ok, true, retried.error?.code);
@@ -4529,65 +4589,478 @@ test(
 );
 
 test(
-  "C7: a direct SQL confirmation that deadlocks with the status API never yields a 5xx",
+  "C7: a direct SQL confirmation that deadlocks with the status API leaves one consistent outcome",
   { skip },
   async () => {
     const c = await ctx();
     const session = await publishedSession(c, { capacity: 5 });
     const reg = await createRegistration(c, session.id);
-    let markLocked;
-    const locked = new Promise((resolve) => {
-      markLocked = resolve;
-    });
-    let goDirect;
-    const direct = new Promise((resolve) => {
-      goDirect = resolve;
-    });
-    let directPid;
-    const directTx = settle(
-      c.client.$transaction(
-        async (tx) => {
-          const [{ pid }] = await tx.$queryRawUnsafe(
-            "SELECT pg_backend_pid() AS pid",
-          );
-          directPid = pid;
-          await tx.$queryRawUnsafe(
-            `SELECT id FROM academy_registrations WHERE id = '${reg.id}' FOR UPDATE`,
-          );
-          markLocked();
-          await direct;
-          // The trigger now needs the offering, which the API holds: deadlock.
-          await tx.$executeRawUnsafe(
-            `UPDATE academy_registrations SET status = 'CONFIRMED' WHERE id = '${reg.id}'`,
-          );
-        },
-        { timeout: 60000, maxWait: 15000 },
-      ),
+    // Phase 1 holds the registration row; phase 2 (after release) confirms it
+    // directly, whose trigger then needs the offering the API already holds.
+    const direct = holdTransaction(
+      c,
+      (tx) =>
+        tx.$queryRawUnsafe(
+          `SELECT id FROM academy_registrations WHERE id = '${reg.id}' FOR UPDATE`,
+        ),
+      {},
+      (tx) =>
+        tx.$executeRawUnsafe(
+          `UPDATE academy_registrations SET status = 'CONFIRMED' WHERE id = '${reg.id}'`,
+        ),
     );
-    await locked;
+    await direct.ready;
     const baseline = await waitingLocks(c);
     const apiCall = setStatus(c, reg.id, "CONFIRMED", 1);
-    await waitForWaiters(c, baseline, 1, "API waits for the registration row", {
-      blockedBy: directPid,
-    });
-    goDirect();
-    const [response, directResult] = await Promise.all([apiCall, directTx]);
+    try {
+      await waitForWaiters(
+        c,
+        baseline,
+        1,
+        "API waits for the registration row",
+        {
+          blockedBy: direct.pid,
+        },
+      );
+    } finally {
+      direct.release();
+    }
+    const [response, directResult] = await Promise.all([
+      apiCall,
+      settle(direct.done),
+    ]);
     assert.ok(
       [200, 409].includes(response.status),
       `API returned ${response.status}: ${response.text}`,
     );
     if (response.status === 409) {
+      assert.equal(response.body.code, "INVALID_TRANSITION");
       assert.equal(
-        response.body.code,
-        "INVALID_TRANSITION",
-        "already confirmed directly",
+        directResult.ok,
+        true,
+        "the direct writer won after the API retried",
       );
-      assert.equal(directResult.ok, true);
+    } else {
+      assert.equal(
+        directResult.ok,
+        false,
+        "the direct writer was the deadlock victim",
+      );
     }
     assert.equal(
       (await c.client.academyRegistration.findUnique({ where: { id: reg.id } }))
         .status,
       "CONFIRMED",
+    );
+  },
+);
+
+function deadlockError() {
+  return new Prisma.PrismaClientKnownRequestError("deadlock detected", {
+    code: "P2034",
+    clientVersion: "test",
+  });
+}
+
+function flakyAdminService(c, failures) {
+  const real = c.app.get(PrismaService).client;
+  let calls = 0;
+  const client = new Proxy(real, {
+    get(target, property) {
+      if (property === "$transaction") {
+        return async (...args) => {
+          calls += 1;
+          const failure = failures(calls);
+          if (failure) throw failure;
+          return target.$transaction(...args);
+        };
+      }
+      const value = target[property];
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+  return {
+    service: new RegistrationAdminService({ client }),
+    calls: () => calls,
+  };
+}
+
+test(
+  "N26: the status API retries a deadlocked transaction and returns a retryable 503 when retries are exhausted",
+  { skip },
+  async () => {
+    const c = await ctx();
+    const session = await publishedSession(c, { capacity: 5 });
+    const actor = { id: c.ids.admin, email: null, roles: ["ACADEMY_ADMIN"] };
+
+    const once = await createRegistration(c, session.id);
+    const retried = flakyAdminService(c, (n) =>
+      n === 1 ? deadlockError() : null,
+    );
+    const result = await retried.service.changeStatus(ORG_A, actor, once.id, {
+      status: "UNDER_REVIEW",
+      expectedVersion: 1,
+    });
+    assert.equal(result.status, "UNDER_REVIEW");
+    assert.equal(retried.calls(), 2, "one deadlock, one successful retry");
+
+    const always = await createRegistration(c, session.id);
+    const exhausted = flakyAdminService(c, () => deadlockError());
+    await assert.rejects(
+      exhausted.service.changeStatus(ORG_A, actor, always.id, {
+        status: "UNDER_REVIEW",
+        expectedVersion: 1,
+      }),
+      (error) =>
+        error.code === "REGISTRATION_PERSISTENCE_FAILED" &&
+        error.getStatus() === 503 &&
+        error.getResponse().retryAfter === 30,
+    );
+    assert.equal(exhausted.calls(), 3, "bounded to three attempts");
+
+    const other = flakyAdminService(c, () => new Error("not a deadlock"));
+    await assert.rejects(
+      other.service.changeStatus(ORG_A, actor, always.id, {
+        status: "UNDER_REVIEW",
+        expectedVersion: 1,
+      }),
+      (error) => error.code === "REGISTRATION_PERSISTENCE_FAILED",
+    );
+    assert.equal(other.calls(), 1, "non-deadlock failures are not retried");
+    assert.equal(
+      (
+        await c.client.academyRegistration.findUnique({
+          where: { id: always.id },
+        })
+      ).status,
+      "RECEIVED",
+    );
+  },
+);
+
+test(
+  "M1: offering writes and parent tenant moves serialize, both orders, READ COMMITTED and REPEATABLE READ",
+  { skip },
+  async () => {
+    const c = await ctx();
+    const levels = { "READ COMMITTED": {}, "REPEATABLE READ": REPEATABLE_READ };
+    for (const parent of ["programme", "venue"]) {
+      for (const [level, options] of Object.entries(levels)) {
+        for (const order of ["offering-first", "move-first"]) {
+          const label = `${parent}/${level}/${order}`;
+          const programme = await c.client.programme.create({
+            data: {
+              organizationId: ORG_A,
+              sportId: c.programmeA.sportId,
+              code: `M1-${RUN}-${randomUUID().slice(0, 8)}`,
+              name: "Move race",
+              minimumAge: 10,
+              maximumAge: 12,
+            },
+          });
+          const venue = await c.client.venue.create({
+            data: {
+              organizationId: ORG_A,
+              name: `M1 venue ${randomUUID().slice(0, 6)}`,
+            },
+          });
+          const table = parent === "programme" ? "programmes" : "venues";
+          const parentId = parent === "programme" ? programme.id : venue.id;
+          const moveSql = `UPDATE ${table} SET organization_id = '${ORG_B}' WHERE id = '${parentId}'`;
+          const offeringWrite = (tx) =>
+            tx.programmeOffering.create({
+              data: {
+                organizationId: ORG_A,
+                programmeId: programme.id,
+                venueId: venue.id,
+                name: `M1 ${label}`,
+                capacity: 5,
+              },
+            });
+          const moveWrite = (tx) => tx.$executeRawUnsafe(moveSql);
+          const [firstWrite, secondWrite] =
+            order === "offering-first"
+              ? [offeringWrite, moveWrite]
+              : [moveWrite, offeringWrite];
+          const holder = holdTransaction(c, firstWrite, options);
+          await holder.ready;
+          const baseline = await waitingLocks(c);
+          const second = settle(
+            c.client.$transaction(secondWrite, {
+              timeout: 60000,
+              maxWait: 15000,
+              ...options,
+            }),
+          );
+          try {
+            await waitForWaiters(
+              c,
+              baseline,
+              1,
+              `${label}: second writer waits`,
+              {
+                blockedBy: holder.pid,
+              },
+            );
+          } finally {
+            holder.release();
+          }
+          await holder.done;
+          const outcome = await second;
+          assert.equal(outcome.ok, false, `${label}: second writer must fail`);
+          assert.match(
+            dbText(outcome.error),
+            /CROSS_TENANT_REFERENCE|could not serialize|40001/,
+            label,
+          );
+          const parentRow =
+            parent === "programme"
+              ? await c.client.programme.findUnique({
+                  where: { id: programme.id },
+                })
+              : await c.client.venue.findUnique({ where: { id: venue.id } });
+          const offerings = await c.client.programmeOffering.count({
+            where: { programmeId: programme.id },
+          });
+          if (order === "offering-first") {
+            assert.equal(offerings, 1, label);
+            assert.equal(
+              parentRow.organizationId,
+              ORG_A,
+              `${label}: move refused`,
+            );
+          } else {
+            assert.equal(
+              offerings,
+              0,
+              `${label}: cross-tenant offering refused`,
+            );
+            assert.equal(parentRow.organizationId, ORG_B, label);
+          }
+        }
+      }
+    }
+  },
+);
+
+test(
+  "M2: a closure that wins the offering lock blocks a waiting direct-SQL confirmation",
+  { skip },
+  async () => {
+    const c = await ctx();
+    const session = await publishedSession(c, { capacity: 5 });
+    const reg = await createRegistration(c, session.id);
+    const holder = holdTransaction(
+      c,
+      (tx) =>
+        tx.$queryRaw`SELECT id FROM programme_offerings WHERE id = ${session.programmeOfferingId}::uuid FOR UPDATE`,
+    );
+    await holder.ready;
+    const baseline = await waitingLocks(c);
+    const closing = api(
+      c,
+      `/admin/academy/registration-sessions/${session.id}/close`,
+      {
+        method: "POST",
+        token: "admin",
+        body: { expectedVersion: session.version },
+      },
+    );
+    let confirm;
+    try {
+      await waitForWaiters(c, baseline, 1, "closure queued first", {
+        blockedBy: holder.pid,
+      });
+      confirm = settle(
+        c.client.$executeRawUnsafe(
+          `UPDATE academy_registrations SET status = 'CONFIRMED' WHERE id = '${reg.id}'`,
+        ),
+      );
+      await waitForWaiters(
+        c,
+        baseline,
+        2,
+        "direct confirmation queued behind closure",
+      );
+    } finally {
+      holder.release();
+    }
+    await holder.done;
+    const [closed, confirmed] = await Promise.all([closing, confirm]);
+    assert.equal(closed.status, 201, closed.text);
+    assert.equal(
+      confirmed.ok,
+      false,
+      "the confirmation must see the committed closure",
+    );
+    assert.match(dbText(confirmed.error), /SESSION_NOT_AVAILABLE/);
+    assert.equal(
+      (await c.client.academyRegistration.findUnique({ where: { id: reg.id } }))
+        .status,
+      "RECEIVED",
+    );
+  },
+);
+
+/** Minimal OpenAPI 3.0 schema check for the keywords this contract uses. */
+function oasErrors(schema, value, components, path = "$") {
+  if (schema.$ref) {
+    const name = schema.$ref.replace("#/components/schemas/", "");
+    return oasErrors(components[name], value, components, path);
+  }
+  const errors = [];
+  for (const sub of schema.allOf ?? []) {
+    errors.push(...oasErrors(sub, value, components, path));
+  }
+  if (schema.oneOf) {
+    const matches = schema.oneOf.filter(
+      (sub) => oasErrors(sub, value, components, path).length === 0,
+    ).length;
+    if (matches !== 1) errors.push(`${path}: oneOf matched ${matches}`);
+  }
+  if (value === null) {
+    if (!schema.nullable && (schema.type || schema.properties || schema.enum)) {
+      errors.push(`${path}: null is not allowed`);
+    }
+    if (schema.nullable && schema.enum && !schema.enum.includes(null)) {
+      errors.push(`${path}: null not in enum`);
+    }
+    return errors;
+  }
+  if (schema.enum && !schema.enum.includes(value)) {
+    errors.push(`${path}: ${JSON.stringify(value)} not in enum`);
+  }
+  const kind = Array.isArray(value) ? "array" : typeof value;
+  const expected = {
+    integer: "number",
+    number: "number",
+    string: "string",
+    boolean: "boolean",
+    object: "object",
+    array: "array",
+  }[schema.type];
+  if (expected && expected !== kind)
+    errors.push(`${path}: expected ${schema.type}, got ${kind}`);
+  if (kind === "object" && schema.properties) {
+    for (const key of schema.required ?? []) {
+      if (!(key in value)) errors.push(`${path}.${key}: required`);
+    }
+    for (const [key, sub] of Object.entries(schema.properties)) {
+      if (key in value)
+        errors.push(
+          ...oasErrors(sub, value[key], components, `${path}.${key}`),
+        );
+    }
+  }
+  if (kind === "array" && schema.items) {
+    value.forEach((item, index) =>
+      errors.push(
+        ...oasErrors(schema.items, item, components, `${path}[${index}]`),
+      ),
+    );
+  }
+  return errors;
+}
+
+test(
+  "M3/M4/M5: policy list validates against the exported schema with and without a current policy; auto-retirement is audited",
+  { skip },
+  async () => {
+    const c = await ctx();
+    const doc = createOpenApiDocument(c.app);
+    const components = doc.components.schemas;
+    const listSchema = {
+      $ref: "#/components/schemas/AdminRegistrationPolicyListDto",
+    };
+
+    await rotateTo();
+    const previous = await currentPolicyRow(c);
+    const replacement = await rotateTo();
+    const replacementRow = await currentPolicyRow(c);
+    assert.equal(replacementRow.policyVersion, replacement);
+    const withCurrent = await api(c, "/admin/academy/registration-policies", {
+      token: "admin",
+    });
+    assert.equal(withCurrent.status, 200);
+    assert.ok(withCurrent.body.current);
+    assert.deepEqual(oasErrors(listSchema, withCurrent.body, components), []);
+
+    // Auto-retirement of the replaced policy is audited on its own entity.
+    const retiredAudit = await c.client.auditEvent.findMany({
+      where: {
+        action: "ACADEMY_REGISTRATION_POLICY_RETIRED",
+        entityId: previous.id,
+      },
+    });
+    assert.equal(retiredAudit.length, 1);
+    assert.equal(retiredAudit[0].metadata.reason, "REPLACED");
+    assert.equal(
+      retiredAudit[0].metadata.replacedByPolicyId,
+      replacementRow.id,
+    );
+    const approvalAudit = await c.client.auditEvent.findFirst({
+      where: {
+        action: "ACADEMY_REGISTRATION_POLICY_APPROVED",
+        entityId: replacementRow.id,
+      },
+    });
+    assert.equal(approvalAudit.metadata.retiredPolicyId, previous.id);
+    const serialized = JSON.stringify([retiredAudit, approvalAudit]);
+    for (const pii of [PLAYER_TAG, GUARDIAN_TAG, "+6012"]) {
+      assert.ok(!serialized.includes(pii));
+    }
+
+    const retire = await api(
+      c,
+      `/admin/academy/registration-policies/${replacementRow.id}/retire`,
+      {
+        method: "POST",
+        token: "mgmt",
+        body: { expectedVersion: replacementRow.version },
+      },
+    );
+    assert.equal(retire.status, 201, retire.text);
+    const withoutCurrent = await api(
+      c,
+      "/admin/academy/registration-policies",
+      {
+        token: "admin",
+      },
+    );
+    assert.equal(withoutCurrent.body.current, null);
+    assert.deepEqual(
+      oasErrors(listSchema, withoutCurrent.body, components),
+      [],
+    );
+    // The schema still rejects shapes it should reject.
+    assert.ok(oasErrors(listSchema, { items: [] }, components).length > 0);
+    assert.ok(
+      oasErrors(listSchema, { current: 5, items: [] }, components).length > 0,
+    );
+    await rotateTo();
+  },
+);
+
+test(
+  "N15: deleting the venue of a published cohort is refused; unmanaged offerings keep SET NULL",
+  { skip },
+  async () => {
+    const c = await ctx();
+    const venue = await c.client.venue.create({
+      data: { organizationId: ORG_A, name: `Published venue ${RUN}` },
+    });
+    const published = await publishedSession(c, { venueId: venue.id });
+    await expectDbReject(
+      () => c.client.venue.delete({ where: { id: venue.id } }),
+      /SESSION_INCOMPLETE/,
+    );
+    const offering = await c.client.programmeOffering.findUnique({
+      where: { id: published.programmeOfferingId },
+    });
+    assert.equal(
+      offering.venueId,
+      venue.id,
+      "the published cohort keeps its venue",
     );
   },
 );

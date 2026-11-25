@@ -128,16 +128,25 @@ export class RegistrationPolicyService {
     return withSanitizedErrors(async () => {
       // Bounded history plus the current policy, which stays reachable (for
       // retirement) however many newer drafts exist.
-      const [rows, current] = await Promise.all([
-        this.prisma.client.academyRegistrationPolicy.findMany({
-          where: { organizationId },
-          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-          take: 50,
-        }),
-        this.prisma.client.academyRegistrationPolicy.findFirst({
-          where: { organizationId, status: "APPROVED" },
-        }),
-      ]);
+      // Both reads come from one REPEATABLE READ snapshot, so a policy can
+      // never appear as DRAFT in `items` and APPROVED in `current`.
+      const [rows, current] = await this.prisma.client.$transaction(
+        async (tx) => [
+          await tx.academyRegistrationPolicy.findMany({
+            where: { organizationId },
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            take: 50,
+          }),
+          await tx.academyRegistrationPolicy.findFirst({
+            where: { organizationId, status: "APPROVED" },
+          }),
+        ],
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+          maxWait: 5000,
+          timeout: 15000,
+        },
+      );
       return {
         current: current ? mapPolicy(current) : null,
         items: rows.map(mapPolicy),
@@ -243,6 +252,12 @@ export class RegistrationPolicyService {
           );
         }
         const now = new Date();
+        // Previously approved policy (at most one), retired by this approval;
+        // its retirement is audited on its own entity below.
+        const replaced = await tx.academyRegistrationPolicy.findMany({
+          where: { organizationId, status: "APPROVED" },
+          select: { id: true, policyVersion: true },
+        });
         await tx.academyRegistrationPolicy.updateMany({
           where: { organizationId, status: "APPROVED" },
           data: {
@@ -265,8 +280,25 @@ export class RegistrationPolicyService {
           entityType: "ACADEMY_REGISTRATION_POLICY",
           entityId: policyId,
           summary: "Academy registration policy approved.",
-          metadata: { policyVersion: approved.policyVersion },
+          metadata: {
+            policyVersion: approved.policyVersion,
+            retiredPolicyId: replaced[0]?.id ?? null,
+          },
         });
+        for (const previous of replaced) {
+          await writeRegistrationAudit(tx, organizationId, actor, {
+            action: "ACADEMY_REGISTRATION_POLICY_RETIRED",
+            entityType: "ACADEMY_REGISTRATION_POLICY",
+            entityId: previous.id,
+            summary:
+              "Academy registration policy retired by approval of a replacement.",
+            metadata: {
+              policyVersion: previous.policyVersion,
+              reason: "REPLACED",
+              replacedByPolicyId: policyId,
+            },
+          });
+        }
         return mapPolicy(approved);
       }),
     );

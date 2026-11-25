@@ -2160,8 +2160,8 @@ export interface components {
             updatedAt: string;
         };
         AdminRegistrationPolicyListDto: {
-            /** @description The approved policy, always present here even when older than the history page */
-            current: components["schemas"]["AdminRegistrationPolicyDto"] | null;
+            /** @description The approved policy, or null when none is approved; always present even when older than the history page */
+            current: components["schemas"]["AdminRegistrationPolicyDto"] | (never | null);
             /** @description Newest 50 policy versions */
             items: components["schemas"]["AdminRegistrationPolicyDto"][];
         };

@@ -287,6 +287,19 @@ LANGUAGE plpgsql
 SET search_path = pg_catalog, public
 AS $$
 BEGIN
+  -- Parent conflict marker: a no-op write to the referenced programme (and
+  -- venue) row, so this offering write and a concurrent parent tenant move
+  -- cannot both commit. The move's UPDATE holds the parent row; here the marker
+  -- waits for it and then (READ COMMITTED) reads the committed organization in
+  -- the next statement, or (REPEATABLE READ/SERIALIZABLE) fails with 40001. In
+  -- the other order the move waits for this transaction and its guard then sees
+  -- the committed offering, or fails with 40001. `SET "id" = "id"` changes no
+  -- key (FK KEY SHARE locks from other offerings do not conflict) and fires no
+  -- column-specific trigger.
+  UPDATE "public"."programmes" SET "id" = "id" WHERE "id" = NEW."programme_id";
+  IF NEW."venue_id" IS NOT NULL THEN
+    UPDATE "public"."venues" SET "id" = "id" WHERE "id" = NEW."venue_id";
+  END IF;
   IF NOT EXISTS (
     SELECT 1 FROM "public"."programmes" p
     WHERE p."id" = NEW."programme_id" AND p."organization_id" = NEW."organization_id"
@@ -528,7 +541,12 @@ CREATE TRIGGER "registration_sessions_publish_requires_venue"
 -- ---------------------------------------------------------------------------
 -- Parent organization changes: a programme or venue cannot move to another
 -- organization while an offering of a different organization references it.
--- Deleting a venue keeps its legacy ON DELETE SET NULL behaviour.
+-- The moving UPDATE already holds the parent row exclusively when this BEFORE
+-- trigger runs (the row is locked before BEFORE ROW triggers fire), and offering
+-- writes take the parent conflict marker above, so the two always serialize.
+-- Deleting a venue keeps its legacy ON DELETE SET NULL behaviour for offerings
+-- without a PUBLISHED session; the offering guard refuses that update (and so
+-- the delete) while the linked session is PUBLISHED.
 -- ---------------------------------------------------------------------------
 CREATE FUNCTION "public"."academy_programme_tenant_move_guard"()
 RETURNS trigger
@@ -621,6 +639,14 @@ BEGIN
     UPDATE "public"."programme_offerings" o SET "id" = o."id"
       FROM "public"."academy_registration_sessions" s
       WHERE s."id" = NEW."session_id" AND o."id" = s."programme_offering_id";
+    -- Re-read AFTER the offering lock: the joined session row above came from
+    -- the pre-wait snapshot, so a closure that committed while this trigger
+    -- waited would otherwise still look PUBLISHED.
+    SELECT o."capacity", s."publication_state" INTO v_capacity, v_state
+    FROM "public"."academy_registration_sessions" s
+    JOIN "public"."programme_offerings" o
+      ON o."id" = s."programme_offering_id" AND o."organization_id" = s."organization_id"
+    WHERE s."id" = NEW."session_id" AND s."organization_id" = NEW."organization_id";
     IF v_state <> 'PUBLISHED' THEN
       RAISE EXCEPTION 'SESSION_NOT_AVAILABLE' USING ERRCODE = '23514';
     END IF;

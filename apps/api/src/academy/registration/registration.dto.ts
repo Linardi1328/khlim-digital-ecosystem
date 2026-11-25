@@ -1,4 +1,8 @@
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+  getSchemaPath,
+} from "@nestjs/swagger";
 import {
   REGISTRATION_LOCALES,
   REGISTRATION_STATUSES,
@@ -472,10 +476,14 @@ export class AdminRegistrationPolicyDto {
 
 export class AdminRegistrationPolicyListDto {
   @ApiProperty({
-    type: () => AdminRegistrationPolicyDto,
-    nullable: true,
+    // OpenAPI 3.0: a nullable allOf wrapper still applies the referenced
+    // object's type to null, so null is modelled as its own oneOf branch.
+    oneOf: [
+      { $ref: getSchemaPath(AdminRegistrationPolicyDto) },
+      { type: "object", nullable: true, enum: [null] },
+    ],
     description:
-      "The approved policy, always present here even when older than the history page",
+      "The approved policy, or null when none is approved; always present even when older than the history page",
   })
   current!: AdminRegistrationPolicyDto | null;
   @ApiProperty({

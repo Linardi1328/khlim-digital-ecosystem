@@ -76,8 +76,21 @@ scheduling route reads or writes registration sessions.
   legacy FK delete behaviour (`venue_id ON DELETE SET NULL`) is unchanged.
 - The reverse direction is guarded too: a `programmes` or `venues` row cannot
   change `organization_id` while an offering of a different organization
-  references it (`CROSS_TENANT_REFERENCE`). Unreferenced parents can still move,
-  and deleting a venue still sets referencing offerings' `venue_id` to `NULL`.
+  references it (`CROSS_TENANT_REFERENCE`). Unreferenced parents can still move.
+- Offering writes and parent moves serialize on the **parent** row: the
+  offering tenant trigger writes a no-op conflict marker to the referenced
+  programme (and venue) row before reading its organization, and the moving
+  `UPDATE` already holds the parent row when its guard runs. In either order
+  the second transaction sees the first one's commit (`READ COMMITTED`) or fails
+  with `40001` (`REPEATABLE READ`/`SERIALIZABLE`); tested in both orders, at
+  both levels, for programmes and venues. The marker changes no key, so other
+  offerings' foreign-key `KEY SHARE` locks do not conflict; concurrent offering
+  writes for the same programme or venue serialize (admin-only, rare).
+- Venue deletion: for an offering **without** a `PUBLISHED` registration session
+  the legacy `ON DELETE SET NULL` still applies. For an offering whose session is
+  `PUBLISHED`, the offering guard refuses clearing `venue_id`, so **deleting that
+  venue fails** (`SESSION_INCOMPLETE`); close the session or move the cohort to
+  another venue first.
 
 ### D5. Lock order and transaction isolation
 
@@ -96,8 +109,10 @@ policy advisory lock (approve/retire only)
 | Admin status change (all)       | none                           | none                  | `FOR UPDATE` | `FOR SHARE`  | `FOR UPDATE`     |
 | Session PATCH / publish / close | none                           | none (read only)      | `FOR UPDATE` | `FOR UPDATE` | counts CONFIRMED |
 | Policy approve / retire         | `registration-policy:<org>`    | `FOR UPDATE`          | none         | none         | none             |
-| Legacy membership / plan link   | none                           | none                  | `FOR SHARE` (trigger) | none | none             |
-| Registration-session attach     | none                           | none                  | `FOR UPDATE` (trigger) | insert | none             |
+| Legacy membership / plan link   | none                           | none                  | conflict marker (no-op `UPDATE`, trigger) | none | none |
+| Registration-session attach     | none                           | none                  | conflict marker (no-op `UPDATE`, trigger) | insert | none |
+| Direct SQL confirmation (trigger) | none                         | none                  | `FOR UPDATE` + conflict marker, then fresh re-read | none (row locked first) | `FOR UPDATE` |
+| Offering insert / reference change (trigger) | none             | none                  | n/a          | n/a          | n/a; parent programme/venue conflict marker |
 
 - Submit takes shared locks, so closing/capacity changes (exclusive) wait for
   in-flight submissions and later submissions see the new state.
@@ -156,9 +171,15 @@ policy advisory lock (approve/retire only)
 - **Direct-SQL confirmation versus the API.** A direct `UPDATE … status =
   'CONFIRMED'` locks the registration row before its trigger locks the offering,
   the reverse of the API order, so PostgreSQL can abort one side with `40P01`.
-  The status API retries a deadlocked transaction (bounded, the aborted attempt
-  has fully rolled back) and never returns a 5xx for this case. Direct writers
-  should lock the offering (`SELECT … FOR UPDATE`) before confirming.
+  The status API retries a deadlocked transaction up to three attempts in total
+  (each aborted attempt has fully rolled back). If all three deadlock, it returns
+  the retryable `503 REGISTRATION_PERSISTENCE_FAILED` with `Retry-After: 30`.
+  Other failures are not retried. Direct writers should lock the offering
+  (`SELECT … FOR UPDATE`) before confirming.
+- **Closure versus direct confirmation (M2).** After waiting for the offering
+  lock the confirmation trigger re-reads the session's publication state and the
+  capacity in a new statement; the joined row from before the wait is never
+  trusted, so a closure that committed first yields `SESSION_NOT_AVAILABLE`.
 
 Defense in depth at the database level (works for any writer, including direct
 SQL): a trigger on `academy_registrations` locks the offering and refuses a
@@ -514,7 +535,11 @@ Merging this PR does not open registration. Before parents can register:
 
 ## Access auditing (pending owner approval)
 
-Detail reads and all state changes are audited (ids and codes only). List and
+Detail reads and all state changes are audited (ids and codes only),
+including the automatic retirement of the previous policy when a replacement is
+approved: the retired policy gets its own `ACADEMY_REGISTRATION_POLICY_RETIRED`
+event (`reason: REPLACED`, `replacedByPolicyId`), and the approval event records
+`retiredPolicyId`. List and
 search responses show minors' names to authorized staff without an audit event.
 Recommended, **not implemented**: one audit event per list/search request
 recording only the actor, organization, operation, filter kinds (not values) and

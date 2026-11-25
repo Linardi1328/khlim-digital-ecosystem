@@ -5147,14 +5147,19 @@
         "type": "object",
         "properties": {
           "current": {
-            "nullable": true,
-            "description": "The approved policy, always present here even when older than the history page",
-            "type": "object",
-            "allOf": [
+            "oneOf": [
               {
                 "$ref": "#/components/schemas/AdminRegistrationPolicyDto"
+              },
+              {
+                "type": "object",
+                "nullable": true,
+                "enum": [
+                  null
+                ]
               }
-            ]
+            ],
+            "description": "The approved policy, or null when none is approved; always present even when older than the history page"
           },
           "items": {
             "description": "Newest 50 policy versions",

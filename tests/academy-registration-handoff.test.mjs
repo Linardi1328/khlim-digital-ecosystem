@@ -29,18 +29,58 @@ test("RIC-191 handoff mock fixtures are complete, parseable JSON", async () => {
   }
 });
 
-test("RIC-191 handoff error mocks use stable codes only and no personal data", async () => {
+// Every status/code pair the handoff documents for mocks; a fixture with a
+// plausible code but the wrong status, or a missing fixture, fails.
+const REQUIRED_ERROR_FIXTURES = [
+  [409, "SESSION_FULL"],
+  [409, "CONSENT_VERSION_MISMATCH"],
+  [422, "PLAYER_AGE_INELIGIBLE"],
+  [429, "RATE_LIMITED"],
+  [409, "REGISTRATION_CLOSED"],
+  [400, "VALIDATION_FAILED"],
+];
+const DOCUMENTED_STATUS = {
+  VALIDATION_FAILED: 400,
+  IDEMPOTENCY_KEY_REQUIRED: 400,
+  IDEMPOTENCY_KEY_INVALID: 400,
+  REGISTRATION_CLOSED: 409,
+  CONSENT_VERSION_MISMATCH: 409,
+  SESSION_NOT_AVAILABLE: 409,
+  SESSION_FULL: 409,
+  IDEMPOTENCY_KEY_CONFLICT: 409,
+  PLAYER_AGE_INELIGIBLE: 422,
+  RATE_LIMITED: 429,
+  SERVICE_TEMPORARILY_UNAVAILABLE: 503,
+  REGISTRATION_PERSISTENCE_FAILED: 503,
+};
+
+test("RIC-191 handoff error mocks cover the documented status/code pairs", async () => {
   const markdown = await readFile(handoffUrl, "utf8");
   const errors = jsonBlocks(markdown)
     .map((block) => JSON.parse(block))
-    .find((value) => Array.isArray(value) && value.every((item) => item.code));
-  assert.ok(errors, "an error-mock array exists");
+    .find(
+      (value) =>
+        Array.isArray(value) &&
+        value.length > 0 &&
+        value.every((item) => item && item.code && item.statusCode),
+    );
+  assert.ok(errors, "a non-empty error-mock array exists");
+  for (const [status, code] of REQUIRED_ERROR_FIXTURES) {
+    assert.ok(
+      errors.some((item) => item.statusCode === status && item.code === code),
+      `missing fixture ${status} ${code}`,
+    );
+  }
   for (const error of errors) {
-    assert.match(error.code, /^[A-Z_]+$/);
-    assert.equal(typeof error.statusCode, "number");
+    assert.equal(
+      error.statusCode,
+      DOCUMENTED_STATUS[error.code],
+      `${error.code} uses the documented status`,
+    );
     for (const fieldError of error.fieldErrors ?? []) {
       assert.match(fieldError.code, /^[A-Z_]+$/);
     }
+    if (error.code === "RATE_LIMITED") assert.equal(error.retryAfter, 600);
   }
   const config = jsonBlocks(markdown)
     .map((block) => JSON.parse(block))
