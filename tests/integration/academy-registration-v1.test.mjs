@@ -3670,11 +3670,20 @@ async function gatedInstance(c, ringSpec, clock = null) {
 
 /** Fails fast if the request settles (or stalls) before reaching the gate. */
 async function reachedGate(late, pending, label) {
-  const outcome = await Promise.race([
-    late.entered.promise.then(() => "entered"),
-    pending.then(() => "settled"),
-    sleep(15000).then(() => "timed out"),
-  ]);
+  let timer;
+  const deadline = new Promise((resolve) => {
+    timer = setTimeout(() => resolve("timed out"), 15000);
+  });
+  let outcome;
+  try {
+    outcome = await Promise.race([
+      late.entered.promise.then(() => "entered"),
+      pending.then(() => "settled"),
+      deadline,
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
   if (outcome !== "entered") {
     late.gate.resolve();
     throw new Error(
@@ -4646,6 +4655,11 @@ test(
         false,
         "the direct writer was the deadlock victim",
       );
+      assert.match(
+        dbText(directResult.error),
+        /40P01|deadlock detected|P2034/,
+        "the direct writer failed because of the deadlock, not another error",
+      );
     }
     assert.equal(
       (await c.client.academyRegistration.findUnique({ where: { id: reg.id } }))
@@ -5062,5 +5076,308 @@ test(
       venue.id,
       "the published cohort keeps its venue",
     );
+  },
+);
+
+test(
+  "Lock corrections: conflict markers do not block on foreign-key KEY SHARE locks",
+  { skip },
+  async () => {
+    const c = await ctx();
+    const programme = await c.client.programme.create({
+      data: {
+        organizationId: ORG_A,
+        sportId: c.programmeA.sportId,
+        code: `KS-${RUN}-${randomUUID().slice(0, 8)}`,
+        name: "Key share",
+        minimumAge: 10,
+        maximumAge: 12,
+      },
+    });
+    const venue = await c.client.venue.create({
+      data: {
+        organizationId: ORG_A,
+        name: `KS venue ${randomUUID().slice(0, 6)}`,
+      },
+    });
+    const legacyOffering = await c.client.programmeOffering.create({
+      data: {
+        organizationId: ORG_A,
+        programmeId: programme.id,
+        venueId: venue.id,
+        name: `KS legacy ${RUN}`,
+        capacity: 5,
+        status: "OPEN",
+      },
+    });
+    const athlete = await c.client.athleteProfile.create({
+      data: {
+        displayName: `Syn KS ${RUN}`,
+        dateOfBirth: new Date("2015-01-01"),
+      },
+    });
+    const plan = await c.client.membershipPlan.create({
+      data: {
+        organizationId: ORG_A,
+        name: `Syn Plan KS ${RUN}`,
+        billingFrequency: "UPFRONT",
+        upfrontAmountMinor: 100,
+      },
+    });
+    // An open transaction holds the KEY SHARE locks a foreign-key check takes
+    // (for example a concurrent insert referencing the same rows).
+    const holder = holdTransaction(c, async (tx) => {
+      await tx.$queryRawUnsafe(
+        `SELECT id FROM programmes WHERE id = '${programme.id}' FOR KEY SHARE`,
+      );
+      await tx.$queryRawUnsafe(
+        `SELECT id FROM venues WHERE id = '${venue.id}' FOR KEY SHARE`,
+      );
+      await tx.$queryRawUnsafe(
+        `SELECT id FROM programme_offerings WHERE id = '${legacyOffering.id}' FOR KEY SHARE`,
+      );
+    });
+    await holder.ready;
+    const baseline = await waitingLocks(c);
+    const writes = {
+      "offering insert (parent marker)": () =>
+        c.client.programmeOffering.create({
+          data: {
+            organizationId: ORG_A,
+            programmeId: programme.id,
+            venueId: venue.id,
+            name: `KS new ${RUN}`,
+            capacity: 5,
+          },
+        }),
+      "membership insert (offering marker)": () =>
+        c.client.membership.create({
+          data: {
+            organizationId: ORG_A,
+            athleteId: athlete.id,
+            programmeOfferingId: legacyOffering.id,
+            membershipPlanId: plan.id,
+          },
+        }),
+    };
+    try {
+      for (const [label, write] of Object.entries(writes)) {
+        const pending = settle(write());
+        const blocked = waitForWaiters(c, baseline, 1, label, {
+          blockedBy: holder.pid,
+        }).then(
+          () => "blocked",
+          () => "not blocked",
+        );
+        const first = await Promise.race([
+          pending.then(() => "completed"),
+          blocked,
+        ]);
+        assert.equal(first, "completed", `${label} must not wait on KEY SHARE`);
+        const result = await pending;
+        assert.equal(
+          result.ok,
+          true,
+          `${label}: ${result.ok ? "" : dbText(result.error).slice(0, 200)}`,
+        );
+      }
+    } finally {
+      holder.release();
+    }
+    await holder.done;
+  },
+);
+
+test(
+  "Lock corrections: a direct session-only closure cannot be bypassed by a confirmation",
+  { skip },
+  async () => {
+    const c = await ctx();
+    const levels = { "READ COMMITTED": {}, "REPEATABLE READ": REPEATABLE_READ };
+    const closeSql = (sessionId) =>
+      `UPDATE academy_registration_sessions SET publication_state = 'CLOSED', closed_at = now() WHERE id = '${sessionId}'`;
+    const confirmSql = (registrationId) =>
+      `UPDATE academy_registrations SET status = 'CONFIRMED' WHERE id = '${registrationId}'`;
+    for (const [level, options] of Object.entries(levels)) {
+      // Closure first: the waiting confirmation must not commit.
+      const session = await publishedSession(c, { capacity: 5 });
+      const reg = await createRegistration(c, session.id);
+      const closure = holdTransaction(
+        c,
+        (tx) => tx.$executeRawUnsafe(closeSql(session.id)),
+        options,
+      );
+      await closure.ready;
+      const baseline = await waitingLocks(c);
+      const confirm = settle(
+        c.client.$transaction(
+          (tx) => tx.$executeRawUnsafe(confirmSql(reg.id)),
+          {
+            timeout: 60000,
+            maxWait: 15000,
+            ...options,
+          },
+        ),
+      );
+      try {
+        await waitForWaiters(
+          c,
+          baseline,
+          1,
+          `${level}: confirmation waits for closure`,
+          {
+            blockedBy: closure.pid,
+          },
+        );
+      } finally {
+        closure.release();
+      }
+      await closure.done;
+      const outcome = await confirm;
+      assert.equal(
+        outcome.ok,
+        false,
+        `${level}: confirmation into a closed session`,
+      );
+      assert.match(
+        dbText(outcome.error),
+        /SESSION_NOT_AVAILABLE|could not serialize|40001/,
+        level,
+      );
+      assert.equal(
+        (
+          await c.client.academyRegistration.findUnique({
+            where: { id: reg.id },
+          })
+        ).status,
+        "RECEIVED",
+        level,
+      );
+
+      // Confirmation first: the closure waits, then both legitimately commit.
+      const second = await publishedSession(c, { capacity: 5 });
+      const reg2 = await createRegistration(c, second.id);
+      const confirmFirst = holdTransaction(
+        c,
+        (tx) => tx.$executeRawUnsafe(confirmSql(reg2.id)),
+        options,
+      );
+      await confirmFirst.ready;
+      const before = await waitingLocks(c);
+      const close = settle(
+        c.client.$transaction(
+          (tx) => tx.$executeRawUnsafe(closeSql(second.id)),
+          {
+            timeout: 60000,
+            maxWait: 15000,
+            ...options,
+          },
+        ),
+      );
+      try {
+        await waitForWaiters(
+          c,
+          before,
+          1,
+          `${level}: closure waits for confirmation`,
+          {
+            blockedBy: confirmFirst.pid,
+          },
+        );
+      } finally {
+        confirmFirst.release();
+      }
+      await confirmFirst.done;
+      const closed = await close;
+      assert.equal(
+        closed.ok,
+        true,
+        `${level}: ${closed.ok ? "" : dbText(closed.error).slice(0, 200)}`,
+      );
+      assert.equal(
+        (
+          await c.client.academyRegistration.findUnique({
+            where: { id: reg2.id },
+          })
+        ).status,
+        "CONFIRMED",
+      );
+    }
+  },
+);
+
+test(
+  "Lock corrections: replacement audit names only policies the approval actually retired",
+  { skip },
+  async () => {
+    const c = await ctx();
+    await rotateTo();
+    const current = await currentPolicyRow(c);
+    policyCounter += 1;
+    const draft = await newDraftPolicy(
+      c,
+      `synthetic-ric190-${RUN}-dr${policyCounter}`,
+    );
+    // A direct SQL writer retires the current policy while the approval runs.
+    const directRetire = holdTransaction(c, (tx) =>
+      tx.$executeRawUnsafe(
+        `UPDATE academy_registration_policies SET status = 'RETIRED', retired_at = now(), version = version + 1 WHERE id = '${current.id}'`,
+      ),
+    );
+    await directRetire.ready;
+    const baseline = await waitingLocks(c);
+    const approval = api(
+      c,
+      `/admin/academy/registration-policies/${draft.id}/approve`,
+      {
+        method: "POST",
+        token: "mgmt",
+        body: { expectedVersion: draft.version },
+      },
+    );
+    try {
+      await waitForWaiters(
+        c,
+        baseline,
+        1,
+        "approval waits on the direct retirement",
+        {
+          blockedBy: directRetire.pid,
+        },
+      );
+    } finally {
+      directRetire.release();
+    }
+    await directRetire.done;
+    const approved = await approval;
+    assert.equal(approved.status, 201, approved.text);
+    const approvalAudit = await c.client.auditEvent.findFirst({
+      where: {
+        action: "ACADEMY_REGISTRATION_POLICY_APPROVED",
+        entityId: draft.id,
+      },
+    });
+    assert.equal(
+      approvalAudit.metadata.retiredPolicyId,
+      null,
+      "the approval did not retire the policy, so it must not claim it",
+    );
+    assert.equal(
+      await c.client.auditEvent.count({
+        where: {
+          action: "ACADEMY_REGISTRATION_POLICY_RETIRED",
+          entityId: current.id,
+          metadata: { path: ["reason"], equals: "REPLACED" },
+        },
+      }),
+      0,
+    );
+    assert.equal(
+      await c.client.academyRegistrationPolicy.count({
+        where: { organizationId: ORG_A, status: "APPROVED" },
+      }),
+      1,
+    );
+    currentConsent = draft.policyVersion;
   },
 );

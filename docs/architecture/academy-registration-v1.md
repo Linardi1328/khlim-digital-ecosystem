@@ -111,7 +111,7 @@ policy advisory lock (approve/retire only)
 | Policy approve / retire         | `registration-policy:<org>`    | `FOR UPDATE`          | none         | none         | none             |
 | Legacy membership / plan link   | none                           | none                  | conflict marker (no-op `UPDATE`, trigger) | none | none |
 | Registration-session attach     | none                           | none                  | conflict marker (no-op `UPDATE`, trigger) | insert | none |
-| Direct SQL confirmation (trigger) | none                         | none                  | `FOR UPDATE` + conflict marker, then fresh re-read | none (row locked first) | `FOR UPDATE` |
+| Direct SQL confirmation (trigger) | none                         | none                  | `FOR UPDATE` + conflict marker | `FOR SHARE`, then state re-read | `FOR UPDATE` (row locked first) |
 | Offering insert / reference change (trigger) | none             | none                  | n/a          | n/a          | n/a; parent programme/venue conflict marker |
 
 - Submit takes shared locks, so closing/capacity changes (exclusive) wait for
@@ -154,7 +154,8 @@ policy advisory lock (approve/retire only)
   earlier lock-only triggers both sides committed under `REPEATABLE READ`). Each
   writer on either side (membership insert, plan-link insert, session
   attachment) therefore writes a no-op **conflict marker**
-  (`UPDATE programme_offerings SET id = id`) before its check. Under
+  (`UPDATE programme_offerings SET updated_at = updated_at`, a non-key column;
+  see the lock-corrections migration) before its check. Under
   `READ COMMITTED` the second writer waits and then sees the first writer's
   commit; under `REPEATABLE READ`/`SERIALIZABLE` it fails with SQLSTATE `40001`.
   At most one side commits (tested both orders, both isolation levels; no
@@ -545,3 +546,24 @@ Recommended, **not implemented**: one audit event per list/search request
 recording only the actor, organization, operation, filter kinds (not values) and
 result count; never the raw search term or any personal data. This needs
 explicit owner approval and is not assumed by this change.
+
+## Lock corrections migration (`20261126000000_academy_registration_lock_corrections`)
+
+The frozen `20261125000000_academy_registration_v1` migration is not edited.
+A separately reviewed follow-up replaces six trigger-function bodies:
+
+- **Non-key conflict markers.** Programmes, venues and offerings have BEFORE
+  UPDATE triggers, so PostgreSQL picks the row-lock mode from the columns named
+  in `SET`. Naming the primary key (`id = id`) took a lock that conflicts with
+  foreign-key `KEY SHARE` checks and could block on any open FK check. Markers
+  now write `updated_at = updated_at`: still a new row version (`40001` under
+  REPEATABLE READ/SERIALIZABLE), still serialized with other markers and
+  `FOR SHARE`/`FOR UPDATE`, but compatible with `KEY SHARE`.
+- **Session lock in the confirmation guard.** After the offering lock the guard
+  takes `FOR SHARE` on the session row before reading its publication state, so
+  a direct session-only closure (which never touches the offering) cannot be
+  bypassed by a REPEATABLE READ confirmation using a stale snapshot. Lock order
+  stays offering → session for every writer.
+- Rollback (pre-data): `docs/implementation/ric-190-lock-corrections-rollback.sql`
+  restores the frozen function definitions; the full rollback above still
+  removes everything when run after both migrations.

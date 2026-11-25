@@ -39,17 +39,31 @@ Read-only check for any environment that could not be verified (returns no row
 when the migration has never been applied):
 
 ```sql
-SELECT migration_name, checksum, finished_at
+SELECT migration_name, checksum, started_at, finished_at, rolled_back_at,
+       applied_steps_count, logs
 FROM _prisma_migrations
-WHERE migration_name = '20261125000000_academy_registration_v1';
+WHERE migration_name LIKE '2026112%_academy_registration%'
+ORDER BY started_at;
 ```
 
-- No row: safe; the frozen revision will be applied by the approved hosted process.
-- A row with checksum `aae10d0e…5694123`: the frozen revision; no action.
-- A row with any other checksum: an earlier revision was applied. **Do not
-  reset** a database that holds real data; stop and plan a separately reviewed
-  corrective migration. Only a disposable database may be rebuilt with
+- **No row**: never applied; the approved hosted process will apply the
+  reviewed revisions in order.
+- **Success only** when, for each migration, there is a row with the expected
+  checksum (section 1 and 6), `finished_at` **not null** and `rolled_back_at`
+  **null**. Only then is no action needed.
+- **Incomplete or failed attempt** (`finished_at` null, or `rolled_back_at`
+  set, or non-empty `logs`): stop. Prisma blocks later deployments with `P3009`
+  until the failed attempt is resolved. Inspect the row, its `logs` and the
+  actual schema state before any change; do not run `migrate resolve`,
+  `migrate reset` or manual SQL without a reviewed plan.
+- **Any other checksum**: an earlier revision was applied. **Do not reset** a
+  database that holds real data; stop and plan a separately reviewed corrective
+  migration. Only a disposable database may be rebuilt with
   `prisma migrate reset`.
+
+**Owner confirmation (recorded):** the migration-history query returned zero
+rows on hosted Supabase **staging** and **production**. No hosted environment
+has applied any revision.
 
 ## 3. Remaining review threads (7)
 
@@ -88,7 +102,41 @@ regenerated client (`pnpm openapi:check` enforces consistency).
   threads resolved, squash merge only, no force-push or deletion, extra approval
   for unattributed changes; 0 required approving reviews; no required status
   checks are configured (all 12 Actions checks pass regardless).
-- Owner approvals still needed before merge: resolve the 7 threads; confirm the
-  unverified environments in section 2.
+- Owner confirmations received: hosted staging and production returned zero
+  migration-history rows; the 7 earlier threads were resolved with evidence.
+- Still to resolve before merge: the review threads for the six findings in
+  section 6, and review acceptance of the corrective migration.
 - Release gates (after merge, before activation): see the ADR "Operational
   dependencies and release blockers".
+
+## 6. Corrective migration `20261126000000_academy_registration_lock_corrections`
+
+The frozen migration is unchanged (checksum guard still passes). Six later
+CodeRabbit findings were verified; the database-level ones are fixed by a new,
+separately reviewed migration that only replaces six trigger-function bodies
+(`CREATE OR REPLACE FUNCTION`; triggers, tables, RLS and grants unchanged).
+
+- SHA-256 of its `migration.sql`:
+  `43e5e20b45bdcbdc34049d6dab720e5b5d5152c3f97cd179fb5e9861454a7afb`.
+  Freeze it (add it to the freeze test) once this review is accepted and before
+  its first hosted application.
+- Rollback (pre-data, functions only):
+  `docs/implementation/ric-190-lock-corrections-rollback.sql` restores the six
+  functions exactly as defined in the frozen migration. Verified: after
+  applying it, `pg_get_functiondef` of every `academy_%` function matches a
+  database migrated with the frozen revision only (md5
+  `ce5cca2bac14bf424c3037a458fa1da9`). As with any manual rollback, the
+  `_prisma_migrations` row remains; rebuild disposable databases with
+  `prisma migrate reset` from the matching application revision.
+
+| Finding | Verification | Disposition |
+| --- | --- | --- |
+| Session-only closure vs confirmation (REPEATABLE READ) | Reproduced: with the frozen migration a direct confirmation did not wait for an uncommitted session-only closure and committed | **Fixed** (migration): the confirmation guard locks the session `FOR SHARE` after the offering (same order as all writers; the API close path takes offering then session, so no cycle). Closure-first fails with `SESSION_NOT_AVAILABLE` (READ COMMITTED) or `40001` (REPEATABLE READ); confirmation-first lets both commit |
+| Replacement audit from rows actually retired | Reproduced: with a concurrent direct-SQL retirement the approval audit claimed `retiredPolicyId` it did not retire | **Fixed** (service): `updateManyAndReturn` builds both audit entries from the rows this statement updated |
+| Parent conflict marker vs FK KEY SHARE | Reproduced: an offering insert blocked behind an open `FOR KEY SHARE` on its programme | **Fixed** (migration): all conflict markers write the non-key `updated_at` column, so they take `FOR NO KEY UPDATE` (still a row write, still `40001` under REPEATABLE READ, no conflict with KEY SHARE) |
+| Migration-history completion | Doc defect | **Fixed** (section 2 query and rules) |
+| Gate timer not cancelled | Test defect | **Fixed**: cancellable deadline cleared in `finally` |
+| C7 direct-failure branch accepted any error | Test defect | **Fixed**: asserts `40P01`/deadlock |
+
+No API contract change: `openapi/khlim-v1.json` and the generated client are
+unchanged (`pnpm openapi:check`).

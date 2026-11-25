@@ -254,18 +254,20 @@ export class RegistrationPolicyService {
         const now = new Date();
         // Previously approved policy (at most one), retired by this approval;
         // its retirement is audited on its own entity below.
-        const replaced = await tx.academyRegistrationPolicy.findMany({
-          where: { organizationId, status: "APPROVED" },
-          select: { id: true, policyVersion: true },
-        });
-        await tx.academyRegistrationPolicy.updateMany({
-          where: { organizationId, status: "APPROVED" },
-          data: {
-            status: "RETIRED",
-            retiredAt: now,
-            version: { increment: 1 },
+        // Audit only what this statement actually retired: a concurrent
+        // writer (for example direct SQL) may already have retired the policy
+        // that was approved when this transaction started.
+        const replaced = await tx.academyRegistrationPolicy.updateManyAndReturn(
+          {
+            where: { organizationId, status: "APPROVED" },
+            data: {
+              status: "RETIRED",
+              retiredAt: now,
+              version: { increment: 1 },
+            },
+            select: { id: true, policyVersion: true },
           },
-        });
+        );
         const approved = await tx.academyRegistrationPolicy.update({
           where: { id: policyId },
           data: {
