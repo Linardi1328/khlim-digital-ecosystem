@@ -12,6 +12,7 @@ export interface ConfirmDialogProps {
   cancelLabel?: string;
   variant?: "danger" | "warning" | "primary";
   isLoading?: boolean;
+  confirmDisabled?: boolean;
 }
 
 export function ConfirmDialog({
@@ -24,6 +25,7 @@ export function ConfirmDialog({
   cancelLabel = "Cancel",
   variant = "danger",
   isLoading = false,
+  confirmDisabled = false,
 }: ConfirmDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
@@ -144,7 +146,7 @@ export function ConfirmDialog({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={isLoading}
+            disabled={isLoading || confirmDisabled}
             style={{
               padding: "8px 16px",
               fontSize: "0.875rem",
@@ -153,7 +155,8 @@ export function ConfirmDialog({
               color: variant === "primary" ? "#18181B" : "#FFFFFF",
               border: "none",
               borderRadius: "6px",
-              cursor: isLoading ? "not-allowed" : "pointer",
+              opacity: isLoading || confirmDisabled ? 0.55 : 1,
+              cursor: isLoading || confirmDisabled ? "not-allowed" : "pointer",
               display: "inline-flex",
               alignItems: "center",
               gap: "6px",

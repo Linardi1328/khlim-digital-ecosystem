@@ -2,20 +2,17 @@
  * Academy Registration V1 (RIC-190 / RIC-191) contract types.
  *
  * SOURCE OF TRUTH:
- * Extracted verbatim from PR #126 (`codex/ric-190-academy-registration-v1-20261124`)
- * inspected head SHA: 7f3a05a250159675671aaa9bdd68ee3b9c30b5a8
+ * Reconciled against PR #126 (`codex/ric-190-academy-registration-v1-20261124`)
+ * inspected head SHA: 92f72f369acc03b53a4eb3c0e247590ab936fc1c
  * (`packages/api-client/src/schema.d.ts` + `docs/implementation/ric-191-academy-registration-handoff.md`).
  *
  * DEPENDENCY RECONCILIATION STRATEGY:
- * - PR #126 (RIC-190 backend) and PR #125 (RIC-184 web) are both unmerged draft PRs.
+ * - PR #126 (RIC-190 backend) and PR #125 (RIC-184 web) remain unmerged.
  * - Keeping `openapi/khlim-v1.json` and `packages/api-client/src/schema.d.ts` untouched on the
- *   RIC-191 frontend branch preserves `pnpm openapi:check` integrity without pulling backend
- *   changes into the frontend PR.
- * - Once PR #126 merges (including Codex's F4 OpenAPI response DTO corrections for admin
- *   sessions and policies), replace these aliases with direct `components["schemas"][...]`
- *   re-exports from `./schema`.
- * - Intentionally does NOT define handwritten response DTOs for admin registration-sessions
- *   or admin registration-policies while Codex F4 OpenAPI corrections are pending.
+ *   frontend-only PR branch preserves `pnpm openapi:check` integrity without pulling backend
+ *   changes into PR #127.
+ * - Once PR #125 and PR #126 are available in the target base, replace these temporary
+ *   definitions with direct `components["schemas"][...]` aliases from `./schema`.
  */
 
 export type RegistrationLocale = "en" | "ms" | "zh-Hans";
@@ -27,6 +24,10 @@ export type RegistrationAgeReferenceRule =
 
 export type RegistrationStatus =
   "RECEIVED" | "UNDER_REVIEW" | "CONFIRMED" | "REJECTED" | "CANCELLED";
+
+/** Target statuses accepted by PATCH /v1/admin/academy/registrations/:id/status (excludes RECEIVED). */
+export type RegistrationTargetStatus =
+  "UNDER_REVIEW" | "CONFIRMED" | "REJECTED" | "CANCELLED";
 
 export type RegistrationReasonCode =
   | "DUPLICATE"
@@ -40,10 +41,19 @@ export type RegistrationReasonCode =
 export type RegistrationConsentType =
   "GUARDIAN_AUTHORITY" | "REGISTRATION_PRIVACY" | "MARKETING" | "PHOTOGRAPHY";
 
+export type AdminRegistrationSessionState = "DRAFT" | "PUBLISHED" | "CLOSED";
+
+export type AdminRegistrationPolicyStatus = "DRAFT" | "APPROVED" | "RETIRED";
+
 export interface RegistrationConsentLocaleContentRef {
   ref: string;
   sha256: string;
 }
+
+export type RegistrationPolicyContentMap = Record<
+  RegistrationConsentType,
+  Record<RegistrationLocale, RegistrationConsentLocaleContentRef>
+>;
 
 export interface RegistrationConsentItemDto {
   type: RegistrationConsentType | string;
@@ -264,16 +274,73 @@ export interface RegistrationDetailDto {
 }
 
 export interface RegistrationStatusChangeRequestDto {
-  status: RegistrationStatus;
+  status: RegistrationTargetStatus;
   reasonCode?: RegistrationReasonCode;
   expectedVersion: number;
 }
 
-export interface RegistrationSessionRequestDto {
-  programmeId?: string;
-  name?: string;
-  venueId?: string;
-  capacity?: number;
+export interface AdminSessionProgrammeDto {
+  id: string;
+  name: string;
+  minimumAge: number | null;
+  maximumAge: number | null;
+}
+
+export interface AdminSessionVenueDto {
+  id: string;
+  name: string;
+  address: string | null;
+}
+
+export interface AdminSessionSeatCountsDto {
+  RECEIVED: number;
+  UNDER_REVIEW: number;
+  CONFIRMED: number;
+  REJECTED: number;
+  CANCELLED: number;
+}
+
+export interface AdminRegistrationSessionDto {
+  id: string;
+  programmeOfferingId: string;
+  name: string;
+  publicationState: AdminRegistrationSessionState;
+  version: number;
+  programme: AdminSessionProgrammeDto;
+  venue: AdminSessionVenueDto | null;
+  capacity: number;
+  seatsRemaining: number;
+  seatCounts: AdminSessionSeatCountsDto;
+  enrollmentOpensAt: string | null;
+  enrollmentClosesAt: string | null;
+  coachDisplayName: string | null;
+  /** ISO weekday, 1 = Monday ... 7 = Sunday */
+  weekday: number | null;
+  /** HH:MM */
+  startTime: string | null;
+  /** HH:MM */
+  endTime: string | null;
+  timezone: string;
+  /** YYYY-MM-DD */
+  firstSessionDate: string | null;
+  recurrence: RegistrationSessionRecurrence | null;
+  ageReferenceRule: RegistrationAgeReferenceRule | string | null;
+  ageReferenceDate: string | null;
+  publishedAt: string | null;
+  closedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminRegistrationSessionListDto {
+  items: AdminRegistrationSessionDto[];
+}
+
+export interface CreateRegistrationSessionRequestDto {
+  programmeId: string;
+  name: string;
+  venueId: string;
+  capacity: number;
   enrollmentOpensAt?: string | null;
   enrollmentClosesAt?: string | null;
   coachDisplayName?: string | null;
@@ -284,21 +351,69 @@ export interface RegistrationSessionRequestDto {
   recurrence?: RegistrationSessionRecurrence | null;
   ageReferenceRule?: RegistrationAgeReferenceRule | null;
   ageReferenceDate?: string | null;
-  expectedVersion?: number;
+}
+
+export interface UpdateRegistrationSessionRequestDto {
+  expectedVersion: number;
+  /** Draft only */
+  name?: string;
+  /** Draft only */
+  venueId?: string;
+  /** Never below confirmed seats */
+  capacity?: number;
+  enrollmentOpensAt?: string | null;
+  enrollmentClosesAt?: string | null;
+  coachDisplayName?: string | null;
+  /** Draft only */
+  weekday?: number | null;
+  /** Draft only */
+  startTime?: string | null;
+  /** Draft only */
+  endTime?: string | null;
+  /** Draft only */
+  firstSessionDate?: string | null;
+  /** Draft only */
+  recurrence?: RegistrationSessionRecurrence | null;
+  /** Draft only */
+  ageReferenceRule?: RegistrationAgeReferenceRule | null;
+  /** Draft only */
+  ageReferenceDate?: string | null;
+}
+
+export interface PublishApprovalsDto {
+  scheduleApproved: true;
+  ageRuleApproved: true;
 }
 
 export interface PublishRegistrationSessionRequestDto {
   expectedVersion: number;
-  approvals: Record<string, boolean>;
+  approvals: PublishApprovalsDto;
 }
 
 export interface VersionRequestDto {
   expectedVersion: number;
 }
 
+export interface AdminRegistrationPolicyDto {
+  id: string;
+  policyVersion: string;
+  status: AdminRegistrationPolicyStatus;
+  version: number;
+  content: Record<string, unknown>;
+  approvedAt: string | null;
+  retiredAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminRegistrationPolicyListDto {
+  current: AdminRegistrationPolicyDto | null;
+  items: AdminRegistrationPolicyDto[];
+}
+
 export interface CreateRegistrationPolicyRequestDto {
   policyVersion: string;
-  content: Record<string, unknown>;
+  content: RegistrationPolicyContentMap;
 }
 
 export function parseRetryAfterHeader(

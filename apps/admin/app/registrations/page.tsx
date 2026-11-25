@@ -10,10 +10,12 @@ import React, {
   useState,
 } from "react";
 import type {
+  AdminRegistrationSessionDto,
   RegistrationDetailDto,
   RegistrationReasonCode,
   RegistrationStatus,
   RegistrationSummaryDto,
+  RegistrationTargetStatus,
 } from "@khlim/api-client";
 import { AdminShell } from "../../components/layout/AdminShell";
 import { PageHeader } from "../../components/ui/PageHeader";
@@ -29,10 +31,8 @@ import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { LoadingState } from "../../components/ui/LoadingState";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { ErrorState } from "../../components/ui/ErrorState";
-import {
-  AdminConsentPoliciesTab,
-  AdminRegistrationSessionsTab,
-} from "../../components/registrations/sessions-policies-readiness";
+import { AdminTrainingSessionsTab } from "../../components/registrations/admin-training-sessions-tab";
+import { AdminConsentPoliciesTab } from "../../components/registrations/admin-consent-policies-tab";
 import { useAdminAuth } from "../../lib/auth-context";
 import {
   changeAdminRegistrationStatus,
@@ -42,6 +42,7 @@ import {
   getAllowedNextStatuses,
   isReasonCodeRequired,
   isTerminalRegistrationStatus,
+  listAdminRegistrationSessions,
   listAdminRegistrations,
   REGISTRATION_REASON_CODES,
   REGISTRATION_STATUS_OPTIONS,
@@ -87,12 +88,22 @@ function AcademyRegistrationsContent() {
     logout,
   } = useAdminAuth();
   const staffUserId = user?.id ?? null;
+  const staffKey = `${staffUserId ?? "anon"}:${role ?? "none"}`;
   const canView = hasRole(["SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN"]);
   const canApprovePolicies = hasRole(["SUPER_ADMIN", "MANAGEMENT"]);
   const isEligible =
     canView && (isDemoMode || (isAuthenticated && mfaSatisfied));
 
   const [activeTab, setActiveTab] = useState<string>("registrations");
+
+  // Authoritative session filter state (loaded from GET /v1/admin/academy/registration-sessions)
+  const [authoritativeSessions, setAuthoritativeSessions] = useState<
+    AdminRegistrationSessionDto[]
+  >([]);
+  const [sessionsFilterLoading, setSessionsFilterLoading] = useState(true);
+  const [sessionsFilterError, setSessionsFilterError] = useState<string | null>(
+    null,
+  );
 
   // List state
   const [registrations, setRegistrations] = useState<RegistrationSummaryDto[]>(
@@ -110,9 +121,6 @@ function AcademyRegistrationsContent() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [sessionFilter, setSessionFilter] = useState<string>("ALL");
-  const [knownSessions, setKnownSessions] = useState<
-    Array<{ id: string; name: string }>
-  >([]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
 
@@ -123,7 +131,9 @@ function AcademyRegistrationsContent() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
-  const [targetStatus, setTargetStatus] = useState<RegistrationStatus | "">("");
+  const [targetStatus, setTargetStatus] = useState<
+    RegistrationTargetStatus | ""
+  >("");
   const [reasonCode, setReasonCode] = useState<RegistrationReasonCode | "">("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
@@ -134,8 +144,10 @@ function AcademyRegistrationsContent() {
 
   const listRequestSeq = useRef(0);
   const detailRequestSeq = useRef(0);
+  const sessionFilterSeq = useRef(0);
   const listAbortRef = useRef<AbortController | null>(null);
   const detailAbortRef = useRef<AbortController | null>(null);
+  const sessionFilterAbortRef = useRef<AbortController | null>(null);
 
   // Debounce POST search input so we never hammer the search endpoint
   useEffect(() => {
@@ -145,16 +157,19 @@ function AcademyRegistrationsContent() {
     return () => window.clearTimeout(timer);
   }, [searchInput]);
 
-  // Clear ALL sensitive PII immediately on user, role, or eligibility change
+  // Clear ALL sensitive PII & cached org data immediately on user, role, or eligibility change
   useLayoutEffect(() => {
     listRequestSeq.current += 1;
     detailRequestSeq.current += 1;
+    sessionFilterSeq.current += 1;
     listAbortRef.current?.abort();
     detailAbortRef.current?.abort();
+    sessionFilterAbortRef.current?.abort();
     setRegistrations([]);
     setTotalItems(0);
     setTotalPages(1);
-    setKnownSessions([]);
+    setAuthoritativeSessions([]);
+    setSessionsFilterError(null);
     setSelectedId(null);
     setSelectedDetail(null);
     setSearchInput("");
@@ -169,7 +184,87 @@ function AcademyRegistrationsContent() {
     setIsUpdatingStatus(false);
   }, [staffUserId, role, isEligible]);
 
+  const handleGlobalAuthError = useCallback(
+    (kind: AdminRegistrationErrorKind, message: string) => {
+      listRequestSeq.current += 1;
+      detailRequestSeq.current += 1;
+      sessionFilterSeq.current += 1;
+      listAbortRef.current?.abort();
+      detailAbortRef.current?.abort();
+      sessionFilterAbortRef.current?.abort();
+      setRegistrations([]);
+      setAuthoritativeSessions([]);
+      setSelectedId(null);
+      setSelectedDetail(null);
+      setLoading(false);
+      setSessionsFilterLoading(false);
+      setDetailLoading(false);
+      setAuthErrorKind(kind);
+      setListError(message);
+    },
+    [],
+  );
+
+  const handleSessionsChange = useCallback(
+    (nextSessions: AdminRegistrationSessionDto[]) => {
+      setAuthoritativeSessions(nextSessions);
+      setSessionsFilterError(null);
+      setSessionsFilterLoading(false);
+    },
+    [],
+  );
+
+  // Authoritative session list for the Registrations filter dropdown
+  const fetchAuthoritativeSessionFilter = useCallback(async () => {
+    void staffKey;
+    if (!isEligible) {
+      sessionFilterSeq.current += 1;
+      sessionFilterAbortRef.current?.abort();
+      setAuthoritativeSessions([]);
+      setSessionsFilterLoading(false);
+      return;
+    }
+
+    sessionFilterAbortRef.current?.abort();
+    const controller = new AbortController();
+    sessionFilterAbortRef.current = controller;
+    const seq = ++sessionFilterSeq.current;
+
+    setSessionsFilterLoading(true);
+    setSessionsFilterError(null);
+
+    try {
+      const response = await listAdminRegistrationSessions(controller.signal);
+      if (seq !== sessionFilterSeq.current) return;
+      const items = Array.isArray(response.items) ? response.items : [];
+      setAuthoritativeSessions(items);
+    } catch (error: unknown) {
+      if (controller.signal.aborted || seq !== sessionFilterSeq.current) return;
+      const classified = classifyAdminRegistrationError(error);
+      if (
+        classified.kind === "UNAUTHENTICATED" ||
+        classified.kind === "FORBIDDEN"
+      ) {
+        handleGlobalAuthError(classified.kind, classified.message);
+        return;
+      }
+      setSessionsFilterError(classified.message);
+    } finally {
+      if (seq === sessionFilterSeq.current) {
+        setSessionsFilterLoading(false);
+      }
+    }
+  }, [isEligible, staffKey, handleGlobalAuthError]);
+
+  useEffect(() => {
+    void fetchAuthoritativeSessionFilter();
+    return () => {
+      sessionFilterAbortRef.current?.abort();
+    };
+  }, [fetchAuthoritativeSessionFilter]);
+
   const fetchRegistrations = useCallback(async () => {
+    void staffKey;
     if (!isEligible) {
       listRequestSeq.current += 1;
       listAbortRef.current?.abort();
@@ -196,7 +291,7 @@ function AcademyRegistrationsContent() {
       const normalizedSession =
         sessionFilter === "ALL" ? undefined : sessionFilter;
 
-      // Use POST /search when a search term of >= 2 chars is active; never put search terms in URLs
+      // Use POST /search (HTTP 200) when a search term of >= 2 chars is active; never put search terms in URLs
       const res =
         debouncedSearch.length >= 2
           ? await searchAdminRegistrations(
@@ -222,17 +317,6 @@ function AcademyRegistrationsContent() {
       setRegistrations(res.items);
       setTotalItems(res.total);
       setTotalPages(Math.max(1, res.totalPages));
-
-      // Accumulate known sessions from server responses for the session filter selector
-      setKnownSessions((prev) => {
-        const map = new Map(prev.map((item) => [item.id, item.name]));
-        for (const item of res.items) {
-          if (item.sessionId && item.sessionName) {
-            map.set(item.sessionId, item.sessionName);
-          }
-        }
-        return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-      });
     } catch (error: unknown) {
       if (controller.signal.aborted || seq !== listRequestSeq.current) return;
       const classified = classifyAdminRegistrationError(error);
@@ -240,13 +324,10 @@ function AcademyRegistrationsContent() {
         classified.kind === "UNAUTHENTICATED" ||
         classified.kind === "FORBIDDEN"
       ) {
-        // Clear sensitive list and detail data on 401/403
-        setRegistrations([]);
-        setSelectedId(null);
-        setSelectedDetail(null);
-        setAuthErrorKind(classified.kind);
+        handleGlobalAuthError(classified.kind, classified.message);
+      } else {
+        setListError(classified.message);
       }
-      setListError(classified.message);
     } finally {
       if (seq === listRequestSeq.current) {
         setLoading(false);
@@ -254,11 +335,13 @@ function AcademyRegistrationsContent() {
     }
   }, [
     isEligible,
+    staffKey,
     debouncedSearch,
     statusFilter,
     sessionFilter,
     page,
     pageSize,
+    handleGlobalAuthError,
   ]);
 
   useEffect(() => {
@@ -299,18 +382,17 @@ function AcademyRegistrationsContent() {
           classified.kind === "UNAUTHENTICATED" ||
           classified.kind === "FORBIDDEN"
         ) {
-          setSelectedDetail(null);
-          setRegistrations([]);
-          setAuthErrorKind(classified.kind);
+          handleGlobalAuthError(classified.kind, classified.message);
+        } else {
+          setDetailError(classified.message);
         }
-        setDetailError(classified.message);
       } finally {
         if (seq === detailRequestSeq.current) {
           setDetailLoading(false);
         }
       }
     },
-    [isEligible],
+    [isEligible, handleGlobalAuthError],
   );
 
   const handleCloseDrawer = () => {
@@ -332,7 +414,7 @@ function AcademyRegistrationsContent() {
 
   const reasonRequired =
     Boolean(targetStatus) &&
-    isReasonCodeRequired(targetStatus as RegistrationStatus);
+    isReasonCodeRequired(targetStatus as RegistrationTargetStatus);
 
   const canOpenConfirm =
     Boolean(selectedDetail) &&
@@ -363,7 +445,7 @@ function AcademyRegistrationsContent() {
         message: `Registration status updated to ${updated.status} (version ${updated.version}).`,
       });
 
-      // Synchronize summary row and refresh bounded list from server
+      // Synchronize summary row and refresh bounded list + authoritative seat counts
       setRegistrations((prev) =>
         prev.map((row) =>
           row.id === updated.id
@@ -377,6 +459,7 @@ function AcademyRegistrationsContent() {
         ),
       );
       void fetchRegistrations();
+      void fetchAuthoritativeSessionFilter();
     } catch (error: unknown) {
       setConfirmOpen(false);
       const classified = classifyAdminRegistrationError(error);
@@ -385,10 +468,7 @@ function AcademyRegistrationsContent() {
         classified.kind === "UNAUTHENTICATED" ||
         classified.kind === "FORBIDDEN"
       ) {
-        setSelectedDetail(null);
-        setRegistrations([]);
-        setAuthErrorKind(classified.kind);
-        setListError(classified.message);
+        handleGlobalAuthError(classified.kind, classified.message);
         return;
       }
 
@@ -519,7 +599,7 @@ function AcademyRegistrationsContent() {
         <div style={{ minWidth: 0 }}>
           <PageHeader
             title="Academy Registrations"
-            subtitle="Review submitted Academy registrations, manage review status, and prepare session & consent governance."
+            subtitle="Review submitted Academy registrations, manage training sessions, and govern localized consent policies."
             breadcrumbs={[
               { label: "Academy", href: "/offerings" },
               { label: "Academy Registrations" },
@@ -577,7 +657,12 @@ function AcademyRegistrationsContent() {
       count: totalItems,
       icon: "📋",
     },
-    { id: "sessions", label: "Training Sessions", icon: "🏀" },
+    {
+      id: "sessions",
+      label: "Training Sessions",
+      count: authoritativeSessions.length,
+      icon: "🏀",
+    },
     { id: "policies", label: "Consent Policies", icon: "📜" },
   ];
 
@@ -603,10 +688,22 @@ function AcademyRegistrationsContent() {
           onChange={(tabId) => setActiveTab(tabId)}
         />
 
-        {activeTab === "sessions" && <AdminRegistrationSessionsTab />}
+        {activeTab === "sessions" && (
+          <AdminTrainingSessionsTab
+            isEligible={isEligible}
+            staffKey={staffKey}
+            onSessionsChange={handleSessionsChange}
+            onAuthError={handleGlobalAuthError}
+          />
+        )}
 
         {activeTab === "policies" && (
-          <AdminConsentPoliciesTab canApprovePolicies={canApprovePolicies} />
+          <AdminConsentPoliciesTab
+            isEligible={isEligible}
+            canApprovePolicies={canApprovePolicies}
+            staffKey={staffKey}
+            onAuthError={handleGlobalAuthError}
+          />
         )}
 
         {activeTab === "registrations" && (
@@ -685,7 +782,9 @@ function AcademyRegistrationsContent() {
                 </label>
                 <select
                   id="registration-session-filter"
+                  data-testid="registration-session-filter"
                   value={sessionFilter}
+                  disabled={sessionsFilterLoading}
                   onChange={(e) => {
                     setSessionFilter(e.target.value);
                     setPage(1);
@@ -694,19 +793,40 @@ function AcademyRegistrationsContent() {
                     padding: "6px 12px",
                     borderRadius: "6px",
                     border: "1px solid #CBD5E1",
-                    backgroundColor: "#FFFFFF",
+                    backgroundColor: sessionsFilterLoading
+                      ? "#F1F5F9"
+                      : "#FFFFFF",
                     fontSize: "0.875rem",
                     color: "#1E293B",
-                    maxWidth: "240px",
+                    maxWidth: "260px",
                   }}
                 >
-                  <option value="ALL">All Sessions</option>
-                  {knownSessions.map((session) => (
+                  <option value="ALL">
+                    {sessionsFilterLoading
+                      ? "Loading sessions..."
+                      : sessionsFilterError
+                        ? "All Sessions (list unavailable)"
+                        : authoritativeSessions.length === 0
+                          ? "All Sessions (none configured)"
+                          : "All Sessions"}
+                  </option>
+                  {authoritativeSessions.map((session) => (
                     <option key={session.id} value={session.id}>
-                      {session.name}
+                      {session.name} ({session.publicationState})
                     </option>
                   ))}
                 </select>
+                {sessionsFilterError ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    data-testid="retry-session-filter-btn"
+                    onClick={() => void fetchAuthoritativeSessionFilter()}
+                  >
+                    Retry
+                  </Button>
+                ) : null}
               </div>
             </FilterBar>
 
@@ -1292,11 +1412,13 @@ function AcademyRegistrationsContent() {
                         value={targetStatus}
                         onChange={(e) => {
                           const next = e.target.value as
-                            RegistrationStatus | "";
+                            RegistrationTargetStatus | "";
                           setTargetStatus(next);
                           if (
                             !next ||
-                            !isReasonCodeRequired(next as RegistrationStatus)
+                            !isReasonCodeRequired(
+                              next as RegistrationTargetStatus,
+                            )
                           ) {
                             setReasonCode("");
                           }

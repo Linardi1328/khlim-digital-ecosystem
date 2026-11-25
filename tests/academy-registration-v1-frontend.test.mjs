@@ -352,6 +352,176 @@ describe("RIC-191 Academy Registration V1 frontend helpers & contract rules", ()
       },
     });
     assert.equal(errCapacity.kind, "CAPACITY_EXCEEDED");
+
+    const errIncomplete = classifyAdminRegistrationError({
+      status: 409,
+      responseBody: {
+        statusCode: 409,
+        code: "SESSION_INCOMPLETE",
+        message: "Session incomplete",
+        fieldErrors: [
+          { field: "programme.sport", code: "INVALID_VALUE" },
+          { field: "consentPolicy", code: "REQUIRED" },
+        ],
+      },
+    });
+    assert.equal(errIncomplete.kind, "SESSION_INCOMPLETE");
+    assert.equal(errIncomplete.fieldErrors.length, 2);
+    assert.ok(errIncomplete.message.includes("Programme sport"));
+    assert.ok(errIncomplete.message.includes("Approved consent policy"));
+
+    const errBelowConfirmed = classifyAdminRegistrationError({
+      status: 409,
+      responseBody: {
+        statusCode: 409,
+        code: "CAPACITY_BELOW_CONFIRMED",
+        message: "below confirmed",
+        details: { confirmed: 8 },
+      },
+    });
+    assert.equal(errBelowConfirmed.kind, "CAPACITY_BELOW_CONFIRMED");
+    assert.ok(errBelowConfirmed.message.includes("8"));
+
+    const errPolicyExists = classifyAdminRegistrationError({
+      status: 409,
+      responseBody: {
+        statusCode: 409,
+        code: "POLICY_VERSION_EXISTS",
+        message: "duplicate",
+      },
+    });
+    assert.equal(errPolicyExists.kind, "POLICY_VERSION_EXISTS");
+
+    const errNotApprovable = classifyAdminRegistrationError({
+      status: 409,
+      responseBody: {
+        statusCode: 409,
+        code: "POLICY_NOT_APPROVABLE",
+        message: "synthetic disallowed",
+      },
+    });
+    assert.equal(errNotApprovable.kind, "POLICY_NOT_APPROVABLE");
+  });
+
+  test("Admin session payload builders preserve nulls & published-only boundaries, and policy validation enforces contract", async () => {
+    const {
+      createEmptySessionForm,
+      buildSessionCreatePayload,
+      buildSessionUpdatePayload,
+      sessionDtoToFormState,
+      isoToMytDateTimeLocal,
+      mytDateTimeLocalToIso,
+      createEmptyPolicyContentMap,
+      validatePolicyDraftInput,
+    } = await import("../apps/admin/lib/registration-admin-rules.ts");
+
+    // MYT datetime conversion round-trip (+08:00)
+    const iso = mytDateTimeLocalToIso("2026-12-15T14:30");
+    assert.equal(iso, "2026-12-15T06:30:00.000Z");
+    assert.equal(isoToMytDateTimeLocal(iso), "2026-12-15T14:30");
+    assert.equal(mytDateTimeLocalToIso(""), null);
+
+    // Incomplete draft preserves nullable schedule fields cleanly
+    const incompleteForm = {
+      ...createEmptySessionForm(),
+      programmeId: "00000000-0000-4000-8000-000000000010",
+      name: "Incomplete Draft Cohort",
+      venueId: "00000000-0000-4000-8000-000000000020",
+      capacity: "16",
+    };
+    const createPayload = buildSessionCreatePayload(incompleteForm);
+    assert.equal(createPayload.name, "Incomplete Draft Cohort");
+    assert.equal(createPayload.capacity, 16);
+    assert.equal(createPayload.weekday, null);
+    assert.equal(createPayload.startTime, null);
+    assert.equal(createPayload.recurrence, null);
+    assert.equal(createPayload.ageReferenceRule, null);
+    assert.equal(createPayload.ageReferenceDate, null);
+
+    // Published session update only sends PUBLISHED_EDITABLE fields
+    const publishedSession = {
+      id: "sess-pub-1",
+      programmeOfferingId: "off-pub-1",
+      name: "Published Cohort",
+      publicationState: "PUBLISHED",
+      version: 3,
+      programme: {
+        id: "prog-1",
+        name: "KHLIM Academy",
+        minimumAge: 10,
+        maximumAge: 12,
+      },
+      venue: { id: "venue-1", name: "Sports Garage", address: "PJ" },
+      capacity: 16,
+      seatsRemaining: 14,
+      seatCounts: {
+        RECEIVED: 1,
+        UNDER_REVIEW: 0,
+        CONFIRMED: 2,
+        REJECTED: 0,
+        CANCELLED: 0,
+      },
+      enrollmentOpensAt: null,
+      enrollmentClosesAt: null,
+      coachDisplayName: "Coach Sengjun",
+      weekday: 6,
+      startTime: "14:00",
+      endTime: "16:00",
+      timezone: "Asia/Kuala_Lumpur",
+      firstSessionDate: "2026-12-19",
+      recurrence: "WEEKLY",
+      ageReferenceRule: "FIXED_DATE",
+      ageReferenceDate: "2026-12-31",
+      publishedAt: "2026-12-01T00:00:00.000Z",
+      closedAt: null,
+      createdAt: "2026-12-01T00:00:00.000Z",
+      updatedAt: "2026-12-01T00:00:00.000Z",
+    };
+    const editedForm = {
+      ...sessionDtoToFormState(publishedSession),
+      name: "Attempted Rename On Published",
+      capacity: "20",
+      coachDisplayName: "Coach Jia Xuan",
+    };
+    const patchPayload = buildSessionUpdatePayload(
+      publishedSession,
+      editedForm,
+    );
+    assert.deepEqual(patchPayload, {
+      expectedVersion: 3,
+      capacity: 20,
+      coachDisplayName: "Coach Jia Xuan",
+    });
+
+    // Policy draft validation enforces all 4 categories x 3 locales and 64 lowercase hex sha256
+    const emptyContent = createEmptyPolicyContentMap();
+    const invalidRes = validatePolicyDraftInput("bad version!", emptyContent);
+    assert.equal(invalidRes.payload, null);
+    assert.ok(invalidRes.errors.policyVersion);
+    assert.ok(invalidRes.errors["content.GUARDIAN_AUTHORITY.en.ref"]);
+    assert.ok(invalidRes.errors["content.PHOTOGRAPHY.zh-Hans.sha256"]);
+
+    const validContent = createEmptyPolicyContentMap();
+    const validSha = "a".repeat(64);
+    for (const cat of [
+      "GUARDIAN_AUTHORITY",
+      "REGISTRATION_PRIVACY",
+      "MARKETING",
+      "PHOTOGRAPHY",
+    ]) {
+      for (const loc of ["en", "ms", "zh-Hans"]) {
+        validContent[cat][loc] = {
+          ref: `synthetic://academy-registration/${cat.toLowerCase()}/v1`,
+          sha256: validSha,
+        };
+      }
+    }
+    const validRes = validatePolicyDraftInput(
+      "SYNTHETIC-TEST-2026",
+      validContent,
+    );
+    assert.deepEqual(validRes.errors, {});
+    assert.equal(validRes.payload?.policyVersion, "SYNTHETIC-TEST-2026");
   });
 
   test("Complete 3-language localization parity (en, ms, zh-Hans) for all academyReg keys", async () => {

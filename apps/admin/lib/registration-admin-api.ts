@@ -1,24 +1,56 @@
 "use client";
 
 import type {
+  AdminRegistrationPolicyDto,
+  AdminRegistrationPolicyListDto,
+  AdminRegistrationSessionDto,
+  AdminRegistrationSessionListDto,
+  CreateRegistrationPolicyRequestDto,
+  CreateRegistrationSessionRequestDto,
+  PublishRegistrationSessionRequestDto,
   RegistrationDetailDto,
   RegistrationListDto,
   RegistrationSearchRequestDto,
   RegistrationStatus,
   RegistrationStatusChangeRequestDto,
+  UpdateRegistrationSessionRequestDto,
+  VersionRequestDto,
 } from "@khlim/api-client";
 import { adminApiClient } from "./admin-api";
+import type { ProgrammeItem, VenueItem } from "./types";
 
 export {
-  REGISTRATION_STATUS_OPTIONS,
+  AGE_REFERENCE_RULE_OPTIONS,
+  CONSENT_CATEGORY_META,
+  DATE_ONLY_REGEX,
+  ISO_WEEKDAY_OPTIONS,
+  POLICY_LOCALE_META,
+  POLICY_VERSION_REGEX,
   REGISTRATION_REASON_CODES,
-  getAllowedNextStatuses,
-  isTerminalRegistrationStatus,
-  isReasonCodeRequired,
-  formatRegistrationReasonCode,
+  REGISTRATION_STATUS_OPTIONS,
+  SESSION_RECURRENCE_OPTIONS,
+  SHA256_HEX_REGEX,
+  TIME_24H_REGEX,
+  buildSessionCreatePayload,
+  buildSessionUpdatePayload,
   classifyAdminRegistrationError,
+  createEmptyPolicyContentMap,
+  createEmptySessionForm,
+  formatAgeReferenceRule,
+  formatFieldErrorMessage,
+  formatIsoWeekday,
+  formatRegistrationReasonCode,
+  formatSessionRecurrence,
+  getAllowedNextStatuses,
+  isReasonCodeRequired,
+  isTerminalRegistrationStatus,
+  isoToMytDateTimeLocal,
+  mytDateTimeLocalToIso,
+  sessionDtoToFormState,
+  validatePolicyDraftInput,
   type AdminRegistrationErrorKind,
   type ClassifiedAdminRegistrationError,
+  type SessionFormState,
 } from "./registration-admin-rules";
 
 export interface ListAdminRegistrationsQuery {
@@ -53,7 +85,7 @@ export function listAdminRegistrations(
 }
 
 /**
- * Searches registrations via POST /v1/admin/academy/registrations/search.
+ * Searches registrations via POST /v1/admin/academy/registrations/search (HTTP 200).
  * Search terms travel strictly in the JSON request body, never in URLs.
  */
 export function searchAdminRegistrations(
@@ -108,4 +140,160 @@ export function changeAdminRegistrationStatus(
       cache: "no-store",
     },
   );
+}
+
+/**
+ * Lists authoritative registration sessions with confirmed seat counts via GET /v1/admin/academy/registration-sessions.
+ */
+export function listAdminRegistrationSessions(
+  signal?: AbortSignal,
+): Promise<AdminRegistrationSessionListDto> {
+  return adminApiClient.get<AdminRegistrationSessionListDto>(
+    "/admin/academy/registration-sessions",
+    {
+      cache: "no-store",
+      signal,
+    },
+  );
+}
+
+export function getAdminRegistrationSession(
+  id: string,
+  signal?: AbortSignal,
+): Promise<AdminRegistrationSessionDto> {
+  return adminApiClient.get<AdminRegistrationSessionDto>(
+    `/admin/academy/registration-sessions/${encodeURIComponent(id)}`,
+    {
+      cache: "no-store",
+      signal,
+    },
+  );
+}
+
+export function createAdminRegistrationSession(
+  body: CreateRegistrationSessionRequestDto,
+): Promise<AdminRegistrationSessionDto> {
+  return adminApiClient.post<AdminRegistrationSessionDto>(
+    "/admin/academy/registration-sessions",
+    body,
+    {
+      cache: "no-store",
+    },
+  );
+}
+
+export function updateAdminRegistrationSession(
+  id: string,
+  body: UpdateRegistrationSessionRequestDto,
+): Promise<AdminRegistrationSessionDto> {
+  return adminApiClient.patch<AdminRegistrationSessionDto>(
+    `/admin/academy/registration-sessions/${encodeURIComponent(id)}`,
+    body,
+    {
+      cache: "no-store",
+    },
+  );
+}
+
+export function publishAdminRegistrationSession(
+  id: string,
+  body: PublishRegistrationSessionRequestDto,
+): Promise<AdminRegistrationSessionDto> {
+  return adminApiClient.post<AdminRegistrationSessionDto>(
+    `/admin/academy/registration-sessions/${encodeURIComponent(id)}/publish`,
+    body,
+    {
+      cache: "no-store",
+    },
+  );
+}
+
+export function closeAdminRegistrationSession(
+  id: string,
+  body: VersionRequestDto,
+): Promise<AdminRegistrationSessionDto> {
+  return adminApiClient.post<AdminRegistrationSessionDto>(
+    `/admin/academy/registration-sessions/${encodeURIComponent(id)}/close`,
+    body,
+    {
+      cache: "no-store",
+    },
+  );
+}
+
+/**
+ * Lists consent policy current approved version + bounded history ({ current, items }).
+ */
+export function listAdminRegistrationPolicies(
+  signal?: AbortSignal,
+): Promise<AdminRegistrationPolicyListDto> {
+  return adminApiClient.get<AdminRegistrationPolicyListDto>(
+    "/admin/academy/registration-policies",
+    {
+      cache: "no-store",
+      signal,
+    },
+  );
+}
+
+export function createAdminRegistrationPolicy(
+  body: CreateRegistrationPolicyRequestDto,
+): Promise<AdminRegistrationPolicyDto> {
+  return adminApiClient.post<AdminRegistrationPolicyDto>(
+    "/admin/academy/registration-policies",
+    body,
+    {
+      cache: "no-store",
+    },
+  );
+}
+
+export function approveAdminRegistrationPolicy(
+  id: string,
+  body: VersionRequestDto,
+): Promise<AdminRegistrationPolicyDto> {
+  return adminApiClient.post<AdminRegistrationPolicyDto>(
+    `/admin/academy/registration-policies/${encodeURIComponent(id)}/approve`,
+    body,
+    {
+      cache: "no-store",
+    },
+  );
+}
+
+export function retireAdminRegistrationPolicy(
+  id: string,
+  body: VersionRequestDto,
+): Promise<AdminRegistrationPolicyDto> {
+  return adminApiClient.post<AdminRegistrationPolicyDto>(
+    `/admin/academy/registration-policies/${encodeURIComponent(id)}/retire`,
+    body,
+    {
+      cache: "no-store",
+    },
+  );
+}
+
+/**
+ * Authoritative programme and venue selectors for session creation/editing.
+ */
+export function listAuthoritativeProgrammes(
+  signal?: AbortSignal,
+): Promise<ProgrammeItem[]> {
+  return adminApiClient.get<ProgrammeItem[]>(
+    "/admin/operations-data/programmes",
+    {
+      cache: "no-store",
+      signal,
+    },
+  );
+}
+
+export function listAuthoritativeVenues(
+  signal?: AbortSignal,
+): Promise<VenueItem[]> {
+  return adminApiClient.get<VenueItem[]>("/admin/operations-data/venues", {
+    cache: "no-store",
+    signal,
+  });
 }
