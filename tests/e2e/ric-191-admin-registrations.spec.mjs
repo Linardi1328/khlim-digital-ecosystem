@@ -1487,7 +1487,7 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
     await expect(page.getByTestId("registrations-error-state")).toContainText(
       "Session Expired",
     );
-    await expect(searchBox).toHaveValue("");
+    await expect(searchBox).toHaveCount(0);
     await expect(page.locator("body")).not.toContainText("KAR-OLDORG01");
     await expect(page.locator("body")).not.toContainText(
       "Synthetic Old Org Player",
@@ -1673,8 +1673,303 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
       page.getByRole("tab", { name: /Training Sessions/i }),
     ).toContainText("0");
     await page.getByRole("tab", { name: /Registrations/i }).click();
-    await expect(
-      page.getByTestId("registration-session-filter"),
-    ).not.toContainText("Leaked Parent Filter Session");
+    await expect(page.getByTestId("registration-session-filter")).toHaveCount(
+      0,
+    );
+    await expect(page.locator("body")).not.toContainText(
+      "Leaked Parent Filter Session",
+    );
+  });
+
+  test("Post-401/403 ordinary UI interactions (tab switching) never clear invalidation, never fire refetches, and never re-enable child tabs", async ({
+    page,
+  }) => {
+    let regListRequests = 0;
+    let sessionListRequests = 0;
+    let policyListRequests = 0;
+    let failMode = "NONE";
+
+    await page.route(
+      /\/v1\/admin\/academy\/registrations(\?.*)?$/,
+      async (route) => {
+        regListRequests += 1;
+        if (failMode === "401") {
+          return route.fulfill({
+            status: 401,
+            contentType: "application/json",
+            body: JSON.stringify({
+              statusCode: 401,
+              message: "Unauthorized",
+              error: "Unauthorized",
+            }),
+          });
+        }
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(SYNTHETIC_LIST),
+        });
+      },
+    );
+
+    await page.route(
+      /\/v1\/admin\/academy\/registration-sessions$/,
+      async (route) => {
+        sessionListRequests += 1;
+        if (failMode === "403") {
+          return route.fulfill({
+            status: 403,
+            contentType: "application/json",
+            body: JSON.stringify({
+              statusCode: 403,
+              message: "MFA AAL2 required",
+              error: "Forbidden",
+            }),
+          });
+        }
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ items: [makeSyntheticSession()] }),
+        });
+      },
+    );
+
+    await page.route(
+      /\/v1\/admin\/academy\/registration-policies$/,
+      async (route) => {
+        policyListRequests += 1;
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ current: null, items: [] }),
+        });
+      },
+    );
+
+    // Part 1: Trigger global 401 on initial load -> switch through every tab -> 0 extra requests!
+    failMode = "401";
+    await page.goto("/registrations", { waitUntil: "networkidle" });
+    await expect(page.getByTestId("registrations-error-state")).toContainText(
+      "Session Expired",
+    );
+    await expect(page.getByTestId("auth-recovery-btn")).toHaveText(
+      "Sign In Again",
+    );
+
+    const regAfter401 = regListRequests;
+    const sessAfter401 = sessionListRequests;
+    const polAfter401 = policyListRequests;
+
+    // Tab switching must NOT clear Session Expired or fire any backend calls
+    await page.getByRole("tab", { name: /Training Sessions/i }).click();
+    await page.waitForTimeout(150);
+    await expect(page.getByTestId("registrations-error-state")).toContainText(
+      "Session Expired",
+    );
+
+    await page.getByRole("tab", { name: /Consent Policies/i }).click();
+    await page.waitForTimeout(150);
+    await expect(page.getByTestId("registrations-error-state")).toContainText(
+      "Session Expired",
+    );
+
+    await page.getByRole("tab", { name: /Registrations/i }).click();
+    await page.waitForTimeout(150);
+    await expect(page.getByTestId("registrations-error-state")).toContainText(
+      "Session Expired",
+    );
+    await expect(page.getByTestId("registration-session-filter")).toHaveCount(
+      0,
+    );
+
+    expect(regListRequests).toBe(regAfter401);
+    expect(sessionListRequests).toBe(sessAfter401);
+    expect(policyListRequests).toBe(polAfter401);
+
+    // Part 2: Trigger global 403 -> tab switching triggers 0 requests -> explicit Re-verify Access restores access!
+    failMode = "403";
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(page.getByTestId("registrations-error-state")).toContainText(
+      "Access Restricted",
+    );
+    await expect(page.getByTestId("auth-recovery-btn")).toHaveText(
+      "Re-verify Access",
+    );
+
+    const regAfter403 = regListRequests;
+    const sessAfter403 = sessionListRequests;
+    const polAfter403 = policyListRequests;
+
+    // Even if backend would now return 200, ordinary tab navigation MUST NOT re-enable or refetch!
+    failMode = "NONE";
+    await page.getByRole("tab", { name: /Training Sessions/i }).click();
+    await page.waitForTimeout(150);
+    await page.getByRole("tab", { name: /Consent Policies/i }).click();
+    await page.waitForTimeout(150);
+    await page.getByRole("tab", { name: /Registrations/i }).click();
+    await page.waitForTimeout(150);
+
+    expect(regListRequests).toBe(regAfter403);
+    expect(sessionListRequests).toBe(sessAfter403);
+    expect(policyListRequests).toBe(polAfter403);
+    await expect(page.getByTestId("registrations-error-state")).toContainText(
+      "Access Restricted",
+    );
+
+    // Only explicit recovery button restores access
+    await page.getByTestId("auth-recovery-btn").click();
+    await expect(page.getByText("KAR-7H3QK9XM")).toBeVisible();
+    await expect(page.getByTestId("registrations-error-state")).toHaveCount(0);
+  });
+
+  test("Admin usability: readable labels, safe missing age, discoverable mobile tabs, and drawer responsiveness at 360px-1440px", async ({
+    page,
+  }) => {
+    const listWithMissingAge = {
+      ...SYNTHETIC_LIST,
+      items: [
+        SYNTHETIC_LIST.items[0],
+        {
+          ...SYNTHETIC_LIST.items[1],
+          id: "reg-syn-null-age",
+          referenceCode: "KAR-NULLAGE1",
+          ageAtReference: null,
+        },
+      ],
+    };
+
+    await page.route(/\/v1\/admin\/academy\/registrations(\?.*)?$/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(listWithMissingAge),
+      }),
+    );
+    await page.route(
+      /\/v1\/admin\/academy\/registrations\/reg-syn-001$/,
+      (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(makeSyntheticDetail()),
+        }),
+    );
+    await page.route(/\/v1\/admin\/academy\/registration-sessions$/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: [makeSyntheticSession()] }),
+      }),
+    );
+    await page.route(/\/v1\/admin\/academy\/registration-policies$/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ current: null, items: [] }),
+      }),
+    );
+    await page.route(/\/v1\/admin\/operations-data\/programmes$/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(SYNTHETIC_PROGRAMMES),
+      }),
+    );
+    await page.route(/\/v1\/admin\/operations-data\/venues$/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(SYNTHETIC_VENUES),
+      }),
+    );
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/registrations", { waitUntil: "networkidle" });
+    await expect(page.getByText("KAR-7H3QK9XM")).toBeVisible();
+
+    // Safe missing-age display (never dangling " yrs")
+    await expect(page.locator("table")).not.toContainText(/^\s*yrs$/m);
+    const nullAgeRow = page.locator("tr", { hasText: "KAR-NULLAGE1" });
+    await expect(nullAgeRow).toContainText("—");
+    await expect(nullAgeRow).not.toContainText(" yrs");
+
+    // All 3 tabs discoverable inside viewport at 360px and 390px
+    for (const vp of VIEWPORTS) {
+      await page.setViewportSize(vp);
+      const overflow = await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth,
+      );
+      expect(
+        overflow,
+        `Admin /registrations overflow at ${vp.width}px: ${overflow}px`,
+      ).toBeLessThanOrEqual(2);
+
+      for (const tabName of [
+        /Registrations/i,
+        /Training Sessions/i,
+        /Consent Policies/i,
+      ]) {
+        const box = await page
+          .getByRole("tab", { name: tabName })
+          .boundingBox();
+        expect(box, `Tab ${tabName} visible at ${vp.width}px`).toBeTruthy();
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width).toBeLessThanOrEqual(vp.width + 2);
+      }
+    }
+
+    // Readable display labels & Escape accessibility in Registration detail drawer at 360px
+    await page.setViewportSize({ width: 360, height: 800 });
+    await page.getByTestId("review-registration-reg-syn-001").click();
+    const detail = page.getByTestId("registration-detail-content");
+    await expect(detail).toBeVisible();
+    await expect(detail).toContainText("Male");
+    await expect(detail).toContainText("Youth Medium (YM)");
+    await expect(detail).toContainText("Mother");
+    await expect(detail).toContainText("Grandparent");
+    await expect(detail).toContainText("Guardian Authority Acknowledgment");
+    await expect(detail).toContainText("English (en)");
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
+    // Session Create Drawer narrow-screen layout & zero overflow at 360px
+    await page.getByRole("tab", { name: /Training Sessions/i }).click();
+    await page.getByTestId("create-session-draft-btn").click();
+    await expect(page.getByTestId("session-editor-form")).toBeVisible();
+    const sessOverflow = await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth -
+        document.documentElement.clientWidth,
+    );
+    expect(sessOverflow).toBeLessThanOrEqual(2);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
+    // Consent Policy Create Drawer narrow-screen stacked Ref/SHA-256 layout at 360px & 390px
+    await page.getByRole("tab", { name: /Consent Policies/i }).click();
+    await page.getByTestId("create-policy-draft-btn").click();
+    await expect(page.getByTestId("policy-create-form")).toBeVisible();
+    const refBox = await page
+      .locator("#policy-ref-GUARDIAN_AUTHORITY-en")
+      .boundingBox();
+    const shaBox = await page
+      .locator("#policy-sha-GUARDIAN_AUTHORITY-en")
+      .boundingBox();
+    expect(refBox && shaBox).toBeTruthy();
+    // Stacked vertically at 360px (shaBox sits below refBox, full readable width!)
+    expect(shaBox.y).toBeGreaterThan(refBox.y + 20);
+    expect(refBox.width).toBeGreaterThan(220);
+    expect(shaBox.width).toBeGreaterThan(220);
+    const polOverflow = await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth -
+        document.documentElement.clientWidth,
+    );
+    expect(polOverflow).toBeLessThanOrEqual(2);
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
   });
 });

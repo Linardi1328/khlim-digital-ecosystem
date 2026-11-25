@@ -176,6 +176,148 @@ export function formatRegistrationReasonCode(
   return match ? match.label : code;
 }
 
+export function formatRegistrationStatusLabel(
+  status: string | null | undefined,
+): string {
+  switch (status) {
+    case "RECEIVED":
+      return "Received";
+    case "UNDER_REVIEW":
+      return "Under Review";
+    case "CONFIRMED":
+      return "Confirmed";
+    case "REJECTED":
+      return "Rejected";
+    case "CANCELLED":
+      return "Cancelled";
+    default:
+      return status ? status.replaceAll("_", " ") : "—";
+  }
+}
+
+export function formatPublicationStateLabel(
+  state: string | null | undefined,
+): string {
+  switch (state) {
+    case "DRAFT":
+      return "Draft";
+    case "PUBLISHED":
+      return "Published";
+    case "CLOSED":
+      return "Closed";
+    default:
+      return state || "—";
+  }
+}
+
+export function formatPolicyStatusLabel(
+  status: string | null | undefined,
+): string {
+  switch (status) {
+    case "DRAFT":
+      return "Draft";
+    case "APPROVED":
+      return "Approved";
+    case "RETIRED":
+      return "Retired";
+    default:
+      return status || "—";
+  }
+}
+
+export function formatPlayerGender(gender: string | null | undefined): string {
+  switch (gender) {
+    case "MALE":
+      return "Male";
+    case "FEMALE":
+      return "Female";
+    default:
+      return gender || "—";
+  }
+}
+
+export function formatJerseySize(size: string | null | undefined): string {
+  switch (size) {
+    case "YS":
+      return "Youth Small (YS)";
+    case "YM":
+      return "Youth Medium (YM)";
+    case "YL":
+      return "Youth Large (YL)";
+    case "AS":
+      return "Adult Small (AS)";
+    case "AM":
+      return "Adult Medium (AM)";
+    case "AL":
+      return "Adult Large (AL)";
+    case "AXL":
+      return "Adult Extra Large (AXL)";
+    default:
+      return size || "—";
+  }
+}
+
+export function formatRelationshipLabel(
+  relationship: string | null | undefined,
+): string {
+  switch (relationship) {
+    case "MOTHER":
+      return "Mother";
+    case "FATHER":
+      return "Father";
+    case "LEGAL_GUARDIAN":
+      return "Legal Guardian";
+    case "GRANDPARENT":
+      return "Grandparent";
+    case "OTHER_RELATIVE":
+      return "Other Relative";
+    case "FRIEND":
+      return "Family Friend";
+    case "OTHER":
+      return "Other";
+    default:
+      return relationship ? relationship.replaceAll("_", " ") : "—";
+  }
+}
+
+export function formatConsentTypeLabel(
+  type: string | null | undefined,
+): string {
+  if (!type) return "Consent";
+  const match = CONSENT_CATEGORY_META.find((item) => item.type === type);
+  return match ? match.label : type.replaceAll("_", " ");
+}
+
+export function formatLocaleLabel(locale: string | null | undefined): string {
+  if (!locale) return "—";
+  const match = POLICY_LOCALE_META.find((item) => item.locale === locale);
+  return match ? match.label : locale;
+}
+
+export function formatAgeAtReference(age: number | null | undefined): string {
+  if (typeof age === "number" && Number.isFinite(age) && age >= 0) {
+    return `${Math.floor(age)} yrs`;
+  }
+  return "—";
+}
+
+export function formatDobWithAge(
+  dateOfBirth: string | null | undefined,
+  ageAtReference: number | null | undefined,
+): string {
+  const dob = dateOfBirth?.trim() || "";
+  const hasValidAge =
+    typeof ageAtReference === "number" &&
+    Number.isFinite(ageAtReference) &&
+    ageAtReference >= 0;
+  if (dob && hasValidAge) {
+    return `${dob} (Age ${Math.floor(ageAtReference)} at ref)`;
+  }
+  if (dob) return dob;
+  if (hasValidAge) return `Age ${Math.floor(ageAtReference)} at ref`;
+  return "—";
+}
+
 export function formatIsoWeekday(weekday: number | null | undefined): string {
   if (!weekday) return "Not set";
   const found = ISO_WEEKDAY_OPTIONS.find((item) => item.value === weekday);

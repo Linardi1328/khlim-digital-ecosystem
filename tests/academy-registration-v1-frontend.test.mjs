@@ -589,6 +589,77 @@ describe("RIC-191 Academy Registration V1 frontend helpers & contract rules", ()
     assert.match(closed409.message, /closed/i);
   });
 
+  test("Admin display label formatters map raw API enums cleanly and handle missing ages safely", async () => {
+    const {
+      formatAgeAtReference,
+      formatConsentTypeLabel,
+      formatDobWithAge,
+      formatJerseySize,
+      formatLocaleLabel,
+      formatPlayerGender,
+      formatPolicyStatusLabel,
+      formatPublicationStateLabel,
+      formatRegistrationStatusLabel,
+      formatRelationshipLabel,
+    } = await import("../apps/admin/lib/registration-admin-rules.ts");
+
+    assert.equal(formatPlayerGender("MALE"), "Male");
+    assert.equal(formatPlayerGender("FEMALE"), "Female");
+    assert.equal(formatPlayerGender(null), "—");
+
+    assert.equal(formatJerseySize("YM"), "Youth Medium (YM)");
+    assert.equal(formatJerseySize("AXL"), "Adult Extra Large (AXL)");
+    assert.equal(formatJerseySize(undefined), "—");
+
+    assert.equal(formatRelationshipLabel("MOTHER"), "Mother");
+    assert.equal(formatRelationshipLabel("LEGAL_GUARDIAN"), "Legal Guardian");
+    assert.equal(formatRelationshipLabel("GRANDPARENT"), "Grandparent");
+    assert.equal(formatRelationshipLabel("OTHER_RELATIVE"), "Other Relative");
+    assert.equal(formatRelationshipLabel("FRIEND"), "Family Friend");
+    assert.equal(formatRelationshipLabel(null), "—");
+
+    assert.equal(
+      formatConsentTypeLabel("GUARDIAN_AUTHORITY"),
+      "Guardian Authority Acknowledgment",
+    );
+    assert.equal(
+      formatConsentTypeLabel("REGISTRATION_PRIVACY"),
+      "Registration Privacy Consent",
+    );
+    assert.equal(
+      formatConsentTypeLabel("MARKETING"),
+      "Academy Updates & Marketing",
+    );
+    assert.equal(
+      formatConsentTypeLabel("PHOTOGRAPHY"),
+      "Training Photography & Media",
+    );
+
+    assert.equal(formatLocaleLabel("en"), "English (en)");
+    assert.equal(formatLocaleLabel("ms"), "Bahasa Melayu (ms)");
+    assert.equal(formatLocaleLabel("zh-Hans"), "Simplified Chinese (zh-Hans)");
+
+    assert.equal(formatRegistrationStatusLabel("UNDER_REVIEW"), "Under Review");
+    assert.equal(formatPublicationStateLabel("PUBLISHED"), "Published");
+    assert.equal(formatPolicyStatusLabel("APPROVED"), "Approved");
+
+    // Safe age & DOB formatting (never outputs dangling " yrs" or "(Age  at ref)")
+    assert.equal(formatAgeAtReference(11), "11 yrs");
+    assert.equal(formatAgeAtReference(0), "0 yrs");
+    assert.equal(formatAgeAtReference(null), "—");
+    assert.equal(formatAgeAtReference(undefined), "—");
+    assert.equal(formatAgeAtReference(Number.NaN), "—");
+    assert.equal(formatAgeAtReference(-1), "—");
+
+    assert.equal(
+      formatDobWithAge("2015-03-02", 11),
+      "2015-03-02 (Age 11 at ref)",
+    );
+    assert.equal(formatDobWithAge("2015-03-02", null), "2015-03-02");
+    assert.equal(formatDobWithAge("2015-03-02", undefined), "2015-03-02");
+    assert.equal(formatDobWithAge(null, null), "—");
+  });
+
   test("Complete 3-language localization parity (en, ms, zh-Hans) for all academyReg keys", async () => {
     const { academyRegistrationWebMessages } =
       await import("../packages/i18n/src/messages/academy-registration-web.ts");

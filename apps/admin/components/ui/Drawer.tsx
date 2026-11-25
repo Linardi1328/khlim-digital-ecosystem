@@ -77,10 +77,11 @@ export function Drawer({
         aria-labelledby={titleId}
         aria-describedby={subtitle ? descId : undefined}
         tabIndex={-1}
+        className="admin-drawer-panel"
         style={{
           width: "100%",
           maxWidth: width,
-          height: "100vh",
+          minWidth: 0,
           backgroundColor: "#FFFFFF",
           boxShadow: "-10px 0 25px -5px rgba(0,0,0,0.15)",
           display: "flex",
@@ -98,23 +99,25 @@ export function Drawer({
 
         {/* Drawer Header */}
         <div
+          className="admin-drawer-header"
           style={{
-            padding: "20px 24px",
             borderBottom: "1px solid #E2E8F0",
             display: "flex",
             alignItems: "flex-start",
             justifyContent: "space-between",
             gap: "12px",
+            flexShrink: 0,
           }}
         >
-          <div>
+          <div style={{ minWidth: 0 }}>
             <h2
               id={titleId}
               style={{
                 margin: 0,
-                fontSize: "1.25rem",
+                fontSize: "1.15rem",
                 fontWeight: 800,
                 color: "#0F172A",
+                overflowWrap: "anywhere",
               }}
             >
               {title}
@@ -126,6 +129,8 @@ export function Drawer({
                   fontSize: "0.8125rem",
                   color: "#64748B",
                   marginTop: "4px",
+                  lineHeight: 1.45,
+                  overflowWrap: "anywhere",
                 }}
               >
                 {subtitle}
@@ -138,12 +143,18 @@ export function Drawer({
             onClick={onClose}
             aria-label="Close drawer"
             style={{
-              background: "none",
-              border: "none",
-              color: "#94A3B8",
+              background: "#F8FAFC",
+              border: "1px solid #E2E8F0",
+              borderRadius: "8px",
+              color: "#475569",
               cursor: "pointer",
-              fontSize: "1.25rem",
-              padding: "4px",
+              fontSize: "1.1rem",
+              minWidth: "40px",
+              minHeight: "40px",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
               lineHeight: 1,
             }}
           >
@@ -152,20 +163,30 @@ export function Drawer({
         </div>
 
         {/* Drawer Content */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
+        <div
+          className="admin-drawer-body"
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: "auto",
+            WebkitOverflowScrolling: "touch",
+          }}
+        >
           {children}
         </div>
 
         {/* Drawer Footer */}
         {footer && (
           <div
+            className="admin-drawer-footer"
             style={{
-              padding: "16px 24px",
               borderTop: "1px solid #E2E8F0",
               backgroundColor: "#F8FAFC",
               display: "flex",
               justifyContent: "flex-end",
               gap: "10px",
+              flexWrap: "wrap",
+              flexShrink: 0,
             }}
           >
             {footer}

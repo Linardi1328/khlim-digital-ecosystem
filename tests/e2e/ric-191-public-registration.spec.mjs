@@ -693,15 +693,69 @@ test.describe("RIC-191 Public Academy Registration V1", () => {
     expect(seenKeys[1]).toBe(seenKeys[0]);
   });
 
-  test("Language switching resets consents and mobile viewports (360-1440px) have zero horizontal overflow in EN, MS, ZH-Hans", async ({
+  test("Language switching resets consents, hides competing header CTA, and all 7 viewports (360-1440px) have zero overflow including Receipt in EN, MS, ZH-Hans", async ({
     page,
   }) => {
     await setupBasePublicMocks(page);
+    await page.route("**/v1/academy/registrations", (route) =>
+      route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify(SYNTHETIC_RECEIPT),
+      }),
+    );
+
+    // First verify open /academy prioritizes Register Now and removes obsolete pending-booking contradictions
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/academy?source=ric191-open-qa", {
+      waitUntil: "networkidle",
+    });
+    await expect(page.getByTestId("academy-hero-register-now")).toBeVisible();
+    await expect(
+      page.getByTestId("academy-hero-register-interest-secondary"),
+    ).toBeVisible();
+    await expect(page.getByTestId("academy-final-register-now")).toBeVisible();
+    await expect(
+      page.getByTestId("academy-open-secondary-interest"),
+    ).toBeVisible();
+    await expect(page.locator("#training-sessions")).not.toContainText(
+      "Pending confirmation",
+    );
+    await expect(page.locator("#training-sessions")).not.toContainText(
+      "Online registration is not open yet",
+    );
+    await expect(page.getByTestId("academy-next-steps")).toContainText(
+      "Submit your online registration",
+    );
+    await maybeCapture(page, "after-academy-open-mobile-390.png");
+
+    // Check /academy zero overflow across 360 and 390px
+    for (const vp of VIEWPORTS) {
+      await page.setViewportSize(vp);
+      const overflow = await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth,
+      );
+      expect(
+        overflow,
+        `Horizontal overflow on open /academy at ${vp.width}px: ${overflow}px`,
+      ).toBeLessThanOrEqual(2);
+    }
+
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(
-      "/academy/register?sessionId=00000000-0000-4000-8000-000000000001",
+      "/academy/register?sessionId=00000000-0000-4000-8000-000000000001&source=ric191-open-qa",
       { waitUntil: "networkidle" },
     );
+
+    // No competing primary Register Interest CTA in header quick-actions during active registration
+    await expect(
+      page.locator(".public-header-mobile-quick-actions"),
+    ).toHaveCount(0);
+    await expect(
+      page.locator('header .public-header-auth-actions a[href*="/interest"]'),
+    ).toHaveCount(0);
 
     // Switch to Bahasa Melayu
     await page
@@ -732,7 +786,7 @@ test.describe("RIC-191 Public Academy Registration V1", () => {
     );
     await maybeCapture(page, "14-registration-mobile-zh.png");
 
-    // Verify zero horizontal overflow across all 7 required viewport widths
+    // Verify zero horizontal overflow on Step 3 across all 7 required viewport widths
     for (const vp of VIEWPORTS) {
       await page.setViewportSize(vp);
       const overflow = await page.evaluate(
@@ -742,8 +796,38 @@ test.describe("RIC-191 Public Academy Registration V1", () => {
       );
       expect(
         overflow,
-        `Horizontal overflow on /academy/register at ${vp.width}px: ${overflow}px`,
+        `Horizontal overflow on /academy/register Step 3 at ${vp.width}px: ${overflow}px`,
       ).toBeLessThanOrEqual(2);
+    }
+
+    // Submit and verify zero horizontal overflow on the Receipt screen across all 7 viewports in EN, MS, and ZH-Hans!
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.check("#consent-checkbox-GUARDIAN_AUTHORITY");
+    await page.check("#consent-checkbox-REGISTRATION_PRIVACY");
+    await page.getByTestId("registration-submit-btn").click();
+    await expect(page.getByTestId("registration-receipt-card")).toBeVisible();
+    await expect(page.getByTestId("receipt-reference-code")).toHaveText(
+      "KAR-7H3QK9XM",
+    );
+
+    for (const loc of ["en", "ms", "zh-Hans"]) {
+      await page
+        .locator(".public-header-locale select")
+        .first()
+        .selectOption(loc);
+      await expect(page.locator("html")).toHaveAttribute("lang", loc);
+      for (const vp of VIEWPORTS) {
+        await page.setViewportSize(vp);
+        const overflow = await page.evaluate(
+          () =>
+            document.documentElement.scrollWidth -
+            document.documentElement.clientWidth,
+        );
+        expect(
+          overflow,
+          `Horizontal overflow on Receipt (${loc}) at ${vp.width}px: ${overflow}px`,
+        ).toBeLessThanOrEqual(2);
+      }
     }
   });
 });

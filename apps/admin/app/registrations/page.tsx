@@ -38,7 +38,16 @@ import {
   buildAdminAuthContextKey,
   changeAdminRegistrationStatus,
   classifyAdminRegistrationError,
+  formatAgeAtReference,
+  formatConsentTypeLabel,
+  formatDobWithAge,
+  formatJerseySize,
+  formatLocaleLabel,
+  formatPlayerGender,
+  formatPublicationStateLabel,
   formatRegistrationReasonCode,
+  formatRegistrationStatusLabel,
+  formatRelationshipLabel,
   getAdminRegistrationDetail,
   getAllowedNextStatuses,
   isReasonCodeRequired,
@@ -87,6 +96,7 @@ function AcademyRegistrationsContent() {
     isDemoMode,
     mfaSatisfied,
     logout,
+    refreshSession,
   } = useAdminAuth();
   const canView = hasRole(["SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN"]);
   const canApprovePolicies = hasRole(["SUPER_ADMIN", "MANAGEMENT"]);
@@ -124,6 +134,7 @@ function AcademyRegistrationsContent() {
   const [authErrorKind, setAuthErrorKind] =
     useState<AdminRegistrationErrorKind | null>(null);
   const [authInvalidationCount, setAuthInvalidationCount] = useState(0);
+  const [isRecoveringAuth, setIsRecoveringAuth] = useState(false);
 
   // Filters & bounded pagination
   const [searchResetKey, setSearchResetKey] = useState(0);
@@ -188,10 +199,13 @@ function AcademyRegistrationsContent() {
     if (searchTimerRef.current !== null) {
       window.clearTimeout(searchTimerRef.current);
     }
+    if (authInvalidatedRef.current) {
+      return;
+    }
     const authGen = authGenerationRef.current;
     searchTimerRef.current = window.setTimeout(() => {
       searchTimerRef.current = null;
-      if (!isCurrentAuthGen(authGen)) return;
+      if (!isCurrentAuthGen(authGen) || authInvalidatedRef.current) return;
       setDebouncedSearch(searchInput.trim());
     }, 300);
     return () => {
@@ -239,6 +253,7 @@ function AcademyRegistrationsContent() {
     setAuthErrorKind(null);
     setConfirmOpen(false);
     setIsUpdatingStatus(false);
+    setIsRecoveringAuth(false);
   }, [authContextKey]);
 
   const handleGlobalAuthError = useCallback(
@@ -286,6 +301,7 @@ function AcademyRegistrationsContent() {
       setDetailLoading(false);
       setAuthErrorKind(kind);
       setListError(message);
+      setIsRecoveringAuth(false);
       // Propagate global 401/403 invalidation synchronously to every mounted child tab
       setAuthInvalidationCount((prev) => prev + 1);
     },
@@ -306,7 +322,7 @@ function AcademyRegistrationsContent() {
   const fetchAuthoritativeSessionFilter = useCallback(async () => {
     void authContextKey;
     const authGen = authGenerationRef.current;
-    if (!isEligible) {
+    if (!isEligible || authInvalidatedRef.current) {
       sessionFilterSeq.current += 1;
       sessionFilterAbortRef.current?.abort();
       setAuthoritativeSessions([]);
@@ -363,7 +379,7 @@ function AcademyRegistrationsContent() {
   const fetchRegistrations = useCallback(async () => {
     void authContextKey;
     const authGen = authGenerationRef.current;
-    if (!isEligible) {
+    if (!isEligible || authInvalidatedRef.current) {
       listRequestSeq.current += 1;
       listAbortRef.current?.abort();
       setRegistrations([]);
@@ -379,7 +395,6 @@ function AcademyRegistrationsContent() {
 
     setLoading(true);
     setListError(null);
-    setAuthErrorKind(null);
 
     try {
       const normalizedStatus =
@@ -460,7 +475,7 @@ function AcademyRegistrationsContent() {
 
   const loadRegistrationDetail = useCallback(
     async (id: string) => {
-      if (!isEligible) return;
+      if (!isEligible || authInvalidatedRef.current) return;
       const authGen = authGenerationRef.current;
       detailAbortRef.current?.abort();
       const controller = new AbortController();
@@ -535,7 +550,15 @@ function AcademyRegistrationsContent() {
     !isUpdatingStatus;
 
   const handleConfirmStatusUpdate = async () => {
-    if (!selectedDetail || !targetStatus || isUpdatingStatus) return;
+    if (
+      !isEligible ||
+      authInvalidatedRef.current ||
+      !selectedDetail ||
+      !targetStatus ||
+      isUpdatingStatus
+    ) {
+      return;
+    }
     if (reasonRequired && !reasonCode) return;
 
     const authGen = authGenerationRef.current;
@@ -562,7 +585,7 @@ function AcademyRegistrationsContent() {
       setReasonCode("");
       setStatusFeedback({
         variant: "success",
-        message: `Registration status updated to ${updated.status} (version ${updated.version}).`,
+        message: `Registration status updated to ${formatRegistrationStatusLabel(updated.status)} (${updated.status}, version ${updated.version}).`,
       });
 
       // Synchronize summary row and refresh bounded list + authoritative seat counts
@@ -695,7 +718,7 @@ function AcademyRegistrationsContent() {
       header: "Age (Ref)",
       render: (item) => (
         <span style={{ fontWeight: 500, color: "#334155" }}>
-          {item.ageAtReference} yrs
+          {formatAgeAtReference(item.ageAtReference)}
         </span>
       ),
     },
@@ -819,6 +842,81 @@ function AcademyRegistrationsContent() {
   const childAuthContextKey = `${authContextKey}:inv-${authInvalidationCount}`;
   const childIsEligible = isEligible && !isAuthInvalidated;
 
+  const handleExplicitAuthRecovery = async () => {
+    if (isRecoveringAuth) return;
+    if (authErrorKind === "UNAUTHENTICATED") {
+      setIsRecoveringAuth(true);
+      try {
+        await logout();
+      } finally {
+        if (isMountedRef.current) {
+          setIsRecoveringAuth(false);
+        }
+      }
+      return;
+    }
+
+    if (authErrorKind === "FORBIDDEN") {
+      setIsRecoveringAuth(true);
+      try {
+        if (!isDemoMode) {
+          await refreshSession();
+        }
+        if (!isMountedRef.current) return;
+        authInvalidatedRef.current = false;
+        setAuthErrorKind(null);
+        setListError(null);
+        setAuthInvalidationCount((prev) => prev + 1);
+        void fetchAuthoritativeSessionFilter();
+        if (activeTab === "registrations") {
+          void fetchRegistrations();
+        }
+      } catch (error: unknown) {
+        if (!isMountedRef.current) return;
+        const classified = classifyAdminRegistrationError(error);
+        setListError(classified.message);
+      } finally {
+        if (isMountedRef.current) {
+          setIsRecoveringAuth(false);
+        }
+      }
+    }
+  };
+
+  const renderGlobalAuthError = () => (
+    <div data-testid="registrations-error-state" style={{ marginBottom: 16 }}>
+      <ErrorState
+        title={
+          authErrorKind === "UNAUTHENTICATED"
+            ? "Session Expired"
+            : "Access Restricted"
+        }
+        message={
+          listError ||
+          (authErrorKind === "UNAUTHENTICATED"
+            ? "Your staff session has expired or is no longer authenticated. Please sign in again to continue."
+            : "Access denied. This action requires an authorized staff role with verified AAL2 MFA.")
+        }
+        action={
+          <Button
+            type="button"
+            variant="danger"
+            size="sm"
+            data-testid="auth-recovery-btn"
+            disabled={isRecoveringAuth}
+            onClick={() => void handleExplicitAuthRecovery()}
+          >
+            {isRecoveringAuth
+              ? "Verifying..."
+              : authErrorKind === "UNAUTHENTICATED"
+                ? "Sign In Again"
+                : "Re-verify Access"}
+          </Button>
+        }
+      />
+    </div>
+  );
+
   return (
     <AdminShell>
       <div
@@ -841,33 +939,7 @@ function AcademyRegistrationsContent() {
           onChange={(tabId) => setActiveTab(tabId)}
         />
 
-        {isAuthInvalidated && activeTab !== "registrations" && listError ? (
-          <div
-            data-testid="registrations-error-state"
-            style={{ marginBottom: 16 }}
-          >
-            <ErrorState
-              title={
-                authErrorKind === "UNAUTHENTICATED"
-                  ? "Session Expired"
-                  : "Access Restricted"
-              }
-              message={listError}
-              onRetry={
-                authErrorKind === "UNAUTHENTICATED"
-                  ? () => void logout()
-                  : () => {
-                      authInvalidatedRef.current = false;
-                      setAuthErrorKind(null);
-                      setListError(null);
-                      setAuthInvalidationCount((prev) => prev + 1);
-                      void fetchAuthoritativeSessionFilter();
-                      void fetchRegistrations();
-                    }
-              }
-            />
-          </div>
-        ) : null}
+        {isAuthInvalidated ? renderGlobalAuthError() : null}
 
         {activeTab === "sessions" && (
           <AdminTrainingSessionsTab
@@ -887,11 +959,12 @@ function AcademyRegistrationsContent() {
           />
         )}
 
-        {activeTab === "registrations" && (
+        {activeTab === "registrations" && !isAuthInvalidated && (
           <div role="tabpanel" id="panel-registrations">
             <FilterBar
               hasActiveFilters={hasActiveFilters}
               onReset={() => {
+                if (authInvalidatedRef.current) return;
                 setSearchInput("");
                 setDebouncedSearch("");
                 setStatusFilter("ALL");
@@ -903,6 +976,7 @@ function AcademyRegistrationsContent() {
                 key={searchResetKey}
                 value={searchInput}
                 onChange={(val) => {
+                  if (authInvalidatedRef.current) return;
                   setSearchInput(val);
                   setPage(1);
                 }}
@@ -927,6 +1001,7 @@ function AcademyRegistrationsContent() {
                   id="registration-status-filter"
                   value={statusFilter}
                   onChange={(e) => {
+                    if (authInvalidatedRef.current) return;
                     setStatusFilter(e.target.value);
                     setPage(1);
                   }}
@@ -942,7 +1017,7 @@ function AcademyRegistrationsContent() {
                   <option value="ALL">All Statuses</option>
                   {REGISTRATION_STATUS_OPTIONS.map((status) => (
                     <option key={status} value={status}>
-                      {status.replaceAll("_", " ")}
+                      {formatRegistrationStatusLabel(status)}
                     </option>
                   ))}
                 </select>
@@ -968,6 +1043,7 @@ function AcademyRegistrationsContent() {
                   value={sessionFilter}
                   disabled={sessionsFilterLoading}
                   onChange={(e) => {
+                    if (authInvalidatedRef.current) return;
                     setSessionFilter(e.target.value);
                     setPage(1);
                   }}
@@ -994,7 +1070,8 @@ function AcademyRegistrationsContent() {
                   </option>
                   {authoritativeSessions.map((session) => (
                     <option key={session.id} value={session.id}>
-                      {session.name} ({session.publicationState})
+                      {session.name} (
+                      {formatPublicationStateLabel(session.publicationState)})
                     </option>
                   ))}
                 </select>
@@ -1030,19 +1107,9 @@ function AcademyRegistrationsContent() {
             ) : listError ? (
               <div data-testid="registrations-error-state">
                 <ErrorState
-                  title={
-                    authErrorKind === "UNAUTHENTICATED"
-                      ? "Session Expired"
-                      : authErrorKind === "FORBIDDEN"
-                        ? "Access Restricted"
-                        : "Failed to Load Registrations"
-                  }
+                  title="Failed to Load Registrations"
                   message={listError}
-                  onRetry={
-                    authErrorKind === "UNAUTHENTICATED"
-                      ? () => void logout()
-                      : () => void fetchRegistrations()
-                  }
+                  onRetry={() => void fetchRegistrations()}
                 />
               </div>
             ) : registrations.length === 0 ? (
@@ -1227,14 +1294,7 @@ function AcademyRegistrationsContent() {
                     Player ID assigned later upon athlete conversion
                   </span>
                 </div>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 12,
-                    fontSize: "0.8125rem",
-                  }}
-                >
+                <div className="admin-detail-grid">
                   <div>
                     <div style={{ color: "#64748B" }}>Full Name</div>
                     <div style={{ fontWeight: 600, color: "#0F172A" }}>
@@ -1245,20 +1305,22 @@ function AcademyRegistrationsContent() {
                   <div>
                     <div style={{ color: "#64748B" }}>Date of Birth</div>
                     <div style={{ fontWeight: 600, color: "#0F172A" }}>
-                      {selectedDetail.player.dateOfBirth || "—"} (Age{" "}
-                      {selectedDetail.ageAtReference} at ref)
+                      {formatDobWithAge(
+                        selectedDetail.player.dateOfBirth,
+                        selectedDetail.ageAtReference,
+                      )}
                     </div>
                   </div>
                   <div>
                     <div style={{ color: "#64748B" }}>Gender</div>
                     <div style={{ fontWeight: 500, color: "#0F172A" }}>
-                      {selectedDetail.player.gender || "—"}
+                      {formatPlayerGender(selectedDetail.player.gender)}
                     </div>
                   </div>
                   <div>
                     <div style={{ color: "#64748B" }}>Jersey Size</div>
                     <div style={{ fontWeight: 500, color: "#0F172A" }}>
-                      {selectedDetail.player.jerseySize || "—"}
+                      {formatJerseySize(selectedDetail.player.jerseySize)}
                     </div>
                   </div>
                   <div>
@@ -1298,14 +1360,7 @@ function AcademyRegistrationsContent() {
                   >
                     Guardian Details
                   </strong>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: 12,
-                      fontSize: "0.8125rem",
-                    }}
-                  >
+                  <div className="admin-detail-grid">
                     <div>
                       <div style={{ color: "#64748B" }}>Full Name</div>
                       <div style={{ fontWeight: 600, color: "#0F172A" }}>
@@ -1327,7 +1382,9 @@ function AcademyRegistrationsContent() {
                     <div>
                       <div style={{ color: "#64748B" }}>Relationship</div>
                       <div style={{ color: "#0F172A" }}>
-                        {selectedDetail.guardian.relationship || "—"}
+                        {formatRelationshipLabel(
+                          selectedDetail.guardian.relationship,
+                        )}
                       </div>
                     </div>
                     <div>
@@ -1384,14 +1441,7 @@ function AcademyRegistrationsContent() {
                   >
                     Emergency Contact
                   </strong>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: 12,
-                      fontSize: "0.8125rem",
-                    }}
-                  >
+                  <div className="admin-detail-grid">
                     <div>
                       <div style={{ color: "#64748B" }}>Full Name</div>
                       <div style={{ fontWeight: 600, color: "#0F172A" }}>
@@ -1413,7 +1463,9 @@ function AcademyRegistrationsContent() {
                     <div>
                       <div style={{ color: "#64748B" }}>Relationship</div>
                       <div style={{ color: "#0F172A" }}>
-                        {selectedDetail.emergencyContact.relationship || "—"}
+                        {formatRelationshipLabel(
+                          selectedDetail.emergencyContact.relationship,
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1477,7 +1529,7 @@ function AcademyRegistrationsContent() {
                           }}
                         >
                           <strong style={{ color: "#0F172A" }}>
-                            {record.type || "Consent"}
+                            {formatConsentTypeLabel(record.type)}
                           </strong>
                           <span
                             style={{
@@ -1490,8 +1542,8 @@ function AcademyRegistrationsContent() {
                         </div>
                         <div style={{ color: "#475569" }}>
                           Policy: <code>{record.policyVersion || "—"}</code> ·
-                          Locale: <code>{record.locale || "—"}</code> ·
-                          Accepted: {formatMytDateTime(record.acceptedAt)}
+                          Locale: {formatLocaleLabel(record.locale)} · Accepted:{" "}
+                          {formatMytDateTime(record.acceptedAt)}
                         </div>
                         {record.contentSha256 ? (
                           <div
@@ -1571,8 +1623,10 @@ function AcademyRegistrationsContent() {
                     }}
                   >
                     This registration is in a terminal state (
-                    <strong>{selectedDetail.status}</strong>). No further status
-                    transitions are allowed.
+                    <strong>
+                      {formatRegistrationStatusLabel(selectedDetail.status)}
+                    </strong>
+                    ). No further status transitions are allowed.
                   </p>
                 ) : (
                   <>
@@ -1618,7 +1672,7 @@ function AcademyRegistrationsContent() {
                         <option value="">Select status transition...</option>
                         {allowedTransitions.map((status) => (
                           <option key={status} value={status}>
-                            {status.replaceAll("_", " ")}
+                            {formatRegistrationStatusLabel(status)}
                           </option>
                         ))}
                       </select>
@@ -1636,7 +1690,8 @@ function AcademyRegistrationsContent() {
                             marginBottom: 6,
                           }}
                         >
-                          Reason Code (required for {targetStatus})
+                          Reason Code (required for{" "}
+                          {formatRegistrationStatusLabel(targetStatus)})
                         </label>
                         <select
                           id="registration-reason-code"

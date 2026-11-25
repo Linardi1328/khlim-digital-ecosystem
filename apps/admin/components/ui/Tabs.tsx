@@ -20,14 +20,13 @@ export function Tabs({ tabs, activeTab, onChange, className = "" }: TabsProps) {
   return (
     <div
       role="tablist"
-      className={className}
+      className={`admin-tabs ${className}`.trim()}
       style={{
         display: "flex",
         alignItems: "center",
         gap: "4px",
         borderBottom: "1px solid #E2E8F0",
         marginBottom: "20px",
-        overflowX: "auto",
       }}
     >
       {tabs.map((tab) => {
@@ -40,6 +39,7 @@ export function Tabs({ tabs, activeTab, onChange, className = "" }: TabsProps) {
             id={`tab-${tab.id}`}
             aria-controls={`panel-${tab.id}`}
             type="button"
+            className="admin-tab-btn"
             onClick={() => onChange(tab.id)}
             style={{
               padding: "10px 16px",

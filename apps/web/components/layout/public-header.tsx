@@ -26,6 +26,9 @@ function PublicHeaderView({
   const { isAuthenticated } = useAuth();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const isActiveRegistrationRoute =
+    pathname === "/academy/register" ||
+    Boolean(pathname?.startsWith("/academy/register/"));
 
   const navLinks = [
     { href: buildUrlWithSource("/", campaignSource), label: t("nav.home") },
@@ -141,14 +144,16 @@ function PublicHeaderView({
                     {t("nav.login")}
                   </Button>
                 </Link>
-                <Link
-                  href={buildUrlWithSource("/interest", campaignSource)}
-                  style={{ textDecoration: "none" }}
-                >
-                  <Button variant="primary" size="sm">
-                    {t("nav.registerInterest")}
-                  </Button>
-                </Link>
+                {!isActiveRegistrationRoute ? (
+                  <Link
+                    href={buildUrlWithSource("/interest", campaignSource)}
+                    style={{ textDecoration: "none" }}
+                  >
+                    <Button variant="primary" size="sm">
+                      {t("nav.registerInterest")}
+                    </Button>
+                  </Link>
+                ) : null}
               </div>
             )}
           </div>
@@ -187,51 +192,53 @@ function PublicHeaderView({
         </div>
       </div>
 
-      <div
-        className={`public-header-mobile-quick-actions ${styles.mobileQuickActions}`}
-      >
-        {isAuthenticated ? (
-          <Link
-            href="/portal/dashboard"
-            style={{ textDecoration: "none", flex: 1 }}
-          >
-            <Button
-              variant="secondary"
-              size="sm"
-              style={{ width: "100%", minHeight: "44px" }}
-            >
-              🏀 {t("nav.portal")}
-            </Button>
-          </Link>
-        ) : (
-          <>
+      {!isActiveRegistrationRoute ? (
+        <div
+          className={`public-header-mobile-quick-actions ${styles.mobileQuickActions}`}
+        >
+          {isAuthenticated ? (
             <Link
-              href="/auth/login"
+              href="/portal/dashboard"
               style={{ textDecoration: "none", flex: 1 }}
             >
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 style={{ width: "100%", minHeight: "44px" }}
               >
-                {t("nav.login")}
+                🏀 {t("nav.portal")}
               </Button>
             </Link>
-            <Link
-              href={buildUrlWithSource("/interest", campaignSource)}
-              style={{ textDecoration: "none", flex: 1 }}
-            >
-              <Button
-                variant="primary"
-                size="sm"
-                style={{ width: "100%", minHeight: "44px" }}
+          ) : (
+            <>
+              <Link
+                href="/auth/login"
+                style={{ textDecoration: "none", flex: 1 }}
               >
-                {t("nav.registerInterest")}
-              </Button>
-            </Link>
-          </>
-        )}
-      </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  style={{ width: "100%", minHeight: "44px" }}
+                >
+                  {t("nav.login")}
+                </Button>
+              </Link>
+              <Link
+                href={buildUrlWithSource("/interest", campaignSource)}
+                style={{ textDecoration: "none", flex: 1 }}
+              >
+                <Button
+                  variant="primary"
+                  size="sm"
+                  style={{ width: "100%", minHeight: "44px" }}
+                >
+                  {t("nav.registerInterest")}
+                </Button>
+              </Link>
+            </>
+          )}
+        </div>
+      ) : null}
 
       <Sheet
         isOpen={mobileMenuOpen}
@@ -299,7 +306,7 @@ function PublicHeaderView({
               onClick={() => setMobileMenuOpen(false)}
             >
               <Button
-                variant="primary"
+                variant={isActiveRegistrationRoute ? "outline" : "primary"}
                 size="md"
                 style={{ width: "100%", minHeight: "44px" }}
               >

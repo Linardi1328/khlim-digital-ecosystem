@@ -861,16 +861,8 @@ export function AcademyRegistrationFlow() {
   if (receipt) {
     return (
       <main
-        className="ph-no-capture"
+        className="ph-no-capture registration-main registration-main-receipt"
         data-ph-no-capture="true"
-        style={{
-          flex: 1,
-          width: "100%",
-          maxWidth: 740,
-          margin: "0 auto",
-          padding: "40px 20px 72px",
-          boxSizing: "border-box",
-        }}
       >
         <Card
           data-testid="registration-receipt-card"
@@ -880,13 +872,13 @@ export function AcademyRegistrationFlow() {
             boxShadow: "0 14px 36px rgba(24, 24, 27, 0.06)",
           }}
         >
-          <CardContent style={{ padding: "36px 24px" }}>
-            <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <CardContent className="registration-card-body">
+            <div style={{ textAlign: "center", marginBottom: 24 }}>
               <div
                 aria-hidden="true"
                 style={{
-                  width: 64,
-                  height: 64,
+                  width: 56,
+                  height: 56,
                   borderRadius: "50%",
                   backgroundColor: "#FFFBEB",
                   border: "2px solid #F59E0B",
@@ -894,22 +886,32 @@ export function AcademyRegistrationFlow() {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: "1.75rem",
+                  fontSize: "1.55rem",
                   fontWeight: 800,
-                  margin: "0 auto 16px",
+                  margin: "0 auto 14px",
                 }}
               >
                 ✓
               </div>
               <div style={{ marginBottom: 12 }}>
-                <Badge variant="warning" size="md">
+                <Badge
+                  variant="warning"
+                  size="md"
+                  className="registration-receipt-badge"
+                  style={{
+                    whiteSpace: "normal",
+                    textAlign: "center",
+                    maxWidth: "100%",
+                    lineHeight: 1.35,
+                  }}
+                >
                   {t("academyReg.receipt.badge")}
                 </Badge>
               </div>
               <h1
                 style={{
-                  margin: "0 0 12px",
-                  fontSize: "clamp(1.65rem, 3.5vw, 2.2rem)",
+                  margin: "0 0 10px",
+                  fontSize: "clamp(1.55rem, 3.5vw, 2.15rem)",
                   color: "#18181b",
                   letterSpacing: "-0.02em",
                 }}
@@ -921,8 +923,8 @@ export function AcademyRegistrationFlow() {
                   margin: "0 auto",
                   maxWidth: 560,
                   color: "#3f3f46",
-                  fontSize: "1rem",
-                  lineHeight: 1.65,
+                  fontSize: "0.96rem",
+                  lineHeight: 1.6,
                 }}
               >
                 {t("academyReg.receipt.message")}
@@ -934,8 +936,8 @@ export function AcademyRegistrationFlow() {
                 background: "#fafafa",
                 border: "1px solid #e4e4e7",
                 borderRadius: 14,
-                padding: 20,
-                marginBottom: 20,
+                padding: 18,
+                marginBottom: 18,
               }}
             >
               <div
@@ -945,12 +947,12 @@ export function AcademyRegistrationFlow() {
                   justifyContent: "space-between",
                   gap: 12,
                   flexWrap: "wrap",
-                  paddingBottom: 16,
-                  marginBottom: 16,
+                  paddingBottom: 14,
+                  marginBottom: 14,
                   borderBottom: "1px solid #e4e4e7",
                 }}
               >
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <div
                     style={{
                       fontSize: "0.75rem",
@@ -967,10 +969,11 @@ export function AcademyRegistrationFlow() {
                     data-testid="receipt-reference-code"
                     style={{
                       fontFamily: "monospace",
-                      fontSize: "1.35rem",
+                      fontSize: "1.3rem",
                       fontWeight: 800,
                       color: "#18181b",
                       letterSpacing: "0.04em",
+                      overflowWrap: "anywhere",
                     }}
                   >
                     {receipt.referenceCode}
@@ -990,15 +993,7 @@ export function AcademyRegistrationFlow() {
                 </Button>
               </div>
 
-              <dl
-                style={{
-                  margin: 0,
-                  display: "grid",
-                  gridTemplateColumns: "minmax(130px, auto) 1fr",
-                  gap: "10px 16px",
-                  fontSize: "0.92rem",
-                }}
-              >
+              <dl className="registration-meta-dl">
                 <dt style={{ color: "#71717a", fontWeight: 600 }}>
                   {t("academyReg.receipt.statusLabel")}
                 </dt>
@@ -1031,20 +1026,13 @@ export function AcademyRegistrationFlow() {
                 color: "#78350f",
                 fontSize: "0.88rem",
                 lineHeight: 1.55,
-                marginBottom: 28,
+                marginBottom: 24,
               }}
             >
               {t("academyReg.receipt.noticeNoPlace")}
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                gap: 12,
-                flexWrap: "wrap",
-              }}
-            >
+            <div className="registration-receipt-actions">
               <Link
                 href={academyHref}
                 style={{ ...getButtonStyles("primary", "lg"), minHeight: 44 }}
@@ -1065,19 +1053,8 @@ export function AcademyRegistrationFlow() {
   }
 
   return (
-    <main
-      className="ph-no-capture"
-      data-ph-no-capture="true"
-      style={{
-        flex: 1,
-        width: "100%",
-        maxWidth: 780,
-        margin: "0 auto",
-        padding: "36px 20px 72px",
-        boxSizing: "border-box",
-      }}
-    >
-      <div style={{ marginBottom: 16 }}>
+    <main className="ph-no-capture registration-main" data-ph-no-capture="true">
+      <div style={{ marginBottom: 10 }}>
         <Link
           href={academyHref}
           style={{
@@ -1088,7 +1065,7 @@ export function AcademyRegistrationFlow() {
             fontWeight: 600,
             fontSize: "0.9rem",
             textDecoration: "none",
-            minHeight: 44,
+            minHeight: 40,
           }}
         >
           <span aria-hidden="true">←</span>
@@ -1096,13 +1073,13 @@ export function AcademyRegistrationFlow() {
         </Link>
       </div>
 
-      <div style={{ textAlign: "center", marginBottom: 28 }}>
+      <div style={{ textAlign: "center", marginBottom: 20 }}>
         <Badge variant="brand">{t("academyReg.page.badge")}</Badge>
         <h1
           style={{
-            marginTop: 12,
-            marginBottom: 10,
-            fontSize: "clamp(1.75rem, 3.8vw, 2.35rem)",
+            marginTop: 10,
+            marginBottom: 8,
+            fontSize: "clamp(1.6rem, 3.8vw, 2.3rem)",
             color: "#18181b",
             letterSpacing: "-0.025em",
           }}
@@ -1112,8 +1089,8 @@ export function AcademyRegistrationFlow() {
         <p
           style={{
             color: "#52525b",
-            fontSize: "0.98rem",
-            lineHeight: 1.6,
+            fontSize: "0.95rem",
+            lineHeight: 1.55,
             maxWidth: 600,
             margin: "0 auto",
           }}
@@ -1280,7 +1257,11 @@ export function AcademyRegistrationFlow() {
 
       {loadState.kind === "ready" && (
         <>
-          <StepIndicator steps={steps} currentStep={step} />
+          <StepIndicator
+            steps={steps}
+            currentStep={step}
+            ariaLabel={t("academyReg.page.badge")}
+          />
 
           <Card
             style={{
@@ -1289,7 +1270,7 @@ export function AcademyRegistrationFlow() {
               boxShadow: "0 12px 32px rgba(24, 24, 27, 0.05)",
             }}
           >
-            <CardContent style={{ padding: "28px 24px" }}>
+            <CardContent className="registration-card-body">
               {stalePreselectedSession ? (
                 <div style={{ marginBottom: 20 }}>
                   <Alert variant="warning">
@@ -1726,13 +1707,7 @@ export function AcademyRegistrationFlow() {
                     </small>
                   </div>
 
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "flex-end",
-                      paddingTop: 8,
-                    }}
-                  >
+                  <div className="registration-step-actions registration-step-actions-single">
                     <Button
                       type="button"
                       variant="primary"
@@ -1983,15 +1958,7 @@ export function AcademyRegistrationFlow() {
                     />
                   </div>
 
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: 12,
-                      flexWrap: "wrap",
-                      paddingTop: 8,
-                    }}
-                  >
+                  <div className="registration-step-actions">
                     <Button
                       type="button"
                       variant="outline"
@@ -2091,15 +2058,7 @@ export function AcademyRegistrationFlow() {
                           {t("academyReg.nav.edit")}
                         </button>
                       </div>
-                      <dl
-                        style={{
-                          margin: 0,
-                          display: "grid",
-                          gridTemplateColumns: "auto 1fr",
-                          gap: "6px 12px",
-                          fontSize: "0.86rem",
-                        }}
-                      >
+                      <dl className="registration-review-dl">
                         <dt style={{ color: "#71717a" }}>
                           {t("academyReg.step3.summarySession")}
                         </dt>
@@ -2217,15 +2176,7 @@ export function AcademyRegistrationFlow() {
                           {t("academyReg.nav.edit")}
                         </button>
                       </div>
-                      <dl
-                        style={{
-                          margin: 0,
-                          display: "grid",
-                          gridTemplateColumns: "auto 1fr",
-                          gap: "6px 12px",
-                          fontSize: "0.86rem",
-                        }}
-                      >
+                      <dl className="registration-review-dl">
                         <dt style={{ color: "#71717a" }}>
                           {t("academyReg.step2.guardianFullName")}
                         </dt>
@@ -2377,7 +2328,16 @@ export function AcademyRegistrationFlow() {
                       <>
                         {resolvedConsent.hasSyntheticFixtures ? (
                           <div data-testid="synthetic-consent-fixture-notice">
-                            <Badge variant="warning" size="sm">
+                            <Badge
+                              variant="warning"
+                              size="sm"
+                              style={{
+                                whiteSpace: "normal",
+                                textAlign: "left",
+                                maxWidth: "100%",
+                                lineHeight: 1.35,
+                              }}
+                            >
                               {t("academyReg.step3.syntheticFixtureBadge")}
                             </Badge>
                           </div>
@@ -2514,15 +2474,7 @@ export function AcademyRegistrationFlow() {
                     </div>
                   ) : null}
 
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: 12,
-                      flexWrap: "wrap",
-                      paddingTop: 8,
-                    }}
-                  >
+                  <div className="registration-step-actions">
                     <Button
                       type="button"
                       variant="outline"

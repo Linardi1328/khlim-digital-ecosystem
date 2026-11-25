@@ -926,6 +926,7 @@ export function AdminConsentPoliciesTab({
                 borderRadius: 10,
                 padding: 14,
                 margin: 0,
+                minWidth: 0,
                 backgroundColor: "#F8FAFC",
                 display: "flex",
                 flexDirection: "column",
@@ -948,18 +949,7 @@ export function AdminConsentPoliciesTab({
                 const shaKey = `content.${cat.type}.${loc.locale}.sha256`;
                 const cell = draftContent[cat.type][loc.locale];
                 return (
-                  <div
-                    key={loc.locale}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: 10,
-                      padding: 10,
-                      borderRadius: 8,
-                      backgroundColor: "#FFFFFF",
-                      border: "1px solid #E2E8F0",
-                    }}
-                  >
+                  <div key={loc.locale} className="admin-policy-ref-grid">
                     <div>
                       <label
                         htmlFor={`policy-ref-${cat.type}-${loc.locale}`}
@@ -1051,15 +1041,7 @@ export function AdminConsentPoliciesTab({
             </fieldset>
           ))}
 
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              gap: 10,
-              paddingTop: 12,
-              borderTop: "1px solid #E2E8F0",
-            }}
-          >
+          <div className="admin-drawer-actions">
             <Button
               type="button"
               variant="secondary"

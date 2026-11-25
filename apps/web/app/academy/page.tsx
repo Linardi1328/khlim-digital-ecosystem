@@ -1,9 +1,16 @@
 "use client";
 
-import React, { Suspense, useEffect, useMemo, useState } from "react";
+import React, {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { apiService } from "../../lib/api-service";
 import {
   buildUrlWithSource,
   getQueryCampaignSource,
@@ -14,6 +21,7 @@ import { useAnalyticsConsent } from "../../lib/analytics-consent";
 import { PublicFooter } from "../../components/layout/public-footer";
 import { PublicHeader } from "../../components/layout/public-header";
 import { TrainingSessionsSection } from "../../components/academy/training-sessions-section";
+import type { AcademyAvailabilityState } from "../../components/academy/published-registration-sessions";
 import { Badge } from "../../components/ui/badge";
 import { getButtonStyles } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
@@ -28,6 +36,71 @@ function AcademyContent() {
     [searchParams],
   );
   const [storedCampaign, setStoredCampaign] = useState<string | null>(null);
+  const [availabilityState, setAvailabilityState] =
+    useState<AcademyAvailabilityState>({ status: "loading" });
+
+  const loadAvailability = useCallback(async () => {
+    setAvailabilityState({ status: "loading" });
+    try {
+      const [config, sessionsResponse] = await Promise.all([
+        apiService.getAcademyRegistrationConfig(),
+        apiService.listPublicAcademySessions(),
+      ]);
+
+      if (!config.registrationOpen || !sessionsResponse.registrationOpen) {
+        setAvailabilityState({ status: "closed", config });
+        return;
+      }
+
+      if (!sessionsResponse.items || sessionsResponse.items.length === 0) {
+        setAvailabilityState({ status: "empty", config });
+        return;
+      }
+
+      setAvailabilityState({
+        status: "open",
+        config,
+        sessions: sessionsResponse.items,
+      });
+    } catch {
+      setAvailabilityState({ status: "error" });
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const run = async () => {
+      try {
+        const [config, sessionsResponse] = await Promise.all([
+          apiService.getAcademyRegistrationConfig(),
+          apiService.listPublicAcademySessions(),
+        ]);
+        if (!active) return;
+        if (!config.registrationOpen || !sessionsResponse.registrationOpen) {
+          setAvailabilityState({ status: "closed", config });
+          return;
+        }
+        if (!sessionsResponse.items || sessionsResponse.items.length === 0) {
+          setAvailabilityState({ status: "empty", config });
+          return;
+        }
+        setAvailabilityState({
+          status: "open",
+          config,
+          sessions: sessionsResponse.items,
+        });
+      } catch {
+        if (!active) return;
+        setAvailabilityState({ status: "error" });
+      }
+    };
+    void run();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const isRegistrationOpen = availabilityState.status === "open";
 
   useEffect(() => {
     setStoredCampaign(resolveCampaignSource(searchParams));
@@ -35,6 +108,8 @@ function AcademyContent() {
 
   const { hasConsent } = useAnalyticsConsent();
   const campaignSource = queryCampaign ?? storedCampaign;
+  const registerHref = buildUrlWithSource("/academy/register", campaignSource);
+  const interestHref = buildUrlWithSource("/interest", campaignSource);
 
   useEffect(() => {
     if (hasConsent && campaignSource) {
@@ -85,18 +160,9 @@ function AcademyContent() {
       style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
     >
       <PublicHeader campaignSource={campaignSource} />
-      <main
-        style={{
-          flex: 1,
-          width: "100%",
-          maxWidth: 1100,
-          margin: "0 auto",
-          padding: "48px 20px 80px",
-          boxSizing: "border-box",
-        }}
-      >
+      <main className="academy-main">
         {/* Above-the-fold Hero / Introduction */}
-        <section style={{ textAlign: "center", marginBottom: 52 }}>
+        <section className="academy-section" style={{ textAlign: "center" }}>
           <div
             style={{
               display: "flex",
@@ -123,7 +189,7 @@ function AcademyContent() {
             style={{
               color: "#71717a",
               maxWidth: 680,
-              margin: "0 auto 28px",
+              margin: "0 auto 24px",
               fontSize: "1.05rem",
               lineHeight: 1.6,
             }}
@@ -138,29 +204,60 @@ function AcademyContent() {
               flexWrap: "wrap",
             }}
           >
-            <Link
-              href={buildUrlWithSource("/interest", campaignSource)}
-              style={getButtonStyles("primary", "lg")}
-            >
-              {t("nav.registerInterest")}
-            </Link>
-            <a
-              href="#training-sessions"
-              style={getButtonStyles("outline", "lg")}
-            >
-              {t("academy.trainingSessionsCta")}
-            </a>
-            <Link
-              href={buildUrlWithSource("/programmes", campaignSource)}
-              style={getButtonStyles("outline", "lg")}
-            >
-              {t("academy.programmesCta")}
-            </Link>
+            {isRegistrationOpen ? (
+              <>
+                <Link
+                  href={registerHref}
+                  data-testid="academy-hero-register-now"
+                  style={getButtonStyles("primary", "lg")}
+                >
+                  {t("academyReg.sessions.registerNow")}
+                </Link>
+                <a
+                  href="#training-sessions"
+                  style={getButtonStyles("outline", "lg")}
+                >
+                  {t("academy.trainingSessionsCta")}
+                </a>
+                <Link
+                  href={interestHref}
+                  data-testid="academy-hero-register-interest-secondary"
+                  style={getButtonStyles("outline", "lg")}
+                >
+                  {t("nav.registerInterest")}
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  href={buildUrlWithSource("/interest", campaignSource)}
+                  style={getButtonStyles("primary", "lg")}
+                >
+                  {t("nav.registerInterest")}
+                </Link>
+                <a
+                  href="#training-sessions"
+                  style={getButtonStyles("outline", "lg")}
+                >
+                  {t("academy.trainingSessionsCta")}
+                </a>
+                <Link
+                  href={buildUrlWithSource("/programmes", campaignSource)}
+                  style={getButtonStyles("outline", "lg")}
+                >
+                  {t("academy.programmesCta")}
+                </Link>
+              </>
+            )}
           </div>
         </section>
 
         {/* Training Sessions and Venue */}
-        <TrainingSessionsSection campaignSource={campaignSource} />
+        <TrainingSessionsSection
+          campaignSource={campaignSource}
+          availabilityState={availabilityState}
+          onRetryAvailability={() => void loadAvailability()}
+        />
 
         {/* U9 / U12 / U15 Development Pathway */}
         <section style={{ marginBottom: 52 }}>
@@ -565,11 +662,11 @@ function AcademyContent() {
         </section>
 
         {/* What happens next */}
-        <section style={{ marginBottom: 52 }}>
-          <div style={{ textAlign: "center", marginBottom: 32 }}>
+        <section className="academy-section" data-testid="academy-next-steps">
+          <div style={{ textAlign: "center", marginBottom: 28 }}>
             <h2
               style={{
-                fontSize: "clamp(1.75rem, 3vw, 2.4rem)",
+                fontSize: "clamp(1.65rem, 3vw, 2.35rem)",
                 margin: "0 0 10px",
                 letterSpacing: "-0.02em",
               }}
@@ -584,17 +681,19 @@ function AcademyContent() {
                 fontSize: "0.95rem",
               }}
             >
-              {t("academy.nextSteps.subtitle")}
+              {isRegistrationOpen
+                ? t("academyReg.academyOpen.nextStepsSubtitle")
+                : t("academy.nextSteps.subtitle")}
             </p>
           </div>
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-              gap: 20,
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gap: 18,
             }}
           >
-            <Card style={{ padding: 24 }}>
+            <Card style={{ padding: 22 }}>
               <div
                 style={{
                   display: "inline-flex",
@@ -613,7 +712,9 @@ function AcademyContent() {
                 1
               </div>
               <h3 style={{ margin: "0 0 8px", fontSize: "1.1rem" }}>
-                {t("academy.nextSteps.step1.title")}
+                {isRegistrationOpen
+                  ? t("academyReg.academyOpen.nextSteps.step1.title")
+                  : t("academy.nextSteps.step1.title")}
               </h3>
               <p
                 style={{
@@ -623,10 +724,12 @@ function AcademyContent() {
                   lineHeight: 1.6,
                 }}
               >
-                {t("academy.nextSteps.step1.body")}
+                {isRegistrationOpen
+                  ? t("academyReg.academyOpen.nextSteps.step1.body")
+                  : t("academy.nextSteps.step1.body")}
               </p>
             </Card>
-            <Card style={{ padding: 24 }}>
+            <Card style={{ padding: 22 }}>
               <div
                 style={{
                   display: "inline-flex",
@@ -645,7 +748,9 @@ function AcademyContent() {
                 2
               </div>
               <h3 style={{ margin: "0 0 8px", fontSize: "1.1rem" }}>
-                {t("academy.nextSteps.step2.title")}
+                {isRegistrationOpen
+                  ? t("academyReg.academyOpen.nextSteps.step2.title")
+                  : t("academy.nextSteps.step2.title")}
               </h3>
               <p
                 style={{
@@ -655,10 +760,12 @@ function AcademyContent() {
                   lineHeight: 1.6,
                 }}
               >
-                {t("academy.nextSteps.step2.body")}
+                {isRegistrationOpen
+                  ? t("academyReg.academyOpen.nextSteps.step2.body")
+                  : t("academy.nextSteps.step2.body")}
               </p>
             </Card>
-            <Card style={{ padding: 24 }}>
+            <Card style={{ padding: 22 }}>
               <div
                 style={{
                   display: "inline-flex",
@@ -677,7 +784,9 @@ function AcademyContent() {
                 3
               </div>
               <h3 style={{ margin: "0 0 8px", fontSize: "1.1rem" }}>
-                {t("academy.nextSteps.step3.title")}
+                {isRegistrationOpen
+                  ? t("academyReg.academyOpen.nextSteps.step3.title")
+                  : t("academy.nextSteps.step3.title")}
               </h3>
               <p
                 style={{
@@ -687,17 +796,20 @@ function AcademyContent() {
                   lineHeight: 1.6,
                 }}
               >
-                {t("academy.nextSteps.step3.body")}
+                {isRegistrationOpen
+                  ? t("academyReg.academyOpen.nextSteps.step3.body")
+                  : t("academy.nextSteps.step3.body")}
               </p>
             </Card>
           </div>
         </section>
 
-        {/* Final Register Interest CTA */}
+        {/* Final CTA */}
         <section
+          data-testid="academy-final-cta"
           style={{
             textAlign: "center",
-            padding: "48px 24px",
+            padding: "40px 20px",
             background: "#f4f4f5",
             borderRadius: 20,
             border: "1px solid #e4e4e7",
@@ -710,7 +822,9 @@ function AcademyContent() {
               letterSpacing: "-0.02em",
             }}
           >
-            {t("academy.finalCta.title")}
+            {isRegistrationOpen
+              ? t("academyReg.academyOpen.finalCtaTitle")
+              : t("academy.finalCta.title")}
           </h2>
           <p
             style={{
@@ -721,14 +835,43 @@ function AcademyContent() {
               lineHeight: 1.6,
             }}
           >
-            {t("academy.finalCta.body")}
+            {isRegistrationOpen
+              ? t("academyReg.academyOpen.finalCtaBody")
+              : t("academy.finalCta.body")}
           </p>
-          <Link
-            href={buildUrlWithSource("/interest", campaignSource)}
-            style={getButtonStyles("primary", "lg")}
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              justifyContent: "center",
+              flexWrap: "wrap",
+            }}
           >
-            {t("nav.registerInterest")}
-          </Link>
+            {isRegistrationOpen ? (
+              <>
+                <Link
+                  href={registerHref}
+                  data-testid="academy-final-register-now"
+                  style={getButtonStyles("primary", "lg")}
+                >
+                  {t("academyReg.sessions.registerNow")}
+                </Link>
+                <Link
+                  href={interestHref}
+                  style={getButtonStyles("outline", "lg")}
+                >
+                  {t("nav.registerInterest")}
+                </Link>
+              </>
+            ) : (
+              <Link
+                href={interestHref}
+                style={getButtonStyles("primary", "lg")}
+              >
+                {t("nav.registerInterest")}
+              </Link>
+            )}
+          </div>
         </section>
       </main>
       <PublicFooter campaignSource={campaignSource} />

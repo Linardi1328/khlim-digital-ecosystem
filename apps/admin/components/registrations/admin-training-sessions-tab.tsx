@@ -982,13 +982,7 @@ export function AdminTrainingSessionsTab({
             ) : null}
           </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 140px",
-              gap: 12,
-            }}
-          >
+          <div className="admin-form-grid-venue-capacity">
             <div>
               <label htmlFor="session-venue-id" style={labelStyle}>
                 Venue *
@@ -1093,7 +1087,7 @@ export function AdminTrainingSessionsTab({
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
               gap: 12,
             }}
           >
@@ -1384,15 +1378,7 @@ export function AdminTrainingSessionsTab({
             </div>
           </div>
 
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              gap: 10,
-              paddingTop: 12,
-              borderTop: "1px solid #E2E8F0",
-            }}
-          >
+          <div className="admin-drawer-actions">
             <Button
               type="button"
               variant="secondary"

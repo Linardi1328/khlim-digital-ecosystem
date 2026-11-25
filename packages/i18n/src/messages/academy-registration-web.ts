@@ -45,6 +45,30 @@ const en = {
   "academyReg.sessions.weekday.7": "Sunday",
   "academyReg.sessions.windowCloses": "Closes {date}",
 
+  // Authoritative open-registration /academy experience
+  "academyReg.academyOpen.sessionsSubtitle":
+    "Live training sessions open for online registration. Choose an available cohort below to register your child without creating an account.",
+  "academyReg.academyOpen.secondaryInterestPrompt":
+    "Looking for a different age group or training slot? Register your interest and our Academy team will contact you when new cohorts open.",
+  "academyReg.academyOpen.nextStepsSubtitle":
+    "From online submission to Academy review and onboarding, here is how registration works.",
+  "academyReg.academyOpen.nextSteps.step1.title":
+    "Submit your online registration",
+  "academyReg.academyOpen.nextSteps.step1.body":
+    "Select an available published session and complete the short three-step registration form. No account or upfront payment is required.",
+  "academyReg.academyOpen.nextSteps.step2.title":
+    "Academy reviews your submission",
+  "academyReg.academyOpen.nextSteps.step2.body":
+    "Our Academy operations team verifies age eligibility and cohort capacity, and reaches out via your guardian contact number.",
+  "academyReg.academyOpen.nextSteps.step3.title":
+    "Confirmation & first session onboarding",
+  "academyReg.academyOpen.nextSteps.step3.body":
+    "Once your place is confirmed by KHLIM Academy, you will receive final onboarding details and training reminders.",
+  "academyReg.academyOpen.finalCtaTitle":
+    "Ready to register for KHLIM Academy?",
+  "academyReg.academyOpen.finalCtaBody":
+    "Published sessions are open for online registration. Submit your child's details now, or register your interest for future cohorts.",
+
   // Registration page header & steps
   "academyReg.page.badge": "Academy Registration",
   "academyReg.page.title": "Register for KHLIM Academy",
@@ -284,6 +308,29 @@ const ms: Catalogue = {
   "academyReg.sessions.weekday.7": "Ahad",
   "academyReg.sessions.windowCloses": "Ditutup {date}",
 
+  "academyReg.academyOpen.sessionsSubtitle":
+    "Sesi latihan langsung yang dibuka untuk pendaftaran dalam talian. Pilih kohort yang tersedia di bawah untuk mendaftarkan anak anda tanpa mencipta akaun.",
+  "academyReg.academyOpen.secondaryInterestPrompt":
+    "Mencari kumpulan umur atau masa latihan lain? Daftar minat anda dan pasukan Akademi kami akan menghubungi anda apabila kohort baharu dibuka.",
+  "academyReg.academyOpen.nextStepsSubtitle":
+    "Daripada penghantaran dalam talian hingga semakan Akademi dan penyertaan, begini cara pendaftaran berfungsi.",
+  "academyReg.academyOpen.nextSteps.step1.title":
+    "Hantar pendaftaran dalam talian",
+  "academyReg.academyOpen.nextSteps.step1.body":
+    "Pilih sesi diterbitkan yang tersedia dan lengkapkan borang ringkas tiga langkah. Tiada akaun atau bayaran pendahuluan diperlukan.",
+  "academyReg.academyOpen.nextSteps.step2.title":
+    "Akademi menyemak permohonan anda",
+  "academyReg.academyOpen.nextSteps.step2.body":
+    "Pasukan operasi Akademi kami menyemak kelayakan umur dan kapasiti kohort, lalu menghubungi anda melalui nombor telefon penjaga.",
+  "academyReg.academyOpen.nextSteps.step3.title":
+    "Pengesahan & taklimat sesi pertama",
+  "academyReg.academyOpen.nextSteps.step3.body":
+    "Setelah tempat anda disahkan oleh Akademi KHLIM, anda akan menerima butiran penyertaan dan peringatan latihan.",
+  "academyReg.academyOpen.finalCtaTitle":
+    "Bersedia mendaftar ke Akademi KHLIM?",
+  "academyReg.academyOpen.finalCtaBody":
+    "Sesi yang diterbitkan kini dibuka untuk pendaftaran dalam talian. Hantar butiran anak anda sekarang, atau daftar minat untuk kohort akan datang.",
+
   "academyReg.page.badge": "Pendaftaran Akademi",
   "academyReg.page.title": "Daftar ke Akademi KHLIM",
   "academyReg.page.subtitle":
@@ -511,6 +558,25 @@ const zhHans: Catalogue = {
   "academyReg.sessions.weekday.6": "星期六",
   "academyReg.sessions.weekday.7": "星期日",
   "academyReg.sessions.windowCloses": "截止于 {date}",
+
+  "academyReg.academyOpen.sessionsSubtitle":
+    "以下为当前开放线上报名的学院训练班次。选择合适班次即可为孩子报名，无需创建账号。",
+  "academyReg.academyOpen.secondaryInterestPrompt":
+    "正在寻找其他年龄组或训练时段？您也可以登记意向，新班次开放时学院团队将与您联系。",
+  "academyReg.academyOpen.nextStepsSubtitle":
+    "从线上提交资料到学院审核确认与报到，了解清晰简单的报名流程。",
+  "academyReg.academyOpen.nextSteps.step1.title": "线上提交报名资料",
+  "academyReg.academyOpen.nextSteps.step1.body":
+    "选择当前开放的已发布训练班次，完成简短的三步报名表。报名阶段无需创建账号，也无需预付费用。",
+  "academyReg.academyOpen.nextSteps.step2.title": "学院审核报名信息",
+  "academyReg.academyOpen.nextSteps.step2.body":
+    "KHLIM 学院运营团队将核验球员适龄条件与班次名额，并通过监护人电话与您联系。",
+  "academyReg.academyOpen.nextSteps.step3.title": "名额确认与首次训练指引",
+  "academyReg.academyOpen.nextSteps.step3.body":
+    "经 KHLIM 学院确认名额后，您将收到正式报到说明与训练提醒。",
+  "academyReg.academyOpen.finalCtaTitle": "准备好报名 KHLIM 篮球学院了吗？",
+  "academyReg.academyOpen.finalCtaBody":
+    "已发布的训练班次现已开放线上报名。立即提交孩子资料，或登记意向以关注后续班次。",
 
   "academyReg.page.badge": "学院报名",
   "academyReg.page.title": "KHLIM 篮球学院报名",

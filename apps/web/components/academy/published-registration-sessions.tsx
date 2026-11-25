@@ -20,7 +20,7 @@ import { Button, getButtonStyles } from "../ui/button";
 import { Card } from "../ui/card";
 import { Skeleton } from "../ui/skeleton";
 
-type AvailabilityViewState =
+export type AcademyAvailabilityState =
   | { status: "loading" }
   | { status: "error" }
   | { status: "closed"; config: RegistrationConfigDto }
@@ -33,16 +33,23 @@ type AvailabilityViewState =
 
 export function PublishedRegistrationSessions({
   campaignSource,
+  availabilityState,
+  onRetry,
+  prioritized = false,
 }: {
   campaignSource: string | null;
+  availabilityState?: AcademyAvailabilityState;
+  onRetry?: () => void;
+  prioritized?: boolean;
 }) {
   const { t, locale } = useI18n();
-  const [state, setState] = useState<AvailabilityViewState>({
+  const isControlled = availabilityState !== undefined;
+  const [internalState, setInternalState] = useState<AcademyAvailabilityState>({
     status: "loading",
   });
 
   const loadSessions = useCallback(async () => {
-    setState({ status: "loading" });
+    setInternalState({ status: "loading" });
     try {
       const [config, sessionsResponse] = await Promise.all([
         apiService.getAcademyRegistrationConfig(),
@@ -50,26 +57,27 @@ export function PublishedRegistrationSessions({
       ]);
 
       if (!config.registrationOpen || !sessionsResponse.registrationOpen) {
-        setState({ status: "closed", config });
+        setInternalState({ status: "closed", config });
         return;
       }
 
       if (!sessionsResponse.items || sessionsResponse.items.length === 0) {
-        setState({ status: "empty", config });
+        setInternalState({ status: "empty", config });
         return;
       }
 
-      setState({
+      setInternalState({
         status: "open",
         config,
         sessions: sessionsResponse.items,
       });
     } catch {
-      setState({ status: "error" });
+      setInternalState({ status: "error" });
     }
   }, []);
 
   useEffect(() => {
+    if (isControlled) return;
     let active = true;
     const run = async () => {
       try {
@@ -79,28 +87,31 @@ export function PublishedRegistrationSessions({
         ]);
         if (!active) return;
         if (!config.registrationOpen || !sessionsResponse.registrationOpen) {
-          setState({ status: "closed", config });
+          setInternalState({ status: "closed", config });
           return;
         }
         if (!sessionsResponse.items || sessionsResponse.items.length === 0) {
-          setState({ status: "empty", config });
+          setInternalState({ status: "empty", config });
           return;
         }
-        setState({
+        setInternalState({
           status: "open",
           config,
           sessions: sessionsResponse.items,
         });
       } catch {
         if (!active) return;
-        setState({ status: "error" });
+        setInternalState({ status: "error" });
       }
     };
     void run();
     return () => {
       active = false;
     };
-  }, []);
+  }, [isControlled]);
+
+  const state = availabilityState ?? internalState;
+  const handleRetry = onRetry ?? loadSessions;
 
   const interestHref = buildUrlWithSource("/interest", campaignSource);
 
@@ -136,50 +147,52 @@ export function PublishedRegistrationSessions({
     <div
       id="published-registration-sessions"
       data-testid="published-registration-sessions"
-      style={{ marginTop: 32 }}
+      style={{ marginTop: prioritized ? 0 : 32 }}
     >
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 6,
-          marginBottom: 20,
-        }}
-      >
-        <span
+      {!prioritized ? (
+        <div
           style={{
-            color: "#b45309",
-            fontSize: "0.78rem",
-            fontWeight: 800,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+            marginBottom: 20,
           }}
         >
-          {t("academyReg.sessions.eyebrow")}
-        </span>
-        <h3
-          style={{
-            margin: 0,
-            fontSize: "clamp(1.35rem, 2.5vw, 1.75rem)",
-            fontWeight: 800,
-            color: "#18181b",
-            letterSpacing: "-0.02em",
-          }}
-        >
-          {t("academyReg.sessions.title")}
-        </h3>
-        <p
-          style={{
-            margin: 0,
-            color: "#52525b",
-            fontSize: "0.94rem",
-            lineHeight: 1.6,
-            maxWidth: 680,
-          }}
-        >
-          {t("academyReg.sessions.subtitle")}
-        </p>
-      </div>
+          <span
+            style={{
+              color: "#b45309",
+              fontSize: "0.78rem",
+              fontWeight: 800,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+            }}
+          >
+            {t("academyReg.sessions.eyebrow")}
+          </span>
+          <h3
+            style={{
+              margin: 0,
+              fontSize: "clamp(1.35rem, 2.5vw, 1.75rem)",
+              fontWeight: 800,
+              color: "#18181b",
+              letterSpacing: "-0.02em",
+            }}
+          >
+            {t("academyReg.sessions.title")}
+          </h3>
+          <p
+            style={{
+              margin: 0,
+              color: "#52525b",
+              fontSize: "0.94rem",
+              lineHeight: 1.6,
+              maxWidth: 680,
+            }}
+          >
+            {t("academyReg.sessions.subtitle")}
+          </p>
+        </div>
+      ) : null}
 
       {state.status === "loading" && (
         <div
@@ -223,7 +236,7 @@ export function PublishedRegistrationSessions({
                 type="button"
                 variant="primary"
                 size="md"
-                onClick={() => void loadSessions()}
+                onClick={() => void handleRetry()}
                 style={{ minHeight: 44 }}
               >
                 {t("academyReg.sessions.retry")}
@@ -438,17 +451,7 @@ export function PublishedRegistrationSessions({
                   ) : null}
                 </div>
 
-                <dl
-                  style={{
-                    margin: 0,
-                    paddingTop: 12,
-                    borderTop: "1px solid #f4f4f5",
-                    display: "grid",
-                    gridTemplateColumns: "minmax(108px, auto) 1fr",
-                    gap: "8px 12px",
-                    fontSize: "0.875rem",
-                  }}
-                >
+                <dl className="registration-session-dl">
                   {ageRange ? (
                     <>
                       <dt style={{ color: "#71717a", fontWeight: 600 }}>
