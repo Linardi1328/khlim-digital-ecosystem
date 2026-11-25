@@ -50,6 +50,8 @@ function ProgrammesContent() {
 
   const [offerings, setOfferings] = useState<PublicOfferingItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [retryAttempt, setRetryAttempt] = useState(0);
   const [level, setLevel] = useState("ALL");
 
   useEffect(() => {
@@ -59,12 +61,28 @@ function ProgrammesContent() {
   const campaignSource = queryCampaign ?? storedCampaign;
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(false);
+
     apiService
       .getPublicOfferings()
-      .then(setOfferings)
-      .catch(() => setOfferings([]))
-      .finally(() => setLoading(false));
-  }, []);
+      .then((items) => {
+        if (!cancelled) setOfferings(items);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setOfferings([]);
+        setLoadError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [retryAttempt]);
 
   const levels = useMemo(
     () =>
@@ -150,6 +168,17 @@ function ProgrammesContent() {
           <p style={{ textAlign: "center" }}>
             {t("programmes.loadingCurrent")}
           </p>
+        ) : loadError ? (
+          <Card style={{ padding: 32, textAlign: "center" }}>
+            <p role="alert">{t("programmes.catalogueLoadError")}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRetryAttempt((attempt) => attempt + 1)}
+            >
+              {t("common.retry")}
+            </Button>
+          </Card>
         ) : visible.length === 0 ? (
           <Card style={{ padding: 32, textAlign: "center" }}>
             {t("programmes.noMatching")}

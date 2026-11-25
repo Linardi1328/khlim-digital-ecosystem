@@ -23,6 +23,8 @@ const en = {
   "programmes.allLevels": "All levels",
   "programmes.loadingCurrent": "Loading current offerings…",
   "programmes.noMatching": "No matching open programme offerings.",
+  "programmes.catalogueLoadError":
+    "Programme listings are temporarily unavailable. Please try again.",
   "programmes.levelLabel": "Level",
   "programmes.openDevelopment": "Open development",
   "programmes.loadingOffering": "Loading offering…",
@@ -67,6 +69,8 @@ const ms: Catalogue = {
   "programmes.allLevels": "Semua tahap",
   "programmes.loadingCurrent": "Memuatkan tawaran semasa…",
   "programmes.noMatching": "Tiada tawaran program terbuka yang sepadan.",
+  "programmes.catalogueLoadError":
+    "Senarai program tidak dapat dimuatkan buat masa ini. Sila cuba lagi.",
   "programmes.levelLabel": "Tahap",
   "programmes.openDevelopment": "Pembangunan terbuka",
   "programmes.loadingOffering": "Memuatkan tawaran…",
@@ -107,6 +111,7 @@ const zhHans: Catalogue = {
   "programmes.allLevels": "全部级别",
   "programmes.loadingCurrent": "正在加载当前班次…",
   "programmes.noMatching": "没有符合条件的开放课程班次。",
+  "programmes.catalogueLoadError": "暂时无法加载课程列表。请重试。",
   "programmes.levelLabel": "级别",
   "programmes.openDevelopment": "开放发展",
   "programmes.loadingOffering": "正在加载班次…",
@@ -147,6 +152,7 @@ const zhHant: Catalogue = {
   "programmes.allLevels": "全部級別",
   "programmes.loadingCurrent": "正在載入目前班次…",
   "programmes.noMatching": "沒有符合條件的開放課程班次。",
+  "programmes.catalogueLoadError": "暫時無法載入課程列表。請重試。",
   "programmes.levelLabel": "級別",
   "programmes.openDevelopment": "開放發展",
   "programmes.loadingOffering": "正在載入班次…",
@@ -188,6 +194,8 @@ const hi: Catalogue = {
   "programmes.allLevels": "सभी स्तर",
   "programmes.loadingCurrent": "वर्तमान विकल्प लोड हो रहे हैं…",
   "programmes.noMatching": "कोई मेल खाता खुला कार्यक्रम विकल्प नहीं मिला।",
+  "programmes.catalogueLoadError":
+    "फ़िलहाल कार्यक्रम सूची लोड नहीं हो सकी। कृपया फिर से प्रयास करें।",
   "programmes.levelLabel": "स्तर",
   "programmes.openDevelopment": "ओपन डेवलपमेंट",
   "programmes.loadingOffering": "विकल्प लोड हो रहा है…",
