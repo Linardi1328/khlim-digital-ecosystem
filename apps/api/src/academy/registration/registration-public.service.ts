@@ -136,14 +136,21 @@ export class RegistrationPublicService {
   ): Promise<void> {
     const now = new Date();
     await this.maybeCleanup(now);
+    // Counters are kept under EVERY ring version's keyed hash. Instances with
+    // compatible rings but different active signing keys therefore share at
+    // least one counter per bucket, and the limit applies to the highest count.
     const buckets = [
       {
-        key: `${RATE_LIMIT_PREFIX}ip:${hmacHex(ring.current, "rl-ip", clientIp).slice(0, 32)}`,
+        domain: "rl-ip",
+        subject: clientIp,
+        prefix: `${RATE_LIMIT_PREFIX}ip:`,
         ...IP_LIMIT,
         retryAfter: 600,
       },
       {
-        key: `${RATE_LIMIT_PREFIX}ipphone:${hmacHex(ring.current, "rl-ip-phone", `${clientIp}|${guardianPhone}`).slice(0, 32)}`,
+        domain: "rl-ip-phone",
+        subject: `${clientIp}|${guardianPhone}`,
+        prefix: `${RATE_LIMIT_PREFIX}ipphone:`,
         ...IP_PHONE_LIMIT,
         retryAfter: 3600,
       },
@@ -151,17 +158,21 @@ export class RegistrationPublicService {
     try {
       for (const bucket of buckets) {
         const slot = Math.floor(now.getTime() / bucket.windowMs);
-        const key = `${bucket.key}:${slot}`;
-        const record = await this.prisma.client.submissionRateLimit.upsert({
-          where: { key },
-          create: {
-            key,
-            count: 1,
-            expiresAt: new Date((slot + 1) * bucket.windowMs),
-          },
-          update: { count: { increment: 1 } },
-        });
-        if (record.count > bucket.max) {
+        let highest = 0;
+        for (const ringKey of ring.all) {
+          const key = `${bucket.prefix}${hmacHex(ringKey, bucket.domain, bucket.subject).slice(0, 32)}:${slot}`;
+          const record = await this.prisma.client.submissionRateLimit.upsert({
+            where: { key },
+            create: {
+              key,
+              count: 1,
+              expiresAt: new Date((slot + 1) * bucket.windowMs),
+            },
+            update: { count: { increment: 1 } },
+          });
+          highest = Math.max(highest, record.count);
+        }
+        if (highest > bucket.max) {
           throw new RegistrationApiException(
             429,
             "RATE_LIMITED",
@@ -299,19 +310,38 @@ export class RegistrationPublicService {
       const existing = await this.findExisting(keyHmacs);
       if (existing) return this.resolveExisting(existing, ring, canonical);
 
-      // 2. Closed without an approved consent policy.
-      const policy = await this.policies.getCurrentPolicy();
-      if (!policy) throw this.closed();
-      if (policy.policyVersion !== parsed.consentVersion) {
-        throw new RegistrationApiException(
-          409,
-          "CONSENT_VERSION_MISMATCH",
-          "Consent version is not current",
-          { details: { currentConsentVersion: policy.policyVersion } },
-        );
+      // 2-3. Cheap early rejections (policy availability, rate limit). The first
+      //      lookup may have missed a registration that another instance
+      //      committed meanwhile; a committed receipt always takes precedence
+      //      over these availability/limit rejections, so look again before
+      //      refusing. Payload conflicts are still detected by resolveExisting.
+      try {
+        const policy = await this.policies.getCurrentPolicy();
+        if (!policy) throw this.closed();
+        if (policy.policyVersion !== parsed.consentVersion) {
+          throw new RegistrationApiException(
+            409,
+            "CONSENT_VERSION_MISMATCH",
+            "Consent version is not current",
+            { details: { currentConsentVersion: policy.policyVersion } },
+          );
+        }
+        await this.enforceRateLimits(ring, clientIp, parsed.guardian.phone);
+      } catch (rejection) {
+        if (
+          rejection instanceof RegistrationApiException &&
+          [
+            "REGISTRATION_CLOSED",
+            "CONSENT_VERSION_MISMATCH",
+            "RATE_LIMITED",
+          ].includes(rejection.code)
+        ) {
+          const committed = await this.findExisting(keyHmacs);
+          if (committed)
+            return this.resolveExisting(committed, ring, canonical);
+        }
+        throw rejection;
       }
-
-      await this.enforceRateLimits(ring, clientIp, parsed.guardian.phone);
 
       for (let attempt = 0; attempt < 3; attempt += 1) {
         try {

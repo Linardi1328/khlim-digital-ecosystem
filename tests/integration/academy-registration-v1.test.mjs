@@ -3398,3 +3398,197 @@ test(
     }
   },
 );
+
+function deferred() {
+  let resolve;
+  const promise = new Promise((r) => {
+    resolve = r;
+  });
+  return { promise, resolve };
+}
+
+test(
+  "rate-limit counters stay shared across instances with different active signing keys",
+  { skip },
+  async () => {
+    const c = await ctx();
+    await rotateTo();
+    const session = await publishedSession(c, { capacity: 50 });
+    const slot = 10 * 60 * 1000;
+    const untilBoundary = slot - (Date.now() % slot);
+    if (untilBoundary < 30000) await sleep(untilBoundary + 500);
+    const instanceA = instance(c, RING_A);
+    const instanceB = instance(c, RING_B);
+    const ip = newIp();
+    const outcomes = [];
+    for (let i = 0; i < 24; i += 1) {
+      const service = i % 2 === 0 ? instanceA : instanceB;
+      outcomes.push(
+        await settle(
+          service.createRegistration(regBody(session.id), newKey(), ip),
+        ),
+      );
+    }
+    const created = outcomes.filter((o) => o.ok).length;
+    const limited = outcomes.filter(
+      (o) => !o.ok && o.error.code === "RATE_LIMITED",
+    );
+    assert.equal(
+      created,
+      20,
+      "the per-IP limit holds across both signing keys",
+    );
+    assert.equal(limited.length, 4);
+    assert.ok(outcomes.every((o) => o.ok || o.error.code === "RATE_LIMITED"));
+  },
+);
+
+async function gatedInstance(c, ringSpec) {
+  const policies = c.app.get(RegistrationPolicyService);
+  const entered = deferred();
+  const gate = deferred();
+  const gated = Object.create(policies);
+  gated.getCurrentPolicy = async (...args) => {
+    entered.resolve();
+    await gate.promise;
+    return policies.getCurrentPolicy(...args);
+  };
+  const service = new RegistrationPublicService(
+    c.app.get(PrismaService),
+    gated,
+  );
+  service.ringLoader = () =>
+    loadHmacKeyRing({ KHLIM_REGISTRATION_HMAC_KEYS: ringSpec });
+  return { service, entered, gate };
+}
+
+test(
+  "a receipt committed by another instance wins over policy retirement, replacement and rate-limit rejections",
+  { skip },
+  async () => {
+    const c = await ctx();
+    for (const change of ["retire", "replace"]) {
+      await rotateTo();
+      const session = await publishedSession(c);
+      const policy = await currentPolicyRow(c);
+      const body = regBody(session.id);
+      const key = newKey();
+      const late = await gatedInstance(c, RING_B);
+      const pending = settle(
+        late.service.createRegistration(body, key, newIp()),
+      );
+      await late.entered.promise; // its initial replay lookup has already missed
+      const committed = await instance(c, RING_A).createRegistration(
+        body,
+        key,
+        newIp(),
+      );
+      assert.equal(committed.replayed, false);
+      if (change === "retire") {
+        const res = await api(
+          c,
+          `/admin/academy/registration-policies/${policy.id}/retire`,
+          {
+            method: "POST",
+            token: "mgmt",
+            body: { expectedVersion: policy.version },
+          },
+        );
+        assert.equal(res.status, 201, res.text);
+      } else {
+        const draft = await newDraftPolicy(
+          c,
+          `synthetic-ric190-${RUN}-rp${policyCounter}`,
+        );
+        const res = await api(
+          c,
+          `/admin/academy/registration-policies/${draft.id}/approve`,
+          {
+            method: "POST",
+            token: "mgmt",
+            body: { expectedVersion: draft.version },
+          },
+        );
+        assert.equal(res.status, 201, res.text);
+      }
+      late.gate.resolve();
+      const result = await pending;
+      assert.equal(result.ok, true, `${change}: ${result.error?.code}`);
+      assert.equal(result.value.replayed, true);
+      assert.deepEqual(result.value.receipt, committed.receipt);
+      assert.equal(
+        await c.client.academyRegistration.count({
+          where: { sessionId: session.id },
+        }),
+        1,
+      );
+      // New keys are still refused, so availability protection is intact.
+      const fresh = await submit(c, regBody(session.id));
+      assert.equal(fresh.status, 409);
+      assert.ok(
+        ["REGISTRATION_CLOSED", "CONSENT_VERSION_MISMATCH"].includes(
+          fresh.body.code,
+        ),
+      );
+    }
+
+    // A conflicting payload under the committed key is still rejected.
+    await rotateTo();
+    const session = await publishedSession(c);
+    const policy = await currentPolicyRow(c);
+    const body = regBody(session.id);
+    const key = newKey();
+    const late = await gatedInstance(c, RING_B);
+    const pending = settle(
+      late.service.createRegistration(
+        { ...body, player: { ...body.player, jerseySize: "YL" } },
+        key,
+        newIp(),
+      ),
+    );
+    await late.entered.promise;
+    await instance(c, RING_A).createRegistration(body, key, newIp());
+    await api(c, `/admin/academy/registration-policies/${policy.id}/retire`, {
+      method: "POST",
+      token: "mgmt",
+      body: { expectedVersion: policy.version },
+    });
+    late.gate.resolve();
+    const conflict = await pending;
+    assert.equal(conflict.ok, false);
+    assert.equal(conflict.error.code, "IDEMPOTENCY_KEY_CONFLICT");
+
+    // A retry rate-limited after its original committed elsewhere gets the receipt.
+    await rotateTo();
+    const limitedSession = await publishedSession(c, { capacity: 50 });
+    const ip = newIp();
+    const phone = nextPhone();
+    const withPhone = () => {
+      const b = regBody(limitedSession.id);
+      b.guardian.phone = phone;
+      return b;
+    };
+    const original = withPhone();
+    const originalKey = newKey();
+    const gatedRetry = await gatedInstance(c, RING_B);
+    const retry = settle(
+      gatedRetry.service.createRegistration(original, originalKey, ip),
+    );
+    await gatedRetry.entered.promise;
+    const first = await instance(c, RING_A).createRegistration(
+      original,
+      originalKey,
+      ip,
+    );
+    for (let i = 0; i < 3; i += 1) {
+      await settle(
+        instance(c, RING_A).createRegistration(withPhone(), newKey(), ip),
+      );
+    }
+    gatedRetry.gate.resolve();
+    const retried = await retry;
+    assert.equal(retried.ok, true, retried.error?.code);
+    assert.deepEqual(retried.value.receipt, first.receipt);
+    await rotateTo();
+  },
+);

@@ -218,14 +218,12 @@ export class AcademyRegistrationSessionAdminController {
   @Get()
   @ApiOperation({ summary: "List registration sessions with seat counts" })
   @ApiResponse({ status: 200, type: AdminRegistrationSessionListDto })
-  @ApiResponse({ status: 200, type: AdminRegistrationSessionListDto })
   list(@CurrentUser() user: AuthenticatedUserContext) {
     return this.sessions.list(organizationId(user));
   }
 
   @Get(":id")
   @ApiOperation({ summary: "Registration session detail" })
-  @ApiResponse({ status: 200, type: AdminRegistrationSessionDto })
   @ApiResponse({ status: 200, type: AdminRegistrationSessionDto })
   get(@CurrentUser() user: AuthenticatedUserContext, @Param("id") id: string) {
     return this.sessions.get(organizationId(user), id);
@@ -276,8 +274,6 @@ export class AcademyRegistrationSessionAdminController {
   @ApiOperation({ summary: "Close a published session" })
   @ApiResponse({ status: 201, type: AdminRegistrationSessionDto })
   @ApiResponse({ status: 409, type: RegistrationErrorDto })
-  @ApiResponse({ status: 201, type: AdminRegistrationSessionDto })
-  @ApiResponse({ status: 409, type: RegistrationErrorDto })
   close(
     @CurrentUser() user: AuthenticatedUserContext,
     @Param("id") id: string,
@@ -298,7 +294,6 @@ export class AcademyRegistrationPolicyAdminController {
 
   @Get()
   @ApiOperation({ summary: "List consent policy versions" })
-  @ApiResponse({ status: 200, type: AdminRegistrationPolicyListDto })
   @ApiResponse({ status: 200, type: AdminRegistrationPolicyListDto })
   list(@CurrentUser() user: AuthenticatedUserContext) {
     return this.policies.list(organizationId(user));

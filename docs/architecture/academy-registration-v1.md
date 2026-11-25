@@ -231,6 +231,26 @@ is deliberately **no phone-only counter**, so a third party cannot lock a
 victim's number out. Storage errors fail closed with `503` + `Retry-After`.
 No external CAPTCHA.
 
+**Rotation continuity.** Each bucket is counted under the keyed hash of
+**every** ring version and the limit applies to the highest count. Instances with
+compatible rings but different active signing keys therefore share counters, so
+rotation does not double the effective limit (regression-tested: 24 alternating
+requests from one IP across two such instances yield exactly 20 accepted and 4
+`RATE_LIMITED`; before this change all 24 were accepted). The cost is one
+extra counter write per bucket while two versions are configured. After a
+version is retired from the ring its counters are simply no longer consulted, so
+counts can restart once at that moment (bounded by the 10-minute and 1-hour
+windows). Instances with incompatible rings remain unsupported (see the rotation
+protocol).
+
+**Replay precedence.** The pre-transaction policy check and rate limit are early
+rejections. If one of them would refuse (`REGISTRATION_CLOSED`,
+`CONSENT_VERSION_MISMATCH`, `RATE_LIMITED`), the replay lookup is repeated
+first: a registration committed meanwhile by another instance under the same key
+is returned as the original receipt (or `IDEMPOTENCY_KEY_CONFLICT` if the payload
+differs). New keys are still refused. Inside the transaction, the all-candidate
+re-check already precedes the policy lock and availability checks.
+
 ### D12. Privacy controls
 
 - Admin PII search is `POST …/registrations/search` (body), never a URL query;
