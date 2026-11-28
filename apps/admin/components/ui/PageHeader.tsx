@@ -85,11 +85,12 @@ export function PageHeader({
           >
             <h1
               style={{
-                fontSize: "1.875rem",
+                fontSize: "clamp(1.375rem, 2.2vw, 1.75rem)",
                 fontWeight: 800,
                 color: "#0F172A",
                 margin: 0,
-                letterSpacing: "-0.01em",
+                letterSpacing: "-0.015em",
+                lineHeight: 1.2,
               }}
             >
               {title}

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { access, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 
 const root = new URL("../", import.meta.url);
@@ -24,8 +24,17 @@ test("Admin surfaces use the official KHLIM Sports Academy logo", async () => {
   const shell = await read("apps/admin/components/layout/AdminShell.tsx");
   const sidebar = await read("apps/admin/components/layout/AdminSidebar.tsx");
   const layout = await read("apps/admin/app/layout.tsx");
+  const logoBytes = await readFile(
+    new URL("apps/admin/public/khs-academy-logo.webp", root),
+  );
 
-  await access(new URL("apps/admin/public/khs-academy-logo.webp", root));
+  assert.equal(logoBytes.subarray(0, 4).toString("ascii"), "RIFF");
+  assert.equal(logoBytes.subarray(8, 12).toString("ascii"), "WEBP");
+  assert.equal(
+    logoBytes.readUInt32LE(4) + 8,
+    logoBytes.length,
+    "Admin logo WebP container must not be truncated",
+  );
   assert.match(shell, /\/khs-academy-logo\.webp/);
   assert.match(sidebar, /\/khs-academy-logo\.webp/);
   assert.match(layout, /\/khs-academy-logo\.webp/);
@@ -326,4 +335,55 @@ test("managed hosts disable standalone output without changing Admin deployment 
   assert.match(webConfig, /const isVercel = Boolean\(process\.env\.VERCEL\)/);
   assert.match(webConfig, /output: isVercel \? undefined : "standalone"/);
   assert.doesNotMatch(webConfig, /process\.env\.NETLIFY/);
+});
+
+test("Admin sidebar organizes routes into operational groups with section-aware headers", async () => {
+  const sidebar = await read("apps/admin/components/layout/AdminSidebar.tsx");
+  const header = await read("apps/admin/components/layout/AdminHeader.tsx");
+
+  for (const groupLabel of [
+    "Overview",
+    "Academy Operations",
+    "Finance",
+    "Content & Communications",
+    "Administration",
+  ]) {
+    assert.match(sidebar, new RegExp(`label:\\s*"${groupLabel}"`));
+  }
+
+  for (const route of [
+    "/registrations",
+    "/leads",
+    "/reports",
+    "/insights/campaigns",
+    "/moderation",
+  ]) {
+    assert.ok(
+      header.includes(`"${route}"`),
+      `Expected AdminHeader to resolve section title for ${route}`,
+    );
+  }
+});
+
+test("Admin modules preserve operational boundaries and demo-mode isolation", async () => {
+  const registrations = await read("apps/admin/app/registrations/page.tsx");
+  const leads = await read("apps/admin/app/leads/page.tsx");
+  const memberships = await read("apps/admin/app/memberships/page.tsx");
+  const notifications = await read("apps/admin/app/notifications/page.tsx");
+  const editorial = await read("apps/admin/app/editorial/page.tsx");
+  const legacyApi = await read("apps/admin/lib/admin-api-legacy.ts");
+
+  assert.match(registrations, /Submission snapshot boundary/);
+  assert.match(
+    registrations,
+    /does not\s+automatically create or link an athlete profile/,
+  );
+  assert.match(
+    leads,
+    /General website Contact enquiries open WhatsApp or\s+email directly/,
+  );
+  assert.doesNotMatch(memberships, /Installment #1/);
+  assert.match(notifications, /isDemoMode/);
+  assert.match(editorial, /isDemoMode/);
+  assert.doesNotMatch(legacyApi, /\/v1\/academy\/offerings/);
 });

@@ -784,51 +784,6 @@ export const adminApi = {
 
   // Programmes
   async listProgrammes(): Promise<ProgrammeItem[]> {
-    try {
-      // In development or when backend offerings are returned, we attempt real call
-      const offerings = await adminApiClient.get<
-        Array<{
-          id: string;
-          name: string;
-          programme?: {
-            id: string;
-            code?: string;
-            name: string;
-            description: string | null;
-            minimumAge: number;
-            maximumAge: number;
-            level: string;
-            sport?: { code?: string; defaultName?: string };
-          };
-        }>
-      >("/v1/academy/offerings", { authenticated: false });
-      if (Array.isArray(offerings) && offerings.length > 0) {
-        // Extract distinct programmes from backend offerings
-        const map = new Map<string, ProgrammeItem>();
-        offerings.forEach((o) => {
-          if (o.programme && !map.has(o.programme.id)) {
-            map.set(o.programme.id, {
-              id: o.programme.id,
-              code: o.programme.code || "BB-PROG",
-              name: o.programme.name,
-              description: o.programme.description,
-              sportCode: o.programme.sport?.code || "BASKETBALL",
-              sportName: o.programme.sport?.defaultName || "Basketball",
-              minimumAge: o.programme.minimumAge,
-              maximumAge: o.programme.maximumAge,
-              level: o.programme.level,
-              active: true,
-              offeringsCount: 1,
-            });
-          } else if (o.programme && map.has(o.programme.id)) {
-            map.get(o.programme.id)!.offeringsCount += 1;
-          }
-        });
-        return Array.from(map.values());
-      }
-    } catch {
-      // Fallback to sample dataset
-    }
     return SAMPLE_PROGRAMMES;
   },
 
@@ -847,40 +802,6 @@ export const adminApi = {
 
   // Offerings
   async listOfferings(): Promise<OfferingItem[]> {
-    try {
-      const backendOfferings = await adminApiClient.get<
-        Array<{
-          id: string;
-          name: string;
-          capacity: number;
-          startsOn: string;
-          endsOn: string | null;
-          programme?: { id: string; name: string };
-          venue?: { id: string; name: string };
-        }>
-      >("/v1/academy/offerings", { authenticated: false });
-      if (Array.isArray(backendOfferings) && backendOfferings.length > 0) {
-        return backendOfferings.map((o) => ({
-          id: o.id,
-          programmeId: o.programme?.id || "",
-          programmeName: o.programme?.name || o.name,
-          venueId: o.venue?.id,
-          venueName: o.venue?.name,
-          name: o.name,
-          capacity: o.capacity,
-          enrolledCount: Math.round(o.capacity * 0.75),
-          availablePlaces: Math.max(
-            0,
-            o.capacity - Math.round(o.capacity * 0.75),
-          ),
-          startsOn: o.startsOn,
-          endsOn: o.endsOn,
-          status: "OPEN",
-        }));
-      }
-    } catch {
-      // Fallback
-    }
     return SAMPLE_OFFERINGS;
   },
 

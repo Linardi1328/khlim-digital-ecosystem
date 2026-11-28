@@ -24,10 +24,12 @@ import { ErrorState } from "../../components/ui/ErrorState";
 import { useAdminAuth } from "../../lib/auth-context";
 import {
   getAdminLeadDetail,
+  getAdminLeadSummary,
   listAdminLeads,
   updateAdminLead,
   type AdminLeadItem,
   type AdminLeadStatus,
+  type AdminLeadSummaryResponse,
 } from "../../lib/admin-api";
 
 function formatKHLIMDateTime(isoString: string): string {
@@ -63,6 +65,8 @@ function LeadsInboxContent() {
   const canView = hasRole(["SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN"]);
 
   const [leads, setLeads] = useState<AdminLeadItem[]>([]);
+  const [leadSummary, setLeadSummary] =
+    useState<AdminLeadSummaryResponse | null>(null);
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -95,6 +99,7 @@ function LeadsInboxContent() {
     requestSeq.current += 1;
     drawerRequestSeq.current += 1;
     setLeads([]);
+    setLeadSummary(null);
     setSelectedLead(null);
     setError(null);
     setSaveSuccess(null);
@@ -156,9 +161,26 @@ function LeadsInboxContent() {
     sourceFilter,
   ]);
 
+  const fetchSummary = useCallback(async () => {
+    if (!isEligible) {
+      setLeadSummary(null);
+      return;
+    }
+    try {
+      const summary = await getAdminLeadSummary();
+      setLeadSummary(summary);
+    } catch {
+      // Keep summary optional if summary endpoint is temporarily unavailable
+    }
+  }, [isEligible]);
+
   useEffect(() => {
     void fetchLeads();
   }, [fetchLeads]);
+
+  useEffect(() => {
+    void fetchSummary();
+  }, [fetchSummary]);
 
   // Sync drawer fields when a lead is selected
   const handleSelectLead = (lead: AdminLeadItem) => {
@@ -240,6 +262,7 @@ function LeadsInboxContent() {
         prev.map((item) => (item.id === updated.id ? updated : item)),
       );
       void fetchLeads();
+      void fetchSummary();
     } catch (err: unknown) {
       if (seq !== drawerRequestSeq.current) return;
 
@@ -299,14 +322,16 @@ function LeadsInboxContent() {
       key: "childAge",
       header: "Age",
       render: (lead) => (
-        <span style={{ fontWeight: 500 }}>{lead.childAge} yrs</span>
+        <span style={{ fontWeight: 600, whiteSpace: "nowrap" }}>
+          {lead.childAge} yrs
+        </span>
       ),
     },
     {
       key: "offering",
       header: "Programme / Offering",
       render: (lead) => (
-        <div style={{ maxWidth: "200px" }}>
+        <div style={{ maxWidth: "220px" }}>
           <div style={{ fontWeight: 500, color: "#1E293B" }}>
             {lead.programmeName || "General Academy Interest"}
           </div>
@@ -327,9 +352,11 @@ function LeadsInboxContent() {
             fontSize: "0.75rem",
             color: lead.source ? "#0284C7" : "#94A3B8",
             backgroundColor: lead.source ? "#F0F9FF" : "transparent",
-            padding: lead.source ? "2px 6px" : "0",
-            borderRadius: "4px",
+            padding: lead.source ? "3px 7px" : "0",
+            borderRadius: "5px",
             fontFamily: lead.source ? "monospace" : "inherit",
+            whiteSpace: "nowrap",
+            display: "inline-block",
           }}
         >
           {lead.source || "—"}
@@ -345,7 +372,13 @@ function LeadsInboxContent() {
       key: "createdAt",
       header: "Received (MYT)",
       render: (lead) => (
-        <span style={{ fontSize: "0.8125rem", color: "#64748B" }}>
+        <span
+          style={{
+            fontSize: "0.8rem",
+            color: "#64748B",
+            whiteSpace: "nowrap",
+          }}
+        >
           {formatKHLIMDateTime(lead.createdAt)}
         </span>
       ),
@@ -353,16 +386,18 @@ function LeadsInboxContent() {
     {
       key: "action",
       header: "Action",
+      align: "right",
       render: (lead) => (
         <Button
           size="sm"
           variant="secondary"
+          style={{ whiteSpace: "nowrap" }}
           onClick={(e) => {
             e.stopPropagation();
             handleSelectLead(lead);
           }}
         >
-          View & Manage
+          Manage
         </Button>
       ),
     },
@@ -438,18 +473,125 @@ function LeadsInboxContent() {
         {isDemoMode && (
           <div
             style={{
-              backgroundColor: "#EFF6FF",
-              border: "1px solid #BFDBFE",
-              color: "#1E40AF",
+              backgroundColor: "#FFFBEB",
+              border: "1px solid #FDE68A",
+              color: "#92400E",
               padding: "10px 16px",
               borderRadius: "8px",
               marginBottom: "16px",
-              fontSize: "0.875rem",
+              fontSize: "0.84rem",
             }}
           >
-            ℹ️ Demo mode: Showing synthetic Academy lead data.
+            <strong>Demo mode:</strong> Showing synthetic Academy lead data.
+            Status updates preview locally and are not persisted.
           </div>
         )}
+
+        {leadSummary && (
+          <div
+            role="group"
+            aria-label="Quick lead status filters"
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "8px",
+              marginBottom: "14px",
+            }}
+          >
+            {[
+              { value: "ALL", label: "All Leads", count: leadSummary.total },
+              {
+                value: "NEW",
+                label: "New",
+                count: leadSummary.byStatus.NEW,
+              },
+              {
+                value: "NEEDS_FOLLOW_UP",
+                label: "Needs Follow-up",
+                count: leadSummary.needsFollowUp,
+              },
+              {
+                value: "CONTACTED",
+                label: "Contacted",
+                count: leadSummary.byStatus.CONTACTED,
+              },
+              {
+                value: "QUALIFIED",
+                label: "Qualified",
+                count: leadSummary.byStatus.QUALIFIED,
+              },
+              {
+                value: "ENROLLED",
+                label: "Enrolled",
+                count: leadSummary.byStatus.ENROLLED,
+              },
+              {
+                value: "CLOSED",
+                label: "Closed",
+                count: leadSummary.byStatus.CLOSED,
+              },
+            ].map((pill) => {
+              const active = statusFilter === pill.value;
+              return (
+                <button
+                  key={pill.value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => {
+                    setStatusFilter(pill.value);
+                    setPage(1);
+                  }}
+                  style={{
+                    minHeight: 38,
+                    padding: "6px 12px",
+                    borderRadius: "999px",
+                    border: active ? "1px solid #18181B" : "1px solid #CBD5E1",
+                    backgroundColor: active ? "#18181B" : "#FFFFFF",
+                    color: active ? "#FFFFFF" : "#334155",
+                    fontSize: "0.8rem",
+                    fontWeight: active ? 700 : 600,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "7px",
+                  }}
+                >
+                  <span>{pill.label}</span>
+                  <span
+                    style={{
+                      fontSize: "0.72rem",
+                      fontWeight: 800,
+                      padding: "1px 6px",
+                      borderRadius: "999px",
+                      backgroundColor: active ? "#F59E0B" : "#F1F5F9",
+                      color: active ? "#18181B" : "#475569",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {pill.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <div
+          style={{
+            marginBottom: "14px",
+            padding: "9px 14px",
+            borderRadius: "8px",
+            backgroundColor: "#F8FAFC",
+            border: "1px solid #E2E8F0",
+            color: "#475569",
+            fontSize: "0.79rem",
+            lineHeight: 1.45,
+          }}
+        >
+          <strong>Channel scope:</strong> This inbox stores Academy interest
+          submissions only. General website Contact enquiries open WhatsApp or
+          email directly and do not automatically appear here.
+        </div>
 
         <FilterBar
           hasActiveFilters={hasActiveFilters}
@@ -703,14 +845,7 @@ function LeadsInboxContent() {
                 >
                   Registration Details
                 </div>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "12px",
-                    fontSize: "0.8125rem",
-                  }}
-                >
+                <div className="admin-detail-grid">
                   <div>
                     <div style={{ color: "#64748B" }}>Guardian Name</div>
                     <div style={{ fontWeight: 600, color: "#1E293B" }}>

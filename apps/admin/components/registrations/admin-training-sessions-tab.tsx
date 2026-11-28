@@ -1294,20 +1294,64 @@ export function AdminTrainingSessionsTab({
     {
       key: "capacity",
       header: "Seats (Authoritative)",
-      render: (session) => (
-        <div style={{ fontSize: "0.82rem" }}>
-          <div style={{ fontWeight: 700, color: "#0F172A" }}>
-            {session.seatCounts.CONFIRMED} / {session.capacity} confirmed
+      render: (session) => {
+        const pct =
+          session.capacity > 0
+            ? Math.min(
+                100,
+                Math.round(
+                  (session.seatCounts.CONFIRMED / session.capacity) * 100,
+                ),
+              )
+            : 0;
+        const barColor =
+          session.seatsRemaining === 0
+            ? "#DC2626"
+            : pct >= 80
+              ? "#F59E0B"
+              : "#10B981";
+        return (
+          <div style={{ fontSize: "0.82rem", minWidth: 150 }}>
+            <div
+              style={{
+                fontWeight: 700,
+                color: "#0F172A",
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {session.seatCounts.CONFIRMED} / {session.capacity} confirmed
+            </div>
+            <div
+              aria-hidden="true"
+              style={{
+                height: 6,
+                width: "100%",
+                maxWidth: 160,
+                borderRadius: 999,
+                backgroundColor: "#E2E8F0",
+                overflow: "hidden",
+                margin: "5px 0",
+              }}
+            >
+              <div
+                style={{
+                  height: "100%",
+                  width: `${pct}%`,
+                  backgroundColor: barColor,
+                  borderRadius: 999,
+                }}
+              />
+            </div>
+            <div style={{ color: "#475569" }}>
+              {session.seatsRemaining} remaining
+            </div>
+            <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+              {session.seatCounts.RECEIVED} received ·{" "}
+              {session.seatCounts.UNDER_REVIEW} in review
+            </div>
           </div>
-          <div style={{ color: "#475569" }}>
-            {session.seatsRemaining} remaining
-          </div>
-          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
-            {session.seatCounts.RECEIVED} received ·{" "}
-            {session.seatCounts.UNDER_REVIEW} in review
-          </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       key: "status",
@@ -1443,9 +1487,10 @@ export function AdminTrainingSessionsTab({
           <p
             style={{ margin: "4px 0 0", fontSize: "0.84rem", color: "#475569" }}
           >
-            Server-authoritative cohorts isolated from legacy checkout
-            memberships. All schedules follow Asia/Kuala_Lumpur (MYT) and ISO
-            weekdays (1 = Monday, 7 = Sunday).
+            Public registration cohorts isolated from legacy scheduling &amp;
+            attendance. Publication requires a complete schedule, approved age
+            rule, and active approved consent policy. All schedules follow
+            Asia/Kuala_Lumpur (MYT) and ISO weekdays (1 = Monday, 7 = Sunday).
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

@@ -1,16 +1,15 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AdminShell } from "../../components/layout/AdminShell";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Button } from "../../components/ui/Button";
+import { StatusBadge } from "../../components/ui/StatusBadge";
+import { EmptyState } from "../../components/ui/EmptyState";
 import { useAdminAuth } from "../../lib/auth-context";
-import { getAdminAccessToken } from "../../lib/admin-api";
+import { adminApiClient } from "../../lib/admin-api";
 
-const API = (
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001/v1"
-).replace(/\/+$/, "");
 type Entry = {
   id: string;
   type: "ACHIEVEMENT" | "PLAYER_SPOTLIGHT";
@@ -29,6 +28,39 @@ type Entry = {
   aiAssisted: boolean;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
 };
+
+const DEMO_EDITORIAL_ENTRIES: Entry[] = [
+  {
+    id: "demo-editorial-ready",
+    type: "PLAYER_SPOTLIGHT",
+    slug: "demo-player-spotlight",
+    title: "Player development milestone ready for review",
+    eventName: "KHLIM Demo Event",
+    summary:
+      "A verified demo Player Spotlight ready for management moderation.",
+    playerName: "Demo Athlete",
+    achievement: "Development milestone",
+    achievedOnLabel: "August 2026",
+    articleParagraphs: ["Synthetic editorial preview paragraph for demo mode."],
+    photoLabel: "Approved demo athlete photo",
+    factsVerified: true,
+    aiAssisted: true,
+    status: "DRAFT",
+  },
+  {
+    id: "demo-editorial-live",
+    type: "ACHIEVEMENT",
+    title: "Published demo achievement",
+    eventName: "KHLIM Demo Event",
+    summary: "Published club milestone preview.",
+    yearLabel: "2026",
+    photoLabel: "Approved demo team photo",
+    factsVerified: true,
+    aiAssisted: false,
+    status: "PUBLISHED",
+  },
+];
+
 const empty = {
   type: "PLAYER_SPOTLIGHT" as "ACHIEVEMENT" | "PLAYER_SPOTLIGHT",
   slug: "",
@@ -45,50 +77,57 @@ const empty = {
   factsVerified: false,
   developmentNote: "",
 };
-async function api(path: string, init?: RequestInit) {
-  const token = getAdminAccessToken();
-  const response = await fetch(`${API}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
-  if (!response.ok)
-    throw new Error((await response.text()) || `HTTP ${response.status}`);
-  return response.json();
-}
 
 export default function EditorialStudioPage() {
-  const { hasRole } = useAdminAuth();
+  const { hasRole, isAuthenticated, isDemoMode, mfaSatisfied } = useAdminAuth();
+  const canEdit = hasRole(["SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN"]);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [form, setForm] = useState({ ...empty });
   const [message, setMessage] = useState("");
   const managementCanModerate = hasRole(["SUPER_ADMIN", "MANAGEMENT"]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
+    if (!canEdit) return;
+    if (!isDemoMode && (!isAuthenticated || !mfaSatisfied)) return;
     try {
-      setEntries(await api("/admin/editorial"));
+      if (isDemoMode) {
+        setEntries(DEMO_EDITORIAL_ENTRIES.map((e) => ({ ...e })));
+        return;
+      }
+      setEntries(await adminApiClient.get<Entry[]>("/admin/editorial"));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
     }
-  };
+  }, [canEdit, isAuthenticated, isDemoMode, mfaSatisfied]);
+
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
   const set = (key: keyof typeof form, value: string | boolean) =>
     setForm((current) => ({ ...current, [key]: value }));
   async function generateDraft() {
+    if (isDemoMode) {
+      setForm((current) => ({
+        ...current,
+        title: `${current.playerName || "Academy Athlete"} — ${current.achievement || "Milestone"}`,
+        summary: `Demo draft summary based on staff-supplied facts for ${current.eventName || "KHLIM Academy"}.`,
+        articleParagraphs:
+          "Demo-only AI-assisted draft paragraph. No external AI service was called in demo mode.",
+      }));
+      setMessage("Demo draft preview generated locally. Review before saving.");
+      return;
+    }
     try {
-      const draft = await api("/admin/editorial/player-spotlights/draft", {
-        method: "POST",
-        body: JSON.stringify({
-          playerName: form.playerName,
-          eventName: form.eventName,
-          achievement: form.achievement,
-          achievedOnLabel: form.achievedOnLabel,
-          developmentNote: form.developmentNote,
-        }),
+      const draft = await adminApiClient.post<{
+        headline: string;
+        excerpt: string;
+        articleParagraphs: string[];
+      }>("/admin/editorial/player-spotlights/draft", {
+        playerName: form.playerName,
+        eventName: form.eventName,
+        achievement: form.achievement,
+        achievedOnLabel: form.achievedOnLabel,
+        developmentNote: form.developmentNote,
       });
       setForm((current) => ({
         ...current,
@@ -104,6 +143,36 @@ export default function EditorialStudioPage() {
     }
   }
   async function save() {
+    if (isDemoMode) {
+      const preview: Entry = {
+        id: `demo-editorial-${Date.now()}`,
+        type: form.type,
+        slug: form.type === "PLAYER_SPOTLIGHT" ? form.slug : undefined,
+        title: form.title || "Untitled Demo Draft",
+        eventName: form.eventName || "KHLIM Demo Event",
+        summary: form.summary,
+        yearLabel: form.type === "ACHIEVEMENT" ? form.yearLabel : undefined,
+        playerName:
+          form.type === "PLAYER_SPOTLIGHT" ? form.playerName : undefined,
+        achievement:
+          form.type === "PLAYER_SPOTLIGHT" ? form.achievement : undefined,
+        achievedOnLabel:
+          form.type === "PLAYER_SPOTLIGHT" ? form.achievedOnLabel : undefined,
+        articleParagraphs:
+          form.type === "PLAYER_SPOTLIGHT"
+            ? form.articleParagraphs.split(/\n\s*\n/).filter(Boolean)
+            : undefined,
+        photoLabel: form.photoLabel || "Demo photo",
+        imageUrl: form.imageUrl || undefined,
+        factsVerified: form.factsVerified,
+        aiAssisted: form.type === "PLAYER_SPOTLIGHT",
+        status: "DRAFT",
+      };
+      setEntries((current) => [preview, ...current]);
+      setForm({ ...empty, type: form.type });
+      setMessage("Demo draft saved locally only. Changes are not persisted.");
+      return;
+    }
     try {
       const payload = {
         type: form.type,
@@ -127,10 +196,7 @@ export default function EditorialStudioPage() {
         factsVerified: form.factsVerified,
         aiAssisted: form.type === "PLAYER_SPOTLIGHT",
       };
-      await api("/admin/editorial", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
+      await adminApiClient.post("/admin/editorial", payload);
       setForm({ ...empty, type: form.type });
       setMessage(
         form.factsVerified
@@ -152,6 +218,27 @@ export default function EditorialStudioPage() {
       />
     </label>
   );
+  if (!canEdit) {
+    return (
+      <AdminShell>
+        <div>
+          <PageHeader
+            title="Editorial Studio"
+            subtitle="Create verified club achievements and Player Spotlight newsletters, with AI-assisted drafting from staff-supplied facts."
+            breadcrumbs={[
+              { label: "Operations", href: "/" },
+              { label: "Editorial Studio" },
+            ]}
+          />
+          <EmptyState
+            icon="🔒"
+            title="Restricted Editorial Access"
+            description="Editorial Studio is restricted to Academy Admin, Management, and Super Admin staff with verified MFA."
+          />
+        </div>
+      </AdminShell>
+    );
+  }
   return (
     <AdminShell>
       <div>
@@ -257,7 +344,7 @@ export default function EditorialStudioPage() {
               <article className="saved" key={entry.id}>
                 <div className="saved-head">
                   <strong>{entry.title}</strong>
-                  <span>{entry.status}</span>
+                  <StatusBadge status={entry.status} size="sm" />
                 </div>
                 <p>
                   {entry.eventName} ·{" "}

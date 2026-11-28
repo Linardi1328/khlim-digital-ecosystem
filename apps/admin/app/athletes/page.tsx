@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { Suspense, useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { AdminShell } from "../../components/layout/AdminShell";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { DataTable, type Column } from "../../components/ui/DataTable";
@@ -11,15 +13,33 @@ import { Pagination } from "../../components/ui/Pagination";
 import { Button } from "../../components/ui/Button";
 import { Drawer } from "../../components/ui/Drawer";
 import { Tabs } from "../../components/ui/Tabs";
+import { ErrorState } from "../../components/ui/ErrorState";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { LoadingState } from "../../components/ui/LoadingState";
+import { useAdminAuth } from "../../lib/auth-context";
 import { adminApi } from "../../lib/admin-api";
-import type { AthleteItem } from "../../lib/types";
+import type { AthleteItem, StaffRole } from "../../lib/types";
 
-export default function AthletesPage() {
+const PLAYER_OPERATIONS_ROLES: StaffRole[] = [
+  "SUPER_ADMIN",
+  "MANAGEMENT",
+  "ACADEMY_ADMIN",
+  "HEAD_COACH",
+  "COACH",
+];
+
+function AthletesContent() {
+  const searchParams = useSearchParams();
+  const initialQuery = searchParams.get("q") || "";
+  const { hasRole, isAuthenticated, isDemoMode, mfaSatisfied } = useAdminAuth();
+  const canView = hasRole(PLAYER_OPERATIONS_ROLES);
+
   const [athletes, setAthletes] = useState<AthleteItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Search & Filter
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialQuery);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -30,32 +50,76 @@ export default function AthletesPage() {
   );
   const [detailTab, setDetailTab] = useState("profile");
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const list = await adminApi.listAthletes();
-        setAthletes(list);
-      } catch (err) {
-        console.warn("Failed to load athletes:", err);
-      } finally {
-        setLoading(false);
-      }
+  const loadAthletes = useCallback(async () => {
+    if (!canView) {
+      setAthletes([]);
+      setLoading(false);
+      return;
     }
-    load();
-  }, []);
+    if (!isDemoMode && (!isAuthenticated || !mfaSatisfied)) {
+      setAthletes([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const list = await adminApi.listAthletes();
+      setAthletes(list);
+    } catch (err) {
+      setLoadError(
+        err instanceof Error
+          ? err.message
+          : "Athlete directory could not be loaded from the backend.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [canView, isAuthenticated, isDemoMode, mfaSatisfied]);
+
+  useEffect(() => {
+    void loadAthletes();
+  }, [loadAthletes]);
+
+  if (!canView) {
+    return (
+      <AdminShell>
+        <div>
+          <PageHeader
+            title="Athletes Directory"
+            subtitle="Managed minor athlete profiles linked to authorized family guardians."
+            breadcrumbs={[
+              { label: "Operations", href: "/" },
+              { label: "Athletes" },
+            ]}
+          />
+          <EmptyState
+            icon="🔒"
+            title="Restricted Athlete Records"
+            description="Access to minor athlete records is limited to authorized coaches, academy administrators, and management."
+          />
+        </div>
+      </AdminShell>
+    );
+  }
 
   const filtered = athletes.filter((ath) => {
+    const q = search.trim().toLowerCase();
     const matchesSearch =
-      ath.displayName.toLowerCase().includes(search.toLowerCase()) ||
-      ath.guardians.some((g) =>
-        g.guardianName.toLowerCase().includes(search.toLowerCase()),
-      );
+      q === "" ||
+      ath.displayName.toLowerCase().includes(q) ||
+      ath.id.toLowerCase().includes(q) ||
+      ath.guardians.some((g) => g.guardianName.toLowerCase().includes(q));
     const matchesStatus = statusFilter === "ALL" || ath.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
   const totalPages = Math.ceil(filtered.length / pageSize);
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const activeCount = athletes.filter((a) => a.status === "ACTIVE").length;
+  const withActiveMembership = athletes.filter(
+    (a) => a.activeMembershipsCount > 0,
+  ).length;
 
   const columns: Column<AthleteItem>[] = [
     {
@@ -64,6 +128,7 @@ export default function AthletesPage() {
       render: (ath) => (
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <div
+            aria-hidden="true"
             style={{
               width: "32px",
               height: "32px",
@@ -74,7 +139,8 @@ export default function AthletesPage() {
               alignItems: "center",
               justifyContent: "center",
               fontWeight: 800,
-              fontSize: "0.875rem",
+              fontSize: "0.84rem",
+              flexShrink: 0,
             }}
           >
             {ath.displayName[0]}
@@ -83,8 +149,14 @@ export default function AthletesPage() {
             <div style={{ fontWeight: 700, color: "#0F172A" }}>
               {ath.displayName}
             </div>
-            <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
-              ID: {ath.id}
+            <div
+              style={{
+                fontSize: "0.72rem",
+                color: "#64748B",
+                fontFamily: "monospace",
+              }}
+            >
+              {ath.id}
             </div>
           </div>
         </div>
@@ -95,7 +167,9 @@ export default function AthletesPage() {
       header: "Date of Birth",
       render: (ath) => (
         <div>
-          <div style={{ fontWeight: 600 }}>{ath.dateOfBirth}</div>
+          <div style={{ fontWeight: 600, whiteSpace: "nowrap" }}>
+            {ath.dateOfBirth}
+          </div>
           <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
             {ath.gender || "Youth"}
           </div>
@@ -109,11 +183,12 @@ export default function AthletesPage() {
         <span
           style={{
             fontWeight: 700,
-            padding: "2px 6px",
-            borderRadius: "4px",
+            padding: "2px 7px",
+            borderRadius: "5px",
             backgroundColor: "#F1F5F9",
             color: "#334155",
-            fontSize: "0.8125rem",
+            fontSize: "0.8rem",
+            whiteSpace: "nowrap",
           }}
         >
           {ath.age} yrs
@@ -125,23 +200,30 @@ export default function AthletesPage() {
       header: "Guardian Relationships",
       render: (ath) => (
         <div>
-          {ath.guardians.map((g) => (
-            <div key={g.id} style={{ fontSize: "0.8125rem" }}>
-              <strong>{g.guardianName}</strong>{" "}
-              <span style={{ color: "#64748B" }}>({g.relationshipType})</span>
-            </div>
-          ))}
+          {ath.guardians.length === 0 ? (
+            <span style={{ color: "#94A3B8", fontSize: "0.8rem" }}>
+              No linked guardian
+            </span>
+          ) : (
+            ath.guardians.map((g) => (
+              <div key={g.id} style={{ fontSize: "0.8125rem" }}>
+                <strong>{g.guardianName}</strong>{" "}
+                <span style={{ color: "#64748B" }}>({g.relationshipType})</span>
+              </div>
+            ))
+          )}
         </div>
       ),
     },
     {
       key: "memberships",
-      header: "Active Memberships",
+      header: "Memberships",
       render: (ath) => (
         <span
           style={{
             fontWeight: 700,
             color: ath.activeMembershipsCount > 0 ? "#065F46" : "#64748B",
+            whiteSpace: "nowrap",
           }}
         >
           {ath.activeMembershipsCount} Active ({ath.membershipsCount} Total)
@@ -161,6 +243,7 @@ export default function AthletesPage() {
         <Button
           variant="outline"
           size="sm"
+          style={{ whiteSpace: "nowrap" }}
           onClick={(e) => {
             e.stopPropagation();
             setSelectedAthlete(ath);
@@ -175,7 +258,7 @@ export default function AthletesPage() {
 
   return (
     <AdminShell>
-      <div>
+      <div style={{ minWidth: 0 }}>
         <PageHeader
           title="Athletes Directory"
           subtitle="Managed minor athlete profiles linked to authorized family guardians."
@@ -185,17 +268,43 @@ export default function AthletesPage() {
           ]}
         />
 
+        <div className="admin-summary-strip" aria-label="Athlete summary">
+          <div className="admin-summary-tile">
+            <div className="admin-summary-tile-label">Total Athletes</div>
+            <div className="admin-summary-tile-value">{athletes.length}</div>
+            <div className="admin-summary-tile-sub">Organization-scoped</div>
+          </div>
+          <div className="admin-summary-tile">
+            <div className="admin-summary-tile-label">Active Profiles</div>
+            <div className="admin-summary-tile-value">{activeCount}</div>
+            <div className="admin-summary-tile-sub">Eligible for squads</div>
+          </div>
+          <div className="admin-summary-tile">
+            <div className="admin-summary-tile-label">
+              With Active Membership
+            </div>
+            <div className="admin-summary-tile-value">
+              {withActiveMembership}
+            </div>
+            <div className="admin-summary-tile-sub">Current contracts</div>
+          </div>
+        </div>
+
         {/* Filter Controls */}
         <FilterBar
           hasActiveFilters={search !== "" || statusFilter !== "ALL"}
           onReset={() => {
             setSearch("");
             setStatusFilter("ALL");
+            setPage(1);
           }}
         >
           <SearchInput
             value={search}
-            onChange={setSearch}
+            onChange={(val) => {
+              setSearch(val);
+              setPage(1);
+            }}
             placeholder="Search athletes by name, guardian..."
           />
 
@@ -209,9 +318,12 @@ export default function AthletesPage() {
             <select
               id="ath-status"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
               style={{
-                padding: "6px 10px",
+                padding: "7px 10px",
                 fontSize: "0.8125rem",
                 backgroundColor: "#F8FAFC",
                 border: "1px solid #CBD5E1",
@@ -226,27 +338,38 @@ export default function AthletesPage() {
           </div>
         </FilterBar>
 
-        {/* Data Table */}
-        <DataTable
-          columns={columns}
-          data={paginated}
-          keyExtractor={(item) => item.id}
-          isLoading={loading}
-          onRowClick={(item) => {
-            setSelectedAthlete(item);
-            setDetailTab("profile");
-          }}
-        />
+        {loadError ? (
+          <ErrorState
+            title="Unable to Load Athletes"
+            message={loadError}
+            onRetry={() => void loadAthletes()}
+          />
+        ) : (
+          <>
+            <DataTable
+              columns={columns}
+              data={paginated}
+              keyExtractor={(item) => item.id}
+              isLoading={loading}
+              onRowClick={(item) => {
+                setSelectedAthlete(item);
+                setDetailTab("profile");
+              }}
+            />
 
-        {/* Pagination */}
-        <Pagination
-          currentPage={page}
-          totalPages={totalPages}
-          totalItems={filtered.length}
-          itemsPerPage={pageSize}
-          onPageChange={setPage}
-          onItemsPerPageChange={setPageSize}
-        />
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              totalItems={filtered.length}
+              itemsPerPage={pageSize}
+              onPageChange={setPage}
+              onItemsPerPageChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+            />
+          </>
+        )}
 
         {/* Athlete Detail Drawer */}
         <Drawer
@@ -256,13 +379,24 @@ export default function AthletesPage() {
           subtitle={`Age ${selectedAthlete?.age} • DOB: ${selectedAthlete?.dateOfBirth}`}
           width="560px"
           footer={
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectedAthlete(null)}
-            >
-              Close
-            </Button>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {selectedAthlete && (
+                <Link
+                  href={`/memberships?q=${encodeURIComponent(selectedAthlete.displayName)}`}
+                >
+                  <Button variant="secondary" size="sm">
+                    View Memberships →
+                  </Button>
+                </Link>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedAthlete(null)}
+              >
+                Close
+              </Button>
+            </div>
           }
         >
           {selectedAthlete && (
@@ -270,7 +404,11 @@ export default function AthletesPage() {
               <Tabs
                 tabs={[
                   { id: "profile", label: "Profile" },
-                  { id: "guardians", label: "Guardians" },
+                  {
+                    id: "guardians",
+                    label: "Guardians",
+                    count: selectedAthlete.guardians.length,
+                  },
                   { id: "attendance", label: "Attendance" },
                 ]}
                 activeTab={detailTab}
@@ -286,10 +424,8 @@ export default function AthletesPage() {
                   }}
                 >
                   <div
+                    className="admin-detail-grid"
                     style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: "12px",
                       backgroundColor: "#F8FAFC",
                       padding: "16px",
                       borderRadius: "10px",
@@ -299,7 +435,7 @@ export default function AthletesPage() {
                     <div>
                       <div
                         style={{
-                          fontSize: "0.75rem",
+                          fontSize: "0.72rem",
                           color: "#64748B",
                           fontWeight: 700,
                         }}
@@ -319,7 +455,7 @@ export default function AthletesPage() {
                     <div>
                       <div
                         style={{
-                          fontSize: "0.75rem",
+                          fontSize: "0.72rem",
                           color: "#64748B",
                           fontWeight: 700,
                         }}
@@ -339,7 +475,7 @@ export default function AthletesPage() {
                     <div>
                       <div
                         style={{
-                          fontSize: "0.75rem",
+                          fontSize: "0.72rem",
                           color: "#64748B",
                           fontWeight: 700,
                         }}
@@ -353,13 +489,14 @@ export default function AthletesPage() {
                           marginTop: "2px",
                         }}
                       >
-                        {selectedAthlete.activeMembershipsCount} Active
+                        {selectedAthlete.activeMembershipsCount} Active (
+                        {selectedAthlete.membershipsCount} Total)
                       </div>
                     </div>
                     <div>
                       <div
                         style={{
-                          fontSize: "0.75rem",
+                          fontSize: "0.72rem",
                           color: "#64748B",
                           fontWeight: 700,
                         }}
@@ -380,12 +517,13 @@ export default function AthletesPage() {
 
                   <div
                     style={{
-                      padding: "12px",
+                      padding: "12px 14px",
                       borderRadius: "8px",
                       backgroundColor: "#FFFBEB",
                       border: "1px solid #FDE68A",
                       fontSize: "0.8125rem",
                       color: "#92400E",
+                      lineHeight: 1.5,
                     }}
                   >
                     <strong>Domain Architecture:</strong> Athletes are managed
@@ -403,55 +541,90 @@ export default function AthletesPage() {
                     gap: "10px",
                   }}
                 >
-                  {selectedAthlete.guardians.map((g) => (
-                    <div
-                      key={g.id}
-                      style={{
-                        padding: "14px",
-                        backgroundColor: "#F8FAFC",
-                        borderRadius: "8px",
-                        border: "1px solid #E2E8F0",
-                      }}
-                    >
-                      <div style={{ fontWeight: 700, fontSize: "0.9375rem" }}>
-                        {g.guardianName}
-                      </div>
+                  {selectedAthlete.guardians.length === 0 ? (
+                    <EmptyState
+                      title="No linked guardians"
+                      description="No verified guardian relationships are attached to this athlete profile."
+                    />
+                  ) : (
+                    selectedAthlete.guardians.map((g) => (
                       <div
+                        key={g.id}
                         style={{
-                          fontSize: "0.8125rem",
-                          color: "#64748B",
-                          marginTop: "2px",
+                          padding: "14px",
+                          backgroundColor: "#F8FAFC",
+                          borderRadius: "8px",
+                          border: "1px solid #E2E8F0",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          gap: 12,
+                          flexWrap: "wrap",
                         }}
                       >
-                        Relationship: <strong>{g.relationshipType}</strong>
-                      </div>
-                      {g.phone && (
-                        <div
-                          style={{
-                            fontSize: "0.75rem",
-                            color: "#64748B",
-                            marginTop: "2px",
-                          }}
-                        >
-                          Phone: {g.phone}
+                        <div>
+                          <div
+                            style={{ fontWeight: 700, fontSize: "0.9375rem" }}
+                          >
+                            {g.guardianName}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "0.8125rem",
+                              color: "#64748B",
+                              marginTop: "2px",
+                            }}
+                          >
+                            Relationship: <strong>{g.relationshipType}</strong>
+                          </div>
+                          {g.phone && (
+                            <div
+                              style={{
+                                fontSize: "0.75rem",
+                                color: "#64748B",
+                                fontFamily: "monospace",
+                                marginTop: "2px",
+                              }}
+                            >
+                              {g.phone}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  ))}
+                        <Link
+                          href={`/guardians?q=${encodeURIComponent(g.guardianName)}`}
+                        >
+                          <Button variant="outline" size="sm">
+                            Open Guardian →
+                          </Button>
+                        </Link>
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
 
               {detailTab === "attendance" && (
                 <div
                   style={{
-                    padding: "24px",
+                    padding: "20px",
                     textAlign: "center",
-                    color: "#64748B",
-                    fontSize: "0.875rem",
+                    color: "#475569",
+                    backgroundColor: "#F8FAFC",
+                    borderRadius: 10,
+                    border: "1px solid #E2E8F0",
+                    fontSize: "0.84rem",
+                    lineHeight: 1.55,
                   }}
                 >
-                  📋 Attendance records are logged by academy coaches during
-                  training sessions.
+                  <p style={{ margin: "0 0 12px" }}>
+                    Attendance records are logged by academy coaches per
+                    training session under Scheduling &amp; Attendance.
+                  </p>
+                  <Link href="/scheduling">
+                    <Button variant="outline" size="sm">
+                      Open Scheduling &amp; Attendance →
+                    </Button>
+                  </Link>
                 </div>
               )}
             </div>
@@ -459,5 +632,19 @@ export default function AthletesPage() {
         </Drawer>
       </div>
     </AdminShell>
+  );
+}
+
+export default function AthletesPage() {
+  return (
+    <Suspense
+      fallback={
+        <AdminShell>
+          <LoadingState message="Loading athletes directory..." />
+        </AdminShell>
+      }
+    >
+      <AthletesContent />
+    </Suspense>
   );
 }

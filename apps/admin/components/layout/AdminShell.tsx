@@ -38,19 +38,34 @@ function StaffSignIn() {
   return (
     <main className="admin-access-gate">
       <form className="admin-access-card" onSubmit={submit}>
-        <img
-          src="/khs-academy-logo.webp"
-          alt="KHLIM Sports Academy"
-          width={68}
-          height={80}
+        <span
           style={{
-            width: 68,
-            height: 80,
-            objectFit: "contain",
-            display: "block",
-            margin: "0 auto 12px",
+            width: 72,
+            height: 82,
+            borderRadius: 14,
+            background: "#0B0B0D",
+            border: "1px solid rgba(245, 158, 11, 0.45)",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "0 auto 14px",
+            padding: 8,
+            boxSizing: "border-box",
           }}
-        />
+        >
+          <img
+            src="/khs-academy-logo.webp"
+            alt="KHLIM Sports Academy"
+            width={56}
+            height={66}
+            style={{
+              width: 56,
+              height: 66,
+              objectFit: "contain",
+              display: "block",
+            }}
+          />
+        </span>
         <h1>KHLIM Operations Console</h1>
         <p>
           Sign in with your approved staff account. Admin access is checked
@@ -246,19 +261,34 @@ function MfaGate() {
   return (
     <main className="admin-access-gate">
       <div className="admin-access-card">
-        <img
-          src="/khs-academy-logo.webp"
-          alt="KHLIM Sports Academy"
-          width={68}
-          height={80}
+        <span
           style={{
-            width: 68,
-            height: 80,
-            objectFit: "contain",
-            display: "block",
-            margin: "0 auto 12px",
+            width: 72,
+            height: 82,
+            borderRadius: 14,
+            background: "#0B0B0D",
+            border: "1px solid rgba(245, 158, 11, 0.45)",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "0 auto 14px",
+            padding: 8,
+            boxSizing: "border-box",
           }}
-        />
+        >
+          <img
+            src="/khs-academy-logo.webp"
+            alt="KHLIM Sports Academy"
+            width={56}
+            height={66}
+            style={{
+              width: 56,
+              height: 66,
+              objectFit: "contain",
+              display: "block",
+            }}
+          />
+        </span>
         <h1>MFA verification required</h1>
         <p>
           Your staff password was accepted, but KHLIM admin operations require
@@ -514,18 +544,7 @@ export function AdminShell({ children }: AdminShellProps) {
             onOpenMobileNav={() => setIsMobileNavOpen(true)}
           />
 
-          <main
-            style={{
-              flex: 1,
-              padding: "28px 28px 60px",
-              maxWidth: "1440px",
-              width: "100%",
-              margin: "0 auto",
-              boxSizing: "border-box",
-            }}
-          >
-            {children}
-          </main>
+          <main className="admin-main-content">{children}</main>
         </div>
       </div>
     </>

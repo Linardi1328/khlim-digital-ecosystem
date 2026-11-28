@@ -13,8 +13,8 @@ import { fileURLToPath } from "node:url";
 const PUBLIC_MEDIA_ALLOWLIST = [
   [
     "apps/admin/public/khs-academy-logo.webp",
-    "a433ecddaf6edeca17a05736da0cd54f6acba46fad1f0f38fb8a990c7c8f6996",
-    "UNVERIFIED, owner confirmation pending: staff-console logo derivative, no people",
+    "e799d6257989c63894eb07e7c38edbaeccc561608e55ff0951fcf2b75b5009e5",
+    "byte-identical to documented media/khlim/logo-academy.webp (official logo, no people)",
   ],
   [
     "apps/web/public/khs-academy-logo.webp",
