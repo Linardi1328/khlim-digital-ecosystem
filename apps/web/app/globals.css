@@ -894,27 +894,6 @@ main :is(input, textarea, select):focus-visible {
   align-items: center;
 }
 
-.programmes-pathway-section {
-  margin-top: 56px;
-  padding-top: 44px;
-  border-top: 1px solid #e4e4e7;
-}
-
-.programmes-pathway-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 20px;
-}
-
-.programmes-pathway-actions {
-  margin-top: 28px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
 @media (max-width: 720px) {
   .contact-page-main {
     padding: 28px 16px 48px;
@@ -928,10 +907,5 @@ main :is(input, textarea, select):focus-visible {
   .contact-actions-row > button,
   .contact-actions-row > a {
     width: 100%;
-  }
-
-  .programmes-pathway-section {
-    margin-top: 40px;
-    padding-top: 32px;
   }
 }

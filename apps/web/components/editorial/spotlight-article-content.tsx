@@ -98,7 +98,7 @@ export function SpotlightArticleContent({
               <strong>{t("spotlight.article.standardTitle")}</strong>
               <p>{t("spotlight.article.standardBody")}</p>
             </div>
-            <Link href="/programmes" style={{ textDecoration: "none" }}>
+            <Link href="/academy#programmes" style={{ textDecoration: "none" }}>
               <Button variant="primary">
                 {t("spotlight.article.programmesCta")}
               </Button>

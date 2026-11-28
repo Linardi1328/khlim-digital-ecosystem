@@ -37,10 +37,6 @@ function PublicHeaderView({
       label: t("nav.academy"),
     },
     {
-      href: buildUrlWithSource("/programmes", campaignSource),
-      label: t("nav.programmes"),
-    },
-    {
       href: buildUrlWithSource("/spotlight", campaignSource),
       label: t("nav.spotlight"),
     },

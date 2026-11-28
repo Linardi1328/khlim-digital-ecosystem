@@ -21,8 +21,11 @@ test("Home hero and final CTA make Register Interest the primary acquisition pat
   assert.doesNotMatch(heroCarousel, /href=\{buildUrlWithSource\("\/enrol"/);
   assert.doesNotMatch(heroCarousel, /href="\/enrol"/);
 
-  // Secondary CTA is explore programmes
-  assert.match(heroCarousel, /buildUrlWithSource\("\/programmes", source\)/);
+  // Secondary CTA is explore programmes on consolidated Academy page
+  assert.match(
+    heroCarousel,
+    /buildUrlWithSource\("\/academy#programmes", source\)/,
+  );
 
   // Home communicates KHLIM Academy and pathway (U9/U12/U15)
   assert.match(
@@ -130,11 +133,12 @@ test("Academy page resolves campaign source, propagates to PublicHeader and inte
     /href=\{buildUrlWithSource\("\/interest", campaignSource\)\}[\s\S]*?style=\{getButtonStyles\("primary", "lg"\)\}/,
   );
 
-  // Internal links use buildUrlWithSource
+  // Internal links use in-page #programmes anchor and integrated ProgrammeCatalogueSection
   assert.doesNotMatch(academyPage, /<Link href="\/programmes">/);
+  assert.match(academyPage, /href="#programmes"/);
   assert.match(
     academyPage,
-    /buildUrlWithSource\("\/programmes", campaignSource\)/,
+    /<ProgrammeCatalogueSection campaignSource=\{campaignSource\} \/>/,
   );
 
   // No nested buttons inside links on Academy page
@@ -142,7 +146,7 @@ test("Academy page resolves campaign source, propagates to PublicHeader and inte
   assert.doesNotMatch(academyPage, /<a[\s\S]*?<button/);
 });
 
-test("Campaign attribution 3x3-oct24 propagates across Home -> Academy -> Programmes -> Interest navigation", async () => {
+test("Campaign attribution 3x3-oct24 propagates across Home -> Academy (#programmes) -> Interest navigation", async () => {
   const { resolveCampaignSource, buildUrlWithSource } = await import(
     new URL("apps/web/lib/campaign-source.ts", root).href
   );
@@ -158,23 +162,28 @@ test("Campaign attribution 3x3-oct24 propagates across Home -> Academy -> Progra
   const academyUrl = buildUrlWithSource("/academy", homeResolved);
   assert.equal(academyUrl, `/academy?source=${eventCampaign}`);
 
-  // 3. Navigation link from Academy to Programmes retains 3x3-oct24
+  // 3. Navigation link to Academy #programmes retains 3x3-oct24 before fragment
   const academyParams = new URLSearchParams(academyUrl.split("?")[1]);
   const academyResolved = resolveCampaignSource(academyParams);
   assert.equal(academyResolved, eventCampaign);
 
-  const programmesUrl = buildUrlWithSource("/programmes", academyResolved);
-  assert.equal(programmesUrl, `/programmes?source=${eventCampaign}`);
+  const programmesUrl = buildUrlWithSource(
+    "/academy#programmes",
+    academyResolved,
+  );
+  assert.equal(programmesUrl, `/academy?source=${eventCampaign}#programmes`);
 
-  // 4. Navigation link from Programmes to Interest retains 3x3-oct24
-  const programmesParams = new URLSearchParams(programmesUrl.split("?")[1]);
+  // 4. Navigation link from Academy #programmes to Interest retains 3x3-oct24
+  const programmesParams = new URLSearchParams(
+    programmesUrl.split("#")[0].split("?")[1],
+  );
   const programmesResolved = resolveCampaignSource(programmesParams);
   assert.equal(programmesResolved, eventCampaign);
 
   const interestUrl = buildUrlWithSource("/interest", programmesResolved);
   assert.equal(interestUrl, `/interest?source=${eventCampaign}`);
 
-  // 5. Direct offering interest CTA from Programmes also retains 3x3-oct24
+  // 5. Direct offering interest CTA from Academy catalogue also retains 3x3-oct24
   const offeringInterestUrl = buildUrlWithSource(
     "/interest",
     programmesResolved,
@@ -186,14 +195,16 @@ test("Campaign attribution 3x3-oct24 propagates across Home -> Academy -> Progra
   );
 });
 
-test("Programmes list page includes age and level badges on cards for fast mobile scanning", async () => {
-  const programmesPage = await read("apps/web/app/programmes/page.tsx");
+test("Integrated Academy programme catalogue includes age and level badges on cards for fast mobile scanning", async () => {
+  const catalogueSection = await read(
+    "apps/web/components/academy/programme-catalogue-section.tsx",
+  );
 
-  assert.match(programmesPage, /function ageLabel\(/);
-  assert.match(programmesPage, /ageLabel\(offering, t\)/);
-  assert.match(programmesPage, /offering\.programme\.level/);
+  assert.match(catalogueSection, /function ageLabel\(/);
+  assert.match(catalogueSection, /ageLabel\(offering, t\)/);
+  assert.match(catalogueSection, /offering\.programme\.level/);
   assert.match(
-    programmesPage,
+    catalogueSection,
     /buildUrlWithSource\("\/interest", campaignSource, \{\s*offeringId: offering\.id,?\s*\}\)/,
   );
 });
@@ -282,18 +293,20 @@ test("Authoritative venue messaging: Home has no static Taylor's fallback, surfa
 
 test("Maximum-only age eligibility is supported in ageLabel and translated across all 5 locales", async () => {
   const homePage = await read("apps/web/app/page.tsx");
-  const programmesPage = await read("apps/web/app/programmes/page.tsx");
+  const catalogueSection = await read(
+    "apps/web/components/academy/programme-catalogue-section.tsx",
+  );
   const { webMessages } = await import(
     new URL("packages/i18n/src/messages/web.ts", root).href
   );
 
-  // Both pages support maximum-only age eligibility branch
+  // Both Home and integrated Academy catalogue support maximum-only age eligibility branch
   assert.match(
     homePage,
     /if \(maximum !== null\) return t\("programmes\.maximumAge", \{ maximum \}\);/,
   );
   assert.match(
-    programmesPage,
+    catalogueSection,
     /if \(maximum !== null\) return t\("programmes\.maximumAge", \{ maximum \}\);/,
   );
 
@@ -396,7 +409,7 @@ test("First-render campaign attribution derives synchronously without storage re
     /useEffect\(\(\) => \{\s*setStoredCampaign\(resolveCampaignSource\(searchParams\)\);\s*\}, \[searchParams\]\);/,
   );
 
-  // Home, Programmes, About, and Contact pages follow the same first-render resolution
+  // Home, About, and Contact pages follow the same first-render resolution, while /programmes redirects preserving query params
   assert.match(
     homePage,
     /const queryCampaign = useMemo\(\s*\(\) => getQueryCampaignSource\(searchParams\),\s*\[searchParams\],\s*\);/,
@@ -405,14 +418,8 @@ test("First-render campaign attribution derives synchronously without storage re
     homePage,
     /const campaignSource = queryCampaign \?\? storedCampaign;/,
   );
-  assert.match(
-    programmesPage,
-    /const queryCampaign = useMemo\(\s*\(\) => getQueryCampaignSource\(searchParams\),\s*\[searchParams\],\s*\);/,
-  );
-  assert.match(
-    programmesPage,
-    /const campaignSource = queryCampaign \?\? storedCampaign;/,
-  );
+  assert.match(programmesPage, /buildProgrammesRedirectTarget/);
+  assert.match(programmesPage, /redirect\(/);
 
   const aboutPage = await read("apps/web/app/about/page.tsx");
   const contactPage = await read("apps/web/app/contact/page.tsx");
@@ -427,7 +434,7 @@ test("First-render campaign attribution derives synchronously without storage re
   );
   assert.match(
     aboutPage,
-    /buildUrlWithSource\("\/programmes", campaignSource\)/,
+    /buildUrlWithSource\("\/academy#programmes", campaignSource\)/,
   );
   assert.match(
     aboutPage,

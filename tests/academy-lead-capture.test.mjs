@@ -266,13 +266,13 @@ test("Campaign attribution resolves utm_source, ref, and campaign aliases and pr
     "apps/web/app/programmes/[offeringId]/page.tsx",
   );
 
-  // Home, academy, programmes list, and offering detail pass full searchParams object
+  // Home, academy, and offering detail pass full searchParams object; /programmes redirects preserving all query params
   assert.match(homePage, /resolveCampaignSource\(searchParams\)/);
   assert.doesNotMatch(homePage, /resolveCampaignSource\(querySource\)/);
   assert.match(academyPage, /resolveCampaignSource\(searchParams\)/);
   assert.doesNotMatch(academyPage, /resolveCampaignSource\(querySource\)/);
-  assert.match(programmesPage, /resolveCampaignSource\(searchParams\)/);
-  assert.doesNotMatch(programmesPage, /resolveCampaignSource\(querySource\)/);
+  assert.match(programmesPage, /buildProgrammesRedirectTarget/);
+  assert.match(programmesPage, /redirect\(/);
   assert.match(offeringDetailPage, /resolveCampaignSource\(searchParams\)/);
   assert.doesNotMatch(
     offeringDetailPage,

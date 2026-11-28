@@ -90,10 +90,18 @@ test.describe("Batch 01: Visual assets, Contact upgrade, and Programmes resilien
 
     expect(brokenImages, "No broken image HTTP responses allowed").toEqual([]);
 
-    // Verify all 3 approved KHero illustrations loaded on Homepage
+    // Verify all 3 approved KHero illustrations load on Homepage
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await page.locator(".home-khero-poster").first().scrollIntoViewIfNeeded();
     await expect(page.locator(".home-khero-poster img")).toHaveCount(3);
+
+    // Verify approved KH Basketball Club crest loads on /spotlight
+    await page.goto("/spotlight", { waitUntil: "domcontentloaded" });
+    const clubCrest = page.locator(
+      '#achievements img[src*="kh-basketball-club"]',
+    );
+    await clubCrest.scrollIntoViewIfNeeded();
+    await expect(clubCrest).toBeVisible();
 
     // Verify all 4 approved adult coach portraits + academy crest loaded on /academy
     await page.goto("/academy", { waitUntil: "domcontentloaded" });
@@ -102,7 +110,7 @@ test.describe("Batch 01: Visual assets, Contact upgrade, and Programmes resilien
     await expect(page.getByTestId("academy-training-fallback")).toBeVisible();
   });
 
-  test("2. Programmes page maintains distinct loading, unavailable, empty, and available states while keeping informational pathway useful", async ({
+  test("2. Academy consolidates Programmes without standalone nav or U9/U12/U15 duplication and /programmes redirects preserving campaign params", async ({
     page,
   }) => {
     let mode = "slow_fail";
@@ -134,29 +142,58 @@ test.describe("Batch 01: Visual assets, Contact upgrade, and Programmes resilien
       });
     });
 
-    await page.goto("/programmes?source=3x3-oct24", {
+    await page.goto("/programmes?source=3x3-oct24&utm_medium=social", {
       waitUntil: "domcontentloaded",
     });
 
-    // Distinct loading state
-    await expect(page.getByTestId("programmes-state-loading")).toBeVisible();
+    // Redirect lands on /academy#programmes preserving campaign query parameters
+    await expect(page).toHaveURL(
+      /\/academy\?source=3x3-oct24&utm_medium=social#programmes$/,
+    );
 
-    // Distinct unavailable state + useful informational pathway + Register Interest attribution
+    // Programmes is removed as a standalone nav item in header (desktop/mobile) and footer
     await expect(
-      page.getByTestId("programmes-state-unavailable"),
+      page.locator(".desktop-nav").getByRole("link", { name: "Programmes" }),
+    ).toHaveCount(0);
+    await expect(
+      page.locator("footer").getByRole("heading", { name: "Programmes" }),
+    ).toHaveCount(0);
+    await expect(page.locator('footer a[href="/programmes"]')).toHaveCount(0);
+    if (await page.locator(".mobile-menu-btn").isVisible()) {
+      await page.locator(".mobile-menu-btn").click();
+      await expect(
+        page.getByRole("dialog").getByRole("link", { name: "Programmes" }),
+      ).toHaveCount(0);
+      await page.keyboard.press("Escape");
+    }
+
+    const catalogue = page.locator("#programmes");
+
+    // Distinct loading state
+    await expect(
+      catalogue.getByTestId("programmes-state-loading"),
     ).toBeVisible();
-    await expect(page.locator('main p[role="alert"]')).toContainText(
+
+    // Distinct unavailable state + useful Academy pathway (single canonical U9/U12/U15, zero duplication)
+    await expect(
+      catalogue.getByTestId("programmes-state-unavailable"),
+    ).toBeVisible();
+    await expect(catalogue.locator('p[role="alert"]')).toContainText(
       "Programme listings are temporarily unavailable.",
     );
-    await expect(page.getByTestId("programmes-state-empty")).toHaveCount(0);
-    await expect(page.getByTestId("programmes-state-available")).toHaveCount(0);
+    await expect(catalogue.getByTestId("programmes-state-empty")).toHaveCount(
+      0,
+    );
+    await expect(
+      catalogue.getByTestId("programmes-state-available"),
+    ).toHaveCount(0);
 
-    const pathway = page.getByTestId("programmes-pathway-overview");
+    const pathway = page.getByTestId("academy-pathway-overview");
     await expect(pathway).toBeVisible();
     await expect(pathway).toContainText("Informational overview only");
-    await expect(pathway).toContainText("U9 — Ages 5–9");
-    await expect(pathway).toContainText("U12 — Ages 10–12");
-    await expect(pathway).toContainText("U15 — Ages 13–15");
+    await expect(page.getByText("U9 — Ages 5–9")).toHaveCount(1);
+    await expect(page.getByText("U12 — Ages 10–12")).toHaveCount(1);
+    await expect(page.getByText("U15 — Ages 13–15")).toHaveCount(1);
 
     const outageInterest = page.getByTestId("programmes-outage-interest-cta");
     await expect(outageInterest).toHaveAttribute(
@@ -166,18 +203,20 @@ test.describe("Batch 01: Visual assets, Contact upgrade, and Programmes resilien
 
     // Recover to empty state
     mode = "empty";
-    await page.getByRole("button", { name: "Try Again" }).click();
-    await expect(page.getByTestId("programmes-state-empty")).toBeVisible();
-    await expect(page.getByTestId("programmes-state-unavailable")).toHaveCount(
-      0,
-    );
+    await catalogue.getByRole("button", { name: "Try Again" }).click();
+    await expect(catalogue.getByTestId("programmes-state-empty")).toBeVisible();
+    await expect(
+      catalogue.getByTestId("programmes-state-unavailable"),
+    ).toHaveCount(0);
 
-    // Recover to available state
+    // Recover to available state and verify programme detail route stays intact
     mode = "available";
     await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page.getByTestId("programmes-state-available")).toBeVisible();
-    await expect(page.locator(".khlim-offering-card")).toHaveCount(1);
-    await expect(page.getByText("U12 Development Cohort")).toBeVisible();
+    await expect(
+      catalogue.getByTestId("programmes-state-available"),
+    ).toBeVisible();
+    await expect(catalogue.locator(".khlim-offering-card")).toHaveCount(1);
+    await expect(catalogue.getByText("U12 Development Cohort")).toBeVisible();
     await expect(pathway).toBeVisible();
 
     // Verify localization parity across EN, MS, ZH-Hans
@@ -188,6 +227,20 @@ test.describe("Batch 01: Visual assets, Contact upgrade, and Programmes resilien
     await expect(pathway).toContainText("仅为参考说明");
     await switcher.selectOption("en");
     await expect(pathway).toContainText("Informational overview only");
+
+    // Verify existing programme detail route still works cleanly and links back to /academy#programmes
+    await catalogue
+      .locator('a[href="/programmes/batch01-offering-u12?source=3x3-oct24"]')
+      .click();
+    await expect(page).toHaveURL(
+      /\/programmes\/batch01-offering-u12\?source=3x3-oct24$/,
+    );
+    await expect(
+      page.getByRole("heading", { name: "U12 Development Cohort" }),
+    ).toBeVisible();
+    await expect(
+      page.locator('main a[href="/academy?source=3x3-oct24#programmes"]'),
+    ).toBeVisible();
   });
 
   test("3. Contact page supports WhatsApp primary, email secondary, categories, privacy gate, safe encoding, and honest fallbacks", async ({

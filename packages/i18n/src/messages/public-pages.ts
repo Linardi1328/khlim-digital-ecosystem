@@ -89,12 +89,12 @@ const en = {
   "programmes.catalogueLoadError":
     "Programme listings are temporarily unavailable. Please try again.",
   "programmes.outageHelperNote":
-    "We could not load live programme schedules or availability right now. You can retry above, register your interest for staff follow-up, or review our academy development pathway below.",
+    "We could not load live programme schedules or availability right now. You can try again, register your interest for staff follow-up, or review our academy development pathway on this page.",
   "programmes.emptyHelperNote":
-    "Register your interest to be notified when new cohorts open, or review our academy development pathway below.",
+    "Register your interest to be notified when new cohorts open, or review our academy development pathway on this page.",
   "programmes.pathway.eyebrow": "Informational Academy Overview",
   "programmes.pathway.disclaimer":
-    "Informational overview only — live programme availability, fees, venues, start dates, capacity, and registration eligibility are shown only in the live catalogue above when connected.",
+    "Informational overview only — live programme availability, fees, venues, start dates, capacity, and registration eligibility are shown only in the live catalogue section when connected.",
   "programmes.pathway.learnMoreAcademy": "Explore Academy Approach",
   "programmes.pathway.contactUs": "Contact Academy Team",
   "programmes.levelLabel": "Level",
@@ -217,12 +217,12 @@ const ms: Catalogue = {
   "programmes.catalogueLoadError":
     "Senarai program tidak dapat dimuatkan buat masa ini. Sila cuba lagi.",
   "programmes.outageHelperNote":
-    "Kami tidak dapat memuatkan jadual atau ketersediaan program langsung buat masa ini. Anda boleh cuba lagi di atas, daftar minat untuk susulan kakitangan, atau semak laluan pembangunan akademi di bawah.",
+    "Kami tidak dapat memuatkan jadual atau ketersediaan program langsung buat masa ini. Anda boleh cuba lagi, daftar minat untuk susulan kakitangan, atau semak laluan pembangunan akademi di halaman ini.",
   "programmes.emptyHelperNote":
-    "Daftar minat anda untuk dimaklumkan apabila kohort baharu dibuka, atau semak laluan pembangunan akademi di bawah.",
+    "Daftar minat anda untuk dimaklumkan apabila kohort baharu dibuka, atau semak laluan pembangunan akademi di halaman ini.",
   "programmes.pathway.eyebrow": "Gambaran Umum Akademi",
   "programmes.pathway.disclaimer":
-    "Gambaran maklumat sahaja — ketersediaan program langsung, yuran, lokasi, tarikh mula, kapasiti dan kelayakan pendaftaran hanya dipaparkan dalam katalog langsung di atas apabila disambungkan.",
+    "Gambaran maklumat sahaja — ketersediaan program langsung, yuran, lokasi, tarikh mula, kapasiti dan kelayakan pendaftaran hanya dipaparkan dalam bahagian katalog langsung apabila disambungkan.",
   "programmes.pathway.learnMoreAcademy": "Terokai Pendekatan Akademi",
   "programmes.pathway.contactUs": "Hubungi Pasukan Akademi",
   "programmes.levelLabel": "Tahap",
@@ -336,12 +336,12 @@ const zhHans: Catalogue = {
   "programmes.noMatching": "没有符合条件的开放课程班次。",
   "programmes.catalogueLoadError": "暂时无法加载课程列表。请重试。",
   "programmes.outageHelperNote":
-    "目前无法加载实时课程安排与名额信息。您可以点击上方重试、登记意向以便团队联系，或浏览下方学院发展路径说明。",
+    "目前无法加载实时课程安排与名额信息。您可以重新尝试、登记意向以便团队联系，或浏览本页的学院发展路径说明。",
   "programmes.emptyHelperNote":
-    "欢迎登记意向以便新班次开放时第一时间获知，或浏览下方学院发展路径说明。",
+    "欢迎登记意向以便新班次开放时第一时间获知，或浏览本页的学院发展路径说明。",
   "programmes.pathway.eyebrow": "学院发展路径参考",
   "programmes.pathway.disclaimer":
-    "仅为参考说明——实时课程开放状态、费用、场地、开课日期、名额及报名资格仅在上方实时目录连接成功时发布。",
+    "仅为参考说明——实时课程开放状态、费用、场地、开课日期、名额及报名资格仅在实时课程目录连接成功时发布。",
   "programmes.pathway.learnMoreAcademy": "了解学院培养体系",
   "programmes.pathway.contactUs": "联系学院团队",
   "programmes.levelLabel": "级别",
@@ -453,12 +453,12 @@ const zhHant: Catalogue = {
   "programmes.noMatching": "沒有符合條件的開放課程班次。",
   "programmes.catalogueLoadError": "暫時無法載入課程列表。請重試。",
   "programmes.outageHelperNote":
-    "目前無法載入即時課程安排與名額資訊。您可以點擊上方重試、登記意向以便團隊聯繫，或瀏覽下方學院發展路徑說明。",
+    "目前無法載入即時課程安排與名額資訊。您可以重新嘗試、登記意向以便團隊聯繫，或瀏覽本頁的學院發展路徑說明。",
   "programmes.emptyHelperNote":
-    "歡迎登記意向以便新班次開放時第一時間獲知，或瀏覽下方學院發展路徑說明。",
+    "歡迎登記意向以便新班次開放時第一時間獲知，或瀏覽本頁的學院發展路徑說明。",
   "programmes.pathway.eyebrow": "學院發展路徑參考",
   "programmes.pathway.disclaimer":
-    "僅為參考說明——即時課程開放狀態、費用、場地、開課日期、名額及報名資格僅在上方即時目錄連線成功時發布。",
+    "僅為參考說明——即時課程開放狀態、費用、場地、開課日期、名額及報名資格僅在即時課程目錄連線成功時發布。",
   "programmes.pathway.learnMoreAcademy": "了解學院培養體系",
   "programmes.pathway.contactUs": "聯絡學院團隊",
   "programmes.levelLabel": "級別",
@@ -575,12 +575,12 @@ const hi: Catalogue = {
   "programmes.catalogueLoadError":
     "फ़िलहाल कार्यक्रम सूची लोड नहीं हो सकी। कृपया फिर से प्रयास करें।",
   "programmes.outageHelperNote":
-    "हम अभी लाइव कार्यक्रम समय-सारणी या उपलब्धता लोड नहीं कर सके। आप ऊपर फिर से प्रयास कर सकते हैं, स्टाफ़ फ़ॉलो-अप के लिए रुचि दर्ज कर सकते हैं, या नीचे हमारे अकादमी विकास पाथवे की जानकारी देख सकते हैं।",
+    "हम अभी लाइव कार्यक्रम समय-सारणी या उपलब्धता लोड नहीं कर सके। आप फिर से प्रयास कर सकते हैं, स्टाफ़ फ़ॉलो-अप के लिए रुचि दर्ज कर सकते हैं, या इस पृष्ठ पर हमारे अकादमी विकास पाथवे की जानकारी देख सकते हैं।",
   "programmes.emptyHelperNote":
-    "नए समूह खुलने पर सूचना पाने के लिए अपनी रुचि दर्ज करें, या नीचे हमारे अकादमी विकास पाथवे की जानकारी देखें।",
+    "नए समूह खुलने पर सूचना पाने के लिए अपनी रुचि दर्ज करें, या इस पृष्ठ पर हमारे अकादमी विकास पाथवे की जानकारी देखें।",
   "programmes.pathway.eyebrow": "सूचनात्मक अकादमी अवलोकन",
   "programmes.pathway.disclaimer":
-    "केवल सूचनात्मक अवलोकन — लाइव कार्यक्रम उपलब्धता, शुल्क, स्थल, प्रारंभ तिथियाँ, क्षमता और पंजीकरण पात्रता केवल ऊपर दिए गए लाइव कैटलॉग में कनेक्ट होने पर ही दिखाई जाती हैं।",
+    "केवल सूचनात्मक अवलोकन — लाइव कार्यक्रम उपलब्धता, शुल्क, स्थल, प्रारंभ तिथियाँ, क्षमता और पंजीकरण पात्रता केवल लाइव कैटलॉग अनुभाग में कनेक्ट होने पर ही दिखाई जाती हैं।",
   "programmes.pathway.learnMoreAcademy": "अकादमी दृष्टिकोण देखें",
   "programmes.pathway.contactUs": "अकादमी टीम से संपर्क करें",
   "programmes.levelLabel": "स्तर",

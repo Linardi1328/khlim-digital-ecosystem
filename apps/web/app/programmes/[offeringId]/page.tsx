@@ -77,7 +77,10 @@ function OfferingDetailContent({ offeringId }: { offeringId: string }) {
     };
   }, [offeringId, retryAttempt]);
 
-  const programmesHref = buildUrlWithSource("/programmes", campaignSource);
+  const programmesHref = buildUrlWithSource(
+    "/academy#programmes",
+    campaignSource,
+  );
   const generalInterestHref = buildUrlWithSource("/interest", campaignSource);
 
   if (state.status === "loading")
@@ -265,9 +268,7 @@ function OfferingDetailContent({ offeringId }: { offeringId: string }) {
             gap: 12,
           }}
         >
-          <Link href={buildUrlWithSource("/programmes", campaignSource)}>
-            ← {t("programmes.allProgrammes")}
-          </Link>
+          <Link href={programmesHref}>← {t("programmes.allProgrammes")}</Link>
           <Link href={registerInterestUrl} style={{ textDecoration: "none" }}>
             <Button variant="primary" size="sm">
               {t("programmes.registerInterest")}

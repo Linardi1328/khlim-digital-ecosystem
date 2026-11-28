@@ -131,9 +131,18 @@ test("browser/component: desktop navigation displays Spotlight and preserves non
         `Actions must be contained within inner container at ${vp.width}px`,
       );
 
-      // Every visible navigation item is contained within navBox
+      // Every visible navigation item is contained within navBox (Programmes consolidated under Academy)
       const navLinks = await desktopNav.locator("a").all();
-      assert.ok(navLinks.length >= 7, "All navigation items must be present");
+      assert.equal(
+        navLinks.length,
+        6,
+        "Consolidated desktop navigation must contain exactly 6 items",
+      );
+      assert.equal(
+        await desktopNav.locator('a[href*="/programmes"]').count(),
+        0,
+        "Standalone Programmes link must not appear in desktop navigation",
+      );
       for (const link of navLinks) {
         const linkBox = await link.boundingBox();
         assert.ok(linkBox, "Nav link bounding box must exist");

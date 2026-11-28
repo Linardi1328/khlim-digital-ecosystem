@@ -22,7 +22,9 @@ import { useAnalyticsConsent } from "../../lib/analytics-consent";
 import { PublicFooter } from "../../components/layout/public-footer";
 import { PublicHeader } from "../../components/layout/public-header";
 import { TrainingSessionsSection } from "../../components/academy/training-sessions-section";
+import { ProgrammeCatalogueSection } from "../../components/academy/programme-catalogue-section";
 import type { AcademyAvailabilityState } from "../../components/academy/published-registration-sessions";
+import { Alert } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { getButtonStyles } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
@@ -250,12 +252,9 @@ function AcademyContent() {
                 >
                   {t("academy.trainingSessionsCta")}
                 </a>
-                <Link
-                  href={buildUrlWithSource("/programmes", campaignSource)}
-                  style={getButtonStyles("outline", "lg")}
-                >
+                <a href="#programmes" style={getButtonStyles("outline", "lg")}>
                   {t("academy.programmesCta")}
-                </Link>
+                </a>
               </>
             )}
           </div>
@@ -269,8 +268,12 @@ function AcademyContent() {
         />
 
         {/* U9 / U12 / U15 Development Pathway */}
-        <section style={{ marginBottom: 52 }}>
-          <div style={{ textAlign: "center", marginBottom: 32 }}>
+        <section
+          id="development-pathway"
+          data-testid="academy-pathway-overview"
+          style={{ marginBottom: 52 }}
+        >
+          <div style={{ textAlign: "center", marginBottom: 24 }}>
             <span
               style={{
                 color: "#b45309",
@@ -301,6 +304,11 @@ function AcademyContent() {
             >
               {t("academy.pathway.subtitle")}
             </p>
+          </div>
+          <div style={{ maxWidth: 860, margin: "0 auto 24px" }}>
+            <Alert variant="info" role="note">
+              {t("programmes.pathway.disclaimer")}
+            </Alert>
           </div>
           <div
             style={{
@@ -365,6 +373,9 @@ function AcademyContent() {
             </Card>
           </div>
         </section>
+
+        {/* Live Authoritative Programme Catalogue */}
+        <ProgrammeCatalogueSection campaignSource={campaignSource} />
 
         {/* Existing Truthful Trust Signals */}
         <section style={{ marginBottom: 52 }}>
@@ -538,12 +549,9 @@ function AcademyContent() {
             >
               {t("academy.venues.body")}
             </p>
-            <Link
-              href={buildUrlWithSource("/programmes", campaignSource)}
-              style={getButtonStyles("outline", "md")}
-            >
+            <a href="#programmes" style={getButtonStyles("outline", "md")}>
               {t("academy.programmesCta")}
-            </Link>
+            </a>
           </Card>
         </section>
 

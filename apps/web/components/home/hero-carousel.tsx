@@ -213,7 +213,7 @@ export function HeroCarousel({
               </Button>
             </Link>
             <Link
-              href={buildUrlWithSource("/programmes", source)}
+              href={buildUrlWithSource("/academy#programmes", source)}
               style={{ textDecoration: "none" }}
             >
               <Button variant="outline" size="lg">

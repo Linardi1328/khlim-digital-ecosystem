@@ -319,7 +319,7 @@ function HomeContent() {
               </Button>
             </Link>
             <Link
-              href={buildUrlWithSource("/programmes", campaignSource)}
+              href={buildUrlWithSource("/academy#programmes", campaignSource)}
               style={{ textDecoration: "none" }}
             >
               <Button variant="outline" size="lg">

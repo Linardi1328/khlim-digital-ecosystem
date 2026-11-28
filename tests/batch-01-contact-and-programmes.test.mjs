@@ -18,6 +18,7 @@ import {
   sanitizeMultilineContactText,
   sanitizeSingleLineContactText,
 } from "../apps/web/lib/contact-channels.ts";
+import { buildProgrammesRedirectTarget } from "../apps/web/lib/programmes-redirect.ts";
 import { publicPageMessages } from "../packages/i18n/src/messages/public-pages.ts";
 
 const root = new URL("../", import.meta.url);
@@ -276,20 +277,84 @@ test("all 6 contact categories and new contact/programmes keys exist across all 
   }
 });
 
-test("programmes page keeps API catalogue separate from approved informational academy pathway", async () => {
-  const programmesPage = await read("apps/web/app/programmes/page.tsx");
-  assert.match(programmesPage, /data-testid="programmes-live-catalogue"/);
-  assert.match(programmesPage, /data-testid="programmes-state-loading"/);
-  assert.match(programmesPage, /data-testid="programmes-state-unavailable"/);
-  assert.match(programmesPage, /data-testid="programmes-state-empty"/);
-  assert.match(programmesPage, /data-testid="programmes-state-available"/);
-  assert.match(programmesPage, /data-testid="programmes-pathway-overview"/);
-  assert.match(programmesPage, /t\("programmes\.pathway\.disclaimer"\)/);
-  assert.match(programmesPage, /t\("academy\.pathway\.u9\.title"\)/);
-  assert.match(programmesPage, /t\("academy\.pathway\.u12\.title"\)/);
-  assert.match(programmesPage, /t\("academy\.pathway\.u15\.title"\)/);
+test("Programmes redirect helper targets /academy#programmes and preserves campaign and query parameters", () => {
+  assert.equal(buildProgrammesRedirectTarget({}), "/academy#programmes");
+  assert.equal(
+    buildProgrammesRedirectTarget({ source: "3x3-oct24" }),
+    "/academy?source=3x3-oct24#programmes",
+  );
+  assert.equal(
+    buildProgrammesRedirectTarget({
+      utm_source: "instagram_story",
+      utm_medium: "social",
+      ref: "fb_group",
+    }),
+    "/academy?utm_source=instagram_story&utm_medium=social&ref=fb_group#programmes",
+  );
+  assert.equal(
+    buildProgrammesRedirectTarget({
+      campaign: ["spring_2027", "u12"],
+      ignored: undefined,
+    }),
+    "/academy?campaign=spring_2027&campaign=u12#programmes",
+  );
+});
+
+test("Academy consolidates resilient programme catalogue without duplicating U9/U12/U15 and removes standalone Programmes nav", async () => {
+  const academyPage = await read("apps/web/app/academy/page.tsx");
+  const catalogueSection = await read(
+    "apps/web/components/academy/programme-catalogue-section.tsx",
+  );
+  const programmesRedirectPage = await read("apps/web/app/programmes/page.tsx");
+  const header = await read("apps/web/components/layout/public-header.tsx");
+  const footer = await read("apps/web/components/layout/public-footer.tsx");
+
+  // /programmes redirects to /academy#programmes preserving searchParams
+  assert.match(programmesRedirectPage, /buildProgrammesRedirectTarget/);
+  assert.match(programmesRedirectPage, /redirect\(/);
+
+  // Standalone Programmes nav item is removed from desktop/mobile header and footer
+  assert.doesNotMatch(header, /t\("nav\.programmes"\)/);
+  assert.doesNotMatch(header, /buildUrlWithSource\("\/programmes"/);
+  assert.doesNotMatch(footer, /t\("nav\.programmes"\)/);
+  assert.doesNotMatch(footer, /buildUrlWithSource\("\/programmes"/);
   assert.match(
-    programmesPage,
+    footer,
+    /buildUrlWithSource\("\/academy#programmes", campaignSource\)/,
+  );
+
+  // Integrated catalogue retains all 4 distinct states and zero duplicated U9/U12/U15 cards
+  assert.match(catalogueSection, /id="programmes"/);
+  assert.match(catalogueSection, /data-testid="programmes-live-catalogue"/);
+  assert.match(catalogueSection, /data-testid="programmes-state-loading"/);
+  assert.match(catalogueSection, /data-testid="programmes-state-unavailable"/);
+  assert.match(catalogueSection, /data-testid="programmes-state-empty"/);
+  assert.match(catalogueSection, /data-testid="programmes-state-available"/);
+  assert.doesNotMatch(catalogueSection, /academy\.pathway\.u9/);
+  assert.doesNotMatch(catalogueSection, /academy\.pathway\.u12/);
+  assert.doesNotMatch(catalogueSection, /academy\.pathway\.u15/);
+  assert.match(
+    catalogueSection,
     /buildUrlWithSource\(\s*"\/interest",\s*campaignSource,?\s*\)/,
+  );
+
+  // Academy embeds ProgrammeCatalogueSection alongside single canonical U9/U12/U15 pathway
+  assert.match(
+    academyPage,
+    /<ProgrammeCatalogueSection campaignSource=\{campaignSource\} \/>/,
+  );
+  assert.match(academyPage, /data-testid="academy-pathway-overview"/);
+  assert.match(academyPage, /t\("programmes\.pathway\.disclaimer"\)/);
+  assert.equal(
+    (academyPage.match(/academy\.pathway\.u9\.title/g) ?? []).length,
+    1,
+  );
+  assert.equal(
+    (academyPage.match(/academy\.pathway\.u12\.title/g) ?? []).length,
+    1,
+  );
+  assert.equal(
+    (academyPage.match(/academy\.pathway\.u15\.title/g) ?? []).length,
+    1,
   );
 });

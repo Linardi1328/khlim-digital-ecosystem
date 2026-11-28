@@ -358,7 +358,7 @@ test.describe("RIC-65 Browser Registration Acceptance & Staging UX Rehearsal", (
       .locator('header a[href*="/interest"]:visible')
       .first();
     const footerProgrammesLink = page
-      .locator('footer a[href*="/programmes"]')
+      .locator('footer a[href*="#programmes"]')
       .first();
 
     await expect(headerInterestLink).toBeVisible();
@@ -368,7 +368,7 @@ test.describe("RIC-65 Browser Registration Acceptance & Staging UX Rehearsal", (
     );
     await expect(footerProgrammesLink).toHaveAttribute(
       "href",
-      "/programmes?source=3x3-oct24",
+      "/academy?source=3x3-oct24#programmes",
     );
 
     // 2. Perform client-side query parameter transition while page components remain mounted
@@ -385,7 +385,7 @@ test.describe("RIC-65 Browser Registration Acceptance & Staging UX Rehearsal", (
     );
     await expect(footerProgrammesLink).toHaveAttribute(
       "href",
-      "/programmes?source=holiday_clinic_2026",
+      "/academy?source=holiday_clinic_2026#programmes",
     );
     expect(await page.evaluate(() => window.__noReloadMarker === true)).toBe(
       true,
@@ -407,8 +407,8 @@ test.describe("RIC-65 Browser Registration Acceptance & Staging UX Rehearsal", (
       page.locator('header a[href*="/interest"]:visible').first(),
     ).toHaveAttribute("href", "/interest?source=holiday_clinic_2026");
     await expect(
-      page.locator('footer a[href*="/programmes"]').first(),
-    ).toHaveAttribute("href", "/programmes?source=holiday_clinic_2026");
+      page.locator('footer a[href*="#programmes"]').first(),
+    ).toHaveAttribute("href", "/academy?source=holiday_clinic_2026#programmes");
     await expect(
       page.locator('footer a[href*="/interest"]').first(),
     ).toHaveAttribute("href", "/interest?source=holiday_clinic_2026");
@@ -430,7 +430,7 @@ test.describe("RIC-65 Browser Registration Acceptance & Staging UX Rehearsal", (
 
     // 5. Navigate to untagged route client-side and verify stored campaign source is preserved in mobile menu
     await page.evaluate(() => {
-      window.history.pushState({}, "", "/programmes");
+      window.history.pushState({}, "", "/about");
       window.dispatchEvent(new Event("popstate"));
     });
     if (!(await page.getByRole("dialog").isVisible())) {

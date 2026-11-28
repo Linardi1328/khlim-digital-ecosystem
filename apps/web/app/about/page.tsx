@@ -131,7 +131,7 @@ function AboutContent() {
 
           <div style={{ textAlign: "center", marginTop: "24px" }}>
             <Link
-              href={buildUrlWithSource("/programmes", campaignSource)}
+              href={buildUrlWithSource("/academy#programmes", campaignSource)}
               style={{ textDecoration: "none" }}
             >
               <Button variant="primary" size="lg">
