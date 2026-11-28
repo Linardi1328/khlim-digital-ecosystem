@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useId, type ReactNode } from "react";
+import { registerModalFocusTrap } from "../../lib/modal-focus";
 
 export interface ConfirmDialogProps {
   isOpen: boolean;
@@ -28,7 +29,6 @@ export function ConfirmDialog({
   confirmDisabled = false,
 }: ConfirmDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
-  const previousActiveElement = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const isLoadingRef = useRef(isLoading);
@@ -37,38 +37,12 @@ export function ConfirmDialog({
   const descId = useId();
 
   useEffect(() => {
-    if (!isOpen) return;
-
-    previousActiveElement.current =
-      document.activeElement as HTMLElement | null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        if (!isLoadingRef.current) {
-          onCloseRef.current();
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown, true);
-    const focusTimer = window.setTimeout(() => {
-      const focusable = dialogRef.current?.querySelector<HTMLElement>(
-        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      );
-      (focusable ?? dialogRef.current)?.focus();
-    }, 50);
-
-    return () => {
-      window.clearTimeout(focusTimer);
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", handleKeyDown, true);
-      if (previousActiveElement.current?.isConnected) {
-        previousActiveElement.current.focus();
-      }
-    };
+    if (!isOpen || !dialogRef.current) return;
+    return registerModalFocusTrap({
+      container: dialogRef.current,
+      onClose: () => onCloseRef.current(),
+      canCloseOnEscape: () => !isLoadingRef.current,
+    });
   }, [isOpen]);
 
   if (!isOpen) return null;

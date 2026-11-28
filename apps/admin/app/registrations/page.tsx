@@ -109,6 +109,9 @@ function AcademyRegistrationsContent() {
     hasRole,
     isAuthenticated,
     isLoading: isAuthLoading,
+    isRevalidating,
+    authTransitionSeq,
+    workspaceEpoch,
     isDemoMode,
     mfaSatisfied,
     logout,
@@ -117,18 +120,42 @@ function AcademyRegistrationsContent() {
   const canView = hasRole(["SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN"]);
   const canApprovePolicies = hasRole(["SUPER_ADMIN", "MANAGEMENT"]);
   const isEligible =
-    canView && !isDemoMode && !isAuthLoading && isAuthenticated && mfaSatisfied;
-  const authContextKey = buildAdminAuthContextKey({
-    userId: user?.id ?? null,
-    organizationId: user?.organizationId ?? null,
-    role,
-    isAuthenticated,
-    mfaSatisfied,
-    isDemoMode,
-    isEligible,
-  });
+    canView &&
+    !isDemoMode &&
+    !isAuthLoading &&
+    !isRevalidating &&
+    isAuthenticated &&
+    mfaSatisfied;
+  const settledAuthContextKey = isRevalidating
+    ? null
+    : buildAdminAuthContextKey({
+        userId: user?.id ?? null,
+        organizationId: user?.organizationId ?? null,
+        role,
+        isAuthenticated,
+        mfaSatisfied,
+        isDemoMode,
+        isEligible,
+      });
+  const committedAuthContextKeyRef = useRef<string>(
+    `epoch-${workspaceEpoch}:${settledAuthContextKey ?? "pending"}`,
+  );
+  const authContextKey = isRevalidating
+    ? committedAuthContextKeyRef.current
+    : `epoch-${workspaceEpoch}:${settledAuthContextKey}`;
+  if (!isRevalidating) {
+    committedAuthContextKeyRef.current = authContextKey;
+  }
+
+  const [demoHydrated, setDemoHydrated] = useState(false);
+  useEffect(() => {
+    if (isDemoMode) {
+      setDemoHydrated(true);
+    }
+  }, [isDemoMode]);
 
   const [activeTab, setActiveTab] = useState<string>("registrations");
+  const [listRefreshNonce, setListRefreshNonce] = useState(0);
 
   // Authoritative session filter state (loaded from GET /v1/admin/academy/registration-sessions)
   const [authoritativeSessions, setAuthoritativeSessions] = useState<
@@ -169,6 +196,7 @@ function AcademyRegistrationsContent() {
     useState<RegistrationDetailDto | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [detailRefreshFailed, setDetailRefreshFailed] = useState(false);
 
   const [targetStatus, setTargetStatus] = useState<
     RegistrationTargetStatus | ""
@@ -184,6 +212,7 @@ function AcademyRegistrationsContent() {
   const authGenerationRef = useRef(0);
   const authInvalidatedRef = useRef(false);
   const isMountedRef = useRef(true);
+  const prevAuthTransitionSeqRef = useRef(authTransitionSeq);
   const searchTimerRef = useRef<number | null>(null);
   const listRequestSeq = useRef(0);
   const detailRequestSeq = useRef(0);
@@ -192,6 +221,19 @@ function AcademyRegistrationsContent() {
   const listAbortRef = useRef<AbortController | null>(null);
   const detailAbortRef = useRef<AbortController | null>(null);
   const sessionFilterAbortRef = useRef<AbortController | null>(null);
+  const detailLoadingRef = useRef(false);
+  const updatingStatusRef = useRef(false);
+  const interruptedDetailReadRef = useRef<string | null>(null);
+  const interruptedStatusMutationRef = useRef<{
+    detailId: string;
+    requestedStatus: RegistrationTargetStatus;
+  } | null>(null);
+  const selectedIdRef = useRef<string | null>(null);
+  selectedIdRef.current = selectedId;
+  const activeStatusMutationRef = useRef<{
+    detailId: string;
+    requestedStatus: RegistrationTargetStatus;
+  } | null>(null);
 
   const isCurrentAuthGen = useCallback(
     (gen: number) => isMountedRef.current && authGenerationRef.current === gen,
@@ -210,6 +252,11 @@ function AcademyRegistrationsContent() {
       listAbortRef.current?.abort();
       detailAbortRef.current?.abort();
       sessionFilterAbortRef.current?.abort();
+      detailLoadingRef.current = false;
+      updatingStatusRef.current = false;
+      activeStatusMutationRef.current = null;
+      interruptedDetailReadRef.current = null;
+      interruptedStatusMutationRef.current = null;
     };
   }, []);
 
@@ -235,8 +282,62 @@ function AcademyRegistrationsContent() {
     };
   }, [searchInput, isCurrentAuthGen]);
 
+  // Immediately abort and invalidate all in-flight reads/mutations whenever
+  // an authentication transition or token revalidation begins, reconciling
+  // pending flags so same-context renewal never leaves controls permanently locked
+  // and interrupted mutations require fresh authoritative review before any retry.
+  useLayoutEffect(() => {
+    if (prevAuthTransitionSeqRef.current === authTransitionSeq) {
+      return;
+    }
+    prevAuthTransitionSeqRef.current = authTransitionSeq;
+    authGenerationRef.current += 1;
+    listRequestSeq.current += 1;
+    detailRequestSeq.current += 1;
+    statusMutationSeq.current += 1;
+    sessionFilterSeq.current += 1;
+    if (searchTimerRef.current !== null) {
+      window.clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
+    }
+    listAbortRef.current?.abort();
+    detailAbortRef.current?.abort();
+    sessionFilterAbortRef.current?.abort();
+
+    setLoading(false);
+    setSessionsFilterLoading(false);
+    setIsRecoveringAuth(false);
+    setConfirmOpen(false);
+
+    if (detailLoadingRef.current) {
+      detailLoadingRef.current = false;
+      setDetailLoading(false);
+      if (selectedIdRef.current) {
+        interruptedDetailReadRef.current = selectedIdRef.current;
+      }
+    }
+
+    if (updatingStatusRef.current) {
+      const pendingMutation = activeStatusMutationRef.current;
+      updatingStatusRef.current = false;
+      activeStatusMutationRef.current = null;
+      setIsUpdatingStatus(false);
+      setTargetStatus("");
+      setReasonCode("");
+      setDetailRefreshFailed(true);
+      if (pendingMutation) {
+        interruptedStatusMutationRef.current = pendingMutation;
+      }
+      setStatusFeedback({
+        variant: "warning",
+        message:
+          "Session revalidation interrupted your status update before confirmation arrived. Its outcome is uncertain — refreshing the latest registration record before any retry.",
+      });
+    }
+  }, [authTransitionSeq]);
+
   // Clear ALL sensitive PII, search/filter inputs, and cached org data immediately
-  // whenever authentication context (user, org, role, MFA, or eligibility) changes.
+  // whenever verified authentication context (workspaceEpoch, user, org, role, MFA, or eligibility) changes.
   useLayoutEffect(() => {
     authGenerationRef.current += 1;
     authInvalidatedRef.current = false;
@@ -251,6 +352,11 @@ function AcademyRegistrationsContent() {
     listAbortRef.current?.abort();
     detailAbortRef.current?.abort();
     sessionFilterAbortRef.current?.abort();
+    detailLoadingRef.current = false;
+    updatingStatusRef.current = false;
+    activeStatusMutationRef.current = null;
+    interruptedDetailReadRef.current = null;
+    interruptedStatusMutationRef.current = null;
     setRegistrations([]);
     setTotalItems(0);
     setTotalPages(1);
@@ -259,6 +365,7 @@ function AcademyRegistrationsContent() {
     setSelectedId(null);
     setSelectedDetail(null);
     setDetailLoading(false);
+    setDetailRefreshFailed(false);
     setSearchResetKey((prev) => prev + 1);
     setSearchInput("");
     setDebouncedSearch("");
@@ -299,6 +406,11 @@ function AcademyRegistrationsContent() {
       listAbortRef.current?.abort();
       detailAbortRef.current?.abort();
       sessionFilterAbortRef.current?.abort();
+      detailLoadingRef.current = false;
+      updatingStatusRef.current = false;
+      activeStatusMutationRef.current = null;
+      interruptedDetailReadRef.current = null;
+      interruptedStatusMutationRef.current = null;
       setRegistrations([]);
       setTotalItems(0);
       setTotalPages(1);
@@ -318,6 +430,7 @@ function AcademyRegistrationsContent() {
       setIsUpdatingStatus(false);
       setStatusFeedback(null);
       setDetailError(null);
+      setDetailRefreshFailed(false);
       setLoading(false);
       setSessionsFilterLoading(false);
       setDetailLoading(false);
@@ -344,6 +457,11 @@ function AcademyRegistrationsContent() {
   const fetchAuthoritativeSessionFilter = useCallback(async () => {
     void authContextKey;
     const authGen = authGenerationRef.current;
+    if (isRevalidating) {
+      sessionFilterSeq.current += 1;
+      sessionFilterAbortRef.current?.abort();
+      return;
+    }
     if (!isEligible || authInvalidatedRef.current) {
       sessionFilterSeq.current += 1;
       sessionFilterAbortRef.current?.abort();
@@ -389,7 +507,13 @@ function AcademyRegistrationsContent() {
         setSessionsFilterLoading(false);
       }
     }
-  }, [isEligible, authContextKey, isCurrentAuthGen, handleGlobalAuthError]);
+  }, [
+    isEligible,
+    isRevalidating,
+    authContextKey,
+    isCurrentAuthGen,
+    handleGlobalAuthError,
+  ]);
 
   useEffect(() => {
     void fetchAuthoritativeSessionFilter();
@@ -401,6 +525,11 @@ function AcademyRegistrationsContent() {
   const fetchRegistrations = useCallback(async () => {
     void authContextKey;
     const authGen = authGenerationRef.current;
+    if (isRevalidating) {
+      listRequestSeq.current += 1;
+      listAbortRef.current?.abort();
+      return;
+    }
     if (!isEligible || authInvalidatedRef.current) {
       listRequestSeq.current += 1;
       listAbortRef.current?.abort();
@@ -483,6 +612,7 @@ function AcademyRegistrationsContent() {
     }
   }, [
     isEligible,
+    isRevalidating,
     authContextKey,
     debouncedSearch,
     statusFilter,
@@ -494,13 +624,14 @@ function AcademyRegistrationsContent() {
   ]);
 
   useEffect(() => {
+    void listRefreshNonce;
     if (activeTab === "registrations") {
       void fetchRegistrations();
     }
     return () => {
       listAbortRef.current?.abort();
     };
-  }, [activeTab, fetchRegistrations]);
+  }, [activeTab, fetchRegistrations, listRefreshNonce]);
 
   const loadRegistrationDetail = useCallback(
     async (id: string) => {
@@ -514,12 +645,18 @@ function AcademyRegistrationsContent() {
 
       setSelectedId(id);
       setSelectedDetail(null);
+      detailLoadingRef.current = true;
       setDetailLoading(true);
       setDetailError(null);
+      setDetailRefreshFailed(false);
       setStatusFeedback(null);
       setTargetStatus("");
       setReasonCode("");
       setConfirmOpen(false);
+      updatingStatusRef.current = false;
+      activeStatusMutationRef.current = null;
+      interruptedDetailReadRef.current = null;
+      interruptedStatusMutationRef.current = null;
       setIsUpdatingStatus(false);
 
       try {
@@ -528,6 +665,7 @@ function AcademyRegistrationsContent() {
           return;
         }
         setSelectedDetail(detail);
+        setDetailRefreshFailed(false);
       } catch (error: unknown) {
         if (
           controller.signal.aborted ||
@@ -547,6 +685,7 @@ function AcademyRegistrationsContent() {
         }
       } finally {
         if (isCurrentAuthGen(authGen) && seq === detailRequestSeq.current) {
+          detailLoadingRef.current = false;
           setDetailLoading(false);
         }
       }
@@ -554,13 +693,112 @@ function AcademyRegistrationsContent() {
     [isEligible, isCurrentAuthGen, handleGlobalAuthError],
   );
 
+  // Reconcile interrupted registration detail read or uncertain status mutation
+  // automatically after same-context revalidation succeeds (never auto-replaying mutations).
+  useEffect(() => {
+    if (!isEligible || isRevalidating || authInvalidatedRef.current) return;
+
+    const interruptedMutation = interruptedStatusMutationRef.current;
+    if (interruptedMutation && selectedId === interruptedMutation.detailId) {
+      interruptedStatusMutationRef.current = null;
+      interruptedDetailReadRef.current = null;
+      const authGen = authGenerationRef.current;
+      detailAbortRef.current?.abort();
+      const controller = new AbortController();
+      detailAbortRef.current = controller;
+      const seq = ++detailRequestSeq.current;
+      detailLoadingRef.current = true;
+      setDetailLoading(true);
+      void (async () => {
+        try {
+          const fresh = await getAdminRegistrationDetail(
+            interruptedMutation.detailId,
+            controller.signal,
+          );
+          if (
+            controller.signal.aborted ||
+            !isCurrentAuthGen(authGen) ||
+            seq !== detailRequestSeq.current
+          ) {
+            return;
+          }
+          setSelectedDetail(fresh);
+          setDetailRefreshFailed(false);
+          setStatusFeedback({
+            variant: "warning",
+            message: `Session revalidation interrupted your prior status update to ${formatRegistrationStatusLabel(interruptedMutation.requestedStatus)}. Loaded the latest server record (v${fresh.version}, ${formatRegistrationStatusLabel(fresh.status)}) — review before submitting any new change.`,
+          });
+          setRegistrations((prev) =>
+            prev.map((row) =>
+              row.id === fresh.id
+                ? {
+                    ...row,
+                    status: fresh.status,
+                    version: fresh.version,
+                    updatedAt: fresh.updatedAt,
+                  }
+                : row,
+            ),
+          );
+        } catch (error: unknown) {
+          if (
+            controller.signal.aborted ||
+            !isCurrentAuthGen(authGen) ||
+            seq !== detailRequestSeq.current
+          ) {
+            return;
+          }
+          const classified = classifyAdminRegistrationError(error);
+          if (
+            classified.kind === "UNAUTHENTICATED" ||
+            classified.kind === "FORBIDDEN"
+          ) {
+            handleGlobalAuthError(classified.kind, classified.message, authGen);
+            return;
+          }
+          setDetailRefreshFailed(true);
+          setStatusFeedback({
+            variant: "error",
+            message: `Session revalidation interrupted your prior status update, and the latest record could not be refreshed (${classified.message}). Click Refresh Record to review the current status before retrying.`,
+          });
+        } finally {
+          if (isCurrentAuthGen(authGen) && seq === detailRequestSeq.current) {
+            detailLoadingRef.current = false;
+            setDetailLoading(false);
+          }
+        }
+      })();
+      return;
+    }
+
+    const interruptedDetailId = interruptedDetailReadRef.current;
+    if (interruptedDetailId && selectedId === interruptedDetailId) {
+      interruptedDetailReadRef.current = null;
+      void loadRegistrationDetail(interruptedDetailId);
+    }
+  }, [
+    isEligible,
+    isRevalidating,
+    selectedId,
+    isCurrentAuthGen,
+    handleGlobalAuthError,
+    loadRegistrationDetail,
+  ]);
+
   const handleCloseDrawer = () => {
     detailRequestSeq.current += 1;
     statusMutationSeq.current += 1;
     detailAbortRef.current?.abort();
+    detailLoadingRef.current = false;
+    updatingStatusRef.current = false;
+    activeStatusMutationRef.current = null;
+    interruptedDetailReadRef.current = null;
+    interruptedStatusMutationRef.current = null;
     setSelectedId(null);
     setSelectedDetail(null);
+    setDetailLoading(false);
     setDetailError(null);
+    setDetailRefreshFailed(false);
     setStatusFeedback(null);
     setTargetStatus("");
     setReasonCode("");
@@ -581,7 +819,8 @@ function AcademyRegistrationsContent() {
     Boolean(selectedDetail) &&
     Boolean(targetStatus) &&
     (!reasonRequired || Boolean(reasonCode)) &&
-    !isUpdatingStatus;
+    !isUpdatingStatus &&
+    !detailRefreshFailed;
 
   const handleConfirmStatusUpdate = async () => {
     if (
@@ -589,7 +828,8 @@ function AcademyRegistrationsContent() {
       authInvalidatedRef.current ||
       !selectedDetail ||
       !targetStatus ||
-      isUpdatingStatus
+      isUpdatingStatus ||
+      detailRefreshFailed
     ) {
       return;
     }
@@ -603,6 +843,8 @@ function AcademyRegistrationsContent() {
     const requestedStatus = targetStatus;
     const requestedReason = reasonRequired && reasonCode ? reasonCode : null;
 
+    updatingStatusRef.current = true;
+    activeStatusMutationRef.current = { detailId, requestedStatus };
     setIsUpdatingStatus(true);
     setStatusFeedback(null);
 
@@ -626,7 +868,8 @@ function AcademyRegistrationsContent() {
         });
       }
 
-      // Synchronize summary row and refresh bounded list + authoritative seat counts
+      // Synchronize summary row and trigger an effect-driven list refresh using
+      // current filters/search/page (never a stale closure) + authoritative seat counts.
       setRegistrations((prev) =>
         prev.map((row) =>
           row.id === updated.id
@@ -639,7 +882,7 @@ function AcademyRegistrationsContent() {
             : row,
         ),
       );
-      void fetchRegistrations();
+      setListRefreshNonce((prev) => prev + 1);
       void fetchAuthoritativeSessionFilter();
     } catch (error: unknown) {
       if (!isCurrentAuthGen(authGen)) return;
@@ -673,12 +916,17 @@ function AcademyRegistrationsContent() {
         classified.kind === "INVALID_TRANSITION" ||
         classified.kind === "SESSION_NOT_AVAILABLE"
       ) {
+        const conflictLead =
+          classified.kind === "STALE_VERSION"
+            ? "This registration was updated by another staff member."
+            : classified.message;
         setStatusFeedback({
           variant: "warning",
-          message: classified.message,
+          message: `${conflictLead} Refreshing the latest registration record...`,
         });
         setTargetStatus("");
         setReasonCode("");
+        setDetailRefreshFailed(true);
         void fetchAuthoritativeSessionFilter();
 
         detailAbortRef.current?.abort();
@@ -698,6 +946,11 @@ function AcademyRegistrationsContent() {
             return;
           }
           setSelectedDetail(fresh);
+          setDetailRefreshFailed(false);
+          setStatusFeedback({
+            variant: "warning",
+            message: `${conflictLead} Loaded the latest record (v${fresh.version}, ${formatRegistrationStatusLabel(fresh.status)}) — review before retrying.`,
+          });
           setRegistrations((prev) =>
             prev.map((row) =>
               row.id === fresh.id
@@ -731,7 +984,11 @@ function AcademyRegistrationsContent() {
             );
             return;
           }
-          // Keep warning visible if still in the same auth context
+          setDetailRefreshFailed(true);
+          setStatusFeedback({
+            variant: "error",
+            message: `${conflictLead} Could not refresh the latest registration record (${refreshClassified.message}). Click Refresh Record to reload before applying another status change.`,
+          });
         }
         return;
       }
@@ -753,6 +1010,8 @@ function AcademyRegistrationsContent() {
         isCurrentAuthGen(authGen) &&
         statusMutationSeq.current === mutationSeq
       ) {
+        updatingStatusRef.current = false;
+        activeStatusMutationRef.current = null;
         setIsUpdatingStatus(false);
       }
     }
@@ -851,6 +1110,7 @@ function AcademyRegistrationsContent() {
           />
           <div
             data-testid="registrations-demo-unavailable"
+            data-admin-demo-hydrated={demoHydrated ? "true" : "false"}
             role="status"
             style={{
               backgroundColor: "#FFFBEB",
@@ -875,7 +1135,7 @@ function AcademyRegistrationsContent() {
     );
   }
 
-  if (isAuthLoading) {
+  if (!isRevalidating && isAuthLoading) {
     return (
       <AdminShell>
         <LoadingState message="Verifying staff access…" />
@@ -883,7 +1143,7 @@ function AcademyRegistrationsContent() {
     );
   }
 
-  if (!canView) {
+  if (!isRevalidating && !canView) {
     return (
       <AdminShell>
         <div style={{ minWidth: 0 }}>
@@ -1039,26 +1299,32 @@ function AcademyRegistrationsContent() {
         data-ph-no-capture="true"
         style={{ minWidth: 0 }}
       >
-        <PageHeader
-          title="Academy Registrations"
-          subtitle="Academy V1 intake queue — distinct from Academy Interest Leads and Main Team roster operations. Permanent Player IDs are not assigned at registration."
-          breadcrumbs={[
-            { label: "Academy", href: "/offerings" },
-            { label: "Academy Registrations" },
-          ]}
-        />
+        {!isRevalidating ? (
+          <>
+            <PageHeader
+              title="Academy Registrations"
+              subtitle="Academy V1 intake queue — distinct from Academy Interest Leads and Main Team roster operations. Permanent Player IDs are not assigned at registration."
+              breadcrumbs={[
+                { label: "Academy", href: "/offerings" },
+                { label: "Academy Registrations" },
+              ]}
+            />
 
-        <Tabs
-          tabs={tabs}
-          activeTab={activeTab}
-          onChange={(tabId) => setActiveTab(tabId)}
-        />
+            <Tabs
+              tabs={tabs}
+              activeTab={activeTab}
+              onChange={(tabId) => setActiveTab(tabId)}
+            />
 
-        {isAuthInvalidated ? renderGlobalAuthError() : null}
+            {isAuthInvalidated ? renderGlobalAuthError() : null}
+          </>
+        ) : null}
 
         {activeTab === "sessions" && (
           <AdminTrainingSessionsTab
             isEligible={childIsEligible}
+            isSuspended={isRevalidating}
+            authTransitionSeq={authTransitionSeq}
             authContextKey={childAuthContextKey}
             onSessionsChange={handleSessionsChange}
             onAuthError={handleGlobalAuthError}
@@ -1068,209 +1334,213 @@ function AcademyRegistrationsContent() {
         {activeTab === "policies" && (
           <AdminConsentPoliciesTab
             isEligible={childIsEligible}
+            isSuspended={isRevalidating}
+            authTransitionSeq={authTransitionSeq}
             canApprovePolicies={canApprovePolicies}
             authContextKey={childAuthContextKey}
             onAuthError={handleGlobalAuthError}
           />
         )}
 
-        {activeTab === "registrations" && !isAuthInvalidated && (
-          <div role="tabpanel" id="panel-registrations">
-            <FilterBar
-              hasActiveFilters={hasActiveFilters}
-              onReset={() => {
-                if (authInvalidatedRef.current) return;
-                setSearchInput("");
-                setDebouncedSearch("");
-                setStatusFilter("ALL");
-                setSessionFilter("ALL");
-                setPage(1);
-              }}
-            >
-              <SearchInput
-                key={searchResetKey}
-                value={searchInput}
-                onChange={(val) => {
+        {!isRevalidating &&
+          activeTab === "registrations" &&
+          !isAuthInvalidated && (
+            <div role="tabpanel" id="panel-registrations">
+              <FilterBar
+                hasActiveFilters={hasActiveFilters}
+                onReset={() => {
                   if (authInvalidatedRef.current) return;
-                  setSearchInput(val);
+                  setSearchInput("");
+                  setDebouncedSearch("");
+                  setStatusFilter("ALL");
+                  setSessionFilter("ALL");
                   setPage(1);
                 }}
-                placeholder="Search player, guardian, phone, or KAR ref (min 2 chars)..."
-              />
-
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  fontSize: "0.875rem",
-                }}
               >
-                <label
-                  htmlFor="registration-status-filter"
-                  style={{ fontWeight: 500, color: "#475569" }}
-                >
-                  Status:
-                </label>
-                <select
-                  id="registration-status-filter"
-                  value={statusFilter}
-                  onChange={(e) => {
+                <SearchInput
+                  key={searchResetKey}
+                  value={searchInput}
+                  onChange={(val) => {
                     if (authInvalidatedRef.current) return;
-                    setStatusFilter(e.target.value);
+                    setSearchInput(val);
                     setPage(1);
                   }}
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: "6px",
-                    border: "1px solid #CBD5E1",
-                    backgroundColor: "#FFFFFF",
-                    fontSize: "0.875rem",
-                    color: "#1E293B",
-                  }}
-                >
-                  <option value="ALL">All Statuses</option>
-                  {REGISTRATION_STATUS_OPTIONS.map((status) => (
-                    <option key={status} value={status}>
-                      {formatRegistrationStatusLabel(status)}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  placeholder="Search player, guardian, phone, or KAR ref (min 2 chars)..."
+                />
 
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  fontSize: "0.875rem",
-                }}
-              >
-                <label
-                  htmlFor="registration-session-filter"
-                  style={{ fontWeight: 500, color: "#475569" }}
-                >
-                  Session:
-                </label>
-                <select
-                  id="registration-session-filter"
-                  data-testid="registration-session-filter"
-                  value={sessionFilter}
-                  disabled={sessionsFilterLoading}
-                  onChange={(e) => {
-                    if (authInvalidatedRef.current) return;
-                    setSessionFilter(e.target.value);
-                    setPage(1);
-                  }}
+                <div
                   style={{
-                    padding: "6px 12px",
-                    borderRadius: "6px",
-                    border: "1px solid #CBD5E1",
-                    backgroundColor: sessionsFilterLoading
-                      ? "#F1F5F9"
-                      : "#FFFFFF",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
                     fontSize: "0.875rem",
-                    color: "#1E293B",
-                    maxWidth: "260px",
                   }}
                 >
-                  <option value="ALL">
-                    {sessionsFilterLoading
-                      ? "Loading sessions..."
-                      : sessionsFilterError
-                        ? "All Sessions (list unavailable)"
-                        : authoritativeSessions.length === 0
-                          ? "All Sessions (none configured)"
-                          : "All Sessions"}
-                  </option>
-                  {authoritativeSessions.map((session) => (
-                    <option key={session.id} value={session.id}>
-                      {session.name} (
-                      {formatPublicationStateLabel(session.publicationState)})
-                    </option>
-                  ))}
-                </select>
-                {sessionsFilterError ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    data-testid="retry-session-filter-btn"
-                    onClick={() => void fetchAuthoritativeSessionFilter()}
+                  <label
+                    htmlFor="registration-status-filter"
+                    style={{ fontWeight: 500, color: "#475569" }}
                   >
-                    Retry
-                  </Button>
-                ) : null}
-              </div>
-            </FilterBar>
+                    Status:
+                  </label>
+                  <select
+                    id="registration-status-filter"
+                    value={statusFilter}
+                    onChange={(e) => {
+                      if (authInvalidatedRef.current) return;
+                      setStatusFilter(e.target.value);
+                      setPage(1);
+                    }}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: "6px",
+                      border: "1px solid #CBD5E1",
+                      backgroundColor: "#FFFFFF",
+                      fontSize: "0.875rem",
+                      color: "#1E293B",
+                    }}
+                  >
+                    <option value="ALL">All Statuses</option>
+                    {REGISTRATION_STATUS_OPTIONS.map((status) => (
+                      <option key={status} value={status}>
+                        {formatRegistrationStatusLabel(status)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-            {searchInput.trim().length === 1 ? (
-              <div
-                role="status"
-                style={{
-                  fontSize: "0.8rem",
-                  color: "#64748B",
-                  marginBottom: 12,
-                }}
-              >
-                Enter at least 2 characters to run server-side POST search.
-              </div>
-            ) : null}
-
-            {loading ? (
-              <LoadingState message="Loading Academy registrations..." />
-            ) : listError ? (
-              <div data-testid="registrations-error-state">
-                <ErrorState
-                  title={
-                    listErrorKind === "FEATURE_NOT_AVAILABLE"
-                      ? "Feature Not Available"
-                      : "Failed to Load Registrations"
-                  }
-                  message={listError}
-                  onRetry={
-                    listErrorKind === "FEATURE_NOT_AVAILABLE"
-                      ? undefined
-                      : () => void fetchRegistrations()
-                  }
-                />
-              </div>
-            ) : registrations.length === 0 ? (
-              <EmptyState
-                title="No registrations found"
-                description={
-                  hasActiveFilters
-                    ? "No Academy registrations match your active search or filter criteria."
-                    : "No Academy registrations have been received yet."
-                }
-              />
-            ) : (
-              <>
-                <DataTable
-                  columns={columns}
-                  data={registrations}
-                  keyExtractor={(item) => item.id}
-                  onRowClick={(item) => void loadRegistrationDetail(item.id)}
-                />
-                <Pagination
-                  currentPage={page}
-                  totalPages={totalPages}
-                  totalItems={totalItems}
-                  itemsPerPage={pageSize}
-                  onPageChange={setPage}
-                  onItemsPerPageChange={(size) => {
-                    setPageSize(Math.min(size, 100));
-                    setPage(1);
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    fontSize: "0.875rem",
                   }}
+                >
+                  <label
+                    htmlFor="registration-session-filter"
+                    style={{ fontWeight: 500, color: "#475569" }}
+                  >
+                    Session:
+                  </label>
+                  <select
+                    id="registration-session-filter"
+                    data-testid="registration-session-filter"
+                    value={sessionFilter}
+                    disabled={sessionsFilterLoading}
+                    onChange={(e) => {
+                      if (authInvalidatedRef.current) return;
+                      setSessionFilter(e.target.value);
+                      setPage(1);
+                    }}
+                    style={{
+                      padding: "6px 12px",
+                      borderRadius: "6px",
+                      border: "1px solid #CBD5E1",
+                      backgroundColor: sessionsFilterLoading
+                        ? "#F1F5F9"
+                        : "#FFFFFF",
+                      fontSize: "0.875rem",
+                      color: "#1E293B",
+                      maxWidth: "260px",
+                    }}
+                  >
+                    <option value="ALL">
+                      {sessionsFilterLoading
+                        ? "Loading sessions..."
+                        : sessionsFilterError
+                          ? "All Sessions (list unavailable)"
+                          : authoritativeSessions.length === 0
+                            ? "All Sessions (none configured)"
+                            : "All Sessions"}
+                    </option>
+                    {authoritativeSessions.map((session) => (
+                      <option key={session.id} value={session.id}>
+                        {session.name} (
+                        {formatPublicationStateLabel(session.publicationState)})
+                      </option>
+                    ))}
+                  </select>
+                  {sessionsFilterError ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      data-testid="retry-session-filter-btn"
+                      onClick={() => void fetchAuthoritativeSessionFilter()}
+                    >
+                      Retry
+                    </Button>
+                  ) : null}
+                </div>
+              </FilterBar>
+
+              {searchInput.trim().length === 1 ? (
+                <div
+                  role="status"
+                  style={{
+                    fontSize: "0.8rem",
+                    color: "#64748B",
+                    marginBottom: 12,
+                  }}
+                >
+                  Enter at least 2 characters to run server-side POST search.
+                </div>
+              ) : null}
+
+              {loading ? (
+                <LoadingState message="Loading Academy registrations..." />
+              ) : listError ? (
+                <div data-testid="registrations-error-state">
+                  <ErrorState
+                    title={
+                      listErrorKind === "FEATURE_NOT_AVAILABLE"
+                        ? "Feature Not Available"
+                        : "Failed to Load Registrations"
+                    }
+                    message={listError}
+                    onRetry={
+                      listErrorKind === "FEATURE_NOT_AVAILABLE"
+                        ? undefined
+                        : () => void fetchRegistrations()
+                    }
+                  />
+                </div>
+              ) : registrations.length === 0 ? (
+                <EmptyState
+                  title="No registrations found"
+                  description={
+                    hasActiveFilters
+                      ? "No Academy registrations match your active search or filter criteria."
+                      : "No Academy registrations have been received yet."
+                  }
                 />
-              </>
-            )}
-          </div>
-        )}
+              ) : (
+                <>
+                  <DataTable
+                    columns={columns}
+                    data={registrations}
+                    keyExtractor={(item) => item.id}
+                    onRowClick={(item) => void loadRegistrationDetail(item.id)}
+                  />
+                  <Pagination
+                    currentPage={page}
+                    totalPages={totalPages}
+                    totalItems={totalItems}
+                    itemsPerPage={pageSize}
+                    onPageChange={setPage}
+                    onItemsPerPageChange={(size) => {
+                      setPageSize(Math.min(size, 100));
+                      setPage(1);
+                    }}
+                  />
+                </>
+              )}
+            </div>
+          )}
 
         {/* Audited Registration Detail & Status Review Drawer */}
         <Drawer
-          isOpen={Boolean(selectedId)}
+          isOpen={!isRevalidating && Boolean(selectedId)}
           onClose={handleCloseDrawer}
           title={
             selectedDetail
@@ -1921,6 +2191,7 @@ function AcademyRegistrationsContent() {
                         type="button"
                         variant="secondary"
                         size="sm"
+                        data-testid="refresh-registration-detail-btn"
                         onClick={() =>
                           void loadRegistrationDetail(selectedDetail.id)
                         }
@@ -1948,7 +2219,7 @@ function AcademyRegistrationsContent() {
 
         {/* Explicit Confirmation Dialog for Status Changes */}
         <ConfirmDialog
-          isOpen={confirmOpen}
+          isOpen={!isRevalidating && confirmOpen}
           onClose={() => setConfirmOpen(false)}
           onConfirm={() => void handleConfirmStatusUpdate()}
           isLoading={isUpdatingStatus}

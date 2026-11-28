@@ -60,7 +60,11 @@ test("preferred language changes registration UI immediately without translating
 
 test("guardian registration survives confirmation and failed API handoff safely", async () => {
   const supabaseAuth = await read("apps/web/lib/supabase-auth.ts");
-  const auth = await read("apps/web/lib/auth-context.tsx");
+  const authContext = await read("apps/web/lib/auth-context.tsx");
+  const authController = await read(
+    "apps/web/lib/web-auth-session-controller.ts",
+  );
+  const auth = `${authContext}\n${authController}`;
   const login = await read("apps/web/app/auth/login/page.tsx");
   const register = await read("apps/web/app/auth/register/page.tsx");
   const messages = await read("packages/i18n/src/messages/auth-web.ts");
@@ -73,7 +77,7 @@ test("guardian registration survives confirmation and failed API handoff safely"
   assert.match(auth, /supabaseSessionEstablished = true/);
   assert.match(
     auth,
-    /if \(supabaseSessionEstablished\) \{\s*clearStoredSession\(\);\s*\}/s,
+    /if \(supabaseSessionEstablished\) \{\s*(?:this\.deps\.)?(?:clearStoredSession\(\)|clearStoredSessionIfEpoch\(sessionEpoch\));\s*\}/s,
   );
   assert.match(login, /result\.guardianOnboardingRequired/);
   assert.match(register, /emailConfirmationOrSignInRequired/);

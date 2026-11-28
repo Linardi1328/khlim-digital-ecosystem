@@ -241,10 +241,28 @@ test.describe("IR-05 Deferred Enrolment & Checkout Browser Verification", () => 
       },
     });
 
+    const createMembershipResponsePromise = page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        new RegExp(`/v1/athletes/${SYNTHETIC_ATHLETE.id}/memberships$`).test(
+          res.url(),
+        ),
+    );
+
     await advanceWizardToStep5AndSubmit(page);
 
+    const createMembershipResponse = await createMembershipResponsePromise;
+    expect(createMembershipResponse.status()).toBe(403);
+    const createMembershipBody = await createMembershipResponse.json();
+    expect(createMembershipBody.code).toBe("FEATURE_NOT_AVAILABLE");
+
     await expect(page.locator("#coming-soon-heading")).toBeVisible();
-    await page.waitForTimeout(250);
+    await page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
     expect(listCalls).toBe(0);
     expect(checkoutCalls).toBe(0);
     expect(page.url()).not.toContain("/enrol/confirmation");
@@ -283,10 +301,28 @@ test.describe("IR-05 Deferred Enrolment & Checkout Browser Verification", () => 
         }),
     });
 
+    const prepareCheckoutResponsePromise = page.waitForResponse(
+      (res) =>
+        res.request().method() === "POST" &&
+        new RegExp(
+          `/v1/athletes/${SYNTHETIC_ATHLETE.id}/memberships/${PENDING_MEMBERSHIP.id}/checkout$`,
+        ).test(res.url()),
+    );
+
     await advanceWizardToStep5AndSubmit(page);
 
+    const prepareCheckoutResponse = await prepareCheckoutResponsePromise;
+    expect(prepareCheckoutResponse.status()).toBe(403);
+    const prepareCheckoutBody = await prepareCheckoutResponse.json();
+    expect(prepareCheckoutBody.code).toBe("FEATURE_NOT_AVAILABLE");
+
     await expect(page.locator("#coming-soon-heading")).toBeVisible();
-    await page.waitForTimeout(250);
+    await page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
     expect(listCalls).toBe(0);
     expect(page.url()).not.toContain("/enrol/confirmation");
   });
@@ -339,5 +375,230 @@ test.describe("IR-05 Deferred Enrolment & Checkout Browser Verification", () => 
     );
     expect(listCalls).toBe(1);
     expect(checkoutCalls).toBe(1);
+  });
+
+  test("Round 2 (7oZ): account switch on /enrol clears previous-account child PII, consents, and foreign athleteId", async ({
+    page,
+  }) => {
+    const expiresAt = Math.floor(Date.now() / 1000) + 3600;
+    let activeUser = "A";
+
+    await page.addInitScript(
+      ({ storageKey, exp }) => {
+        window.localStorage.setItem(
+          storageKey,
+          JSON.stringify({
+            access_token: "synthetic-web-parent-token-a",
+            refresh_token: "synthetic-web-refresh-token-a",
+            expires_in: 3600,
+            expires_at: exp,
+            token_type: "bearer",
+            user: { id: "acc-syn-parent-a", email: "parent.a@example.test" },
+          }),
+        );
+      },
+      { storageKey: SUPABASE_SESSION_STORAGE_KEY, exp: expiresAt },
+    );
+
+    await page.route(/\/v1\/me$/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(
+          activeUser === "A"
+            ? {
+                ...SYNTHETIC_ACCOUNT,
+                id: "acc-syn-parent-a",
+                email: "parent.a@example.test",
+                displayName: "Parent Account A",
+              }
+            : {
+                ...SYNTHETIC_ACCOUNT,
+                id: "acc-syn-parent-b",
+                email: "parent.b@example.test",
+                displayName: "Parent Account B",
+              },
+        ),
+      }),
+    );
+
+    await page.route(/\/v1\/me\/athletes$/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(
+          activeUser === "A"
+            ? [
+                {
+                  id: "link-a-1",
+                  relationshipType: "guardian",
+                  status: "ACTIVE",
+                  athlete: {
+                    id: "ath-account-a-1",
+                    displayName: "Account A Child",
+                    dateOfBirth: "2015-05-10",
+                  },
+                },
+              ]
+            : [],
+        ),
+      }),
+    );
+
+    await page.route(/\/v1\/academy\/offerings$/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(SYNTHETIC_OFFERINGS),
+      }),
+    );
+
+    await page.goto("/enrol?athleteId=ath-account-a-1", {
+      waitUntil: "networkidle",
+    });
+    await expect(page.getByText("Account A Child").first()).toBeVisible();
+
+    // Fill new child PII + consent in Account A
+    await page.locator('input[type="radio"][name="athlete"]').last().check();
+    const childNameInput = page.getByRole("textbox").first();
+    const childDobInput = page.locator('input[type="date"]').first();
+    await childNameInput.fill("Secret Child From Account A");
+    await childDobInput.fill("2016-04-12");
+    const consentCheckbox = page.locator("#new-minor-data-consent");
+    await consentCheckbox.check();
+    await expect(consentCheckbox).toBeChecked();
+
+    // Switch to Account B via cross-tab storage event
+    activeUser = "B";
+    await page.evaluate(
+      ({ storageKey, exp }) => {
+        const nextSession = JSON.stringify({
+          access_token: "synthetic-web-parent-token-b",
+          refresh_token: "synthetic-web-refresh-token-b",
+          expires_in: 3600,
+          expires_at: exp,
+          token_type: "bearer",
+          user: { id: "acc-syn-parent-b", email: "parent.b@example.test" },
+        });
+        window.localStorage.setItem(storageKey, nextSession);
+        window.dispatchEvent(
+          new StorageEvent("storage", {
+            key: storageKey,
+            newValue: nextSession,
+          }),
+        );
+      },
+      { storageKey: SUPABASE_SESSION_STORAGE_KEY, exp: expiresAt },
+    );
+
+    // Account A child name, DOB, consent, and foreign athlete must all be wiped!
+    await expect(page.locator("body")).not.toContainText("Account A Child");
+    await expect(childNameInput).toHaveValue("");
+    await expect(childDobInput).toHaveValue("");
+    await expect(page.locator("#new-minor-data-consent")).toHaveCount(0);
+  });
+
+  test("R2-FINAL-02: delayed /v1/me restoration for Account A resolving after logout cannot restore Account A PII on /enrol", async ({
+    page,
+  }) => {
+    const expiresAt = Math.floor(Date.now() / 1000) + 3600;
+    let meCalls = 0;
+    let firstMeStarted;
+    const firstMeStartedP = new Promise((r) => {
+      firstMeStarted = r;
+    });
+    let releaseFirstMe;
+    const firstMeGate = new Promise((r) => {
+      releaseFirstMe = r;
+    });
+
+    await page.addInitScript(
+      ({ storageKey, exp }) => {
+        window.localStorage.setItem(
+          storageKey,
+          JSON.stringify({
+            access_token: "synthetic-web-parent-token-a",
+            refresh_token: "synthetic-web-refresh-token-a",
+            expires_in: 3600,
+            expires_at: exp,
+            token_type: "bearer",
+            user: { id: "acc-syn-parent-a", email: "parent.a@example.test" },
+          }),
+        );
+      },
+      { storageKey: SUPABASE_SESSION_STORAGE_KEY, exp: expiresAt },
+    );
+
+    await page.route(/\/v1\/me$/, async (route) => {
+      meCalls += 1;
+      if (meCalls === 1) {
+        firstMeStarted();
+        await firstMeGate;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ...SYNTHETIC_ACCOUNT,
+          id: "acc-syn-parent-a",
+          email: "parent.a@example.test",
+          displayName: "Parent Account A",
+        }),
+      });
+    });
+
+    await page.route(/\/v1\/me\/athletes$/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: "link-a-delayed",
+            relationshipType: "guardian",
+            status: "ACTIVE",
+            athlete: {
+              id: "ath-delayed-a",
+              displayName: "Delayed Account A Child",
+              dateOfBirth: "2015-05-10",
+            },
+          },
+        ]),
+      }),
+    );
+
+    await page.route(/\/v1\/academy\/offerings$/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(SYNTHETIC_OFFERINGS),
+      }),
+    );
+
+    await page.goto("/enrol", { waitUntil: "domcontentloaded" });
+    await firstMeStartedP;
+
+    // Cross-tab logout clears storage while bootstrap /v1/me is still pending
+    await page.evaluate((storageKey) => {
+      window.localStorage.removeItem(storageKey);
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: storageKey,
+          newValue: null,
+        }),
+      );
+    }, SUPABASE_SESSION_STORAGE_KEY);
+
+    // Release delayed /v1/me for Account A -> MUST NOT restore Account A or its child!
+    releaseFirstMe();
+    await page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
+    await expect(page.locator("body")).not.toContainText(
+      "Delayed Account A Child",
+    );
+    await expect(page.locator("body")).not.toContainText("Parent Account A");
   });
 });

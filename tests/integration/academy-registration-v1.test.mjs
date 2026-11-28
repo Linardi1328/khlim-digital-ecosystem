@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import { createHmac, randomUUID } from "node:crypto";
 import { after, afterEach, test } from "node:test";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import {
   AppModule,
   HMAC_V1,
@@ -2935,34 +2938,46 @@ test(
           expectedVersion: draft.version,
           ...expectedPredecessor(prior),
         },
-      }),
+      }).then(
+        (res) => ({ draft, ok: true, res }),
+        (error) => ({ draft, ok: false, error }),
+      ),
     );
-    await waitForWaiters(c, baseline, 2, "both approvals queued");
-    holder.release();
-    const results = await Promise.all(approvals);
-    await holder.done;
+    try {
+      await waitForWaiters(c, baseline, 2, "both approvals queued");
+    } finally {
+      holder.release();
+      await Promise.all([holder.done.catch(() => undefined), ...approvals]);
+    }
+    const outcomes = await Promise.all(approvals);
+    for (const outcome of outcomes) {
+      if (!outcome.ok) throw outcome.error;
+    }
     assert.deepEqual(
-      results.map((r) => r.status).sort((a, b) => a - b),
+      outcomes.map((o) => o.res.status).sort((a, b) => a - b),
       [201, 409],
-      JSON.stringify(results.map((r) => r.body)),
+      JSON.stringify(outcomes.map((o) => o.res.body)),
     );
-    const rejected = results.find((r) => r.status === 409);
-    assert.equal(rejected.body.code, "STALE_VERSION");
+    const winner = outcomes.find((o) => o.res.status === 201);
+    const loser = outcomes.find((o) => o.res.status === 409);
+    assert.ok(winner && loser, "expected one 201 winner and one 409 loser");
+    assert.equal(loser.res.body.code, "STALE_VERSION");
     const approved = await c.client.academyRegistrationPolicy.findMany({
       where: { organizationId: ORG_A, status: "APPROVED" },
     });
     assert.equal(approved.length, 1, "exactly one approved policy");
-    assert.ok(
-      [d1.id, d2.id].includes(approved[0].id),
-      "winning draft remains approved and was not silently retired",
+    assert.equal(
+      approved[0].id,
+      winner.draft.id,
+      "HTTP 201 winning draft matches the persisted APPROVED policy",
     );
-    const remainingDrafts = await c.client.academyRegistrationPolicy.findMany({
-      where: { id: { in: [d1.id, d2.id] }, status: "DRAFT" },
+    const loserPersisted = await c.client.academyRegistrationPolicy.findUnique({
+      where: { id: loser.draft.id },
     });
     assert.equal(
-      remainingDrafts.length,
-      1,
-      "stale losing draft remains DRAFT instead of silently retiring the winner",
+      loserPersisted.status,
+      "DRAFT",
+      "HTTP 409 losing draft remains DRAFT instead of silently retiring the winner",
     );
     assert.equal(
       (
@@ -4090,6 +4105,7 @@ test(
       c,
       `synthetic-ric190-${RUN}-env${policyCounter}`,
     );
+    const currentBeforeEnvCheck = await currentApprovedInOrg(c);
     const saved = {
       NODE_ENV: process.env.NODE_ENV,
       KHLIM_ENV: process.env.KHLIM_ENV,
@@ -4097,7 +4113,6 @@ test(
     process.env.NODE_ENV = "production";
     delete process.env.KHLIM_ENV;
     let refused;
-    const currentBeforeEnvCheck = await currentApprovedInOrg(c);
     try {
       refused = await api(
         c,
@@ -5609,32 +5624,56 @@ test(
           expectedApprovedPolicyId: null,
           expectedApprovedPolicyVersion: null,
         },
-      }),
+      }).then(
+        (res) => ({ draft: target, ok: true, res }),
+        (error) => ({ draft: target, ok: false, error }),
+      ),
     );
-    await waitForWaiters(
-      c,
-      baseline,
-      2,
-      "both no-predecessor approvals serialized on org advisory lock",
-    );
-    holder.release();
-    const results = await Promise.all(concurrentNoPred);
-    await holder.done;
+    try {
+      await waitForWaiters(
+        c,
+        baseline,
+        2,
+        "both no-predecessor approvals serialized on org advisory lock",
+      );
+    } finally {
+      holder.release();
+      await Promise.all([
+        holder.done.catch(() => undefined),
+        ...concurrentNoPred,
+      ]);
+    }
+    const outcomes = await Promise.all(concurrentNoPred);
+    for (const outcome of outcomes) {
+      if (!outcome.ok) throw outcome.error;
+    }
 
     assert.deepEqual(
-      results.map((r) => r.status).sort((a, b) => a - b),
+      outcomes.map((o) => o.res.status).sort((a, b) => a - b),
       [201, 409],
-      JSON.stringify(results.map((r) => r.body)),
+      JSON.stringify(outcomes.map((o) => o.res.body)),
     );
-    assert.equal(
-      results.find((r) => r.status === 409).body.code,
-      "STALE_VERSION",
-    );
+    const winner = outcomes.find((o) => o.res.status === 201);
+    const loser = outcomes.find((o) => o.res.status === 409);
+    assert.ok(winner && loser, "expected one 201 winner and one 409 loser");
+    assert.equal(loser.res.body.code, "STALE_VERSION");
     const approvedRows = await c.client.academyRegistrationPolicy.findMany({
       where: { organizationId: ORG_A, status: "APPROVED" },
     });
     assert.equal(approvedRows.length, 1);
-    assert.ok([draft.id, draft2.id].includes(approvedRows[0].id));
+    assert.equal(
+      approvedRows[0].id,
+      winner.draft.id,
+      "HTTP 201 winning no-predecessor draft matches the persisted APPROVED policy",
+    );
+    const loserPersisted = await c.client.academyRegistrationPolicy.findUnique({
+      where: { id: loser.draft.id },
+    });
+    assert.equal(
+      loserPersisted.status,
+      "DRAFT",
+      "HTTP 409 losing no-predecessor draft remains DRAFT",
+    );
     currentConsent = approvedRows[0].policyVersion;
   },
 );
@@ -5704,5 +5743,31 @@ test(
       authenticatorAssuranceLevel: "aal2",
     });
     assert.equal(unresolvedSession.organizationId, null);
+  },
+);
+
+test(
+  "CR-25 (isolated multi-org HTTP): /admin/session resolves non-default organizationId with KHLIM_MULTI_ORGANIZATION_ENABLED=true and rejects cross-org staff",
+  { skip },
+  async () => {
+    await ctx();
+    const orgBSlug = `ric190-b-${RUN.toLowerCase()}`;
+    const probePath = fileURLToPath(
+      new URL("./cr25-multi-org-http-probe.mjs", import.meta.url),
+    );
+    const execFileAsync = promisify(execFile);
+    await execFileAsync(process.execPath, [probePath], {
+      env: {
+        ...process.env,
+        KHLIM_MULTI_ORGANIZATION_ENABLED: "true",
+        ORG_B,
+        ORG_B_SLUG: orgBSlug,
+        FOREIGN_SUBJECT: `ric190-${RUN}-foreign`,
+        FOREIGN_EMAIL: `foreign.${RUN}@example.test`.toLowerCase(),
+        ADMIN_SUBJECT: `ric190-${RUN}-admin`,
+        ADMIN_EMAIL: `admin.${RUN}@example.test`.toLowerCase(),
+      },
+      timeout: 30_000,
+    });
   },
 );

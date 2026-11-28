@@ -71,6 +71,8 @@ function readContentEntry(
 
 export interface AdminConsentPoliciesTabProps {
   isEligible: boolean;
+  isSuspended?: boolean;
+  authTransitionSeq?: number;
   canApprovePolicies: boolean;
   authContextKey: string;
   onAuthError: (kind: AdminRegistrationErrorKind, message: string) => void;
@@ -78,6 +80,8 @@ export interface AdminConsentPoliciesTabProps {
 
 export function AdminConsentPoliciesTab({
   isEligible,
+  isSuspended = false,
+  authTransitionSeq = 0,
   canApprovePolicies,
   authContextKey,
   onAuthError,
@@ -106,6 +110,9 @@ export function AdminConsentPoliciesTab({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [interruptedCreateReview, setInterruptedCreateReview] = useState<
+    "refreshing" | "ready" | "failed" | null
+  >(null);
 
   // Approve & Retire dialogs (only accessible to SUPER_ADMIN / MANAGEMENT)
   // Snapshot both the target draft and the currently approved predecessor at dialog open
@@ -120,8 +127,12 @@ export function AdminConsentPoliciesTab({
 
   const authGenerationRef = useRef(0);
   const isMountedRef = useRef(true);
+  const prevAuthTransitionSeqRef = useRef(authTransitionSeq);
   const listSeq = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+  const creatingRef = useRef(false);
+  const interruptedCreateRef = useRef(false);
+  const activePolicyMutationRef = useRef<"approve" | "retire" | null>(null);
 
   const isCurrentAuthGen = useCallback(
     (gen: number) => isMountedRef.current && authGenerationRef.current === gen,
@@ -138,9 +149,44 @@ export function AdminConsentPoliciesTab({
   }, []);
 
   useLayoutEffect(() => {
+    if (prevAuthTransitionSeqRef.current === authTransitionSeq) {
+      return;
+    }
+    prevAuthTransitionSeqRef.current = authTransitionSeq;
     authGenerationRef.current += 1;
     listSeq.current += 1;
     abortRef.current?.abort();
+
+    setLoading(false);
+    // Clear obsolete confirmation dialogs so staff must re-confirm against fresh policy state
+    setApproveDialogState(null);
+    setRetireTarget(null);
+
+    if (creatingRef.current) {
+      creatingRef.current = false;
+      interruptedCreateRef.current = true;
+      setCreating(false);
+      setInterruptedCreateReview("refreshing");
+    }
+
+    if (activePolicyMutationRef.current) {
+      const action = activePolicyMutationRef.current;
+      activePolicyMutationRef.current = null;
+      setMutating(false);
+      setBanner({
+        variant: "warning",
+        message: `Session revalidation interrupted your policy ${action} before confirmation arrived. Its outcome is uncertain — review the refreshed policy list before retrying.`,
+      });
+    }
+  }, [authTransitionSeq]);
+
+  useLayoutEffect(() => {
+    authGenerationRef.current += 1;
+    listSeq.current += 1;
+    abortRef.current?.abort();
+    creatingRef.current = false;
+    interruptedCreateRef.current = false;
+    activePolicyMutationRef.current = null;
     setCurrentPolicy(null);
     setHistoryItems([]);
     setLoadError(null);
@@ -154,17 +200,23 @@ export function AdminConsentPoliciesTab({
     setFieldErrors({});
     setFormError(null);
     setCreating(false);
+    setInterruptedCreateReview(null);
     setMutating(false);
   }, [authContextKey]);
 
-  const fetchPolicies = useCallback(async () => {
+  const fetchPolicies = useCallback(async (): Promise<boolean> => {
     void authContextKey;
     const authGen = authGenerationRef.current;
+    if (isSuspended) {
+      listSeq.current += 1;
+      abortRef.current?.abort();
+      return false;
+    }
     if (!isEligible) {
       setCurrentPolicy(null);
       setHistoryItems([]);
       setLoading(false);
-      return;
+      return false;
     }
 
     abortRef.current?.abort();
@@ -177,16 +229,17 @@ export function AdminConsentPoliciesTab({
 
     try {
       const response = await listAdminRegistrationPolicies(controller.signal);
-      if (!isCurrentAuthGen(authGen) || seq !== listSeq.current) return;
+      if (!isCurrentAuthGen(authGen) || seq !== listSeq.current) return false;
       setCurrentPolicy(response.current ?? null);
       setHistoryItems(Array.isArray(response.items) ? response.items : []);
+      return true;
     } catch (error: unknown) {
       if (
         controller.signal.aborted ||
         !isCurrentAuthGen(authGen) ||
         seq !== listSeq.current
       ) {
-        return;
+        return false;
       }
       const classified = classifyAdminRegistrationError(error);
       if (
@@ -198,29 +251,47 @@ export function AdminConsentPoliciesTab({
         setHistoryItems([]);
         onAuthError(classified.kind, classified.message);
         setLoading(false);
-        return;
+        return false;
       }
       setLoadError(classified.message);
+      return false;
     } finally {
       if (isCurrentAuthGen(authGen) && seq === listSeq.current) {
         setLoading(false);
       }
     }
-  }, [isEligible, authContextKey, isCurrentAuthGen, onAuthError]);
+  }, [isEligible, isSuspended, authContextKey, isCurrentAuthGen, onAuthError]);
 
   useEffect(() => {
-    void fetchPolicies();
+    let cancelled = false;
+    void (async () => {
+      const ok = await fetchPolicies();
+      if (
+        cancelled ||
+        !interruptedCreateRef.current ||
+        isSuspended ||
+        !isEligible
+      ) {
+        return;
+      }
+      interruptedCreateRef.current = false;
+      setInterruptedCreateReview(ok ? "ready" : "failed");
+    })();
     return () => {
+      cancelled = true;
       abortRef.current?.abort();
     };
-  }, [fetchPolicies]);
+  }, [fetchPolicies, isSuspended, isEligible]);
 
   const openCreateDrawer = () => {
+    creatingRef.current = false;
+    interruptedCreateRef.current = false;
     setBanner(null);
     setDraftVersion("");
     setDraftContent(createEmptyPolicyContentMap());
     setFieldErrors({});
     setFormError(null);
+    setInterruptedCreateReview(null);
     setCreateOpen(true);
   };
 
@@ -252,7 +323,7 @@ export function AdminConsentPoliciesTab({
 
   const handleCreateDraft = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (creating) return;
+    if (creating || interruptedCreateReview !== null) return;
     setFormError(null);
 
     const validated = validatePolicyDraftInput(draftVersion, draftContent);
@@ -266,10 +337,12 @@ export function AdminConsentPoliciesTab({
 
     const authGen = authGenerationRef.current;
     setFieldErrors({});
+    creatingRef.current = true;
     setCreating(true);
     try {
       const created = await createAdminRegistrationPolicy(validated.payload);
       if (!isCurrentAuthGen(authGen)) return;
+      creatingRef.current = false;
       setCreateOpen(false);
       setBanner({
         variant: "success",
@@ -284,6 +357,7 @@ export function AdminConsentPoliciesTab({
         classified.kind === "FORBIDDEN"
       ) {
         authGenerationRef.current += 1;
+        creatingRef.current = false;
         setCreateOpen(false);
         onAuthError(classified.kind, classified.message);
         setCreating(false);
@@ -299,6 +373,7 @@ export function AdminConsentPoliciesTab({
       setFormError(classified.message);
     } finally {
       if (isCurrentAuthGen(authGen)) {
+        creatingRef.current = false;
         setCreating(false);
       }
     }
@@ -312,6 +387,7 @@ export function AdminConsentPoliciesTab({
     const expectedApprovedPolicyId = approveDialogState.predecessor?.id ?? null;
     const expectedApprovedPolicyVersion =
       approveDialogState.predecessor?.version ?? null;
+    activePolicyMutationRef.current = "approve";
     setMutating(true);
     setBanner(null);
     try {
@@ -321,6 +397,7 @@ export function AdminConsentPoliciesTab({
         expectedApprovedPolicyVersion,
       });
       if (!isCurrentAuthGen(authGen)) return;
+      activePolicyMutationRef.current = null;
       setApproveDialogState(null);
       setBanner({
         variant: "success",
@@ -336,17 +413,42 @@ export function AdminConsentPoliciesTab({
         classified.kind === "FORBIDDEN"
       ) {
         authGenerationRef.current += 1;
+        activePolicyMutationRef.current = null;
         onAuthError(classified.kind, classified.message);
         setMutating(false);
         return;
       }
+      if (classified.kind === "STALE_VERSION") {
+        setBanner({
+          variant: "warning",
+          message:
+            "This consent policy or the currently approved predecessor was modified by another administrator before your approval was applied. Refreshing the latest policies...",
+        });
+        const refreshed = await fetchPolicies();
+        if (!isCurrentAuthGen(authGen)) return;
+        setBanner(
+          refreshed
+            ? {
+                variant: "warning",
+                message:
+                  "This consent policy or the currently approved predecessor was modified by another administrator before your approval was applied. The latest policies are now loaded — review the current policy before retrying.",
+              }
+            : {
+                variant: "error",
+                message:
+                  "This consent policy or the currently approved predecessor was modified by another administrator, and the latest policies could not be refreshed. Use Retry below to reload before taking action.",
+              },
+        );
+        return;
+      }
       setBanner({
-        variant: classified.kind === "STALE_VERSION" ? "warning" : "error",
+        variant: "error",
         message: classified.message,
       });
       await fetchPolicies();
     } finally {
       if (isCurrentAuthGen(authGen)) {
+        activePolicyMutationRef.current = null;
         setMutating(false);
       }
     }
@@ -357,6 +459,7 @@ export function AdminConsentPoliciesTab({
     const authGen = authGenerationRef.current;
     const targetId = retireTarget.id;
     const targetVersion = retireTarget.version;
+    activePolicyMutationRef.current = "retire";
     setMutating(true);
     setBanner(null);
     try {
@@ -364,6 +467,7 @@ export function AdminConsentPoliciesTab({
         expectedVersion: targetVersion,
       });
       if (!isCurrentAuthGen(authGen)) return;
+      activePolicyMutationRef.current = null;
       setRetireTarget(null);
       setBanner({
         variant: "success",
@@ -379,17 +483,42 @@ export function AdminConsentPoliciesTab({
         classified.kind === "FORBIDDEN"
       ) {
         authGenerationRef.current += 1;
+        activePolicyMutationRef.current = null;
         onAuthError(classified.kind, classified.message);
         setMutating(false);
         return;
       }
+      if (classified.kind === "STALE_VERSION") {
+        setBanner({
+          variant: "warning",
+          message:
+            "This consent policy changed before your retirement was applied. Refreshing the latest policies...",
+        });
+        const refreshed = await fetchPolicies();
+        if (!isCurrentAuthGen(authGen)) return;
+        setBanner(
+          refreshed
+            ? {
+                variant: "warning",
+                message:
+                  "This consent policy changed before your retirement was applied. The latest policies are now loaded — review the current policy before retrying.",
+              }
+            : {
+                variant: "error",
+                message:
+                  "This consent policy changed, and the latest policies could not be refreshed. Use Retry below to reload before taking action.",
+              },
+        );
+        return;
+      }
       setBanner({
-        variant: classified.kind === "STALE_VERSION" ? "warning" : "error",
+        variant: "error",
         message: classified.message,
       });
       await fetchPolicies();
     } finally {
       if (isCurrentAuthGen(authGen)) {
+        activePolicyMutationRef.current = null;
         setMutating(false);
       }
     }
@@ -503,6 +632,10 @@ export function AdminConsentPoliciesTab({
     fontSize: "0.82rem",
     color: "#0F172A",
   };
+
+  if (isSuspended) {
+    return null;
+  }
 
   return (
     <div
@@ -863,7 +996,11 @@ export function AdminConsentPoliciesTab({
       <Drawer
         isOpen={createOpen}
         onClose={() => {
-          if (!creating) setCreateOpen(false);
+          if (!creating) {
+            setCreateOpen(false);
+            setInterruptedCreateReview(null);
+            interruptedCreateRef.current = false;
+          }
         }}
         title="Create Consent Policy Draft"
         subtitle="Enter exact owner-approved content references and 64-character lowercase hex SHA-256 hashes. Never fabricate legal copy or hashes."
@@ -875,6 +1012,95 @@ export function AdminConsentPoliciesTab({
           data-testid="policy-create-form"
           style={{ display: "flex", flexDirection: "column", gap: 16 }}
         >
+          {interruptedCreateReview ? (
+            <div
+              role="alert"
+              data-testid="policy-interrupted-create-notice"
+              style={{
+                padding: "12px 14px",
+                borderRadius: 8,
+                backgroundColor: "#FFFBEB",
+                border: "1px solid #FDE68A",
+                color: "#78350F",
+                fontSize: "0.82rem",
+                lineHeight: 1.5,
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
+              <strong>
+                Session revalidation interrupted policy draft creation — outcome
+                uncertain
+              </strong>
+              {interruptedCreateReview === "refreshing" ? (
+                <div>
+                  Refreshing the policy list to check whether this draft was
+                  already created...
+                </div>
+              ) : interruptedCreateReview === "failed" ? (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span>
+                    Could not refresh the policy list after revalidation. Retry
+                    refresh before creating again.
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    data-testid="retry-interrupted-policy-refresh-btn"
+                    onClick={() => {
+                      setInterruptedCreateReview("refreshing");
+                      void fetchPolicies().then((ok) =>
+                        setInterruptedCreateReview(ok ? "ready" : "failed"),
+                      );
+                    }}
+                  >
+                    Retry Refresh
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    The policy list has been refreshed. Verify whether policy
+                    version <strong>{draftVersion || "—"}</strong> was already
+                    created before submitting again.
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="primary"
+                      data-testid="acknowledge-interrupted-policy-create-btn"
+                      onClick={() => setInterruptedCreateReview(null)}
+                    >
+                      I Reviewed the Policy List — Enable Retry
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        setCreateOpen(false);
+                        setInterruptedCreateReview(null);
+                      }}
+                    >
+                      Close Drawer
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : null}
+
           {formError ? (
             <div
               role="alert"
@@ -1064,7 +1290,11 @@ export function AdminConsentPoliciesTab({
             <Button
               type="button"
               variant="secondary"
-              onClick={() => setCreateOpen(false)}
+              onClick={() => {
+                setCreateOpen(false);
+                setInterruptedCreateReview(null);
+                interruptedCreateRef.current = false;
+              }}
               disabled={creating}
             >
               Cancel
@@ -1073,7 +1303,7 @@ export function AdminConsentPoliciesTab({
               type="submit"
               variant="primary"
               data-testid="submit-policy-draft-btn"
-              disabled={creating}
+              disabled={creating || interruptedCreateReview !== null}
             >
               {creating ? "Creating..." : "Create Draft Policy"}
             </Button>

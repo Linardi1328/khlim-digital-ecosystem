@@ -1737,4 +1737,781 @@ describe("RIC-191 Academy Registration V1 frontend helpers & contract rules", ()
       );
     }
   });
+
+  test("Round 2 (7oK): AdminAuthSessionController preserves workspaceEpoch ONLY on verified identical authorization context and destroys workspace on org/role/permission/MFA change, failure, or logout", async () => {
+    const { AdminAuthSessionController } =
+      await import("../apps/admin/lib/admin-auth-session-controller.ts");
+
+    const makeDeferred = () => {
+      let resolve;
+      let reject;
+      const promise = new Promise((res, rej) => {
+        resolve = res;
+        reject = rej;
+      });
+      return { promise, resolve, reject };
+    };
+
+    const baseSession = {
+      id: "staff-1",
+      organizationId: "org-a",
+      email: "staff@example.test",
+      displayName: "Staff One",
+      roles: ["SUPER_ADMIN", "MANAGEMENT"],
+      mfaSatisfied: true,
+      preferredLocale: "en",
+      authenticatorAssuranceLevel: "aal2",
+    };
+
+    let nextSessionDeferred = null;
+    let currentSessionResponse = baseSession;
+    let invalidateCount = 0;
+    const states = [];
+
+    const controller = new AdminAuthSessionController(
+      {
+        storageKey: "khlim_admin_supabase_session",
+        restoreSession: async () => ({ access_token: "synthetic-tok" }),
+        getAdminSession: async () => {
+          if (nextSessionDeferred) {
+            const d = nextSessionDeferred;
+            nextSessionDeferred = null;
+            return d.promise;
+          }
+          return currentSessionResponse;
+        },
+        signIn: async () => undefined,
+        signOut: async () => undefined,
+        invalidateSessionOperations: () => {
+          invalidateCount += 1;
+        },
+      },
+      (state) => states.push(state),
+    );
+
+    await controller.bootstrap();
+    const initialEpoch = controller.getState().workspaceEpoch;
+    assert.equal(controller.getState().user?.id, "staff-1");
+    assert.equal(controller.getState().isRevalidating, false);
+
+    // 1) Same-context token renewal: immediately hides/fails-closed during pending /admin/session, then resumes same workspaceEpoch
+    const sameRenewal = makeDeferred();
+    nextSessionDeferred = sameRenewal;
+    const renewalPromise = controller.handleStorageChange({
+      key: "khlim_admin_supabase_session",
+      newValue: '{"access_token":"rotated-same"}',
+      isSameStorageArea: true,
+    });
+    assert.ok(renewalPromise);
+    assert.equal(controller.getState().isRevalidating, true);
+    assert.equal(controller.getState().isLoading, true);
+    assert.equal(controller.getState().user, null);
+    assert.equal(controller.getState().role, null);
+    assert.equal(controller.getState().workspaceEpoch, initialEpoch);
+    assert.ok(invalidateCount >= 1);
+
+    sameRenewal.resolve({ ...baseSession });
+    await renewalPromise;
+    assert.equal(controller.getState().isRevalidating, false);
+    assert.equal(controller.getState().user?.id, "staff-1");
+    assert.equal(
+      controller.getState().workspaceEpoch,
+      initialEpoch,
+      "Exact same verified auth context preserves workspaceEpoch",
+    );
+
+    // 2) Changed organization destroys workspaceEpoch
+    currentSessionResponse = { ...baseSession, organizationId: "org-b" };
+    await controller.handleStorageChange({
+      key: "khlim_admin_supabase_session",
+      newValue: '{"access_token":"rotated-org-b"}',
+      isSameStorageArea: true,
+    });
+    const epochAfterOrgChange = controller.getState().workspaceEpoch;
+    assert.ok(epochAfterOrgChange > initialEpoch);
+    assert.equal(controller.getState().user?.organizationId, "org-b");
+
+    // 3) Changed effective permissions (roles array) destroys workspaceEpoch
+    currentSessionResponse = {
+      ...baseSession,
+      organizationId: "org-b",
+      roles: ["MANAGEMENT"],
+    };
+    await controller.handleStorageChange({
+      key: "khlim_admin_supabase_session",
+      newValue: '{"access_token":"rotated-roles"}',
+      isSameStorageArea: true,
+    });
+    const epochAfterRoleChange = controller.getState().workspaceEpoch;
+    assert.ok(epochAfterRoleChange > epochAfterOrgChange);
+
+    // 4) Downgraded MFA destroys workspaceEpoch
+    currentSessionResponse = {
+      ...baseSession,
+      organizationId: "org-b",
+      roles: ["MANAGEMENT"],
+      mfaSatisfied: false,
+      authenticatorAssuranceLevel: "aal1",
+    };
+    await controller.handleStorageChange({
+      key: "khlim_admin_supabase_session",
+      newValue: '{"access_token":"rotated-aal1"}',
+      isSameStorageArea: true,
+    });
+    const epochAfterMfaDowngrade = controller.getState().workspaceEpoch;
+    assert.ok(epochAfterMfaDowngrade > epochAfterRoleChange);
+
+    // Restore verified MFA session before testing failure & logout
+    currentSessionResponse = baseSession;
+    await controller.handleStorageChange({
+      key: "khlim_admin_supabase_session",
+      newValue: '{"access_token":"restored-mfa"}',
+      isSameStorageArea: true,
+    });
+    const epochBeforeFail = controller.getState().workspaceEpoch;
+
+    // 5) Failed verification destroys workspaceEpoch
+    const failDeferred = makeDeferred();
+    nextSessionDeferred = failDeferred;
+    const failPromise = controller.handleStorageChange({
+      key: "khlim_admin_supabase_session",
+      newValue: '{"access_token":"bad"}',
+      isSameStorageArea: true,
+    });
+    failDeferred.reject(new Error("401 Unauthorized"));
+    await failPromise;
+    assert.ok(controller.getState().workspaceEpoch > epochBeforeFail);
+    assert.equal(controller.getState().user, null);
+    assert.equal(controller.getState().isRevalidating, false);
+
+    // 6) Logout destroys workspaceEpoch
+    await controller.handleStorageChange({
+      key: "khlim_admin_supabase_session",
+      newValue: '{"access_token":"restored-2"}',
+      isSameStorageArea: true,
+    });
+    const epochBeforeLogout = controller.getState().workspaceEpoch;
+    await controller.logout();
+    assert.ok(controller.getState().workspaceEpoch > epochBeforeLogout);
+    assert.equal(controller.getState().user, null);
+    controller.dispose();
+  });
+
+  test("Round 2 (7oQ & 7oV): verifyAdminTotpFactor rejects same-user replaced session and adminSupabaseSignOut uses scope=local with synchronous local clear", async () => {
+    const prevWindow = globalThis.window;
+    const prevFetch = globalThis.fetch;
+    const prevEnvUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const prevEnvKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    const store = new Map();
+    const mockLocalStorage = {
+      getItem: (k) => (store.has(k) ? store.get(k) : null),
+      setItem: (k, v) => store.set(k, String(v)),
+      removeItem: (k) => store.delete(k),
+      clear: () => store.clear(),
+    };
+    globalThis.window = { localStorage: mockLocalStorage };
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "synthetic-anon-key";
+
+    const futureExp = Math.floor(Date.now() / 1000) + 3600;
+    const initialSession = {
+      access_token: "synthetic-token-session-1",
+      refresh_token: "synthetic-refresh-session-1",
+      expires_in: 3600,
+      expires_at: futureExp,
+      token_type: "bearer",
+      user: { id: "same-staff-user", email: "staff@example.test" },
+    };
+
+    try {
+      const {
+        ADMIN_SUPABASE_SESSION_STORAGE_KEY,
+        adminSupabaseSignOut,
+        verifyAdminTotpFactor,
+      } = await import("../apps/admin/lib/supabase-auth.ts");
+
+      // 7oQ: Replace stored session with a NEW session for the SAME user while MFA verify is in flight
+      mockLocalStorage.setItem(
+        ADMIN_SUPABASE_SESSION_STORAGE_KEY,
+        JSON.stringify(initialSession),
+      );
+      const newerSameUserSession = {
+        ...initialSession,
+        access_token: "synthetic-token-session-2-same-user",
+        refresh_token: "synthetic-refresh-session-2-same-user",
+      };
+      globalThis.fetch = async () => {
+        // Simulate cross-tab rotation of the same user's session while verify is in flight
+        mockLocalStorage.setItem(
+          ADMIN_SUPABASE_SESSION_STORAGE_KEY,
+          JSON.stringify(newerSameUserSession),
+        );
+        return new Response(
+          JSON.stringify({
+            access_token: "synthetic-stale-mfa-token",
+            refresh_token: "synthetic-stale-mfa-refresh",
+            expires_in: 3600,
+            token_type: "bearer",
+            user: { id: "same-staff-user", email: "staff@example.test" },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      };
+
+      await assert.rejects(
+        () => verifyAdminTotpFactor("factor-1", "challenge-1", "123456"),
+        /superseded by a session change/i,
+      );
+      const storedAfterMfaRace = JSON.parse(
+        mockLocalStorage.getItem(ADMIN_SUPABASE_SESSION_STORAGE_KEY),
+      );
+      assert.equal(
+        storedAfterMfaRace.access_token,
+        "synthetic-token-session-2-same-user",
+        "Superseded MFA verify must not overwrite newer same-user session",
+      );
+
+      // 7oV: adminSupabaseSignOut clears localStorage synchronously and calls /logout?scope=local
+      const logoutCalls = [];
+      let storageDuringLogoutFetch = "NOT_CHECKED";
+      globalThis.fetch = async (url, init) => {
+        logoutCalls.push({ url: String(url), init });
+        storageDuringLogoutFetch = mockLocalStorage.getItem(
+          ADMIN_SUPABASE_SESSION_STORAGE_KEY,
+        );
+        return new Response(null, { status: 204 });
+      };
+
+      await adminSupabaseSignOut();
+      assert.equal(
+        storageDuringLogoutFetch,
+        null,
+        "Local session must be cleared synchronously before /logout settles",
+      );
+      assert.equal(logoutCalls.length, 1);
+      assert.match(logoutCalls[0].url, /\/auth\/v1\/logout\?scope=local$/);
+      assert.equal(
+        new Headers(logoutCalls[0].init?.headers).get("authorization"),
+        "Bearer synthetic-token-session-2-same-user",
+      );
+    } finally {
+      globalThis.window = prevWindow;
+      globalThis.fetch = prevFetch;
+      if (prevEnvUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      else process.env.NEXT_PUBLIC_SUPABASE_URL = prevEnvUrl;
+      if (prevEnvKey === undefined)
+        delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      else process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = prevEnvKey;
+    }
+  });
+
+  test("R2-FINAL-02: WebAuthSessionController enforces generation ownership across bootstrap, storage events, login, register, logout, and stale failures", async () => {
+    const { WebAuthSessionController } =
+      await import("../apps/web/lib/web-auth-session-controller.ts");
+
+    const makeDeferred = () => {
+      let resolve;
+      let reject;
+      const promise = new Promise((res, rej) => {
+        resolve = res;
+        reject = rej;
+      });
+      return { promise, resolve, reject };
+    };
+
+    const accountA = {
+      id: "acc-a",
+      email: "parent.a@example.test",
+      displayName: "Parent A",
+      preferredLocale: "en",
+      status: "ACTIVE",
+      roles: ["GUARDIAN"],
+      guardianProfile: {
+        id: "guard-a",
+        displayName: "Parent A",
+        phone: "+60120000001",
+        preferredLocale: "en",
+      },
+    };
+    const accountB = {
+      id: "acc-b",
+      email: "parent.b@example.test",
+      displayName: "Parent B",
+      preferredLocale: "ms",
+      status: "ACTIVE",
+      roles: ["GUARDIAN"],
+      guardianProfile: {
+        id: "guard-b",
+        displayName: "Parent B",
+        phone: "+60120000002",
+        preferredLocale: "ms",
+      },
+    };
+    const sessionA = {
+      access_token: "synthetic-web-tok-a",
+      refresh_token: "synthetic-web-ref-a",
+      expires_in: 3600,
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      token_type: "bearer",
+      user: {
+        id: "acc-a",
+        email: "parent.a@example.test",
+        user_metadata: {
+          khlim_registration_intent: "guardian",
+          khlim_guardian_display_name: "Parent A",
+          khlim_preferred_locale: "en",
+        },
+      },
+    };
+    const sessionB = {
+      access_token: "synthetic-web-tok-b",
+      refresh_token: "synthetic-web-ref-b",
+      expires_in: 3600,
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      token_type: "bearer",
+      user: { id: "acc-b", email: "parent.b@example.test" },
+    };
+
+    let epoch = 0;
+    const clearedEpochs = [];
+    const onboardingCalls = [];
+    let restoreImpl = async () => null;
+    let getMeImpl = async () => accountA;
+    let signInImpl = async () => sessionA;
+    let signUpImpl = async () => ({
+      session: sessionA,
+      user: sessionA.user,
+      emailConfirmationOrSignInRequired: false,
+    });
+    let signOutImpl = async () => undefined;
+
+    const controller = new WebAuthSessionController(
+      {
+        storageKey: "khlim_supabase_session",
+        restoreSession: () => restoreImpl(),
+        getMe: () => getMeImpl(),
+        updatePreferences: async (dto) => {
+          onboardingCalls.push({ op: "prefs", dto });
+        },
+        upsertGuardianProfile: async (profile) => {
+          onboardingCalls.push({ op: "profile", profile });
+        },
+        signIn: (email, password, expectedEpoch) =>
+          signInImpl(email, password, expectedEpoch),
+        signUp: (email, password, metadata, expectedEpoch) =>
+          signUpImpl(email, password, metadata, expectedEpoch),
+        signOut: () => signOutImpl(),
+        invalidateSessionOperations: () => ++epoch,
+        clearStoredSessionIfEpoch: (expectedEpoch) => {
+          clearedEpochs.push(expectedEpoch);
+        },
+      },
+      () => undefined,
+    );
+
+    // 1) Delayed bootstrap restoration during logout MUST NOT restore Account A
+    const delayedBootstrapMe = makeDeferred();
+    restoreImpl = async () => sessionA;
+    getMeImpl = () => delayedBootstrapMe.promise;
+    const bootstrapPromise = controller.bootstrap();
+    await Promise.resolve();
+    const logoutPromise = controller.logout();
+    await logoutPromise;
+    assert.equal(controller.getState().isAuthenticated, false);
+    assert.equal(controller.getState().account, null);
+    assert.equal(controller.getState().isLoading, false);
+
+    delayedBootstrapMe.resolve(accountA);
+    await bootstrapPromise;
+    assert.equal(controller.getState().isAuthenticated, false);
+    assert.equal(controller.getState().account, null);
+
+    // 2) Superseded login(A) completing OR failing after login(B) succeeds MUST NOT clobber Account B or clear B's storage
+    const loginASignIn = makeDeferred();
+    const loginAGetMe = makeDeferred();
+    const loginBSignIn = makeDeferred();
+    let signInCount = 0;
+    signInImpl = (email) => {
+      signInCount += 1;
+      if (email === "parent.a@example.test") return loginASignIn.promise;
+      return loginBSignIn.promise;
+    };
+    getMeImpl = async () => {
+      if (signInCount === 1) return loginAGetMe.promise;
+      return accountB;
+    };
+
+    const loginAPromise = controller
+      .login("parent.a@example.test", "synthetic-pass-a") // betterleaks:allow -- mocked sign-in fixture only
+      .catch((err) => ({ caught: err }));
+    const loginBPromise = controller.login(
+      "parent.b@example.test",
+      "synthetic-pass-b",
+    );
+    loginBSignIn.resolve(sessionB);
+    await loginBPromise;
+    assert.equal(controller.getState().isAuthenticated, true);
+    assert.equal(controller.getState().account?.id, "acc-b");
+    assert.equal(controller.getState().isLoading, false);
+
+    // Now stale login(A) resolves -> rejected as superseded, zero clobber, zero storage clear!
+    loginASignIn.resolve(sessionA);
+    const loginAResult = await loginAPromise;
+    assert.ok(loginAResult && "caught" in loginAResult);
+    assert.equal(controller.getState().account?.id, "acc-b");
+    assert.equal(controller.getState().isAuthenticated, true);
+    assert.deepEqual(clearedEpochs, []);
+    assert.deepEqual(onboardingCalls, []);
+
+    // 3) Stale login(A) FAILURE after login(B) succeeds MUST NOT clear Account B or storage
+    const failingLoginA = makeDeferred();
+    signInImpl = (email) => {
+      if (email === "fail.a@example.test") return failingLoginA.promise;
+      return Promise.resolve(sessionB);
+    };
+    getMeImpl = async () => accountB;
+    const staleFailLogin = controller
+      .login("fail.a@example.test", "bad")
+      .catch((err) => ({ caught: err }));
+    await controller.login("parent.b@example.test", "good"); // betterleaks:allow -- mocked sign-in fixture only
+    assert.equal(controller.getState().account?.id, "acc-b");
+    failingLoginA.reject(new Error("Invalid credentials"));
+    const staleFailResult = await staleFailLogin;
+    assert.ok(staleFailResult && "caught" in staleFailResult);
+    assert.equal(controller.getState().account?.id, "acc-b");
+    assert.equal(controller.getState().isAuthenticated, true);
+    assert.equal(controller.getState().isLoading, false);
+    assert.deepEqual(clearedEpochs, []);
+
+    // 4) Superseded register(A) after account replacement MUST NOT run onboarding writes or clobber Account B
+    const slowSignUpA = makeDeferred();
+    signUpImpl = () => slowSignUpA.promise;
+    const supersededReg = controller
+      .register("new.a@example.test", "pass-a", "New Parent A", "en")
+      .catch((err) => ({ caught: err }));
+    signInImpl = async () => sessionB;
+    getMeImpl = async () => accountB;
+    await controller.login("parent.b@example.test", "good"); // betterleaks:allow -- mocked sign-in fixture only
+    slowSignUpA.resolve({
+      session: sessionA,
+      user: sessionA.user,
+      emailConfirmationOrSignInRequired: false,
+    });
+    const regOutcome = await supersededReg;
+    assert.ok(regOutcome && "caught" in regOutcome);
+    assert.equal(controller.getState().account?.id, "acc-b");
+    assert.deepEqual(onboardingCalls, []);
+
+    // 5) Delayed logout completing AFTER a newer login(B) started MUST NOT clear login(B)'s state
+    const slowSignOut = makeDeferred();
+    signOutImpl = () => slowSignOut.promise;
+    const pendingLogout = controller.logout();
+    signInImpl = async () => sessionB;
+    getMeImpl = async () => accountB;
+    await controller.login("parent.b@example.test", "good"); // betterleaks:allow -- mocked sign-in fixture only
+    assert.equal(controller.getState().account?.id, "acc-b");
+    slowSignOut.resolve();
+    await pendingLogout;
+    assert.equal(controller.getState().isAuthenticated, true);
+    assert.equal(controller.getState().account?.id, "acc-b");
+    assert.equal(controller.getState().isLoading, false);
+
+    // 6) Normal login with pending guardian onboarding metadata still completes cleanly
+    signInImpl = async () => sessionA;
+    let meStep = 0;
+    getMeImpl = async () => {
+      meStep += 1;
+      return meStep === 1 ? { ...accountA, guardianProfile: null } : accountA;
+    };
+    const onboardResult = await controller.login(
+      "parent.a@example.test",
+      "good",
+    );
+    assert.equal(onboardResult.guardianOnboardingRequired, true);
+    assert.equal(controller.getState().account?.id, "acc-a");
+    assert.equal(onboardingCalls.length, 2);
+
+    controller.dispose();
+  });
+
+  test("R2-FINAL-02: web supabase-auth guards token-storage writes across refresh, signIn, signUp, and scope=local signOut", async () => {
+    const prevWindow = globalThis.window;
+    const prevFetch = globalThis.fetch;
+    const prevEnvUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const prevEnvKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    const store = new Map();
+    const mockLocalStorage = {
+      getItem: (k) => (store.has(k) ? store.get(k) : null),
+      setItem: (k, v) => store.set(k, String(v)),
+      removeItem: (k) => store.delete(k),
+      clear: () => store.clear(),
+    };
+    globalThis.window = { localStorage: mockLocalStorage };
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "synthetic-anon-key";
+
+    const futureExp = Math.floor(Date.now() / 1000) + 3600;
+    const sessionA = {
+      access_token: "synthetic-web-tok-a",
+      refresh_token: "synthetic-web-ref-a",
+      expires_in: 3600,
+      expires_at: futureExp,
+      token_type: "bearer",
+      user: { id: "user-a", email: "a@example.test" },
+    };
+    const sessionB = {
+      access_token: "synthetic-web-tok-b",
+      refresh_token: "synthetic-web-ref-b",
+      expires_in: 3600,
+      expires_at: futureExp,
+      token_type: "bearer",
+      user: { id: "user-b", email: "b@example.test" },
+    };
+
+    try {
+      const {
+        SUPABASE_SESSION_STORAGE_KEY,
+        invalidateWebSessionOperations,
+        refreshSupabaseSession,
+        supabaseSignIn,
+        supabaseSignOut,
+        isSupersededWebAuthOperationError,
+      } = await import("../apps/web/lib/supabase-auth.ts");
+
+      // 1) Refresh resolving after account replacement MUST NOT overwrite User B's token
+      mockLocalStorage.setItem(
+        SUPABASE_SESSION_STORAGE_KEY,
+        JSON.stringify(sessionA),
+      );
+      let releaseRefresh;
+      const refreshGate = new Promise((r) => {
+        releaseRefresh = r;
+      });
+      globalThis.fetch = async (url) => {
+        if (String(url).includes("grant_type=refresh_token")) {
+          await refreshGate;
+          return new Response(
+            JSON.stringify({
+              ...sessionA,
+              access_token: "synthetic-stale-refreshed-a",
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        return new Response(JSON.stringify(sessionB), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      };
+
+      const refreshP = refreshSupabaseSession();
+      await supabaseSignIn("b@example.test", "pass-b");
+      releaseRefresh();
+      const refreshRes = await refreshP;
+      assert.equal(refreshRes, null);
+      assert.equal(
+        JSON.parse(mockLocalStorage.getItem(SUPABASE_SESSION_STORAGE_KEY))
+          .access_token,
+        "synthetic-web-tok-b",
+      );
+
+      // 2) Superseded supabaseSignIn resolving after logout/invalidation MUST reject & leave storage clean
+      let releaseSlowSignIn;
+      const slowSignInGate = new Promise((r) => {
+        releaseSlowSignIn = r;
+      });
+      const logoutUrls = [];
+      let storageDuringLogout = "UNSET";
+      globalThis.fetch = async (url) => {
+        if (String(url).includes("grant_type=password")) {
+          await slowSignInGate;
+          return new Response(JSON.stringify(sessionA), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
+        }
+        if (String(url).includes("/logout")) {
+          logoutUrls.push(String(url));
+          storageDuringLogout = mockLocalStorage.getItem(
+            SUPABASE_SESSION_STORAGE_KEY,
+          );
+          return new Response(null, { status: 204 });
+        }
+        return new Response(null, { status: 200 });
+      };
+
+      const epochForSlowSignIn = invalidateWebSessionOperations();
+      const slowSignInP = supabaseSignIn(
+        "a@example.test",
+        "pass-a",
+        epochForSlowSignIn,
+      );
+      await supabaseSignOut();
+      assert.equal(
+        storageDuringLogout,
+        null,
+        "Web signOut must clear localStorage synchronously before /logout settles",
+      );
+      assert.match(logoutUrls[0], /\/auth\/v1\/logout\?scope=local$/);
+      releaseSlowSignIn();
+      await assert.rejects(
+        () => slowSignInP,
+        (err) => isSupersededWebAuthOperationError(err),
+      );
+      assert.equal(
+        mockLocalStorage.getItem(SUPABASE_SESSION_STORAGE_KEY),
+        null,
+      );
+    } finally {
+      globalThis.window = prevWindow;
+      globalThis.fetch = prevFetch;
+      if (prevEnvUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      else process.env.NEXT_PUBLIC_SUPABASE_URL = prevEnvUrl;
+      if (prevEnvKey === undefined)
+        delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      else process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = prevEnvKey;
+    }
+  });
+
+  test("R2-FINAL-02 edge case: refreshAccount() never supersedes an active auth transition or strands isLoading=true", async () => {
+    const { WebAuthSessionController } =
+      await import("../apps/web/lib/web-auth-session-controller.ts");
+
+    const makeDeferred = () => {
+      let resolve;
+      let reject;
+      const promise = new Promise((res, rej) => {
+        resolve = res;
+        reject = rej;
+      });
+      return { promise, resolve, reject };
+    };
+
+    const accountA = {
+      id: "acc-refresh-a",
+      email: "refresh.a@example.test",
+      displayName: "Parent Refresh A",
+      preferredLocale: "en",
+      status: "ACTIVE",
+      roles: ["GUARDIAN"],
+      guardianProfile: {
+        id: "guard-refresh-a",
+        displayName: "Parent Refresh A",
+        phone: "+60120000011",
+        preferredLocale: "en",
+      },
+    };
+    const accountAUpdated = {
+      ...accountA,
+      displayName: "Parent Refresh A Updated",
+    };
+    const sessionA = {
+      access_token: "synthetic-web-tok-refresh-a",
+      refresh_token: "synthetic-web-ref-refresh-a",
+      expires_in: 3600,
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+      token_type: "bearer",
+      user: { id: "acc-refresh-a", email: "refresh.a@example.test" },
+    };
+
+    let epoch = 0;
+    let getMeCallCount = 0;
+    let restoreImpl = async () => null;
+    let getMeImpl = async () => {
+      getMeCallCount += 1;
+      return accountA;
+    };
+
+    const controller = new WebAuthSessionController(
+      {
+        storageKey: "khlim_supabase_session",
+        restoreSession: () => restoreImpl(),
+        getMe: () => getMeImpl(),
+        updatePreferences: async () => undefined,
+        upsertGuardianProfile: async () => undefined,
+        signIn: async () => sessionA,
+        signUp: async () => ({
+          session: sessionA,
+          user: sessionA.user,
+          emailConfirmationOrSignInRequired: false,
+        }),
+        signOut: async () => undefined,
+        invalidateSessionOperations: () => ++epoch,
+        clearStoredSessionIfEpoch: () => undefined,
+      },
+      () => undefined,
+    );
+
+    // 1) Exact reproduction: bootstrap() has pending restoreSession -> invoke refreshAccount() -> resolve bootstrap()
+    const pendingRestore1 = makeDeferred();
+    restoreImpl = () => pendingRestore1.promise;
+    const bootstrap1 = controller.bootstrap();
+    assert.equal(controller.getState().isLoading, true);
+    assert.equal(controller.getState().isAuthenticated, false);
+
+    // Calling refreshAccount() during active bootstrap must NOT call getMe() or supersede bootstrap()
+    const ignoredRefresh = await controller.refreshAccount();
+    assert.equal(ignoredRefresh, null);
+    assert.equal(getMeCallCount, 0);
+    assert.equal(controller.getState().isAuthenticated, false);
+    assert.equal(controller.getState().isLoading, true);
+
+    // Resolve bootstrap with valid session -> settles cleanly with isLoading=false and isAuthenticated=true
+    pendingRestore1.resolve(sessionA);
+    await bootstrap1;
+    assert.equal(getMeCallCount, 1);
+    assert.equal(controller.getState().isAuthenticated, true);
+    assert.equal(controller.getState().account?.id, "acc-refresh-a");
+    assert.equal(controller.getState().isLoading, false);
+
+    // 2) Fail-closed reproduction: storage revalidation pending -> refreshAccount() ignored -> restoreSession returns null -> unauthenticated & isLoading=false
+    const pendingRestore2 = makeDeferred();
+    restoreImpl = () => pendingRestore2.promise;
+    const storageTransition = controller.handleStorageChange({
+      key: "khlim_supabase_session",
+      isSameStorageArea: true,
+    });
+    assert.ok(storageTransition);
+    assert.equal(controller.getState().isAuthenticated, false);
+    assert.equal(controller.getState().isLoading, true);
+
+    const ignoredDuringStorage = await controller.refreshAccount();
+    assert.equal(ignoredDuringStorage, null);
+    assert.equal(getMeCallCount, 1);
+
+    pendingRestore2.resolve(null);
+    await storageTransition;
+    assert.equal(controller.getState().isAuthenticated, false);
+    assert.equal(controller.getState().account, null);
+    assert.equal(controller.getState().isLoading, false);
+
+    // 3) Ordinary refreshAccount() works cleanly when no auth transition is active
+    getMeImpl = async () => {
+      getMeCallCount += 1;
+      return accountAUpdated;
+    };
+    const refreshed = await controller.refreshAccount();
+    assert.equal(refreshed?.displayName, "Parent Refresh A Updated");
+    assert.equal(controller.getState().isAuthenticated, true);
+    assert.equal(controller.getState().isLoading, false);
+
+    // 4) Stale idle refreshAccount() superseded by logout() cannot restore account or alter isLoading
+    const delayedRefreshMe = makeDeferred();
+    getMeImpl = () => delayedRefreshMe.promise;
+    const staleRefreshPromise = controller.refreshAccount();
+    await controller.logout();
+    assert.equal(controller.getState().isAuthenticated, false);
+    assert.equal(controller.getState().account, null);
+    assert.equal(controller.getState().isLoading, false);
+
+    delayedRefreshMe.resolve(accountA);
+    assert.equal(await staleRefreshPromise, null);
+    assert.equal(controller.getState().isAuthenticated, false);
+    assert.equal(controller.getState().account, null);
+    assert.equal(controller.getState().isLoading, false);
+
+    controller.dispose();
+  });
 });

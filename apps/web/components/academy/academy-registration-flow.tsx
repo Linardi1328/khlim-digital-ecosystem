@@ -178,7 +178,14 @@ export function AcademyRegistrationFlow() {
     "idle",
   );
   const copyTimerRef = useRef<number | null>(null);
+  const copyOpSeqRef = useRef(0);
+  const isMountedRef = useRef(true);
   const loadSequence = useRef(0);
+  const fullLoadInFlightRef = useRef(false);
+  const loadStateKindRef = useRef<LoadState["kind"]>("loading");
+  loadStateKindRef.current = loadState.kind;
+  const configRefreshSeq = useRef(0);
+  const sessionRefreshSeq = useRef(0);
   const loadedPolicyVersion = useRef<string | null | undefined>(undefined);
   const [acceptedConsentKey, setAcceptedConsentKey] = useState<string | null>(
     null,
@@ -273,7 +280,10 @@ export function AcademyRegistrationFlow() {
   }, []);
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
+      copyOpSeqRef.current += 1;
       if (copyTimerRef.current !== null) {
         window.clearTimeout(copyTimerRef.current);
         copyTimerRef.current = null;
@@ -283,6 +293,9 @@ export function AcademyRegistrationFlow() {
 
   const loadConfigAndSessions = useCallback(async () => {
     const sequence = ++loadSequence.current;
+    configRefreshSeq.current += 1;
+    sessionRefreshSeq.current += 1;
+    fullLoadInFlightRef.current = true;
     setLoadState({ kind: "loading" });
     setBannerError(null);
     setConfigRefreshing(false);
@@ -293,6 +306,7 @@ export function AcademyRegistrationFlow() {
         apiService.listPublicAcademySessions(),
       ]);
       if (sequence !== loadSequence.current) return;
+      fullLoadInFlightRef.current = false;
       trackPolicyVersion(config);
       setSessionRefreshRequired(false);
 
@@ -310,14 +324,14 @@ export function AcademyRegistrationFlow() {
       setStalePreselectedSession(Boolean(querySessionId && !preselected));
       setForm((prev) => ({
         ...prev,
-        sessionId: prev.sessionId
-          ? sessions.some((item) => item.id === prev.sessionId)
+        sessionId:
+          prev.sessionId && sessions.some((item) => item.id === prev.sessionId)
             ? prev.sessionId
-            : ""
-          : (preselected?.id ?? ""),
+            : (preselected?.id ?? ""),
       }));
     } catch (error) {
       if (sequence !== loadSequence.current) return;
+      fullLoadInFlightRef.current = false;
       setLoadState(
         isFeatureNotAvailableError(error)
           ? { kind: "deferred" }
@@ -330,18 +344,31 @@ export function AcademyRegistrationFlow() {
     void loadConfigAndSessions();
     return () => {
       ++loadSequence.current;
+      ++configRefreshSeq.current;
+      ++sessionRefreshSeq.current;
+      fullLoadInFlightRef.current = false;
     };
   }, [loadConfigAndSessions]);
 
   const refreshConsentConfig = async (options?: { clearBanner?: boolean }) => {
-    const sequence = ++loadSequence.current;
+    if (fullLoadInFlightRef.current || loadStateKindRef.current !== "ready") {
+      await loadConfigAndSessions();
+      return;
+    }
+    const fullSeq = loadSequence.current;
+    const refreshSeq = ++configRefreshSeq.current;
     setConfigRefreshing(true);
     if (options?.clearBanner) {
       setBannerError(null);
     }
     try {
       const config = await apiService.getAcademyRegistrationConfig();
-      if (sequence !== loadSequence.current) return;
+      if (
+        fullSeq !== loadSequence.current ||
+        refreshSeq !== configRefreshSeq.current
+      ) {
+        return;
+      }
       trackPolicyVersion(config);
       setLoadState((prev) =>
         !config.registrationOpen
@@ -351,21 +378,36 @@ export function AcademyRegistrationFlow() {
             : prev,
       );
     } catch (error) {
-      if (sequence !== loadSequence.current) return;
+      if (
+        fullSeq !== loadSequence.current ||
+        refreshSeq !== configRefreshSeq.current
+      ) {
+        return;
+      }
       if (isFeatureNotAvailableError(error)) {
         setLoadState({ kind: "deferred" });
       } else {
         setBannerError(t("academyReg.sessions.errorBody"));
       }
     } finally {
-      if (sequence === loadSequence.current) setConfigRefreshing(false);
+      if (
+        fullSeq === loadSequence.current &&
+        refreshSeq === configRefreshSeq.current
+      ) {
+        setConfigRefreshing(false);
+      }
     }
   };
 
   const refreshUnavailableSessions = async (options?: {
     clearBanner?: boolean;
   }) => {
-    const sequence = ++loadSequence.current;
+    if (fullLoadInFlightRef.current || loadStateKindRef.current !== "ready") {
+      await loadConfigAndSessions();
+      return;
+    }
+    const fullSeq = loadSequence.current;
+    const refreshSeq = ++sessionRefreshSeq.current;
     setSessionRefreshing(true);
     setSessionRefreshRequired(true);
     if (options?.clearBanner) {
@@ -373,7 +415,12 @@ export function AcademyRegistrationFlow() {
     }
     try {
       const refreshed = await apiService.listPublicAcademySessions();
-      if (sequence !== loadSequence.current) return;
+      if (
+        fullSeq !== loadSequence.current ||
+        refreshSeq !== sessionRefreshSeq.current
+      ) {
+        return;
+      }
       setLoadState((prev) => {
         if (prev.kind !== "ready") return prev;
         if (!refreshed.registrationOpen) {
@@ -396,14 +443,24 @@ export function AcademyRegistrationFlow() {
       }));
       setSessionRefreshRequired(false);
     } catch (error) {
-      if (sequence !== loadSequence.current) return;
+      if (
+        fullSeq !== loadSequence.current ||
+        refreshSeq !== sessionRefreshSeq.current
+      ) {
+        return;
+      }
       if (isFeatureNotAvailableError(error)) {
         setLoadState({ kind: "deferred" });
       } else {
         setBannerError(t("academyReg.sessions.errorBody"));
       }
     } finally {
-      if (sequence === loadSequence.current) setSessionRefreshing(false);
+      if (
+        fullSeq === loadSequence.current &&
+        refreshSeq === sessionRefreshSeq.current
+      ) {
+        setSessionRefreshing(false);
+      }
     }
   };
 
@@ -966,6 +1023,7 @@ export function AcademyRegistrationFlow() {
 
   const handleCopyReferenceCode = async () => {
     if (!receipt) return;
+    const opSeq = ++copyOpSeqRef.current;
     if (copyTimerRef.current !== null) {
       window.clearTimeout(copyTimerRef.current);
       copyTimerRef.current = null;
@@ -974,17 +1032,29 @@ export function AcademyRegistrationFlow() {
       !navigator.clipboard ||
       typeof navigator.clipboard.writeText !== "function"
     ) {
-      setCopyStatus("manual");
+      if (isMountedRef.current && copyOpSeqRef.current === opSeq) {
+        setCopyStatus("manual");
+      }
       return;
     }
     try {
       await navigator.clipboard.writeText(receipt.referenceCode);
-      setCopyStatus("copied");
-      copyTimerRef.current = window.setTimeout(() => {
+      if (!isMountedRef.current || copyOpSeqRef.current !== opSeq) return;
+      if (copyTimerRef.current !== null) {
+        window.clearTimeout(copyTimerRef.current);
         copyTimerRef.current = null;
+      }
+      setCopyStatus("copied");
+      const timerId = window.setTimeout(() => {
+        if (!isMountedRef.current || copyOpSeqRef.current !== opSeq) return;
+        if (copyTimerRef.current === timerId) {
+          copyTimerRef.current = null;
+        }
         setCopyStatus("idle");
       }, 3000);
+      copyTimerRef.current = timerId;
     } catch {
+      if (!isMountedRef.current || copyOpSeqRef.current !== opSeq) return;
       setCopyStatus("manual");
     }
   };

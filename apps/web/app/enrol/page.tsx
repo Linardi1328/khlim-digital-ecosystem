@@ -103,6 +103,7 @@ function EnrolmentWizardContent() {
   const { isAuthenticated, account } = useAuth();
   const { athletes, activeChild, addChild } = useFamily();
   const authContextKey = buildWebAuthContextKey(isAuthenticated, account?.id);
+  const prevAuthContextKeyRef = useRef(authContextKey);
   const authGenRef = useRef(0);
   const isMountedRef = useRef(true);
   const preAthleteId = searchParams.get("athleteId");
@@ -112,7 +113,7 @@ function EnrolmentWizardContent() {
   const [offerings, setOfferings] = useState<PublicOfferingItem[]>([]);
   const [offeringsLoading, setOfferingsLoading] = useState(true);
   const [currentStep, setCurrentStep] = useState(1);
-  const [selectedChildId, setSelectedChildId] = useState(preAthleteId ?? "new");
+  const [selectedChildId, setSelectedChildId] = useState("new");
   const [newChildName, setNewChildName] = useState("");
   const [newChildDob, setNewChildDob] = useState("");
   const [selectedOfferingId, setSelectedOfferingId] = useState(
@@ -126,6 +127,7 @@ function EnrolmentWizardContent() {
   const [error, setError] = useState("");
   const [serverFeatureDeferred, setServerFeatureDeferred] = useState(false);
   const childCreationInFlight = useRef(false);
+  const userChoseNewChildRef = useRef(false);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -136,14 +138,26 @@ function EnrolmentWizardContent() {
   }, []);
 
   useEffect(() => {
+    if (prevAuthContextKeyRef.current === authContextKey) {
+      return;
+    }
+    prevAuthContextKeyRef.current = authContextKey;
     authGenRef.current += 1;
     childCreationInFlight.current = false;
+    userChoseNewChildRef.current = false;
     setIsProcessing(false);
     setError("");
     setServerFeatureDeferred(false);
-    setSelectedChildId(preAthleteId ?? "new");
+    setSelectedChildId("new");
+    setNewChildName("");
+    setNewChildDob("");
+    setChildDataConsent(false);
+    setTermsAccepted(false);
+    setRecurringConsent(false);
+    setSelectedOfferingId(preOfferingId ?? "");
+    setSelectedPlanId(prePlanId ?? "");
     setCurrentStep(1);
-  }, [authContextKey, preAthleteId]);
+  }, [authContextKey, preOfferingId, prePlanId]);
 
   const businessDetails = getPublicBusinessDetails();
   const commerceReady = isCommerceBusinessDetailsComplete(businessDetails);
@@ -174,17 +188,44 @@ function EnrolmentWizardContent() {
   }, [enrolmentAvailable, t]);
 
   useEffect(() => {
+    const selectedExistsInAccount =
+      selectedChildId !== "new" &&
+      athletes.some((athlete) => athlete.id === selectedChildId);
+
     if (
       preAthleteId &&
+      !userChoseNewChildRef.current &&
       athletes.some((athlete) => athlete.id === preAthleteId)
     ) {
-      setSelectedChildId(preAthleteId);
+      if (!selectedExistsInAccount) {
+        setSelectedChildId(preAthleteId);
+      }
       return;
     }
-    if (selectedChildId === "new" && athletes.length > 0) {
+
+    if (selectedChildId !== "new" && !selectedExistsInAccount) {
+      userChoseNewChildRef.current = false;
+      setSelectedChildId(activeChild?.id ?? athletes[0]?.id ?? "new");
+      return;
+    }
+
+    if (
+      selectedChildId === "new" &&
+      !userChoseNewChildRef.current &&
+      athletes.length > 0 &&
+      !newChildName &&
+      !newChildDob
+    ) {
       setSelectedChildId(activeChild?.id ?? athletes[0]!.id);
     }
-  }, [activeChild, athletes, preAthleteId, selectedChildId]);
+  }, [
+    activeChild,
+    athletes,
+    newChildDob,
+    newChildName,
+    preAthleteId,
+    selectedChildId,
+  ]);
 
   const selectedAthlete = athletes.find(
     (athlete) => athlete.id === selectedChildId,
@@ -496,6 +537,7 @@ function EnrolmentWizardContent() {
                           name="athlete"
                           checked={selectedChildId === athlete.id}
                           onChange={() => {
+                            userChoseNewChildRef.current = false;
                             setSelectedChildId(athlete.id);
                             setChildDataConsent(false);
                           }}
@@ -527,6 +569,7 @@ function EnrolmentWizardContent() {
                           name="athlete"
                           checked={selectedChildId === "new"}
                           onChange={() => {
+                            userChoseNewChildRef.current = true;
                             setSelectedChildId("new");
                             setChildDataConsent(false);
                           }}

@@ -109,10 +109,14 @@ test("Phase 5 Supabase session handling refreshes expiring sessions and refuses 
 
 test("Phase 5 registration handles email-confirmation mode without pretending the user is signed in", async () => {
   const authContext = await read("apps/web/lib/auth-context.tsx");
+  const authController = await read(
+    "apps/web/lib/web-auth-session-controller.ts",
+  );
+  const authCombined = `${authContext}\n${authController}`;
   const register = await read("apps/web/app/auth/register/page.tsx");
   const catalogue = await read("packages/i18n/src/messages/auth-web.ts");
-  assert.match(authContext, /emailConfirmationOrSignInRequired/);
-  assert.match(authContext, /authenticated:\s*false/);
+  assert.match(authCombined, /emailConfirmationOrSignInRequired/);
+  assert.match(authCombined, /authenticated:\s*false/);
   assert.match(register, /t\("auth\.register\.verifyTitle"\)/);
   assert.match(register, /t\("auth\.register\.verifyBody"/);
   assert.match(catalogue, /Check your email or sign in/);

@@ -704,6 +704,7 @@ test.describe("RIC-191 Public Academy Registration V1", () => {
       firstPostStarted = resolve;
     });
 
+    const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9_-]{22,128}$/;
     const seenKeys = [];
     const seenPayloads = [];
     await page.route("**/v1/academy/registrations", async (route) => {
@@ -717,8 +718,11 @@ test.describe("RIC-191 Public Academy Registration V1", () => {
         await route.abort("failed");
         return;
       }
-      // Return HTTP 200 idempotent replay ONLY when both key and payload match the original request
-      const keysMatch = key === seenKeys[0];
+      // Return HTTP 200 idempotent replay ONLY when both a valid non-empty key and payload match the original request
+      const keysMatch =
+        typeof key === "string" &&
+        IDEMPOTENCY_KEY_PATTERN.test(key) &&
+        key === seenKeys[0];
       const payloadsMatch =
         JSON.stringify(payload) === JSON.stringify(seenPayloads[0]);
       if (!keysMatch || !payloadsMatch) {
@@ -758,16 +762,18 @@ test.describe("RIC-191 Public Academy Registration V1", () => {
     ).toBeDisabled();
     await page.getByTestId("registration-step-3").dispatchEvent("submit");
     expect(seenKeys.length).toBe(1);
+    expect(seenKeys[0]).toMatch(IDEMPOTENCY_KEY_PATTERN);
 
     // Abort held request -> ambiguous retry panel appears
     releaseFirstPost();
     await expect(page.getByTestId("ambiguous-retry-panel")).toBeVisible();
     expect(seenKeys.length).toBe(1);
 
-    // Retry original attempt -> must reuse EXACT same Idempotency-Key and payload
+    // Retry original attempt -> must reuse EXACT same non-empty Idempotency-Key and payload
     await page.getByTestId("retry-original-attempt-btn").click();
     await expect(page.getByTestId("registration-receipt-card")).toBeVisible();
     expect(seenKeys.length).toBe(2);
+    expect(seenKeys[0]).toMatch(IDEMPOTENCY_KEY_PATTERN);
     expect(seenKeys[1]).toBe(seenKeys[0]);
     expect(seenPayloads[1]).toEqual(seenPayloads[0]);
   });
@@ -785,16 +791,37 @@ test.describe("RIC-191 Public Academy Registration V1", () => {
     await page.check("#consent-checkbox-GUARDIAN_AUTHORITY");
     await page.check("#consent-checkbox-REGISTRATION_PRIVACY");
 
+    const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9_-]{22,128}$/;
     const seenKeys = [];
     const seenPayloads = [];
     await page.route("**/v1/academy/registrations", async (route) => {
-      seenKeys.push(route.request().headers()["idempotency-key"]);
-      seenPayloads.push(route.request().postDataJSON());
+      const key = route.request().headers()["idempotency-key"];
+      const payload = route.request().postDataJSON();
+      seenKeys.push(key);
+      seenPayloads.push(payload);
       if (seenKeys.length === 1) {
         await route.fulfill({
           status: 201,
           contentType: "application/json",
           body: JSON.stringify({}),
+        });
+        return;
+      }
+      const keysMatch =
+        typeof key === "string" &&
+        IDEMPOTENCY_KEY_PATTERN.test(key) &&
+        key === seenKeys[0];
+      const payloadsMatch =
+        JSON.stringify(payload) === JSON.stringify(seenPayloads[0]);
+      if (!keysMatch || !payloadsMatch) {
+        await route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({
+            statusCode: 409,
+            code: "IDEMPOTENCY_KEY_CONFLICT",
+            message: "Key or payload mismatch on retry",
+          }),
         });
         return;
       }
@@ -809,8 +836,9 @@ test.describe("RIC-191 Public Academy Registration V1", () => {
     await page.getByTestId("registration-submit-btn").click();
     await expect(page.getByTestId("ambiguous-retry-panel")).toBeVisible();
     expect(seenKeys.length).toBe(1);
+    expect(seenKeys[0]).toMatch(IDEMPOTENCY_KEY_PATTERN);
 
-    // Retry original attempt -> must reuse EXACT same Idempotency-Key
+    // Retry original attempt -> must reuse EXACT same non-empty Idempotency-Key
     await page.getByTestId("retry-original-attempt-btn").click();
     await expect(page.getByTestId("registration-receipt-card")).toBeVisible();
     expect(seenKeys.length).toBe(2);
@@ -1027,5 +1055,105 @@ test.describe("RIC-191 Public Academy Registration V1", () => {
     await expect(page.getByTestId("registration-submit-btn")).toBeDisabled();
     await expect(page.getByTestId("retry-original-attempt-btn")).toBeDisabled();
     expect(postCount).toBe(1);
+  });
+
+  test("Round 2 (7oc/7oe/7oi): query session fallback when prior selection disappears, full-load recovery never sticks in loading, and overlapping clipboard writes keep latest feedback", async ({
+    page,
+  }) => {
+    const SESSION_A = "00000000-0000-4000-8000-000000000001";
+    const SESSION_B = "00000000-0000-4000-8000-000000000002";
+    const secondSession = {
+      ...SYNTHETIC_SESSIONS.items[0],
+      id: SESSION_B,
+      name: "Sunday Ages 10–12 Cohort",
+    };
+
+    let sessionFetchCount = 0;
+    await page.route("**/v1/academy/registration-config*", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(makeSyntheticConfig("SYNTHETIC-EXAMPLE")),
+      }),
+    );
+    await page.route("**/v1/academy/sessions*", (route) => {
+      sessionFetchCount += 1;
+      // First load has both A and B; subsequent loads drop B while keeping query session A
+      const items =
+        sessionFetchCount === 1
+          ? [SYNTHETIC_SESSIONS.items[0], secondSession]
+          : [SYNTHETIC_SESSIONS.items[0]];
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          registrationOpen: true,
+          closedReason: null,
+          items,
+        }),
+      });
+    });
+    await page.route("**/v1/academy/registrations", (route) =>
+      route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify(SYNTHETIC_RECEIPT),
+      }),
+    );
+
+    // Override clipboard so first write is deferred & fails while second write succeeds immediately (7oi)
+    await page.addInitScript(() => {
+      window.__clipboardResolvers = [];
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: () =>
+            new Promise((resolve, reject) => {
+              window.__clipboardResolvers.push({ resolve, reject });
+            }),
+        },
+      });
+    });
+
+    // 7oc: Navigate with ?sessionId=A, pick B, then complete flow and verify overlapping clipboard writes (7oi)
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(`/academy/register?sessionId=${SESSION_A}`, {
+      waitUntil: "networkidle",
+    });
+    await expect(page.locator(`#session-option-${SESSION_A}`)).toBeChecked();
+    await page.locator(`#session-option-${SESSION_B}`).check();
+    await expect(page.locator(`#session-option-${SESSION_B}`)).toBeChecked();
+
+    await page.locator(`#session-option-${SESSION_A}`).check();
+    await fillStep1And2(page);
+    await page.check("#consent-checkbox-GUARDIAN_AUTHORITY");
+    await page.check("#consent-checkbox-REGISTRATION_PRIVACY");
+    await page.getByTestId("registration-submit-btn").click();
+    await expect(page.getByTestId("registration-receipt-card")).toBeVisible();
+
+    const copyBtn = page.getByTestId("copy-reference-code-btn");
+    // Click 1 (deferred -> will reject later)
+    await copyBtn.click();
+    // Click 2 (succeeds immediately -> sets copied)
+    await copyBtn.click();
+    await page.evaluate(() => {
+      // Resolve newer Click 2 first, then reject older Click 1
+      window.__clipboardResolvers[1].resolve();
+    });
+    await expect(copyBtn).toContainText(/copied|disalin|已复制/i);
+    await page.evaluate(() => {
+      window.__clipboardResolvers[0].reject(new Error("Stale clipboard fail"));
+    });
+    await page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
+    // Stale failure from Click 1 MUST NOT overwrite Click 2's "copied" feedback with manual notice!
+    await expect(copyBtn).toContainText(/copied|disalin|已复制/i);
+    await expect(page.getByTestId("copy-reference-manual-notice")).toHaveCount(
+      0,
+    );
   });
 });

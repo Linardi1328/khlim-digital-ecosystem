@@ -32,6 +32,43 @@ const KHLIM_REGISTRATION_INTENT_KEY = "khlim_registration_intent";
 const KHLIM_GUARDIAN_DISPLAY_NAME_KEY = "khlim_guardian_display_name";
 const KHLIM_PREFERRED_LOCALE_KEY = "khlim_preferred_locale";
 let refreshPromise: Promise<SupabaseSession | null> | null = null;
+let activeRefreshSeq = 0;
+let sessionMutationEpoch = 0;
+
+export class SupersededWebAuthOperationError extends Error {
+  readonly code = "SUPERSEDED_WEB_AUTH_OPERATION";
+  constructor(
+    message = "Authentication operation was superseded by a newer session transition.",
+  ) {
+    super(message);
+    this.name = "SupersededWebAuthOperationError";
+  }
+}
+
+export function isSupersededWebAuthOperationError(error: unknown): boolean {
+  return (
+    error instanceof SupersededWebAuthOperationError ||
+    (typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code?: unknown }).code === "SUPERSEDED_WEB_AUTH_OPERATION")
+  );
+}
+
+/**
+ * Synchronously invalidates any in-flight refresh, login, or signup token writes
+ * so superseded requests cannot overwrite or clear a newer session.
+ */
+export function invalidateWebSessionOperations(): number {
+  sessionMutationEpoch += 1;
+  activeRefreshSeq += 1;
+  refreshPromise = null;
+  return sessionMutationEpoch;
+}
+
+export function getWebSessionMutationEpoch(): number {
+  return sessionMutationEpoch;
+}
 
 function getSupabaseConfig(): { url: string; anonKey: string } {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim().replace(/\/+$/, "");
@@ -168,7 +205,15 @@ async function authRequest(
 }
 
 export function clearStoredSession(): void {
+  sessionMutationEpoch += 1;
+  activeRefreshSeq += 1;
+  refreshPromise = null;
   storeSession(null);
+}
+
+export function clearStoredSessionIfEpoch(expectedEpoch: number): void {
+  if (sessionMutationEpoch !== expectedEpoch) return;
+  clearStoredSession();
 }
 
 export function getGuardianRegistrationMetadata(
@@ -204,28 +249,58 @@ export async function refreshSupabaseSession(): Promise<SupabaseSession | null> 
     return null;
   }
 
-  refreshPromise = (async () => {
+  const opEpoch = sessionMutationEpoch;
+  const startingUserId = current.user.id;
+  const startingRefreshToken = current.refresh_token;
+  const startingAccessToken = current.access_token;
+
+  const isStillSameSession = (): boolean => {
+    if (sessionMutationEpoch !== opEpoch) return false;
+    const latest = readStoredSession();
+    return (
+      latest !== null &&
+      latest.user.id === startingUserId &&
+      latest.refresh_token === startingRefreshToken &&
+      latest.access_token === startingAccessToken
+    );
+  };
+
+  const refreshSeq = ++activeRefreshSeq;
+  const currentPromise: Promise<SupabaseSession | null> = (async () => {
     try {
       const body = await authRequest("/token?grant_type=refresh_token", {
         method: "POST",
-        body: JSON.stringify({ refresh_token: current.refresh_token }),
+        body: JSON.stringify({ refresh_token: startingRefreshToken }),
       });
+      if (!isStillSameSession()) {
+        return null;
+      }
       const session = normalizeSession(body);
       if (!session) {
-        clearStoredSession();
+        if (isStillSameSession()) {
+          clearStoredSession();
+        }
+        return null;
+      }
+      if (!isStillSameSession()) {
         return null;
       }
       storeSession(session);
       return session;
     } catch (error) {
-      clearStoredSession();
+      if (isStillSameSession()) {
+        clearStoredSession();
+      }
       throw error;
     } finally {
-      refreshPromise = null;
+      if (activeRefreshSeq === refreshSeq) {
+        refreshPromise = null;
+      }
     }
   })();
 
-  return refreshPromise;
+  refreshPromise = currentPromise;
+  return currentPromise;
 }
 
 export async function restoreSupabaseSession(): Promise<SupabaseSession | null> {
@@ -250,13 +325,21 @@ export async function getValidAccessToken(): Promise<string | null> {
 export async function supabaseSignIn(
   email: string,
   password: string,
+  expectedEpoch?: number,
 ): Promise<SupabaseSession> {
+  const opEpoch = expectedEpoch ?? invalidateWebSessionOperations();
   const body = await authRequest("/token?grant_type=password", {
     method: "POST",
     body: JSON.stringify({ email, password }),
   });
+  if (sessionMutationEpoch !== opEpoch) {
+    throw new SupersededWebAuthOperationError();
+  }
   const session = normalizeSession(body);
   if (!session) throw new Error("Supabase did not return a valid session");
+  if (sessionMutationEpoch !== opEpoch) {
+    throw new SupersededWebAuthOperationError();
+  }
   storeSession(session);
   return session;
 }
@@ -265,7 +348,9 @@ export async function supabaseSignUp(
   email: string,
   password: string,
   metadata: SupabaseGuardianRegistrationMetadata,
+  expectedEpoch?: number,
 ): Promise<SupabaseSignUpResult> {
+  const opEpoch = expectedEpoch ?? invalidateWebSessionOperations();
   const body = await authRequest("/signup", {
     method: "POST",
     body: JSON.stringify({
@@ -278,6 +363,9 @@ export async function supabaseSignUp(
       },
     }),
   });
+  if (sessionMutationEpoch !== opEpoch) {
+    throw new SupersededWebAuthOperationError();
+  }
 
   if (typeof body !== "object" || body === null) {
     throw new Error("Supabase returned an invalid registration response");
@@ -289,7 +377,12 @@ export async function supabaseSignUp(
     typeof value.user === "object" && value.user !== null ? value.user : value;
   const user = normalizeUser(rawUser);
 
-  if (session) storeSession(session);
+  if (session) {
+    if (sessionMutationEpoch !== opEpoch) {
+      throw new SupersededWebAuthOperationError();
+    }
+    storeSession(session);
+  }
 
   return {
     session,
@@ -300,16 +393,15 @@ export async function supabaseSignUp(
 
 export async function supabaseSignOut(): Promise<void> {
   const session = readStoredSession();
-  try {
-    if (session?.access_token) {
-      await authRequest(
-        "/logout",
-        { method: "POST", body: JSON.stringify({}) },
-        session.access_token,
-      );
-    }
-  } finally {
-    clearStoredSession();
+  // Synchronously wipe local storage & invalidate pending auth operations BEFORE
+  // awaiting network logout so a subsequent login cannot be clobbered by finally.
+  clearStoredSession();
+  if (session?.access_token) {
+    await authRequest(
+      "/logout?scope=local",
+      { method: "POST", body: JSON.stringify({}) },
+      session.access_token,
+    );
   }
 }
 

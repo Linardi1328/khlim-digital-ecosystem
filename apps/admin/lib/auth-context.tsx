@@ -28,6 +28,9 @@ interface AuthContextValue {
   role: StaffRole | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isRevalidating: boolean;
+  authTransitionSeq: number;
+  workspaceEpoch: number;
   isDemoMode: boolean;
   authError: string | null;
   mfaSatisfied: boolean;
@@ -59,12 +62,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           user: DEMO_ADMIN_USER,
           role: "SUPER_ADMIN",
           isLoading: false,
+          isRevalidating: false,
+          authTransitionSeq: 0,
+          workspaceEpoch: 0,
           authError: null,
         }
       : {
           user: null,
           role: null,
           isLoading: true,
+          isRevalidating: false,
+          authTransitionSeq: 0,
+          workspaceEpoch: 0,
           authError: null,
         },
   );
@@ -83,7 +92,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         invalidateSessionOperations: invalidateAdminSessionOperations,
       },
       setAuthState,
-      { user: null, role: null, isLoading: true, authError: null },
+      {
+        user: null,
+        role: null,
+        isLoading: true,
+        isRevalidating: false,
+        authTransitionSeq: 0,
+        workspaceEpoch: 0,
+        authError: null,
+      },
     );
     controllerRef.current = controller;
     void controller.bootstrap();
@@ -110,7 +127,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const { user, role, isLoading, authError } = authState;
+  const {
+    user,
+    role,
+    isLoading,
+    isRevalidating,
+    authTransitionSeq,
+    workspaceEpoch,
+    authError,
+  } = authState;
+
+  const isAuthSettled = !isLoading && !isRevalidating;
 
   const signIn = async (email: string, password: string): Promise<void> => {
     if (ADMIN_DEMO_MODE) return;
@@ -123,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const hasRole = (targetRoles: StaffRole | StaffRole[]): boolean => {
-    if (!user || !role || isLoading) return false;
+    if (!user || !role || !isAuthSettled) return false;
     const targets = Array.isArray(targetRoles) ? targetRoles : [targetRoles];
 
     if (ADMIN_DEMO_MODE) {
@@ -140,19 +167,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async (): Promise<void> => {
     if (ADMIN_DEMO_MODE) {
-      setAuthState({
+      setAuthState((current) => ({
         user: null,
         role: null,
         isLoading: false,
+        isRevalidating: false,
+        authTransitionSeq: current.authTransitionSeq + 1,
+        workspaceEpoch: current.workspaceEpoch + 1,
         authError: null,
-      });
+      }));
       return;
     }
     await controllerRef.current?.logout();
   };
 
   const setRole = (newRole: StaffRole) => {
-    if (!user) return;
+    if (!user || !isAuthSettled) return;
     if (!ADMIN_DEMO_MODE && !user.roles.includes(newRole)) return;
 
     if (ADMIN_DEMO_MODE) {
@@ -174,14 +204,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider
       value={{
-        user,
-        role,
-        isAuthenticated: Boolean(user) && !isLoading,
+        user: isAuthSettled ? user : null,
+        role: isAuthSettled ? role : null,
+        isAuthenticated: Boolean(user) && isAuthSettled,
         isLoading,
+        isRevalidating,
+        authTransitionSeq,
+        workspaceEpoch,
         isDemoMode: ADMIN_DEMO_MODE,
         authError,
         mfaSatisfied:
-          !isLoading && Boolean(user?.mfaSatisfied ?? user?.mfaEnabled),
+          isAuthSettled && Boolean(user?.mfaSatisfied ?? user?.mfaEnabled),
         signIn,
         refreshSession,
         setRole,

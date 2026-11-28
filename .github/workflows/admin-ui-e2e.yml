@@ -17,10 +17,13 @@ jobs:
       NEXT_PUBLIC_ADMIN_DEMO_MODE: "true"
       NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:3001/v1
       PLAYWRIGHT_ADMIN_BASE_URL: http://127.0.0.1:3002
+      PLAYWRIGHT_ADMIN_BUILD_MODE: "demo"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: "24"
 
@@ -57,17 +60,11 @@ jobs:
           exit 1
 
       - name: Run demo admin browser tests and demo-isolation proof
-        run: |
-          pnpm exec playwright test --config=playwright.admin.config.mjs \
-            tests/e2e/admin-ui.spec.mjs \
-            tests/e2e/admin-kpi-observability.spec.mjs \
-            tests/e2e/admin-governance.spec.mjs \
-            tests/e2e/admin-walkthrough-visual.spec.mjs \
-            tests/e2e/ric-191-admin-demo-isolation.spec.mjs
+        run: pnpm exec playwright test --config=playwright.admin.config.mjs
 
       - name: Upload demo admin browser QA artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: admin-ui-e2e-demo-artifacts
           path: |
@@ -84,10 +81,13 @@ jobs:
       NEXT_PUBLIC_ADMIN_DEMO_MODE: "false"
       NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:3001/v1
       PLAYWRIGHT_ADMIN_BASE_URL: http://127.0.0.1:3002
+      PLAYWRIGHT_ADMIN_BUILD_MODE: "authenticated"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: "24"
 
@@ -124,13 +124,11 @@ jobs:
           exit 1
 
       - name: Run authenticated admin registration browser tests
-        run: |
-          pnpm exec playwright test --config=playwright.admin.config.mjs \
-            tests/e2e/ric-191-admin-registrations.spec.mjs
+        run: pnpm exec playwright test --config=playwright.admin.config.mjs
 
       - name: Upload authenticated admin browser QA artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: admin-ui-e2e-authenticated-artifacts
           path: |

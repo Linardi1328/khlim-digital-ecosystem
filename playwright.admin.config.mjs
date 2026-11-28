@@ -1,15 +1,26 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const DEMO_TEST_MATCH = [
+  "admin-ui.spec.mjs",
+  "admin-kpi-observability.spec.mjs",
+  "admin-governance.spec.mjs",
+  "admin-walkthrough-visual.spec.mjs",
+  "ric-191-admin-demo-isolation.spec.mjs",
+];
+
+const AUTHENTICATED_TEST_MATCH = ["ric-191-admin-registrations.spec.mjs"];
+
+const buildMode = process.env.PLAYWRIGHT_ADMIN_BUILD_MODE || "demo";
+if (buildMode !== "demo" && buildMode !== "authenticated") {
+  throw new Error(
+    `Invalid PLAYWRIGHT_ADMIN_BUILD_MODE="${buildMode}". Expected "demo" or "authenticated".`,
+  );
+}
+
 export default defineConfig({
   testDir: "./tests/e2e",
-  testMatch: [
-    "admin-ui.spec.mjs",
-    "admin-kpi-observability.spec.mjs",
-    "admin-governance.spec.mjs",
-    "admin-walkthrough-visual.spec.mjs",
-    "ric-191-admin-demo-isolation.spec.mjs",
-    "ric-191-admin-registrations.spec.mjs",
-  ],
+  testMatch:
+    buildMode === "authenticated" ? AUTHENTICATED_TEST_MATCH : DEMO_TEST_MATCH,
   timeout: 15_000,
   expect: { timeout: 5_000 },
   fullyParallel: true,

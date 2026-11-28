@@ -397,6 +397,8 @@ export async function verifyAdminTotpFactor(
   const session = currentAdminSession();
   const opEpoch = sessionMutationEpoch;
   const startingUserId = session.user.id;
+  const startingAccessToken = session.access_token;
+  const startingRefreshToken = session.refresh_token;
   const body = await authRequest(
     `/factors/${encodeURIComponent(factorId)}/verify`,
     {
@@ -409,9 +411,13 @@ export async function verifyAdminTotpFactor(
     },
     session.access_token,
   );
+  const latestStored = readStoredSession();
   if (
     sessionMutationEpoch !== opEpoch ||
-    readStoredSession()?.user.id !== startingUserId
+    !latestStored ||
+    latestStored.user.id !== startingUserId ||
+    latestStored.access_token !== startingAccessToken ||
+    latestStored.refresh_token !== startingRefreshToken
   ) {
     throw new Error("MFA verification was superseded by a session change.");
   }
@@ -426,12 +432,12 @@ export async function verifyAdminTotpFactor(
 export async function adminSupabaseSignOut(): Promise<void> {
   const session = readStoredSession();
   // Clear stored credentials and invalidate any in-flight token refreshes synchronously
-  // BEFORE awaiting the remote logout call, so a slow /logout cannot clobber a later sign-in
-  // and a slow refresh cannot resurrect credentials after sign-out.
+  // BEFORE awaiting the remote session-local logout call, so a slow /logout cannot
+  // clobber or revoke a later sign-in and a slow refresh cannot resurrect credentials.
   clearAdminSupabaseSession();
   if (session?.access_token) {
     await authRequest(
-      "/logout",
+      "/logout?scope=local",
       { method: "POST", body: JSON.stringify({}) },
       session.access_token,
     );

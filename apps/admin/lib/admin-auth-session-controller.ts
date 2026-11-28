@@ -24,6 +24,9 @@ export interface AdminAuthSessionState {
   user: AdminUser | null;
   role: StaffRole | null;
   isLoading: boolean;
+  isRevalidating: boolean;
+  authTransitionSeq: number;
+  workspaceEpoch: number;
   authError: string | null;
 }
 
@@ -72,19 +75,49 @@ export function toAdminUser(session: AdminSession): AdminUser | null {
   };
 }
 
+function normalizedRolesKey(roles: readonly StaffRole[]): string {
+  return [...new Set(roles)].sort().join(",");
+}
+
+export function isSameVerifiedAuthorizationContext(
+  prev: AdminUser | null,
+  prevRole: StaffRole | null,
+  next: AdminUser,
+  nextRole: StaffRole,
+): boolean {
+  if (!prev || !prevRole) return false;
+  return (
+    prev.id === next.id &&
+    (prev.organizationId ?? null) === (next.organizationId ?? null) &&
+    prevRole === nextRole &&
+    Boolean(prev.mfaSatisfied ?? prev.mfaEnabled) ===
+      Boolean(next.mfaSatisfied ?? next.mfaEnabled) &&
+    (prev.authenticatorAssuranceLevel ?? null) ===
+      (next.authenticatorAssuranceLevel ?? null) &&
+    normalizedRolesKey(prev.roles) === normalizedRolesKey(next.roles)
+  );
+}
+
 /**
  * Pure, testable fail-closed controller for real (non-demo) admin staff
  * authentication transitions.
  *
  * Guarantees:
- * 1. Relevant cross-tab storage changes, explicit refreshes, and sign-in
- *    transitions synchronously clear the previous authorized user/role and
- *    set `isLoading: true` BEFORE awaiting session restoration or `/admin/session`.
- * 2. Every async success, failure, and `finally` handler is guarded by a
- *    monotonic `sessionLoadSeq` generation, so a superseded request failure
- *    or completion can never overwrite or clear a newer valid session.
- * 3. Logout synchronously bumps the generation, invalidates pending token
- *    refresh operations, and clears auth state before awaiting remote sign-out.
+ * 1. During cross-tab credential changes or explicit session revalidation when a
+ *    verified session already exists, the controller enters a fail-closed
+ *    `isRevalidating: true` state immediately (incrementing `authTransitionSeq`
+ *    to abort/invalidate all in-flight reads & mutations, blocking access via
+ *    `isAuthenticated = false`, `mfaSatisfied = false`, `hasRole() = false`,
+ *    and hiding/disabling the workspace via `AdminShell`).
+ * 2. Only when the server `/admin/session` response confirms the EXACT same
+ *    user, organization, effective roles, active role, and MFA/AAL context does
+ *    `workspaceEpoch` remain unchanged so unsaved work resumes safely.
+ * 3. On verification failure, logout, missing session, or ANY change to user,
+ *    organization, roles, role, or MFA context, `workspaceEpoch` increments and
+ *    the previous workspace is destroyed.
+ * 4. Every async success, failure, and `finally` handler is guarded by a
+ *    monotonic `sessionLoadSeq`, preventing superseded failures from clearing
+ *    or overwriting a newer valid session.
  */
 export class AdminAuthSessionController {
   private readonly deps: AdminAuthSessionDeps;
@@ -92,6 +125,10 @@ export class AdminAuthSessionController {
   private state: AdminAuthSessionState;
   private sessionLoadSeq = 0;
   private disposed = false;
+  private pendingRenewalBaseline: {
+    user: AdminUser;
+    role: StaffRole;
+  } | null = null;
   private lastUserId: string | null = null;
   private lastOrganizationId: string | null = null;
   private lastPreferredRole: StaffRole | null = null;
@@ -107,6 +144,9 @@ export class AdminAuthSessionController {
       user: initialState?.user ?? null,
       role: initialState?.role ?? null,
       isLoading: initialState?.isLoading ?? true,
+      isRevalidating: initialState?.isRevalidating ?? false,
+      authTransitionSeq: initialState?.authTransitionSeq ?? 0,
+      workspaceEpoch: initialState?.workspaceEpoch ?? 0,
       authError: initialState?.authError ?? null,
     };
   }
@@ -132,14 +172,38 @@ export class AdminAuthSessionController {
   dispose(): void {
     this.disposed = true;
     this.sessionLoadSeq += 1;
+    this.pendingRenewalBaseline = null;
   }
 
   setWorkViewRole(newRole: StaffRole): void {
-    if (!this.state.user || !this.state.user.roles.includes(newRole)) return;
+    if (
+      this.state.isLoading ||
+      this.state.isRevalidating ||
+      !this.state.user ||
+      !this.state.user.roles.includes(newRole)
+    ) {
+      return;
+    }
     this.lastPreferredRole = newRole;
     this.commit({
       role: newRole,
       user: { ...this.state.user, role: newRole },
+    });
+  }
+
+  private destroyWorkspaceState(
+    extra: Partial<AdminAuthSessionState> = {},
+  ): void {
+    this.pendingRenewalBaseline = null;
+    this.lastUserId = null;
+    this.lastOrganizationId = null;
+    this.lastPreferredRole = null;
+    this.commit({
+      user: null,
+      role: null,
+      isRevalidating: false,
+      workspaceEpoch: this.state.workspaceEpoch + 1,
+      ...extra,
     });
   }
 
@@ -154,10 +218,7 @@ export class AdminAuthSessionController {
       if (!this.isCurrent(seq)) return;
 
       if (!session) {
-        this.lastUserId = null;
-        this.lastOrganizationId = null;
-        this.lastPreferredRole = null;
-        this.commit({ user: null, role: null, authError: null });
+        this.destroyWorkspaceState({ authError: null });
         return;
       }
 
@@ -171,56 +232,103 @@ export class AdminAuthSessionController {
         throw new Error("This account does not have KHLIM staff access.");
       }
 
-      const sameContext =
+      const baseline = this.pendingRenewalBaseline;
+      const samePreferredContext =
         this.lastUserId === adminUser.id &&
         this.lastOrganizationId === (adminUser.organizationId ?? null);
       const nextRole =
-        sameContext &&
+        samePreferredContext &&
         this.lastPreferredRole &&
         adminUser.roles.includes(this.lastPreferredRole)
           ? this.lastPreferredRole
           : adminUser.role;
 
-      this.lastUserId = adminUser.id;
-      this.lastOrganizationId = adminUser.organizationId ?? null;
+      const nextUser: AdminUser = { ...adminUser, role: nextRole };
+      const preservesWorkspace =
+        baseline !== null &&
+        isSameVerifiedAuthorizationContext(
+          baseline.user,
+          baseline.role,
+          nextUser,
+          nextRole,
+        );
+
+      this.pendingRenewalBaseline = null;
+      this.lastUserId = nextUser.id;
+      this.lastOrganizationId = nextUser.organizationId ?? null;
       this.lastPreferredRole = nextRole;
 
       this.commit({
-        user: { ...adminUser, role: nextRole },
+        user: nextUser,
         role: nextRole,
+        isRevalidating: false,
+        workspaceEpoch: preservesWorkspace
+          ? this.state.workspaceEpoch
+          : this.state.workspaceEpoch + 1,
         authError: null,
       });
     } catch (error) {
       if (!this.isCurrent(seq)) return;
-      this.lastUserId = null;
-      this.lastOrganizationId = null;
-      this.lastPreferredRole = null;
       const message =
         error instanceof Error ? error.message : fallbackErrorMessage;
-      this.commit({
-        user: null,
-        role: null,
-        authError: message,
-      });
+      this.destroyWorkspaceState({ authError: message });
       if (options.rethrow) {
         throw error;
       }
     } finally {
       if (manageLoading && this.isCurrent(seq)) {
-        this.commit({ isLoading: false });
+        this.commit({ isLoading: false, isRevalidating: false });
       }
     }
   }
 
   bootstrap(): Promise<void> {
     const seq = ++this.sessionLoadSeq;
+    this.pendingRenewalBaseline = null;
     this.commit({
       user: null,
       role: null,
       isLoading: true,
+      isRevalidating: false,
+      authTransitionSeq: this.state.authTransitionSeq + 1,
       authError: null,
     });
     return this.runSessionLoad(seq, "Staff session could not be restored.");
+  }
+
+  private beginRevalidation(
+    fallbackErrorMessage: string,
+    options: { rethrow?: boolean } = {},
+  ): Promise<void> {
+    this.deps.invalidateSessionOperations();
+    const seq = ++this.sessionLoadSeq;
+
+    // Preserve the current verified baseline ONLY in memory while hidden/non-interactive.
+    // Never trust localStorage; if the user was not verified with MFA (or already cleared),
+    // do not set a baseline and fail closed with a clean loading state.
+    if (
+      this.state.user &&
+      this.state.role &&
+      Boolean(this.state.user.mfaSatisfied ?? this.state.user.mfaEnabled) &&
+      !this.pendingRenewalBaseline
+    ) {
+      this.pendingRenewalBaseline = {
+        user: this.state.user,
+        role: this.state.role,
+      };
+    }
+
+    const canPotentiallyResume = this.pendingRenewalBaseline !== null;
+    this.commit({
+      user: null,
+      role: null,
+      isLoading: true,
+      isRevalidating: canPotentiallyResume,
+      authTransitionSeq: this.state.authTransitionSeq + 1,
+      authError: null,
+    });
+
+    return this.runSessionLoad(seq, fallbackErrorMessage, options);
   }
 
   handleStorageChange(event: StorageChangeLike): Promise<void> | null {
@@ -229,28 +337,15 @@ export class AdminAuthSessionController {
       return null;
     }
 
-    // Fail closed immediately before awaiting restoration or /admin/session.
-    this.deps.invalidateSessionOperations();
-    const seq = ++this.sessionLoadSeq;
-    this.commit({
-      user: null,
-      role: null,
-      isLoading: true,
-      authError: null,
-    });
-    return this.runSessionLoad(seq, "Staff session could not be restored.");
+    return this.beginRevalidation("Staff session could not be restored.");
   }
 
   async signIn(email: string, password: string): Promise<void> {
     this.deps.invalidateSessionOperations();
     const seq = ++this.sessionLoadSeq;
-    this.lastUserId = null;
-    this.lastOrganizationId = null;
-    this.lastPreferredRole = null;
-    this.commit({
-      user: null,
-      role: null,
+    this.destroyWorkspaceState({
       isLoading: true,
+      authTransitionSeq: this.state.authTransitionSeq + 1,
       authError: null,
     });
 
@@ -267,42 +362,27 @@ export class AdminAuthSessionController {
       if (!this.isCurrent(seq)) return;
       const message =
         error instanceof Error ? error.message : "Staff sign-in failed.";
-      this.commit({
-        user: null,
-        role: null,
-        authError: message,
-      });
+      this.destroyWorkspaceState({ authError: message });
       throw error;
     } finally {
       if (this.isCurrent(seq)) {
-        this.commit({ isLoading: false });
+        this.commit({ isLoading: false, isRevalidating: false });
       }
     }
   }
 
   refreshSession(): Promise<void> {
-    const seq = ++this.sessionLoadSeq;
-    this.commit({
-      user: null,
-      role: null,
-      isLoading: true,
-      authError: null,
-    });
-    return this.runSessionLoad(seq, "Staff session refresh failed.", {
+    return this.beginRevalidation("Staff session refresh failed.", {
       rethrow: true,
     });
   }
 
   async logout(): Promise<void> {
     this.sessionLoadSeq += 1;
-    this.lastUserId = null;
-    this.lastOrganizationId = null;
-    this.lastPreferredRole = null;
     this.deps.invalidateSessionOperations();
-    this.commit({
-      user: null,
-      role: null,
+    this.destroyWorkspaceState({
       isLoading: false,
+      authTransitionSeq: this.state.authTransitionSeq + 1,
       authError: null,
     });
     await this.deps.signOut().catch(() => undefined);

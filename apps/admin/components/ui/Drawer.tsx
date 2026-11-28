@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useId, type ReactNode } from "react";
+import { registerModalFocusTrap } from "../../lib/modal-focus";
 
 export interface DrawerProps {
   isOpen: boolean;
@@ -22,42 +23,17 @@ export function Drawer({
   width = "540px",
 }: DrawerProps) {
   const drawerRef = useRef<HTMLDivElement>(null);
-  const previousActiveElement = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   const titleId = useId();
   const descId = useId();
 
   useEffect(() => {
-    if (!isOpen) return;
-
-    previousActiveElement.current =
-      document.activeElement as HTMLElement | null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !e.defaultPrevented) {
-        onCloseRef.current();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    const focusTimer = window.setTimeout(() => {
-      const focusable = drawerRef.current?.querySelector<HTMLElement>(
-        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      );
-      (focusable ?? drawerRef.current)?.focus();
-    }, 50);
-
-    return () => {
-      window.clearTimeout(focusTimer);
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", handleKeyDown);
-      if (previousActiveElement.current?.isConnected) {
-        previousActiveElement.current.focus();
-      }
-    };
+    if (!isOpen || !drawerRef.current) return;
+    return registerModalFocusTrap({
+      container: drawerRef.current,
+      onClose: () => onCloseRef.current(),
+    });
   }, [isOpen]);
 
   if (!isOpen) return null;

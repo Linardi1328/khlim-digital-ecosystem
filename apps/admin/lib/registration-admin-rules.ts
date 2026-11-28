@@ -1019,6 +1019,16 @@ export function classifyAdminRegistrationError(
           : "Academy registration service is temporarily unavailable. Please try again shortly.",
       };
     default:
+      if (status === 404) {
+        return {
+          kind: "NOT_FOUND",
+          code,
+          fieldErrors,
+          retryAfterSeconds: null,
+          message:
+            "The requested record could not be found or is inactive in your active organization.",
+        };
+      }
       if (status === 503) {
         return {
           kind: "UNAVAILABLE",

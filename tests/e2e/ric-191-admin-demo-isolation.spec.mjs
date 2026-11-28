@@ -8,6 +8,7 @@ test.describe("CR-03 Admin Demo-Mode Isolation", () => {
   }) => {
     const liveRegistrationRequests = [];
     const requestsWithAuthHeader = [];
+    const headerCheckPromises = [];
 
     const futureExp = Math.floor(Date.now() / 1000) + 3600;
     await page.addInitScript(
@@ -33,7 +34,7 @@ test.describe("CR-03 Admin Demo-Mode Isolation", () => {
 
     page.on("request", (req) => {
       const url = req.url();
-      const authHeader = req.headers()["authorization"];
+      const method = req.method();
       if (
         /\/v1\/admin\/(academy|operations-data|session)\b/.test(url) ||
         url.includes("/registration-sessions") ||
@@ -43,16 +44,20 @@ test.describe("CR-03 Admin Demo-Mode Isolation", () => {
         // Ignore Next.js document/RSC/static requests to the local admin origin itself
         const parsed = new URL(url);
         if (parsed.pathname.startsWith("/v1/")) {
-          liveRegistrationRequests.push({ method: req.method(), url });
+          liveRegistrationRequests.push({ method, url });
         }
       }
-      if (authHeader) {
-        requestsWithAuthHeader.push({
-          method: req.method(),
-          url,
-          authorization: authHeader,
-        });
-      }
+      headerCheckPromises.push(
+        req
+          .headerValue("authorization")
+          .then((authHeader) => {
+            if (authHeader !== null) {
+              // Never record or log the Authorization header value itself
+              requestsWithAuthHeader.push({ method, url });
+            }
+          })
+          .catch(() => undefined),
+      );
     });
 
     await page.goto("/registrations", { waitUntil: "networkidle" });
@@ -61,6 +66,10 @@ test.describe("CR-03 Admin Demo-Mode Isolation", () => {
       "registrations-demo-unavailable",
     );
     await expect(unavailableNotice).toBeVisible();
+    await expect(unavailableNotice).toHaveAttribute(
+      "data-admin-demo-hydrated",
+      "true",
+    );
     await expect(unavailableNotice).toContainText(
       "Unavailable in Admin Demo Mode",
     );
@@ -76,8 +85,14 @@ test.describe("CR-03 Admin Demo-Mode Isolation", () => {
       0,
     );
 
-    // Give any post-mount effects time to fire if a regression existed
-    await page.waitForTimeout(300);
+    // Flush post-hydration animation frames and await all async header inspections
+    await page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
+    await Promise.all(headerCheckPromises);
 
     expect(
       liveRegistrationRequests,
@@ -91,7 +106,17 @@ test.describe("CR-03 Admin Demo-Mode Isolation", () => {
     // Reloading with the stored real session still present must also issue zero live requests
     await page.reload({ waitUntil: "networkidle" });
     await expect(unavailableNotice).toBeVisible();
-    await page.waitForTimeout(200);
+    await expect(unavailableNotice).toHaveAttribute(
+      "data-admin-demo-hydrated",
+      "true",
+    );
+    await page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
+    await Promise.all(headerCheckPromises);
 
     expect(liveRegistrationRequests).toEqual([]);
     expect(requestsWithAuthHeader).toEqual([]);

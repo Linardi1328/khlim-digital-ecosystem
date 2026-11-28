@@ -25,6 +25,7 @@ import {
   formatIsoWeekday,
   formatPublicationStateLabel,
   formatSessionRecurrence,
+  getAdminRegistrationSession,
   listAdminRegistrationSessions,
   listAuthoritativeProgrammes,
   listAuthoritativeVenues,
@@ -68,6 +69,8 @@ function formatMytDateTime(isoString: string | null | undefined): string {
 
 export interface AdminTrainingSessionsTabProps {
   isEligible: boolean;
+  isSuspended?: boolean;
+  authTransitionSeq?: number;
   authContextKey: string;
   onSessionsChange: (sessions: AdminRegistrationSessionDto[]) => void;
   onAuthError: (kind: AdminRegistrationErrorKind, message: string) => void;
@@ -75,6 +78,8 @@ export interface AdminTrainingSessionsTabProps {
 
 export function AdminTrainingSessionsTab({
   isEligible,
+  isSuspended = false,
+  authTransitionSeq = 0,
   authContextKey,
   onSessionsChange,
   onAuthError,
@@ -109,6 +114,14 @@ export function AdminTrainingSessionsTab({
   } | null>(null);
   const [conflictComparison, setConflictComparison] =
     useState<SessionFormState | null>(null);
+  const [interruptedSaveReview, setInterruptedSaveReview] = useState<{
+    mode: "create" | "edit";
+    sessionId: string | null;
+    staleVersion: number | null;
+    attemptedForm: SessionFormState;
+    status: "refreshing" | "loaded" | "missing" | "failed" | "list_refreshed";
+    refreshedSession: AdminRegistrationSessionDto | null;
+  } | null>(null);
 
   // Publish confirmation dialog state
   const [publishTarget, setPublishTarget] =
@@ -126,9 +139,48 @@ export function AdminTrainingSessionsTab({
   const authGenerationRef = useRef(0);
   const editorInstanceIdRef = useRef(0);
   const isMountedRef = useRef(true);
+  const prevAuthTransitionSeqRef = useRef(authTransitionSeq);
   const listSeq = useRef(0);
+  const conflictLookupSeq = useRef(0);
   const listAbortRef = useRef<AbortController | null>(null);
   const selectorsAbortRef = useRef<AbortController | null>(null);
+  const conflictAbortRef = useRef<AbortController | null>(null);
+  const selectorsLoadingRef = useRef(false);
+  const needsSelectorsRefreshRef = useRef(false);
+  const activeSaveMutationRef = useRef<{
+    mode: "create" | "edit";
+    sessionId: string | null;
+    staleVersion: number | null;
+    attemptedForm: SessionFormState;
+  } | null>(null);
+  const interruptedSaveRef = useRef<{
+    mode: "create" | "edit";
+    sessionId: string | null;
+    staleVersion: number | null;
+    attemptedForm: SessionFormState;
+  } | null>(null);
+  const interruptedSaveLoadingRef = useRef<{
+    mode: "create" | "edit";
+    sessionId: string | null;
+    staleVersion: number | null;
+    attemptedForm: SessionFormState;
+  } | null>(null);
+  const staleConflictLoadingRef = useRef<{
+    sessionId: string;
+    attemptedForm: SessionFormState;
+    staleVersion: number;
+  } | null>(null);
+  const interruptedConflictLookupRef = useRef<{
+    sessionId: string;
+    attemptedForm: SessionFormState;
+    staleVersion: number;
+  } | null>(null);
+  const publishingRef = useRef(false);
+  const closingRef = useRef(false);
+  const drawerModeRef = useRef<"create" | "edit" | null>(null);
+  drawerModeRef.current = drawerMode;
+  const editingSessionRef = useRef<AdminRegistrationSessionDto | null>(null);
+  editingSessionRef.current = editingSession;
 
   const isCurrentAuthGen = useCallback(
     (gen: number) => isMountedRef.current && authGenerationRef.current === gen,
@@ -141,17 +193,104 @@ export function AdminTrainingSessionsTab({
       isMountedRef.current = false;
       authGenerationRef.current += 1;
       editorInstanceIdRef.current += 1;
+      conflictLookupSeq.current += 1;
       listAbortRef.current?.abort();
       selectorsAbortRef.current?.abort();
+      conflictAbortRef.current?.abort();
     };
   }, []);
+
+  useLayoutEffect(() => {
+    if (prevAuthTransitionSeqRef.current === authTransitionSeq) {
+      return;
+    }
+    prevAuthTransitionSeqRef.current = authTransitionSeq;
+    authGenerationRef.current += 1;
+    listSeq.current += 1;
+    conflictLookupSeq.current += 1;
+    listAbortRef.current?.abort();
+    selectorsAbortRef.current?.abort();
+    conflictAbortRef.current?.abort();
+
+    setLoading(false);
+    if (selectorsLoadingRef.current) {
+      selectorsLoadingRef.current = false;
+      setSelectorsLoading(false);
+      if (drawerModeRef.current) {
+        needsSelectorsRefreshRef.current = true;
+      }
+    }
+
+    if (staleConflictLoadingRef.current) {
+      interruptedConflictLookupRef.current = staleConflictLoadingRef.current;
+      staleConflictLoadingRef.current = null;
+    }
+
+    if (interruptedSaveLoadingRef.current) {
+      interruptedSaveRef.current = interruptedSaveLoadingRef.current;
+      interruptedSaveLoadingRef.current = null;
+    }
+
+    if (activeSaveMutationRef.current) {
+      const interrupted = activeSaveMutationRef.current;
+      activeSaveMutationRef.current = null;
+      interruptedSaveRef.current = interrupted;
+      setSaving(false);
+      setInterruptedSaveReview({
+        mode: interrupted.mode,
+        sessionId: interrupted.sessionId,
+        staleVersion: interrupted.staleVersion,
+        attemptedForm: interrupted.attemptedForm,
+        status: "refreshing",
+        refreshedSession: null,
+      });
+    }
+
+    // Clear obsolete publish/close confirmation dialogs and acknowledgements
+    setPublishTarget(null);
+    setScheduleApproved(false);
+    setAgeRuleApproved(false);
+    setPublishError(null);
+    setCloseTarget(null);
+
+    if (publishingRef.current) {
+      publishingRef.current = false;
+      setPublishing(false);
+      setBanner({
+        variant: "warning",
+        message:
+          "Session revalidation interrupted publishing before confirmation arrived. Its outcome is uncertain — inspect the refreshed sessions list before retrying.",
+      });
+    }
+
+    if (closingRef.current) {
+      closingRef.current = false;
+      setClosing(false);
+      setBanner({
+        variant: "warning",
+        message:
+          "Session revalidation interrupted closing the session before confirmation arrived. Its outcome is uncertain — inspect the refreshed sessions list before retrying.",
+      });
+    }
+  }, [authTransitionSeq]);
 
   useLayoutEffect(() => {
     authGenerationRef.current += 1;
     editorInstanceIdRef.current += 1;
     listSeq.current += 1;
+    conflictLookupSeq.current += 1;
     listAbortRef.current?.abort();
     selectorsAbortRef.current?.abort();
+    conflictAbortRef.current?.abort();
+    selectorsLoadingRef.current = false;
+    needsSelectorsRefreshRef.current = false;
+    activeSaveMutationRef.current = null;
+    interruptedSaveRef.current = null;
+    interruptedSaveLoadingRef.current = null;
+    staleConflictLoadingRef.current = null;
+    interruptedConflictLookupRef.current = null;
+    publishingRef.current = false;
+    closingRef.current = false;
     setSessions([]);
     setProgrammes([]);
     setVenues([]);
@@ -163,6 +302,7 @@ export function AdminTrainingSessionsTab({
     setEditingSession(null);
     setStaleConflict(null);
     setConflictComparison(null);
+    setInterruptedSaveReview(null);
     setPublishTarget(null);
     setCloseTarget(null);
     setScheduleApproved(false);
@@ -180,6 +320,11 @@ export function AdminTrainingSessionsTab({
   > => {
     void authContextKey;
     const authGen = authGenerationRef.current;
+    if (isSuspended) {
+      listSeq.current += 1;
+      listAbortRef.current?.abort();
+      return null;
+    }
     if (!isEligible) {
       setSessions([]);
       setLoading(false);
@@ -230,6 +375,7 @@ export function AdminTrainingSessionsTab({
     }
   }, [
     isEligible,
+    isSuspended,
     authContextKey,
     isCurrentAuthGen,
     onSessionsChange,
@@ -250,6 +396,7 @@ export function AdminTrainingSessionsTab({
       selectorsAbortRef.current?.abort();
       const controller = new AbortController();
       selectorsAbortRef.current = controller;
+      selectorsLoadingRef.current = true;
       setSelectorsLoading(true);
       setSelectorsError(null);
       try {
@@ -280,6 +427,7 @@ export function AdminTrainingSessionsTab({
           classified.kind === "FORBIDDEN"
         ) {
           authGenerationRef.current += 1;
+          selectorsLoadingRef.current = false;
           onAuthError(classified.kind, classified.message);
           setSelectorsLoading(false);
           return;
@@ -293,6 +441,7 @@ export function AdminTrainingSessionsTab({
           isCurrentAuthGen(authGen) &&
           editorInstanceIdRef.current === instanceId
         ) {
+          selectorsLoadingRef.current = false;
           setSelectorsLoading(false);
         }
       }
@@ -302,6 +451,11 @@ export function AdminTrainingSessionsTab({
 
   const openCreateDrawer = () => {
     const instanceId = ++editorInstanceIdRef.current;
+    activeSaveMutationRef.current = null;
+    interruptedSaveRef.current = null;
+    interruptedSaveLoadingRef.current = null;
+    staleConflictLoadingRef.current = null;
+    interruptedConflictLookupRef.current = null;
     setBanner(null);
     setEditingSession(null);
     setForm(createEmptySessionForm());
@@ -309,6 +463,7 @@ export function AdminTrainingSessionsTab({
     setFormError(null);
     setStaleConflict(null);
     setConflictComparison(null);
+    setInterruptedSaveReview(null);
     setSaving(false);
     setDrawerMode("create");
     void loadReferenceSelectors(instanceId);
@@ -317,6 +472,11 @@ export function AdminTrainingSessionsTab({
   const openEditDrawer = (session: AdminRegistrationSessionDto) => {
     if (session.publicationState === "CLOSED") return;
     const instanceId = ++editorInstanceIdRef.current;
+    activeSaveMutationRef.current = null;
+    interruptedSaveRef.current = null;
+    interruptedSaveLoadingRef.current = null;
+    staleConflictLoadingRef.current = null;
+    interruptedConflictLookupRef.current = null;
     setBanner(null);
     setEditingSession(session);
     setForm(sessionDtoToFormState(session));
@@ -324,6 +484,7 @@ export function AdminTrainingSessionsTab({
     setFormError(null);
     setStaleConflict(null);
     setConflictComparison(null);
+    setInterruptedSaveReview(null);
     setSaving(false);
     setDrawerMode("edit");
     if (session.publicationState === "DRAFT") {
@@ -333,15 +494,327 @@ export function AdminTrainingSessionsTab({
 
   const closeDrawer = () => {
     editorInstanceIdRef.current += 1;
+    conflictLookupSeq.current += 1;
     selectorsAbortRef.current?.abort();
+    conflictAbortRef.current?.abort();
+    selectorsLoadingRef.current = false;
+    needsSelectorsRefreshRef.current = false;
+    activeSaveMutationRef.current = null;
+    interruptedSaveRef.current = null;
+    interruptedSaveLoadingRef.current = null;
+    staleConflictLoadingRef.current = null;
+    interruptedConflictLookupRef.current = null;
     setDrawerMode(null);
     setEditingSession(null);
     setStaleConflict(null);
     setConflictComparison(null);
+    setInterruptedSaveReview(null);
     setSaving(false);
     setFieldErrors({});
     setFormError(null);
   };
+
+  const refreshInterruptedEditSession = useCallback(
+    async (
+      sessionId: string,
+      authGen: number,
+      instanceId: number,
+      attemptedForm: SessionFormState,
+      staleVersion: number | null,
+    ) => {
+      conflictAbortRef.current?.abort();
+      const controller = new AbortController();
+      conflictAbortRef.current = controller;
+      const lookupSeq = ++conflictLookupSeq.current;
+      interruptedSaveLoadingRef.current = {
+        mode: "edit",
+        sessionId,
+        staleVersion,
+        attemptedForm,
+      };
+      try {
+        const latest = await getAdminRegistrationSession(
+          sessionId,
+          controller.signal,
+        );
+        if (
+          controller.signal.aborted ||
+          !isCurrentAuthGen(authGen) ||
+          editorInstanceIdRef.current !== instanceId ||
+          lookupSeq !== conflictLookupSeq.current
+        ) {
+          return;
+        }
+        interruptedSaveLoadingRef.current = null;
+        setSessions((prev) =>
+          prev.some((item) => item.id === latest.id)
+            ? prev.map((item) => (item.id === latest.id ? latest : item))
+            : prev,
+        );
+        setInterruptedSaveReview({
+          mode: "edit",
+          sessionId,
+          staleVersion,
+          attemptedForm,
+          status: "loaded",
+          refreshedSession: latest,
+        });
+      } catch (error: unknown) {
+        if (
+          controller.signal.aborted ||
+          !isCurrentAuthGen(authGen) ||
+          editorInstanceIdRef.current !== instanceId ||
+          lookupSeq !== conflictLookupSeq.current
+        ) {
+          return;
+        }
+        interruptedSaveLoadingRef.current = null;
+        const classified = classifyAdminRegistrationError(error);
+        if (
+          classified.kind === "UNAUTHENTICATED" ||
+          classified.kind === "FORBIDDEN"
+        ) {
+          authGenerationRef.current += 1;
+          closeDrawer();
+          onAuthError(classified.kind, classified.message);
+          return;
+        }
+        setInterruptedSaveReview({
+          mode: "edit",
+          sessionId,
+          staleVersion,
+          attemptedForm,
+          status: classified.kind === "NOT_FOUND" ? "missing" : "failed",
+          refreshedSession: null,
+        });
+      }
+    },
+    [isCurrentAuthGen, onAuthError],
+  );
+
+  const handleLoadInterruptedSessionIntoEditor = () => {
+    const refreshed = interruptedSaveReview?.refreshedSession;
+    if (!refreshed || refreshed.publicationState === "CLOSED") return;
+    const instanceId = editorInstanceIdRef.current;
+    setConflictComparison(interruptedSaveReview.attemptedForm);
+    setEditingSession(refreshed);
+    setForm(sessionDtoToFormState(refreshed));
+    setInterruptedSaveReview(null);
+    setFormError(null);
+    setFieldErrors({});
+    if (refreshed.publicationState === "DRAFT") {
+      void loadReferenceSelectors(instanceId);
+    }
+  };
+
+  const handleRetryInterruptedSaveRefresh = async () => {
+    if (!interruptedSaveReview || !isEligible || isSuspended) return;
+    const authGen = authGenerationRef.current;
+    const instanceId = editorInstanceIdRef.current;
+    if (
+      interruptedSaveReview.mode === "edit" &&
+      interruptedSaveReview.sessionId
+    ) {
+      setInterruptedSaveReview((prev) =>
+        prev ? { ...prev, status: "refreshing" } : null,
+      );
+      await refreshInterruptedEditSession(
+        interruptedSaveReview.sessionId,
+        authGen,
+        instanceId,
+        interruptedSaveReview.attemptedForm,
+        interruptedSaveReview.staleVersion,
+      );
+      return;
+    }
+    interruptedSaveLoadingRef.current = {
+      mode: "create",
+      sessionId: null,
+      staleVersion: null,
+      attemptedForm: interruptedSaveReview.attemptedForm,
+    };
+    setInterruptedSaveReview((prev) =>
+      prev ? { ...prev, status: "refreshing" } : null,
+    );
+    const items = await fetchSessions();
+    if (
+      !isCurrentAuthGen(authGen) ||
+      editorInstanceIdRef.current !== instanceId
+    ) {
+      return;
+    }
+    interruptedSaveLoadingRef.current = null;
+    setInterruptedSaveReview((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: items === null ? "failed" : "list_refreshed",
+          }
+        : null,
+    );
+  };
+
+  const refreshStaleConflictSession = useCallback(
+    async (
+      sessionId: string,
+      authGen: number,
+      instanceId: number,
+      attemptedSnapshot?: SessionFormState,
+      staleVersion?: number,
+    ) => {
+      conflictAbortRef.current?.abort();
+      const controller = new AbortController();
+      conflictAbortRef.current = controller;
+      const lookupSeq = ++conflictLookupSeq.current;
+      staleConflictLoadingRef.current =
+        attemptedSnapshot && staleVersion !== undefined
+          ? { sessionId, attemptedForm: attemptedSnapshot, staleVersion }
+          : staleConflictLoadingRef.current;
+
+      // Refresh the list in the background without sharing cancellation or the 100-row cap
+      // with the authoritative single-session conflict lookup.
+      void fetchSessions();
+
+      try {
+        const latest = await getAdminRegistrationSession(
+          sessionId,
+          controller.signal,
+        );
+        if (
+          controller.signal.aborted ||
+          !isCurrentAuthGen(authGen) ||
+          editorInstanceIdRef.current !== instanceId ||
+          lookupSeq !== conflictLookupSeq.current
+        ) {
+          return;
+        }
+        staleConflictLoadingRef.current = null;
+        setSessions((prev) =>
+          prev.some((item) => item.id === latest.id)
+            ? prev.map((item) => (item.id === latest.id ? latest : item))
+            : prev,
+        );
+        setStaleConflict((prev) => {
+          if (!prev && (!attemptedSnapshot || staleVersion === undefined)) {
+            return null;
+          }
+          return {
+            status: "loaded",
+            staleVersion: prev?.staleVersion ?? staleVersion ?? latest.version,
+            attemptedForm:
+              prev?.attemptedForm ??
+              attemptedSnapshot ??
+              createEmptySessionForm(),
+            refreshedSession: latest,
+          };
+        });
+      } catch (error: unknown) {
+        if (
+          controller.signal.aborted ||
+          !isCurrentAuthGen(authGen) ||
+          editorInstanceIdRef.current !== instanceId ||
+          lookupSeq !== conflictLookupSeq.current
+        ) {
+          return;
+        }
+        staleConflictLoadingRef.current = null;
+        const classified = classifyAdminRegistrationError(error);
+        if (
+          classified.kind === "UNAUTHENTICATED" ||
+          classified.kind === "FORBIDDEN"
+        ) {
+          authGenerationRef.current += 1;
+          closeDrawer();
+          onAuthError(classified.kind, classified.message);
+          return;
+        }
+        const nextStatus =
+          classified.kind === "NOT_FOUND" ? "missing" : "failed";
+        setStaleConflict((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: nextStatus,
+                refreshedSession: null,
+              }
+            : null,
+        );
+      }
+    },
+    [fetchSessions, isCurrentAuthGen, onAuthError],
+  );
+
+  // Reconcile interrupted selector loads, stale-conflict lookups, or uncertain saves
+  // after same-context renewal completes (never auto-replaying mutations).
+  useEffect(() => {
+    if (!isEligible || isSuspended) return;
+
+    if (needsSelectorsRefreshRef.current && drawerMode) {
+      needsSelectorsRefreshRef.current = false;
+      void loadReferenceSelectors(editorInstanceIdRef.current);
+    }
+
+    const interruptedConflict = interruptedConflictLookupRef.current;
+    if (
+      interruptedConflict &&
+      editingSessionRef.current?.id === interruptedConflict.sessionId
+    ) {
+      interruptedConflictLookupRef.current = null;
+      void refreshStaleConflictSession(
+        interruptedConflict.sessionId,
+        authGenerationRef.current,
+        editorInstanceIdRef.current,
+        interruptedConflict.attemptedForm,
+        interruptedConflict.staleVersion,
+      );
+    }
+
+    const interruptedSave = interruptedSaveRef.current;
+    if (interruptedSave) {
+      interruptedSaveRef.current = null;
+      const authGen = authGenerationRef.current;
+      const instanceId = editorInstanceIdRef.current;
+      if (interruptedSave.mode === "edit" && interruptedSave.sessionId) {
+        void refreshInterruptedEditSession(
+          interruptedSave.sessionId,
+          authGen,
+          instanceId,
+          interruptedSave.attemptedForm,
+          interruptedSave.staleVersion,
+        );
+      } else {
+        interruptedSaveLoadingRef.current = interruptedSave;
+        void (async () => {
+          const items = await fetchSessions();
+          if (
+            !isCurrentAuthGen(authGen) ||
+            editorInstanceIdRef.current !== instanceId
+          ) {
+            return;
+          }
+          interruptedSaveLoadingRef.current = null;
+          setInterruptedSaveReview((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  status: items === null ? "failed" : "list_refreshed",
+                }
+              : null,
+          );
+        })();
+      }
+    }
+  }, [
+    isEligible,
+    isSuspended,
+    authTransitionSeq,
+    drawerMode,
+    loadReferenceSelectors,
+    refreshStaleConflictSession,
+    refreshInterruptedEditSession,
+    fetchSessions,
+    isCurrentAuthGen,
+  ]);
 
   const handleLoadRefreshedSessionIntoEditor = () => {
     const refreshed = staleConflict?.refreshedSession;
@@ -364,28 +837,12 @@ export function AdminTrainingSessionsTab({
     const instanceId = editorInstanceIdRef.current;
     const targetId = editingSession.id;
     setStaleConflict((prev) => (prev ? { ...prev, status: "loading" } : null));
-    const refreshedItems = await fetchSessions();
-    if (
-      !isCurrentAuthGen(authGen) ||
-      editorInstanceIdRef.current !== instanceId
-    ) {
-      return;
-    }
-    const refreshedRow =
-      refreshedItems?.find((item) => item.id === targetId) ?? null;
-    setStaleConflict((prev) =>
-      prev
-        ? {
-            ...prev,
-            status:
-              refreshedItems === null
-                ? "failed"
-                : refreshedRow
-                  ? "loaded"
-                  : "missing",
-            refreshedSession: refreshedRow,
-          }
-        : null,
+    await refreshStaleConflictSession(
+      targetId,
+      authGen,
+      instanceId,
+      staleConflict.attemptedForm,
+      staleConflict.staleVersion,
     );
   };
 
@@ -393,6 +850,7 @@ export function AdminTrainingSessionsTab({
     key: K,
     value: SessionFormState[K],
   ) => {
+    if (saving) return;
     setForm((prev) => ({
       ...prev,
       [key]: value,
@@ -410,7 +868,9 @@ export function AdminTrainingSessionsTab({
 
   const handleSaveSession = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (saving || Boolean(staleConflict)) return;
+    if (saving || Boolean(staleConflict) || Boolean(interruptedSaveReview)) {
+      return;
+    }
 
     setFormError(null);
     setFieldErrors({});
@@ -456,6 +916,14 @@ export function AdminTrainingSessionsTab({
     const submittedMode = drawerMode;
     const submittedSession = editingSession;
     const attemptedSnapshot: SessionFormState = { ...form };
+    if (submittedMode === "create" || submittedMode === "edit") {
+      activeSaveMutationRef.current = {
+        mode: submittedMode,
+        sessionId: submittedSession?.id ?? null,
+        staleVersion: submittedSession?.version ?? null,
+        attemptedForm: attemptedSnapshot,
+      };
+    }
     setSaving(true);
     try {
       if (submittedMode === "create") {
@@ -530,40 +998,28 @@ export function AdminTrainingSessionsTab({
         submittedMode === "edit" &&
         submittedSession
       ) {
-        // Immediately disable Save on stale version and load latest row for explicit staff review
+        // Immediately disable Save on stale version and load latest row by ID independently
+        // of the bounded 100-row list request so unrelated list refreshes cannot abort recovery.
         setStaleConflict({
           status: "loading",
           staleVersion: submittedSession.version,
           attemptedForm: attemptedSnapshot,
           refreshedSession: null,
         });
-        const refreshedItems = await fetchSessions();
-        if (
-          !isCurrentAuthGen(authGen) ||
-          editorInstanceIdRef.current !== editorInstanceId
-        ) {
-          return;
-        }
-        const refreshedRow =
-          refreshedItems?.find((item) => item.id === submittedSession.id) ??
-          null;
-        setStaleConflict({
-          status:
-            refreshedItems === null
-              ? "failed"
-              : refreshedRow
-                ? "loaded"
-                : "missing",
-          staleVersion: submittedSession.version,
-          attemptedForm: attemptedSnapshot,
-          refreshedSession: refreshedRow,
-        });
+        await refreshStaleConflictSession(
+          submittedSession.id,
+          authGen,
+          editorInstanceId,
+          attemptedSnapshot,
+          submittedSession.version,
+        );
       }
     } finally {
       if (
         isCurrentAuthGen(authGen) &&
         editorInstanceIdRef.current === editorInstanceId
       ) {
+        activeSaveMutationRef.current = null;
         setSaving(false);
       }
     }
@@ -586,6 +1042,7 @@ export function AdminTrainingSessionsTab({
     const authGen = authGenerationRef.current;
     const targetId = publishTarget.id;
     const targetVersion = publishTarget.version;
+    publishingRef.current = true;
     setPublishing(true);
     setPublishError(null);
     try {
@@ -597,6 +1054,7 @@ export function AdminTrainingSessionsTab({
         },
       });
       if (!isCurrentAuthGen(authGen)) return;
+      publishingRef.current = false;
       setPublishTarget(null);
       setScheduleApproved(false);
       setAgeRuleApproved(false);
@@ -613,6 +1071,7 @@ export function AdminTrainingSessionsTab({
         classified.kind === "FORBIDDEN"
       ) {
         authGenerationRef.current += 1;
+        publishingRef.current = false;
         setPublishTarget(null);
         onAuthError(classified.kind, classified.message);
         setPublishing(false);
@@ -623,6 +1082,7 @@ export function AdminTrainingSessionsTab({
         classified.kind === "INVALID_TRANSITION"
       ) {
         // Invalidate stale publish confirmation & acknowledgements so staff must review the refreshed draft
+        publishingRef.current = false;
         setPublishTarget(null);
         setScheduleApproved(false);
         setAgeRuleApproved(false);
@@ -637,6 +1097,7 @@ export function AdminTrainingSessionsTab({
       setPublishError(classified.message);
     } finally {
       if (isCurrentAuthGen(authGen)) {
+        publishingRef.current = false;
         setPublishing(false);
       }
     }
@@ -647,6 +1108,7 @@ export function AdminTrainingSessionsTab({
     const authGen = authGenerationRef.current;
     const targetId = closeTarget.id;
     const targetVersion = closeTarget.version;
+    closingRef.current = true;
     setClosing(true);
     setBanner(null);
     try {
@@ -654,6 +1116,7 @@ export function AdminTrainingSessionsTab({
         expectedVersion: targetVersion,
       });
       if (!isCurrentAuthGen(authGen)) return;
+      closingRef.current = false;
       setCloseTarget(null);
       setBanner({
         variant: "success",
@@ -669,6 +1132,7 @@ export function AdminTrainingSessionsTab({
         classified.kind === "FORBIDDEN"
       ) {
         authGenerationRef.current += 1;
+        closingRef.current = false;
         onAuthError(classified.kind, classified.message);
         setClosing(false);
         return;
@@ -685,6 +1149,7 @@ export function AdminTrainingSessionsTab({
       }
     } finally {
       if (isCurrentAuthGen(authGen)) {
+        closingRef.current = false;
         setClosing(false);
       }
     }
@@ -876,6 +1341,10 @@ export function AdminTrainingSessionsTab({
     marginBottom: 4,
   };
 
+  if (isSuspended) {
+    return null;
+  }
+
   return (
     <div
       role="tabpanel"
@@ -1062,6 +1531,180 @@ export function AdminTrainingSessionsTab({
             </div>
           ) : null}
 
+          {interruptedSaveReview ? (
+            <div
+              role="alert"
+              data-testid="session-interrupted-save-notice"
+              style={{
+                padding: "12px 14px",
+                borderRadius: 8,
+                backgroundColor: "#FFFBEB",
+                border: "1px solid #FDE68A",
+                color: "#78350F",
+                fontSize: "0.82rem",
+                lineHeight: 1.5,
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
+              <strong>
+                Session revalidation interrupted your save — outcome uncertain
+              </strong>
+              {interruptedSaveReview.mode === "edit" ? (
+                interruptedSaveReview.status === "loaded" &&
+                interruptedSaveReview.refreshedSession ? (
+                  <>
+                    <div>
+                      Your prior update may or may not have been applied on the
+                      server. Latest server version:{" "}
+                      <strong>
+                        v{interruptedSaveReview.refreshedSession.version}
+                      </strong>{" "}
+                      ·{" "}
+                      <strong>
+                        {formatPublicationStateLabel(
+                          interruptedSaveReview.refreshedSession
+                            .publicationState,
+                        )}
+                      </strong>{" "}
+                      (Coach:{" "}
+                      <strong>
+                        {interruptedSaveReview.refreshedSession
+                          .coachDisplayName || "Not set"}
+                      </strong>
+                      , Capacity:{" "}
+                      <strong>
+                        {interruptedSaveReview.refreshedSession.capacity}
+                      </strong>
+                      ).
+                    </div>
+                    {interruptedSaveReview.refreshedSession.publicationState ===
+                    "CLOSED" ? (
+                      <div style={{ color: "#991B1B", fontWeight: 600 }}>
+                        This session is now CLOSED and can no longer be edited.
+                      </div>
+                    ) : (
+                      <div
+                        style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
+                      >
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="primary"
+                          data-testid="load-interrupted-session-btn"
+                          onClick={handleLoadInterruptedSessionIntoEditor}
+                        >
+                          Load Latest Version (v
+                          {interruptedSaveReview.refreshedSession.version}) to
+                          Review
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={closeDrawer}
+                        >
+                          Close Drawer
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                ) : interruptedSaveReview.status === "missing" ? (
+                  <div style={{ color: "#991B1B", fontWeight: 600 }}>
+                    This training session is no longer available and cannot be
+                    saved from this editor.
+                  </div>
+                ) : interruptedSaveReview.status === "failed" ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 8,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <span>
+                      Could not refresh the latest session state after
+                      revalidation. Refresh and review before retrying.
+                    </span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      data-testid="retry-interrupted-session-refresh-btn"
+                      onClick={() => void handleRetryInterruptedSaveRefresh()}
+                    >
+                      Retry Refresh
+                    </Button>
+                  </div>
+                ) : (
+                  <div>
+                    Refreshing latest server state before allowing any retry...
+                  </div>
+                )
+              ) : interruptedSaveReview.status === "list_refreshed" ? (
+                <>
+                  <div>
+                    Your draft creation was interrupted by session revalidation
+                    and may already exist on the server. The sessions list has
+                    been refreshed — check whether it was created before
+                    retrying.
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="primary"
+                      data-testid="acknowledge-interrupted-session-create-btn"
+                      onClick={() => setInterruptedSaveReview(null)}
+                    >
+                      I Reviewed the List — Enable Retry
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={closeDrawer}
+                    >
+                      Close Drawer
+                    </Button>
+                  </div>
+                </>
+              ) : interruptedSaveReview.status === "failed" ? (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span>
+                    Could not refresh the sessions list after revalidation.
+                    Retry refresh before submitting again.
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    data-testid="retry-interrupted-session-refresh-btn"
+                    onClick={() => void handleRetryInterruptedSaveRefresh()}
+                  >
+                    Retry Refresh
+                  </Button>
+                </div>
+              ) : (
+                <div>
+                  Refreshing the sessions list to check whether your draft was
+                  created...
+                </div>
+              )}
+            </div>
+          ) : null}
+
           {staleConflict ? (
             <div
               role="alert"
@@ -1151,8 +1794,8 @@ export function AdminTrainingSessionsTab({
                   style={{ display: "flex", flexDirection: "column", gap: 8 }}
                 >
                   <div style={{ color: "#991B1B", fontWeight: 600 }}>
-                    This training session is no longer available in the
-                    refreshed session list and cannot be saved from this editor.
+                    This training session is no longer available and cannot be
+                    saved from this editor.
                   </div>
                   <div style={{ color: "#92400E" }}>
                     Your attempted edits (Name:{" "}
@@ -1257,9 +1900,11 @@ export function AdminTrainingSessionsTab({
               <select
                 id="session-programme-id"
                 value={form.programmeId}
-                disabled={selectorsLoading}
+                disabled={saving || selectorsLoading}
                 onChange={(e) => updateFormField("programmeId", e.target.value)}
-                style={selectorsLoading ? disabledFieldStyle : fieldStyle}
+                style={
+                  saving || selectorsLoading ? disabledFieldStyle : fieldStyle
+                }
               >
                 <option value="">
                   {selectorsLoading
@@ -1313,11 +1958,13 @@ export function AdminTrainingSessionsTab({
               id="session-name"
               type="text"
               maxLength={180}
-              disabled={isPublishedEdit}
+              disabled={saving || isPublishedEdit}
               value={form.name}
               onChange={(e) => updateFormField("name", e.target.value)}
               placeholder="e.g. Ages 10–12 Saturday Cohort"
-              style={isPublishedEdit ? disabledFieldStyle : fieldStyle}
+              style={
+                saving || isPublishedEdit ? disabledFieldStyle : fieldStyle
+              }
             />
             {fieldErrors.name ? (
               <div
@@ -1347,9 +1994,11 @@ export function AdminTrainingSessionsTab({
                 <select
                   id="session-venue-id"
                   value={form.venueId}
-                  disabled={selectorsLoading}
+                  disabled={saving || selectorsLoading}
                   onChange={(e) => updateFormField("venueId", e.target.value)}
-                  style={selectorsLoading ? disabledFieldStyle : fieldStyle}
+                  style={
+                    saving || selectorsLoading ? disabledFieldStyle : fieldStyle
+                  }
                 >
                   <option value="">
                     {selectorsLoading
@@ -1386,10 +2035,11 @@ export function AdminTrainingSessionsTab({
                 type="number"
                 min={editingSession?.seatCounts.CONFIRMED ?? 1}
                 max={10000}
+                disabled={saving}
                 value={form.capacity}
                 onChange={(e) => updateFormField("capacity", e.target.value)}
                 placeholder="e.g. 20"
-                style={fieldStyle}
+                style={saving ? disabledFieldStyle : fieldStyle}
               />
               {fieldErrors.capacity ? (
                 <div
@@ -1414,12 +2064,13 @@ export function AdminTrainingSessionsTab({
               id="session-coach-name"
               type="text"
               maxLength={120}
+              disabled={saving}
               value={form.coachDisplayName}
               onChange={(e) =>
                 updateFormField("coachDisplayName", e.target.value)
               }
               placeholder="Leave blank if unassigned in draft"
-              style={fieldStyle}
+              style={saving ? disabledFieldStyle : fieldStyle}
             />
             {fieldErrors.coachDisplayName ? (
               <div
@@ -1444,10 +2095,12 @@ export function AdminTrainingSessionsTab({
               </label>
               <select
                 id="session-weekday"
-                disabled={isPublishedEdit}
+                disabled={saving || isPublishedEdit}
                 value={form.weekday}
                 onChange={(e) => updateFormField("weekday", e.target.value)}
-                style={isPublishedEdit ? disabledFieldStyle : fieldStyle}
+                style={
+                  saving || isPublishedEdit ? disabledFieldStyle : fieldStyle
+                }
               >
                 <option value="">Not set</option>
                 {ISO_WEEKDAY_OPTIONS.map((opt) => (
@@ -1477,10 +2130,12 @@ export function AdminTrainingSessionsTab({
               <input
                 id="session-start-time"
                 type="time"
-                disabled={isPublishedEdit}
+                disabled={saving || isPublishedEdit}
                 value={form.startTime}
                 onChange={(e) => updateFormField("startTime", e.target.value)}
-                style={isPublishedEdit ? disabledFieldStyle : fieldStyle}
+                style={
+                  saving || isPublishedEdit ? disabledFieldStyle : fieldStyle
+                }
               />
               {fieldErrors.startTime ? (
                 <div
@@ -1503,10 +2158,12 @@ export function AdminTrainingSessionsTab({
               <input
                 id="session-end-time"
                 type="time"
-                disabled={isPublishedEdit}
+                disabled={saving || isPublishedEdit}
                 value={form.endTime}
                 onChange={(e) => updateFormField("endTime", e.target.value)}
-                style={isPublishedEdit ? disabledFieldStyle : fieldStyle}
+                style={
+                  saving || isPublishedEdit ? disabledFieldStyle : fieldStyle
+                }
               />
               {fieldErrors.endTime ? (
                 <div
@@ -1537,12 +2194,14 @@ export function AdminTrainingSessionsTab({
               <input
                 id="session-first-date"
                 type="date"
-                disabled={isPublishedEdit}
+                disabled={saving || isPublishedEdit}
                 value={form.firstSessionDate}
                 onChange={(e) =>
                   updateFormField("firstSessionDate", e.target.value)
                 }
-                style={isPublishedEdit ? disabledFieldStyle : fieldStyle}
+                style={
+                  saving || isPublishedEdit ? disabledFieldStyle : fieldStyle
+                }
               />
               {fieldErrors.firstSessionDate ? (
                 <div
@@ -1564,10 +2223,12 @@ export function AdminTrainingSessionsTab({
               </label>
               <select
                 id="session-recurrence"
-                disabled={isPublishedEdit}
+                disabled={saving || isPublishedEdit}
                 value={form.recurrence}
                 onChange={(e) => updateFormField("recurrence", e.target.value)}
-                style={isPublishedEdit ? disabledFieldStyle : fieldStyle}
+                style={
+                  saving || isPublishedEdit ? disabledFieldStyle : fieldStyle
+                }
               >
                 <option value="">Not set</option>
                 {SESSION_RECURRENCE_OPTIONS.map((opt) => (
@@ -1604,12 +2265,14 @@ export function AdminTrainingSessionsTab({
               </label>
               <select
                 id="session-age-rule"
-                disabled={isPublishedEdit}
+                disabled={saving || isPublishedEdit}
                 value={form.ageReferenceRule}
                 onChange={(e) =>
                   updateFormField("ageReferenceRule", e.target.value)
                 }
-                style={isPublishedEdit ? disabledFieldStyle : fieldStyle}
+                style={
+                  saving || isPublishedEdit ? disabledFieldStyle : fieldStyle
+                }
               >
                 <option value="">Not set</option>
                 {AGE_REFERENCE_RULE_OPTIONS.map((opt) => (
@@ -1640,12 +2303,14 @@ export function AdminTrainingSessionsTab({
                 <input
                   id="session-age-ref-date"
                   type="date"
-                  disabled={isPublishedEdit}
+                  disabled={saving || isPublishedEdit}
                   value={form.ageReferenceDate}
                   onChange={(e) =>
                     updateFormField("ageReferenceDate", e.target.value)
                   }
-                  style={isPublishedEdit ? disabledFieldStyle : fieldStyle}
+                  style={
+                    saving || isPublishedEdit ? disabledFieldStyle : fieldStyle
+                  }
                 />
                 {fieldErrors.ageReferenceDate ? (
                   <div
@@ -1677,11 +2342,12 @@ export function AdminTrainingSessionsTab({
               <input
                 id="session-opens-at"
                 type="datetime-local"
+                disabled={saving}
                 value={form.enrollmentOpensAt}
                 onChange={(e) =>
                   updateFormField("enrollmentOpensAt", e.target.value)
                 }
-                style={fieldStyle}
+                style={saving ? disabledFieldStyle : fieldStyle}
               />
               {fieldErrors.enrollmentOpensAt ? (
                 <div
@@ -1704,11 +2370,12 @@ export function AdminTrainingSessionsTab({
               <input
                 id="session-closes-at"
                 type="datetime-local"
+                disabled={saving}
                 value={form.enrollmentClosesAt}
                 onChange={(e) =>
                   updateFormField("enrollmentClosesAt", e.target.value)
                 }
-                style={fieldStyle}
+                style={saving ? disabledFieldStyle : fieldStyle}
               />
               {fieldErrors.enrollmentClosesAt ? (
                 <div
@@ -1738,7 +2405,11 @@ export function AdminTrainingSessionsTab({
               type="submit"
               variant="primary"
               data-testid="save-session-btn"
-              disabled={saving || Boolean(staleConflict)}
+              disabled={
+                saving ||
+                Boolean(staleConflict) ||
+                Boolean(interruptedSaveReview)
+              }
             >
               {saving
                 ? "Saving..."
