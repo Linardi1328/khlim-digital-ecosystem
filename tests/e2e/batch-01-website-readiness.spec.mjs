@@ -114,9 +114,13 @@ test.describe("Batch 01: Visual assets, Contact upgrade, and Programmes resilien
     page,
   }) => {
     let mode = "slow_fail";
+    let releaseSlowFail;
+    const slowFailGate = new Promise((resolve) => {
+      releaseSlowFail = resolve;
+    });
     await page.route("**/academy/offerings", async (route) => {
       if (mode === "slow_fail") {
-        await new Promise((r) => setTimeout(r, 350));
+        await slowFailGate;
         await route.fulfill({
           status: 503,
           contentType: "application/json",
@@ -169,10 +173,11 @@ test.describe("Batch 01: Visual assets, Contact upgrade, and Programmes resilien
 
     const catalogue = page.locator("#programmes");
 
-    // Distinct loading state
+    // Distinct loading state (held deterministically until asserted)
     await expect(
       catalogue.getByTestId("programmes-state-loading"),
     ).toBeVisible();
+    releaseSlowFail();
 
     // Distinct unavailable state + useful Academy pathway (single canonical U9/U12/U15, zero duplication)
     await expect(
