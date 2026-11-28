@@ -22,15 +22,20 @@ import { useAnalyticsConsent } from "../../lib/analytics-consent";
 import { PublicFooter } from "../../components/layout/public-footer";
 import { PublicHeader } from "../../components/layout/public-header";
 import { TrainingSessionsSection } from "../../components/academy/training-sessions-section";
+import { ProgrammeCatalogueSection } from "../../components/academy/programme-catalogue-section";
 import type { AcademyAvailabilityState } from "../../components/academy/published-registration-sessions";
+import { Alert } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { getButtonStyles } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
 import { canRenderYouthMedia } from "../../lib/editorial-content";
+import { resolveLocalVisualReviewImageUrl } from "../../lib/local-visual-review-media";
+import { useLocalVisualReviewEnabled } from "../../lib/use-local-visual-review";
 import { useI18n } from "../../lib/i18n-context";
 
 function AcademyContent() {
   const { t } = useI18n();
+  const localVisualReviewEnabled = useLocalVisualReviewEnabled();
   const searchParams = useSearchParams();
   const queryCampaign = useMemo(
     () => getQueryCampaignSource(searchParams),
@@ -250,12 +255,9 @@ function AcademyContent() {
                 >
                   {t("academy.trainingSessionsCta")}
                 </a>
-                <Link
-                  href={buildUrlWithSource("/programmes", campaignSource)}
-                  style={getButtonStyles("outline", "lg")}
-                >
+                <a href="#programmes" style={getButtonStyles("outline", "lg")}>
                   {t("academy.programmesCta")}
-                </Link>
+                </a>
               </>
             )}
           </div>
@@ -269,8 +271,12 @@ function AcademyContent() {
         />
 
         {/* U9 / U12 / U15 Development Pathway */}
-        <section style={{ marginBottom: 52 }}>
-          <div style={{ textAlign: "center", marginBottom: 32 }}>
+        <section
+          id="development-pathway"
+          data-testid="academy-pathway-overview"
+          style={{ marginBottom: 52 }}
+        >
+          <div style={{ textAlign: "center", marginBottom: 24 }}>
             <span
               style={{
                 color: "#b45309",
@@ -301,6 +307,11 @@ function AcademyContent() {
             >
               {t("academy.pathway.subtitle")}
             </p>
+          </div>
+          <div style={{ maxWidth: 860, margin: "0 auto 24px" }}>
+            <Alert variant="info" role="note">
+              {t("programmes.pathway.disclaimer")}
+            </Alert>
           </div>
           <div
             style={{
@@ -366,6 +377,9 @@ function AcademyContent() {
           </div>
         </section>
 
+        {/* Live Authoritative Programme Catalogue */}
+        <ProgrammeCatalogueSection campaignSource={campaignSource} />
+
         {/* Existing Truthful Trust Signals */}
         <section style={{ marginBottom: 52 }}>
           <div
@@ -423,32 +437,62 @@ function AcademyContent() {
           </div>
 
           <Card style={{ marginTop: 24, padding: 28 }}>
-            {/* Youth squad training photography renders only when youth media rights are explicitly confirmed */}
-            {canRenderYouthMedia({
-              imageUrl: "/media/khlim/training-group-1280.webp",
-              photoRightsVerified: true,
-            }) ? (
-              <div
-                style={{
-                  position: "relative",
-                  width: "100%",
-                  aspectRatio: "4 / 3",
-                  borderRadius: 12,
-                  overflow: "hidden",
-                  margin: "0 0 24px",
-                  border: "1px solid #e4e4e7",
-                  background: "#18181b",
-                }}
-              >
-                <Image
-                  src="/media/khlim/training-group-1280.webp"
-                  alt={t("academy.training.alt")}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 1100px"
-                  style={{ objectFit: "contain", objectPosition: "center" }}
-                />
-              </div>
-            ) : null}
+            {/* Youth squad training photography renders only when youth media rights are explicitly confirmed
+                (or during explicitly enabled localhost-only development visual review) */}
+            {(() => {
+              const showConsentedTrainingGroup = canRenderYouthMedia({
+                imageUrl: "/media/khlim/training-group-1280.webp",
+                photoRightsVerified: true,
+              });
+              const localReviewTrainingGroupUrl = showConsentedTrainingGroup
+                ? undefined
+                : resolveLocalVisualReviewImageUrl(
+                    "/media/khlim/training-group-1280.webp",
+                    localVisualReviewEnabled,
+                  );
+
+              if (!showConsentedTrainingGroup && !localReviewTrainingGroupUrl) {
+                return null;
+              }
+
+              return (
+                <div
+                  data-testid="academy-training-group-photo"
+                  style={{
+                    position: "relative",
+                    width: "100%",
+                    aspectRatio: "4 / 3",
+                    borderRadius: 12,
+                    overflow: "hidden",
+                    margin: "0 0 24px",
+                    border: "1px solid #e4e4e7",
+                    background: "#18181b",
+                  }}
+                >
+                  {showConsentedTrainingGroup ? (
+                    <Image
+                      src="/media/khlim/training-group-1280.webp"
+                      alt={t("academy.training.alt")}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 1100px"
+                      style={{ objectFit: "contain", objectPosition: "center" }}
+                    />
+                  ) : (
+                    <img
+                      src={localReviewTrainingGroupUrl}
+                      alt={t("academy.training.alt")}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "contain",
+                        objectPosition: "center",
+                        display: "block",
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            })()}
 
             <div
               data-testid="academy-training-fallback"
@@ -538,12 +582,9 @@ function AcademyContent() {
             >
               {t("academy.venues.body")}
             </p>
-            <Link
-              href={buildUrlWithSource("/programmes", campaignSource)}
-              style={getButtonStyles("outline", "md")}
-            >
+            <a href="#programmes" style={getButtonStyles("outline", "md")}>
               {t("academy.programmesCta")}
-            </Link>
+            </a>
           </Card>
         </section>
 

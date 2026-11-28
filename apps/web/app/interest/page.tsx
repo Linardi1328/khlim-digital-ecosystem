@@ -318,7 +318,10 @@ function InterestForm({
       : "/enrol",
     campaignSource,
   );
-  const programmesUrl = buildUrlWithSource("/programmes", campaignSource);
+  const programmesUrl = buildUrlWithSource(
+    "/academy#programmes",
+    campaignSource,
+  );
 
   return (
     <main

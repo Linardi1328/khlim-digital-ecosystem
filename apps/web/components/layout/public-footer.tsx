@@ -141,54 +141,6 @@ function PublicFooterView({
               margin: "0 0 16px",
             }}
           >
-            {t("nav.programmes")}
-          </h4>
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "10px",
-              fontSize: "0.875rem",
-            }}
-          >
-            <Link
-              href={buildUrlWithSource("/programmes", campaignSource)}
-              style={footerLinkStyle}
-            >
-              {t("footer.currentOfferings")}
-            </Link>
-            <Link
-              href={buildUrlWithSource("/interest", campaignSource)}
-              style={footerLinkStyle}
-            >
-              {t("nav.registerInterest")}
-            </Link>
-            {isFeatureAvailable("academyEnrolmentCheckout") ? (
-              <Link
-                href={buildUrlWithSource("/enrol", campaignSource)}
-                style={footerLinkStyle}
-              >
-                {t("footer.academyEnrolment")}
-              </Link>
-            ) : null}
-            <Link
-              href={buildUrlWithSource("/academy", campaignSource)}
-              style={footerLinkStyle}
-            >
-              {t("footer.academyApproach")}
-            </Link>
-          </div>
-        </div>
-
-        <div>
-          <h4
-            style={{
-              color: "#FFFFFF",
-              fontSize: "1rem",
-              fontWeight: 700,
-              margin: "0 0 16px",
-            }}
-          >
             {t("nav.academy")}
           </h4>
           <div
@@ -199,6 +151,12 @@ function PublicFooterView({
               fontSize: "0.875rem",
             }}
           >
+            <Link
+              href={buildUrlWithSource("/academy#programmes", campaignSource)}
+              style={footerLinkStyle}
+            >
+              {t("footer.currentOfferings")}
+            </Link>
             <Link
               href={buildUrlWithSource(
                 "/academy#training-sessions",
@@ -215,10 +173,24 @@ function PublicFooterView({
               {t("footer.developmentApproach")}
             </Link>
             <Link
-              href={buildUrlWithSource("/programmes", campaignSource)}
+              href={buildUrlWithSource("/interest", campaignSource)}
               style={footerLinkStyle}
             >
-              {t("footer.venuesTerms")}
+              {t("nav.registerInterest")}
+            </Link>
+            {isFeatureAvailable("academyEnrolmentCheckout") ? (
+              <Link
+                href={buildUrlWithSource("/enrol", campaignSource)}
+                style={footerLinkStyle}
+              >
+                {t("footer.academyEnrolment")}
+              </Link>
+            ) : null}
+            <Link
+              href={buildUrlWithSource("/spotlight", campaignSource)}
+              style={footerLinkStyle}
+            >
+              {t("nav.spotlight")}
             </Link>
             <Link
               href={buildUrlWithSource("/about", campaignSource)}

@@ -82,19 +82,21 @@ test("programme API failure shows retry instead of no offerings", async ({
   });
 
   await page.goto("/programmes", { waitUntil: "domcontentloaded" });
-  await expect(page.locator('main p[role="alert"]')).toContainText(
+  await expect(page).toHaveURL(/\/academy#programmes$/);
+  const catalogue = page.locator("#programmes");
+  await expect(catalogue.locator('p[role="alert"]')).toContainText(
     "Programme listings are temporarily unavailable.",
   );
   await expect(
-    page.getByText("No matching open programme offerings."),
+    catalogue.getByText("No matching open programme offerings."),
   ).toHaveCount(0);
 
   shouldFail = false;
-  await page.getByRole("button", { name: "Try Again" }).click();
+  await catalogue.getByRole("button", { name: "Try Again" }).click();
   await expect(
-    page.getByText("No matching open programme offerings."),
+    catalogue.getByText("No matching open programme offerings."),
   ).toBeVisible();
-  await expect(page.locator('main p[role="alert"]')).toHaveCount(0);
+  await expect(catalogue.locator('p[role="alert"]')).toHaveCount(0);
 });
 
 test("programme outage error follows selected locale", async ({ page }) => {
@@ -102,12 +104,13 @@ test("programme outage error follows selected locale", async ({ page }) => {
     route.fulfill({ status: 503, body: "unavailable" }),
   );
   await page.goto("/programmes", { waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(/\/academy#programmes$/);
   await visibleLocaleSwitcher(page).selectOption("ms");
-  await expect(page.locator('main p[role="alert"]')).toContainText(
+  await expect(page.locator('#programmes p[role="alert"]')).toContainText(
     "Senarai program tidak dapat dimuatkan",
   );
   await visibleLocaleSwitcher(page).selectOption("zh-Hans");
-  await expect(page.locator('main p[role="alert"]')).toContainText(
+  await expect(page.locator('#programmes p[role="alert"]')).toContainText(
     "暂时无法加载课程列表。",
   );
 });
@@ -125,7 +128,7 @@ test("homepage keeps academy actions primary without inactive carousel controls"
     }),
   ).toBeVisible();
   await expect(hero.locator('a[href="/interest"]')).toBeVisible();
-  await expect(hero.locator('a[href="/programmes"]')).toBeVisible();
+  await expect(hero.locator('a[href="/academy#programmes"]')).toBeVisible();
   await expect(hero.locator(".home-carousel-arrow")).toHaveCount(2);
   await expect(hero.locator(".home-carousel-dots button")).toHaveCount(4);
 });
@@ -314,9 +317,12 @@ test("desktop header navigation reaches core public pages", async ({
 
   await page.goto("/", { waitUntil: "domcontentloaded" });
 
+  await expect(
+    page.locator(".desktop-nav").getByRole("link", { name: "Programmes" }),
+  ).toHaveCount(0);
+
   for (const [label, path] of [
     ["Academy", "/academy"],
-    ["Programmes", "/programmes"],
     ["Spotlight", "/spotlight"],
     ["About", "/about"],
     ["Contact", "/contact"],
@@ -362,9 +368,10 @@ test("public navigation highlights its current page even with tracking queries",
   await page.goto("/programmes?utm_source=academy", {
     waitUntil: "domcontentloaded",
   });
+  await expect(page).toHaveURL(/\/academy\?utm_source=academy#programmes$/);
   const current = page
     .locator(".desktop-nav")
-    .getByRole("link", { name: "Programmes" });
+    .getByRole("link", { name: "Academy" });
   await expect(current).toHaveAttribute("aria-current", "page");
   await expect(page.locator('.desktop-nav a[aria-current="page"]')).toHaveCount(
     1,
@@ -533,16 +540,13 @@ test("public journey retains 3x3-oct24 attribution through rendered Home -> Acad
   await expect(page).toHaveURL(/\/academy/);
   expect(new URL(page.url()).searchParams.get("source")).toBe("3x3-oct24");
 
-  // 2. On Academy, navigate to Programmes via rendered CTA
-  const programmesLink = page
-    .locator('main a[href*="/programmes"]:visible')
-    .first();
-  await expect(programmesLink).toBeVisible();
-  await programmesLink.click();
-  await expect(page).toHaveURL(/\/programmes/);
+  // 2. On Academy, verify integrated #programmes catalogue section is present and retains attribution
+  const programmesSection = page.locator("#programmes");
+  await programmesSection.scrollIntoViewIfNeeded();
+  await expect(programmesSection).toBeVisible();
   expect(new URL(page.url()).searchParams.get("source")).toBe("3x3-oct24");
 
-  // 3. On Programmes, click Register Interest via rendered offering CTA
+  // 3. On Academy, click Register Interest via rendered CTA
   const interestLink = page
     .locator('main a[href*="/interest"]:visible')
     .first();
@@ -570,13 +574,13 @@ test("about page preserves 3x3-oct24 campaign attribution across header links an
     "source=3x3-oct24",
   );
 
-  // 2. Navigate to Programmes via rendered About CTA
+  // 2. Navigate to consolidated Academy programmes section via rendered About CTA
   const programmesCta = page
-    .locator('main a[href*="/programmes"]:visible')
+    .locator('main a[href*="/academy"][href*="#programmes"]:visible')
     .first();
   await expect(programmesCta).toBeVisible();
   await programmesCta.click();
-  await expect(page).toHaveURL(/\/programmes/);
+  await expect(page).toHaveURL(/\/academy\?source=3x3-oct24#programmes$/);
   expect(new URL(page.url()).searchParams.get("source")).toBe("3x3-oct24");
 });
 

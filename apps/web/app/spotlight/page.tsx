@@ -29,6 +29,8 @@ import {
   fetchPublishedAchievements,
   fetchPublishedSpotlights,
 } from "../../lib/editorial-api";
+import { resolveLocalVisualReviewImageUrl } from "../../lib/local-visual-review-media";
+import { useLocalVisualReviewEnabled } from "../../lib/use-local-visual-review";
 import { useI18n } from "../../lib/i18n-context";
 
 // Only Vercel-authenticated preview deployments can show internal review media.
@@ -90,6 +92,7 @@ function AchievementCard({ story: rawStory }: { story: AchievementStory }) {
 
 function SpotlightArchiveContent() {
   const { t } = useI18n();
+  const localVisualReviewEnabled = useLocalVisualReviewEnabled();
   const searchParams = useSearchParams();
   const queryCampaign = useMemo(
     () => getQueryCampaignSource(searchParams),
@@ -489,10 +492,18 @@ function SpotlightArchiveContent() {
             {clubEventGallery.map((rawItem) => {
               const item = localizeClubGalleryItem(rawItem, t);
               const showImage = canRenderYouthMedia(item);
+              const localReviewImageUrl = showImage
+                ? undefined
+                : resolveLocalVisualReviewImageUrl(
+                    item.imageUrl,
+                    localVisualReviewEnabled,
+                  );
+              const hasRenderedPhoto =
+                showImage || Boolean(localReviewImageUrl);
               return (
                 <figure key={item.id} className="spotlight-gallery-card">
                   <div
-                    className={`spotlight-gallery-image-wrapper${showImage ? " spotlight-gallery-image-wrapper--photo" : " spotlight-gallery-image-wrapper--placeholder"}`}
+                    className={`spotlight-gallery-image-wrapper${hasRenderedPhoto ? " spotlight-gallery-image-wrapper--photo" : " spotlight-gallery-image-wrapper--placeholder"}`}
                   >
                     {showImage ? (
                       <a
@@ -504,6 +515,22 @@ function SpotlightArchiveContent() {
                       >
                         <img
                           src={item.imageUrl}
+                          alt={item.photoLabel}
+                          className="spotlight-gallery-photo"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      </a>
+                    ) : localReviewImageUrl ? (
+                      <a
+                        href={localReviewImageUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={item.photoLabel}
+                        className="spotlight-gallery-photo-link"
+                      >
+                        <img
+                          src={localReviewImageUrl}
                           alt={item.photoLabel}
                           className="spotlight-gallery-photo"
                           loading="lazy"

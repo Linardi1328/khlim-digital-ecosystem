@@ -67,7 +67,7 @@ test("public surfaces use the committed official academy logo without build-time
   assert.match(logo, /KHLIM Sports Academy/);
   assert.match(logo, /onError=\{\(\) => setImageFailed\(true\)\}/);
   assert.equal(manifest.scripts.build, "next build");
-  assert.equal(manifest.scripts.dev, "next dev");
+  assert.equal(manifest.scripts.dev, "next dev -H 127.0.0.1");
   assert.equal(manifest.scripts.start, "next start");
   assert.doesNotMatch(nextConfig, /khs-academy-logo/);
   assert.doesNotMatch(nextConfig, /writeFileSync|readFileSync|data:image/);
