@@ -397,7 +397,7 @@ function LeadsInboxContent() {
             handleSelectLead(lead);
           }}
         >
-          Manage
+          View &amp; Manage
         </Button>
       ),
     },
