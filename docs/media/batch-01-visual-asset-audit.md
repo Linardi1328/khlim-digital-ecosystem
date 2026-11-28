@@ -15,7 +15,7 @@
 
 A full inventory comparing the current website (`9be0f275`) against historical visual revisions (`b97d26d`, `16e8778`, `da0c9d7`) and `media/RIGHTS-MANIFEST.md` confirms:
 
-1. **All 20 individually approved public web visual assets** (official brand logos/crests, 4 adult coach portraits, and 3 KHero mascot illustrations) are present in `apps/web/public/`, pinned by exact SHA-256 in `tests/public-media-allowlist.test.mjs`, and actively rendered in their original placements with zero broken image requests.
+1. **All 20 individually approved public web visual assets** (official brand logos/crests, 4 adult coach portraits, and 3 KHero mascot illustrations) are present in `apps/web/public/` and pinned by exact SHA-256 in `tests/public-media-allowlist.test.mjs`. Of these 20 allowlisted files, **11 are actively rendered** in their original public placements (`/khs-academy-logo.webp`, 3 brand crests, 4 adult coach portraits, and 3 KHero posters) with zero broken image requests, while **9 are allowlisted and preserved** (`media/brand/khs-academy-mark.webp` and 8 legacy `media/khlim/` aliases documented in `docs/media/asset-manifest.md`).
 2. **32 restricted youth photographs (identifiable minors)** were removed from `apps/web/public/` in PR #129 (`3470201`) because they lack documented individual guardian publication consent and approved private/access-controlled storage. Their restoration to the public website is **blocked by missing privacy permissions and unprovisioned controlled storage**. They are **not** restored to `apps/web/public/` and `APPROVED_YOUTH_MEDIA` is **not** bypassed.
 3. **1 unverified KHero placeholder file** (`apps/web/public/media/khero/coming-soon.webp`) has no rights record and is unused on the live site; it remains removed.
 4. **1 admin console logo derivative** (`apps/admin/public/khs-academy-logo.webp`, no people) remains retained in the SHA-256 allowlist pending owner confirmation.
@@ -82,5 +82,10 @@ When the owner completes guardian consent collection and provisions authorized p
 
 1. Extract only individually consented image blobs from commit `da0c9d72912bcd6a3ab238cdfbb122a21434d3c2` into the authorized private storage bucket (never into `apps/web/public/`).
 2. Store signed guardian consent records privately in KHLIM business files (never in this repository).
-3. Add each consented asset's private/signed URL, non-sensitive `consentRef`, `"website"` channel, and `reviewBy` ISO date to `APPROVED_YOUTH_MEDIA` in `apps/web/lib/editorial-content.ts`.
-4. Enable `NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED=1` in the authorized deployment environment.
+3. Add each consented asset's controlled-storage URL, non-sensitive `consentRef`, `"website"` channel, and `reviewBy` ISO date to `APPROVED_YOUTH_MEDIA` in `apps/web/lib/editorial-content.ts`:
+   - **URL validity & expiry policy:** `canRenderYouthMedia()` validates the exact URL, `consentRef`, `"website"` channel, and `reviewBy`, and does **not** parse signed-URL expiry timestamps. Any registered URL must either remain valid through the full `reviewBy` date (e.g., via a stable access-controlled media origin or signed-on-request endpoint) or be rotated and re-registered in `APPROVED_YOUTH_MEDIA` by the KHLIM website operator/engineering maintainer prior to URL expiry. Whenever a time-limited signed URL expires earlier than `reviewBy`, **the earlier of URL expiry and `reviewBy` controls availability** — short-lived signed URLs must not be hardcoded into `APPROVED_YOUTH_MEDIA` without an explicit rotation schedule.
+4. Update every restored placement to pass the exact shared registered URL from `APPROVED_YOUTH_MEDIA` into both `canRenderYouthMedia()` and the rendered image source (replacing removed `/media/...` public-path literals so the gate and image source always share one value):
+   - `apps/web/app/academy/page.tsx`: pass the shared registered URL to `canRenderYouthMedia()` and `<Image src>` for the training-group showcase.
+   - `apps/web/app/page.tsx`: pass the shared registered URLs to `canRenderYouthMedia()` and the hero slide `imageUrl` / `imageUrlMobile` fields.
+   - `apps/web/lib/editorial-content.ts`: update each consented story/gallery item's `imageUrl` to match its exact `APPROVED_YOUTH_MEDIA` entry.
+5. Enable `NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED=1` in the authorized deployment environment.

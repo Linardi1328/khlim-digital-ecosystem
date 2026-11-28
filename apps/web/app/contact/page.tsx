@@ -13,10 +13,12 @@ import {
   getPublicBusinessDetails,
 } from "../../lib/business-details";
 import {
+  CONTACT_EMAIL_BODY_MAX_LENGTH,
   CONTACT_EMAIL_MAX_LENGTH,
   CONTACT_ENQUIRY_CATEGORIES,
   CONTACT_MESSAGE_MAX_LENGTH,
   CONTACT_NAME_MAX_LENGTH,
+  CONTACT_WHATSAPP_BODY_MAX_LENGTH,
   buildWhatsAppDirectUrl,
   buildWhatsAppEnquiryUrl,
   formatWhatsAppDisplayNumber,
@@ -110,13 +112,25 @@ function ContactContent() {
   const emailInputValid = !cleanEmail || isValidContactEmail(cleanEmail);
 
   const whatsappDraftText = useMemo(() => {
-    if (!privacyConsent || !cleanName || !cleanMessage) return "";
-    return t("contact.whatsappMessage", {
-      category: selectedCategoryLabel,
-      name: cleanName,
-      message: cleanMessage,
-    });
-  }, [privacyConsent, cleanName, cleanMessage, selectedCategoryLabel, t]);
+    if (!hasWhatsApp || !privacyConsent || !cleanName || !cleanMessage) {
+      return "";
+    }
+    return sanitizeMultilineContactText(
+      t("contact.whatsappMessage", {
+        category: selectedCategoryLabel,
+        name: cleanName,
+        message: cleanMessage,
+      }),
+      CONTACT_WHATSAPP_BODY_MAX_LENGTH,
+    );
+  }, [
+    hasWhatsApp,
+    privacyConsent,
+    cleanName,
+    cleanMessage,
+    selectedCategoryLabel,
+    t,
+  ]);
 
   const whatsappEnquiryUrl = useMemo(
     () =>
@@ -129,18 +143,25 @@ function ContactContent() {
   );
 
   const emailSubject = useMemo(() => {
-    if (!privacyConsent || !cleanName || !cleanMessage) return "";
+    if (!hasEmail || !privacyConsent || !cleanName || !cleanMessage) return "";
     return sanitizeSingleLineContactText(
       t("contact.emailSubject", {
         category: selectedCategoryLabel,
         name: cleanName,
       }),
-      200,
+      240,
     );
-  }, [privacyConsent, cleanName, cleanMessage, selectedCategoryLabel, t]);
+  }, [
+    hasEmail,
+    privacyConsent,
+    cleanName,
+    cleanMessage,
+    selectedCategoryLabel,
+    t,
+  ]);
 
   const emailBody = useMemo(() => {
-    if (!privacyConsent || !cleanName || !cleanMessage) return "";
+    if (!hasEmail || !privacyConsent || !cleanName || !cleanMessage) return "";
     return sanitizeMultilineContactText(
       t("contact.emailBody", {
         category: selectedCategoryLabel,
@@ -148,9 +169,10 @@ function ContactContent() {
         email: cleanEmail || t("contact.emailNotProvided"),
         message: cleanMessage,
       }),
-      CONTACT_MESSAGE_MAX_LENGTH + 400,
+      CONTACT_EMAIL_BODY_MAX_LENGTH,
     );
   }, [
+    hasEmail,
     privacyConsent,
     cleanName,
     cleanEmail,
@@ -685,24 +707,86 @@ function ContactContent() {
                         >
                           {t("contact.previewNote")}
                         </p>
-                        <pre
-                          data-testid="contact-generated-preview-text"
+                        <div
                           style={{
-                            margin: 0,
-                            padding: 12,
-                            borderRadius: 8,
-                            backgroundColor: "#FFFFFF",
-                            border: "1px solid #FDE68A",
-                            color: "#18181B",
-                            fontSize: "0.84rem",
-                            lineHeight: 1.55,
-                            whiteSpace: "pre-wrap",
-                            wordBreak: "break-word",
-                            fontFamily: "inherit",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 10,
                           }}
                         >
-                          {whatsappDraftText || emailBody}
-                        </pre>
+                          {hasWhatsApp && whatsappDraftText ? (
+                            <div>
+                              {hasEmail ? (
+                                <div
+                                  style={{
+                                    fontSize: "0.75rem",
+                                    fontWeight: 700,
+                                    color: "#78350F",
+                                    marginBottom: 4,
+                                  }}
+                                >
+                                  {t("contact.whatsappChannelTitle")}
+                                </div>
+                              ) : null}
+                              <pre
+                                data-testid="contact-generated-preview-text"
+                                style={{
+                                  margin: 0,
+                                  padding: 12,
+                                  borderRadius: 8,
+                                  backgroundColor: "#FFFFFF",
+                                  border: "1px solid #FDE68A",
+                                  color: "#18181B",
+                                  fontSize: "0.84rem",
+                                  lineHeight: 1.55,
+                                  whiteSpace: "pre-wrap",
+                                  wordBreak: "break-word",
+                                  fontFamily: "inherit",
+                                }}
+                              >
+                                {whatsappDraftText}
+                              </pre>
+                            </div>
+                          ) : null}
+                          {hasEmail && emailBody ? (
+                            <div>
+                              {hasWhatsApp ? (
+                                <div
+                                  style={{
+                                    fontSize: "0.75rem",
+                                    fontWeight: 700,
+                                    color: "#78350F",
+                                    marginBottom: 4,
+                                  }}
+                                >
+                                  {t("contact.emailChannelTitle")}
+                                </div>
+                              ) : null}
+                              <pre
+                                data-testid={
+                                  hasWhatsApp
+                                    ? "contact-generated-email-preview-text"
+                                    : "contact-generated-preview-text"
+                                }
+                                style={{
+                                  margin: 0,
+                                  padding: 12,
+                                  borderRadius: 8,
+                                  backgroundColor: "#FFFFFF",
+                                  border: "1px solid #FDE68A",
+                                  color: "#18181B",
+                                  fontSize: "0.84rem",
+                                  lineHeight: 1.55,
+                                  whiteSpace: "pre-wrap",
+                                  wordBreak: "break-word",
+                                  fontFamily: "inherit",
+                                }}
+                              >
+                                {emailBody}
+                              </pre>
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
                     ) : null}
 
@@ -877,7 +961,7 @@ function ContactContent() {
                     </a>
                   </div>
                 ) : null}
-                {business.email ? (
+                {hasEmail && business.email ? (
                   <div>
                     {t("compliance.footer.emailLabel")}:{" "}
                     <a

@@ -218,6 +218,21 @@ function ProgrammesContent() {
           aria-label={t("programmes.catalogue")}
           data-testid="programmes-live-catalogue"
         >
+          <div
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            className="sr-only"
+            data-testid="programmes-live-status"
+          >
+            {loading
+              ? t("programmes.loadingCurrent")
+              : loadError
+                ? t("programmes.catalogueLoadError")
+                : visible.length === 0
+                  ? t("programmes.noMatching")
+                  : ""}
+          </div>
           {levels.length > 1 ? (
             <div
               style={{

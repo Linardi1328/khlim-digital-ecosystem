@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import {
+  CONTACT_EMAIL_BODY_MAX_LENGTH,
   CONTACT_EMAIL_MAX_LENGTH,
   CONTACT_ENQUIRY_CATEGORIES,
   CONTACT_MESSAGE_MAX_LENGTH,
@@ -9,6 +10,7 @@ import {
   buildEmailEnquiryUrl,
   buildWhatsAppDirectUrl,
   buildWhatsAppEnquiryUrl,
+  encodeMailtoRecipient,
   formatWhatsAppDisplayNumber,
   getConfiguredOfficialWhatsAppRaw,
   isValidContactEmail,
@@ -137,19 +139,26 @@ test("WhatsApp and email enquiry URL builders require privacy acknowledgement an
   assert.ok(!mailUrl.includes("& #3"));
   assert.ok(mailUrl.includes("%26%20%233"));
 
-  // Email validation rejects header injection
+  // Email validation rejects header injection and RFC 6068 URI delimiters
   assert.equal(isValidContactEmail("enquiry@khlim.test"), true);
   assert.equal(
     isValidContactEmail("enquiry@khlim.test\r\nBcc:evil@x.test"),
     false,
   );
+  assert.equal(isValidContactEmail("academy?team@example.com"), false);
+  assert.equal(isValidContactEmail("academy#team@example.com"), false);
   assert.equal(isValidContactEmail("not-an-email"), false);
+  assert.equal(
+    encodeMailtoRecipient("academy?team@example.com"),
+    "academy%3Fteam@example.com",
+  );
 });
 
-test("contact input sanitizers strip control characters and enforce length bounds", () => {
+test("contact sanitizers keep surrogate pairs intact and preserve full max-length email bodies", () => {
   assert.equal(CONTACT_NAME_MAX_LENGTH, 100);
   assert.equal(CONTACT_EMAIL_MAX_LENGTH, 254);
   assert.equal(CONTACT_MESSAGE_MAX_LENGTH, 1000);
+  assert.ok(CONTACT_EMAIL_BODY_MAX_LENGTH >= 1600);
 
   assert.equal(
     sanitizeSingleLineContactText("  Alice\r\n\tTan\u0000  ", 50),
@@ -169,6 +178,36 @@ test("contact input sanitizers strip control characters and enforce length bound
       .length,
     1000,
   );
+
+  // Surrogate-pair boundary safety: 999 ASCII chars + 2-code-unit emoji must not leave a lone surrogate
+  const boundaryInput = `${"x".repeat(999)}🏀`;
+  const bounded = sanitizeMultilineContactText(
+    boundaryInput,
+    CONTACT_MESSAGE_MAX_LENGTH,
+  );
+  assert.equal(bounded.length, 999);
+  assert.doesNotThrow(() => encodeURIComponent(bounded));
+
+  // Lone surrogates are stripped cleanly before URL encoding
+  const loneSurrogate = `Hello \uD83D world \uDC00 end`;
+  const cleanedLone = sanitizeSingleLineContactText(loneSurrogate, 100);
+  assert.doesNotThrow(() => encodeURIComponent(cleanedLone));
+
+  // Full max-length name + email + message + longest category preserves entire message
+  const maxName = "N".repeat(CONTACT_NAME_MAX_LENGTH);
+  const maxEmail = `${"e".repeat(60)}@${"d".repeat(180)}.example.com`;
+  const maxMessage = `${"m".repeat(990)}END_MARKER`;
+  const fullBody = `Category: Training programmes and schedules\nName: ${maxName}\nEmail: ${maxEmail}\n\n${maxMessage}`;
+  const fullMailUrl = buildEmailEnquiryUrl({
+    recipientEmail: "enquiry@khlim.test",
+    privacyAcknowledged: true,
+    subject: `[Training programmes and schedules] KHLIM Academy enquiry from ${maxName}`,
+    body: fullBody,
+  });
+  assert.ok(fullMailUrl);
+  const decodedBody = decodeURIComponent(fullMailUrl.split("&body=")[1]);
+  assert.ok(decodedBody.endsWith("END_MARKER"));
+  assert.equal(decodedBody, fullBody);
 });
 
 test("all 6 contact categories and new contact/programmes keys exist across all 5 locales", () => {

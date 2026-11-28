@@ -24,9 +24,72 @@ export type ContactEnquiryCategory =
 export const CONTACT_NAME_MAX_LENGTH = 100;
 export const CONTACT_EMAIL_MAX_LENGTH = 254;
 export const CONTACT_MESSAGE_MAX_LENGTH = 1000;
+/** Aggregate bounds cover fixed localized templates + longest category + full field limits. */
+export const CONTACT_WHATSAPP_BODY_MAX_LENGTH =
+  CONTACT_MESSAGE_MAX_LENGTH + CONTACT_NAME_MAX_LENGTH + 300;
+export const CONTACT_EMAIL_BODY_MAX_LENGTH =
+  CONTACT_MESSAGE_MAX_LENGTH +
+  CONTACT_NAME_MAX_LENGTH +
+  CONTACT_EMAIL_MAX_LENGTH +
+  300;
 
 const ALLOWED_RAW_PHONE_CHARS = /^[0-9+\s().-]+$/;
-const STRICT_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Disallow whitespace, control characters, and RFC 6068 URI delimiter characters (?, #, %, &)
+const STRICT_EMAIL_REGEX = /^[^\s@?#%&]+@[^\s@?#%&]+\.[^\s@?#%&]+$/;
+
+/**
+ * Removes any lone UTF-16 surrogates so `encodeURIComponent` can never throw `URIError`,
+ * and slices to at most `maxCodeUnits` without splitting a valid surrogate pair.
+ */
+function stripUnpairedSurrogatesAndTruncate(
+  value: string,
+  maxCodeUnits: number,
+): string {
+  let out = "";
+  let i = 0;
+  while (i < value.length && out.length < maxCodeUnits) {
+    const code = value.charCodeAt(i);
+    if (code >= 0xd800 && code <= 0xdbff) {
+      // High surrogate: keep only when paired with a following low surrogate and both fit.
+      if (i + 1 < value.length) {
+        const next = value.charCodeAt(i + 1);
+        if (next >= 0xdc00 && next <= 0xdfff) {
+          if (out.length + 2 > maxCodeUnits) {
+            break;
+          }
+          out += value.slice(i, i + 2);
+          i += 2;
+          continue;
+        }
+      }
+      // Drop lone high surrogate.
+      i += 1;
+      continue;
+    }
+    if (code >= 0xdc00 && code <= 0xdfff) {
+      // Drop lone low surrogate.
+      i += 1;
+      continue;
+    }
+    out += value.charAt(i);
+    i += 1;
+  }
+  return out;
+}
+
+/**
+ * Percent-encodes RFC 6068 reserved characters in a `mailto:` recipient while
+ * keeping the `@` separator intact.
+ */
+export function encodeMailtoRecipient(email: string): string {
+  const atIndex = email.lastIndexOf("@");
+  if (atIndex <= 0 || atIndex === email.length - 1) {
+    return encodeURIComponent(email);
+  }
+  const local = email.slice(0, atIndex);
+  const domain = email.slice(atIndex + 1);
+  return `${encodeURIComponent(local)}@${encodeURIComponent(domain)}`;
+}
 
 /**
  * Reads the dedicated official WhatsApp configuration without falling back to
@@ -131,7 +194,7 @@ export function sanitizeSingleLineContactText(
     .replace(/[\u0000-\u001F\u007F]/g, "")
     .replace(/\s{2,}/g, " ")
     .trim();
-  return cleaned.slice(0, maxLength);
+  return stripUnpairedSurrogatesAndTruncate(cleaned, maxLength);
 }
 
 /**
@@ -147,7 +210,7 @@ export function sanitizeMultilineContactText(
     .replace(/[\u0000-\u0009\u000B-\u001F\u007F]/g, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-  return cleaned.slice(0, maxLength);
+  return stripUnpairedSurrogatesAndTruncate(cleaned, maxLength);
 }
 
 export function buildWhatsAppDirectUrl(
@@ -178,7 +241,7 @@ export function buildWhatsAppEnquiryUrl({
   if (!normalized) return null;
   const cleanText = sanitizeMultilineContactText(
     messageText,
-    CONTACT_MESSAGE_MAX_LENGTH + 300,
+    CONTACT_WHATSAPP_BODY_MAX_LENGTH,
   );
   if (!cleanText) return null;
   return `https://wa.me/${normalized}?text=${encodeURIComponent(cleanText)}`;
@@ -204,11 +267,11 @@ export function buildEmailEnquiryUrl({
   if (!privacyAcknowledged) return null;
   const email = recipientEmail?.trim() ?? "";
   if (!isValidContactEmail(email)) return null;
-  const cleanSubject = sanitizeSingleLineContactText(subject, 200);
+  const cleanSubject = sanitizeSingleLineContactText(subject, 240);
   const cleanBody = sanitizeMultilineContactText(
     body,
-    CONTACT_MESSAGE_MAX_LENGTH + 400,
+    CONTACT_EMAIL_BODY_MAX_LENGTH,
   );
   if (!cleanSubject || !cleanBody) return null;
-  return `mailto:${email}?subject=${encodeURIComponent(cleanSubject)}&body=${encodeURIComponent(cleanBody)}`;
+  return `mailto:${encodeMailtoRecipient(email)}?subject=${encodeURIComponent(cleanSubject)}&body=${encodeURIComponent(cleanBody)}`;
 }
