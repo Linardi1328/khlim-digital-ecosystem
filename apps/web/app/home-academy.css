@@ -493,3 +493,244 @@
     gap: 16px;
   }
 }
+
+.academy-main {
+  flex: 1;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 44px 20px 72px;
+  box-sizing: border-box;
+}
+
+.academy-section {
+  margin-bottom: 48px;
+}
+
+.registration-main {
+  flex: 1;
+  width: 100%;
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 28px 20px 64px;
+  box-sizing: border-box;
+}
+
+.registration-main-receipt {
+  max-width: 740px;
+}
+
+.registration-card-body {
+  padding: 28px 24px;
+}
+
+.registration-receipt-badge {
+  white-space: normal !important;
+  text-align: center;
+  max-width: 100%;
+  line-height: 1.35;
+}
+
+.registration-meta-dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(130px, auto) 1fr;
+  gap: 10px 16px;
+  font-size: 0.92rem;
+}
+
+.registration-review-dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(112px, auto) 1fr;
+  gap: 6px 12px;
+  font-size: 0.86rem;
+}
+
+.registration-session-dl {
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid #f4f4f5;
+  display: grid;
+  grid-template-columns: minmax(108px, auto) 1fr;
+  gap: 8px 12px;
+  font-size: 0.875rem;
+}
+
+.registration-meta-dl dd,
+.registration-review-dl dd,
+.registration-session-dl dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.registration-step-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+}
+
+.registration-step-actions-single {
+  justify-content: flex-end;
+}
+
+.registration-receipt-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.khlim-step-indicator {
+  width: 100%;
+  padding: 8px 0 20px;
+}
+
+.khlim-step-indicator-track {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  position: relative;
+}
+
+.khlim-step-indicator-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  min-width: 0;
+  padding: 0 4px;
+}
+
+.khlim-step-indicator-circle {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+}
+
+.khlim-step-indicator-label {
+  margin-top: 8px;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  text-align: center;
+  overflow-wrap: break-word;
+}
+
+.khlim-step-indicator-line {
+  position: absolute;
+  top: 17px;
+  height: 2px;
+  background-color: #e4e4e7;
+  z-index: 1;
+}
+
+.registration-session-picker {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.registration-review-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 680px) {
+  .registration-review-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .academy-main {
+    padding: 24px 16px 52px;
+  }
+
+  .academy-section {
+    margin-bottom: 36px;
+  }
+
+  .registration-main {
+    padding: 16px 14px 48px;
+  }
+
+  .registration-card-body {
+    padding: 20px 16px !important;
+  }
+
+  .khlim-step-indicator {
+    padding: 4px 0 16px;
+  }
+
+  .khlim-step-indicator-circle {
+    width: 30px;
+    height: 30px;
+    font-size: 0.8rem;
+  }
+
+  .khlim-step-indicator-line {
+    top: 15px;
+  }
+
+  .khlim-step-indicator-label {
+    margin-top: 6px;
+    font-size: 0.72rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .registration-meta-dl,
+  .registration-review-dl,
+  .registration-session-dl {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .registration-meta-dl dt,
+  .registration-review-dl dt,
+  .registration-session-dl dt {
+    font-size: 0.78rem;
+    margin-top: 8px;
+  }
+
+  .registration-meta-dl dt:first-child,
+  .registration-review-dl dt:first-child,
+  .registration-session-dl dt:first-child {
+    margin-top: 0;
+  }
+
+  .registration-step-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .registration-step-actions-single {
+    flex-direction: column;
+  }
+
+  .registration-step-actions > button {
+    width: 100%;
+    min-width: 0 !important;
+  }
+
+  .registration-receipt-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .registration-receipt-actions > a {
+    width: 100%;
+    box-sizing: border-box;
+  }
+}

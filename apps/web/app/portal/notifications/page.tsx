@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { PortalShell } from "../../../components/portal/portal-shell";
 import { Badge } from "../../../components/ui/badge";
 import { Card } from "../../../components/ui/card";
+import { isFeatureNotAvailableError } from "@khlim/api-client";
 import { apiService } from "../../../lib/api-service";
 import { isFeatureAvailable } from "../../../lib/feature-availability";
 import { notificationTypeLabel } from "../../../lib/display-labels";
@@ -16,32 +17,45 @@ export default function NotificationsPage() {
   const [items, setItems] = useState<PortalNotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [serverDeferred, setServerDeferred] = useState(false);
   const load = useCallback(async () => {
-    if (!portalAvailable) {
+    if (!portalAvailable || serverDeferred) {
       setLoading(false);
       return;
     }
     try {
       setError("");
       setItems(await apiService.listMyNotifications());
-    } catch {
+    } catch (caught) {
+      if (isFeatureNotAvailableError(caught)) {
+        setServerDeferred(true);
+        return;
+      }
       setError(t("portal.notifications.error"));
     } finally {
       setLoading(false);
     }
-  }, [portalAvailable, t]);
+  }, [portalAvailable, serverDeferred, t]);
   useEffect(() => {
     void load();
   }, [load]);
   async function markRead(item: PortalNotificationItem) {
-    if (item.readAt) return;
-    await apiService.markNotificationRead(item.id);
-    await load();
+    if (item.readAt || serverDeferred) return;
+    try {
+      await apiService.markNotificationRead(item.id);
+      await load();
+    } catch (caught) {
+      if (isFeatureNotAvailableError(caught)) {
+        setServerDeferred(true);
+        return;
+      }
+      setError(t("portal.notifications.error"));
+    }
   }
   const unread = items.filter((item) => !item.readAt).length;
 
   return (
-    <PortalShell>
+    <PortalShell serverDeferred={serverDeferred}>
       <div>
         <div style={{ marginBottom: 24 }}>
           <h1>{t("portal.notifications.title")}</h1>

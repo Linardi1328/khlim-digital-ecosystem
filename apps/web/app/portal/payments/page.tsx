@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { isFeatureNotAvailableError } from "@khlim/api-client";
 import { apiService } from "../../../lib/api-service";
 import { isFeatureAvailable } from "../../../lib/feature-availability";
 import { installmentStatusLabel } from "../../../lib/display-labels";
@@ -33,9 +34,10 @@ export default function PaymentsPage() {
   const portalAvailable = isFeatureAvailable("parentPortal");
   const [billings, setBillings] = useState<MembershipBillingResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [serverDeferred, setServerDeferred] = useState(false);
 
   useEffect(() => {
-    if (!portalAvailable || !activeChild) {
+    if (!portalAvailable || serverDeferred || !activeChild) {
       setBillings([]);
       setLoading(false);
       return;
@@ -44,27 +46,33 @@ export default function PaymentsPage() {
     apiService
       .listAthleteMemberships(activeChild.id)
       .then(async (memberships) => {
-        const values = await Promise.all(
-          memberships.map(async (membership) => {
-            try {
-              return await apiService.getMembershipBilling(
+        const values: MembershipBillingResponse[] = [];
+        for (const membership of memberships) {
+          try {
+            values.push(
+              await apiService.getMembershipBilling(
                 activeChild.id,
                 membership.id,
-              );
-            } catch {
-              return null;
+              ),
+            );
+          } catch (billingErr) {
+            if (isFeatureNotAvailableError(billingErr)) {
+              setServerDeferred(true);
+              setBillings([]);
+              return;
             }
-          }),
-        );
-        setBillings(
-          values.filter(
-            (value): value is MembershipBillingResponse => value !== null,
-          ),
-        );
+          }
+        }
+        setBillings(values);
       })
-      .catch(() => setBillings([]))
+      .catch((caught) => {
+        if (isFeatureNotAvailableError(caught)) {
+          setServerDeferred(true);
+        }
+        setBillings([]);
+      })
       .finally(() => setLoading(false));
-  }, [activeChild, portalAvailable]);
+  }, [activeChild, portalAvailable, serverDeferred]);
 
   const installments: Array<{
     membershipId: string;
@@ -77,7 +85,7 @@ export default function PaymentsPage() {
   }
 
   return (
-    <PortalShell>
+    <PortalShell serverDeferred={serverDeferred}>
       <div>
         <h1>{t("portal.payments.title")}</h1>
         <p style={{ color: "#64748b" }}>{t("portal.payments.subtitle")}</p>

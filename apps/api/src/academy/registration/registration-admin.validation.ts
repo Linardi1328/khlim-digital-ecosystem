@@ -216,6 +216,76 @@ export function parseVersionOnly(body: unknown): { expectedVersion: number } {
   return { expectedVersion: expectedVersion! };
 }
 
+export function parseApprovePolicy(body: unknown): {
+  expectedVersion: number;
+  expectedApprovedPolicyId: string | null;
+  expectedApprovedPolicyVersion: number | null;
+} {
+  const v = new Validator();
+  const root = v.object(body, "", [
+    "expectedVersion",
+    "expectedApprovedPolicyId",
+    "expectedApprovedPolicyVersion",
+  ]);
+  const expectedVersion = v.integer(
+    root,
+    "expectedVersion",
+    "",
+    1,
+    2_000_000_000,
+  );
+
+  const hasId =
+    root !== null &&
+    Object.prototype.hasOwnProperty.call(root, "expectedApprovedPolicyId") &&
+    root.expectedApprovedPolicyId !== undefined;
+  const hasVer =
+    root !== null &&
+    Object.prototype.hasOwnProperty.call(
+      root,
+      "expectedApprovedPolicyVersion",
+    ) &&
+    root.expectedApprovedPolicyVersion !== undefined;
+
+  if (root && !hasId) v.add("expectedApprovedPolicyId", "REQUIRED");
+  if (root && !hasVer) v.add("expectedApprovedPolicyVersion", "REQUIRED");
+
+  let expectedApprovedPolicyId: string | null = null;
+  let expectedApprovedPolicyVersion: number | null = null;
+
+  if (root && hasId && hasVer) {
+    const rawId = root.expectedApprovedPolicyId;
+    const rawVer = root.expectedApprovedPolicyVersion;
+    if (rawId === null && rawVer === null) {
+      expectedApprovedPolicyId = null;
+      expectedApprovedPolicyVersion = null;
+    } else if (rawId === null && rawVer !== null) {
+      v.add("expectedApprovedPolicyVersion", "INVALID_VALUE");
+    } else if (rawId !== null && rawVer === null) {
+      v.add("expectedApprovedPolicyVersion", "REQUIRED");
+    } else {
+      expectedApprovedPolicyId =
+        v.uuid(root, "expectedApprovedPolicyId", "", true) ?? null;
+      expectedApprovedPolicyVersion =
+        v.integer(
+          root,
+          "expectedApprovedPolicyVersion",
+          "",
+          1,
+          2_000_000_000,
+          true,
+        ) ?? null;
+    }
+  }
+
+  v.done();
+  return {
+    expectedVersion: expectedVersion!,
+    expectedApprovedPolicyId,
+    expectedApprovedPolicyVersion,
+  };
+}
+
 export type PolicyContent = Record<
   ConsentType,
   Record<RegistrationLocale, { ref: string; sha256: string }>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useId, type ReactNode } from "react";
+import { registerModalFocusTrap } from "../../lib/modal-focus";
 
 export interface ConfirmDialogProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ export interface ConfirmDialogProps {
   cancelLabel?: string;
   variant?: "danger" | "warning" | "primary";
   isLoading?: boolean;
+  confirmDisabled?: boolean;
 }
 
 export function ConfirmDialog({
@@ -24,38 +26,24 @@ export function ConfirmDialog({
   cancelLabel = "Cancel",
   variant = "danger",
   isLoading = false,
+  confirmDisabled = false,
 }: ConfirmDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
-  const previousActiveElement = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const isLoadingRef = useRef(isLoading);
+  isLoadingRef.current = isLoading;
   const titleId = useId();
   const descId = useId();
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen && !isLoading) {
-        onClose();
-      }
-    };
-
-    if (isOpen) {
-      previousActiveElement.current =
-        document.activeElement as HTMLElement | null;
-      document.body.style.overflow = "hidden";
-      window.addEventListener("keydown", handleKeyDown);
-      setTimeout(() => {
-        const focusable = dialogRef.current?.querySelector<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-        );
-        focusable?.focus();
-      }, 50);
-    }
-
-    return () => {
-      document.body.style.overflow = "unset";
-      window.removeEventListener("keydown", handleKeyDown);
-      previousActiveElement.current?.focus();
-    };
-  }, [isOpen, isLoading, onClose]);
+    if (!isOpen || !dialogRef.current) return;
+    return registerModalFocusTrap({
+      container: dialogRef.current,
+      onClose: () => onCloseRef.current(),
+      canCloseOnEscape: () => !isLoadingRef.current,
+    });
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -144,7 +132,7 @@ export function ConfirmDialog({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={isLoading}
+            disabled={isLoading || confirmDisabled}
             style={{
               padding: "8px 16px",
               fontSize: "0.875rem",
@@ -153,7 +141,8 @@ export function ConfirmDialog({
               color: variant === "primary" ? "#18181B" : "#FFFFFF",
               border: "none",
               borderRadius: "6px",
-              cursor: isLoading ? "not-allowed" : "pointer",
+              opacity: isLoading || confirmDisabled ? 0.55 : 1,
+              cursor: isLoading || confirmDisabled ? "not-allowed" : "pointer",
               display: "inline-flex",
               alignItems: "center",
               gap: "6px",

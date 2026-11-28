@@ -364,7 +364,14 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSessionResponseDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -2285,7 +2292,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/VersionRequestDto"
+                "$ref": "#/components/schemas/ApproveRegistrationPolicyRequestDto"
               }
             }
           }
@@ -3152,6 +3159,54 @@
         },
         "required": [
           "token"
+        ]
+      },
+      "AdminSessionResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "organizationId": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "preferredLocale": {
+            "type": "string"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "authenticatorAssuranceLevel": {
+            "type": "string",
+            "enum": [
+              "aal1",
+              "aal2"
+            ]
+          },
+          "mfaSatisfied": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "organizationId",
+          "email",
+          "displayName",
+          "preferredLocale",
+          "roles",
+          "authenticatorAssuranceLevel",
+          "mfaSatisfied"
         ]
       },
       "UpdateStaffRolesDto": {
@@ -5190,6 +5245,30 @@
         "required": [
           "policyVersion",
           "content"
+        ]
+      },
+      "ApproveRegistrationPolicyRequestDto": {
+        "type": "object",
+        "properties": {
+          "expectedVersion": {
+            "type": "number"
+          },
+          "expectedApprovedPolicyId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "UUID of the currently approved predecessor policy to retire, or null when approving with no approved predecessor"
+          },
+          "expectedApprovedPolicyVersion": {
+            "type": "number",
+            "nullable": true,
+            "description": "Optimistic version of the currently approved predecessor policy, or null when expectedApprovedPolicyId is null"
+          }
+        },
+        "required": [
+          "expectedVersion",
+          "expectedApprovedPolicyId",
+          "expectedApprovedPolicyVersion"
         ]
       },
       "PrepareMembershipCheckoutDto": {

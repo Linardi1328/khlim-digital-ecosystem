@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "../../lib/i18n-context";
 import { useAuth } from "../../lib/auth-context";
+import { useFamily } from "../../lib/family-context";
 import { BrandLogo } from "../layout/brand-logo";
 import { LocaleSwitcher } from "../layout/locale-switcher";
 import { PublicHeader } from "../layout/public-header";
@@ -16,14 +17,22 @@ import { ChildSwitcher } from "./child-switcher";
 
 export interface PortalShellProps {
   children: ReactNode;
+  serverDeferred?: boolean;
 }
 
-export function PortalShell({ children }: PortalShellProps) {
+export function PortalShell({
+  children,
+  serverDeferred = false,
+}: PortalShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useI18n();
   const { guardianProfile, isAuthenticated, isLoading, logout } = useAuth();
-  const portalAvailable = isFeatureAvailable("parentPortal");
+  const { isPortalFeatureDeferred } = useFamily();
+  const portalAvailable =
+    isFeatureAvailable("parentPortal") &&
+    !isPortalFeatureDeferred &&
+    !serverDeferred;
   const [campaignSource, setCampaignSource] = useState<string | null>(null);
 
   useEffect(() => {

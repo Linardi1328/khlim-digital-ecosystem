@@ -13,6 +13,7 @@ import {
 } from "./registration.constants";
 import { writeRegistrationAudit } from "./registration-audit";
 import {
+  parseApprovePolicy,
   parseCreatePolicy,
   parseVersionOnly,
   type PolicyContent,
@@ -204,11 +205,16 @@ export class RegistrationPolicyService {
     body: unknown,
   ) {
     const policyId = parseUuidParam(id, "POLICY_NOT_FOUND");
-    const { expectedVersion } = parseVersionOnly(body);
+    const {
+      expectedVersion,
+      expectedApprovedPolicyId,
+      expectedApprovedPolicyVersion,
+    } = parseApprovePolicy(body);
     return withSanitizedErrors(() =>
       this.prisma.client.$transaction(async (tx) => {
         // One approval/retirement at a time per organization; always taken
-        // before any policy row lock (submit never takes this lock).
+        // before any policy row lock (submit never takes this lock). This also
+        // serializes concurrent initial approvals when no APPROVED row exists.
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`registration-policy:${organizationId}`}, 0))`;
         const rows = await tx.$queryRaw<
           Array<{ status: string; version: number; policy_version: string }>
@@ -251,23 +257,65 @@ export class RegistrationPolicyService {
             "Synthetic policy versions cannot be approved in this environment",
           );
         }
+
+        // Lock the organization's currently APPROVED policy (if any) and require
+        // an exact match against the predecessor confirmed by staff.
+        const approvedRows = await tx.$queryRaw<
+          Array<{ id: string; version: number; policy_version: string }>
+        >`
+          SELECT id::text AS id, version, policy_version
+          FROM academy_registration_policies
+          WHERE organization_id = ${organizationId}::uuid AND status = 'APPROVED'
+          FOR UPDATE
+        `;
+        const currentApproved = approvedRows[0] ?? null;
+
+        if (expectedApprovedPolicyId === null) {
+          if (currentApproved !== null) {
+            throw new RegistrationApiException(
+              409,
+              "STALE_VERSION",
+              "Current approved policy changed",
+            );
+          }
+        } else if (
+          !currentApproved ||
+          currentApproved.id.toLowerCase() !==
+            expectedApprovedPolicyId.toLowerCase() ||
+          currentApproved.version !== expectedApprovedPolicyVersion
+        ) {
+          throw new RegistrationApiException(
+            409,
+            "STALE_VERSION",
+            "Current approved policy changed",
+          );
+        }
+
         const now = new Date();
-        // Previously approved policy (at most one), retired by this approval;
-        // its retirement is audited on its own entity below.
-        // Audit only what this statement actually retired: a concurrent
-        // writer (for example direct SQL) may already have retired the policy
-        // that was approved when this transaction started.
-        const replaced = await tx.academyRegistrationPolicy.updateManyAndReturn(
-          {
-            where: { organizationId, status: "APPROVED" },
-            data: {
-              status: "RETIRED",
-              retiredAt: now,
-              version: { increment: 1 },
-            },
-            select: { id: true, policyVersion: true },
-          },
-        );
+        // Retire only the exact locked predecessor verified above (when present).
+        const replaced = currentApproved
+          ? await tx.academyRegistrationPolicy.updateManyAndReturn({
+              where: {
+                id: currentApproved.id,
+                organizationId,
+                status: "APPROVED",
+                version: currentApproved.version,
+              },
+              data: {
+                status: "RETIRED",
+                retiredAt: now,
+                version: { increment: 1 },
+              },
+              select: { id: true, policyVersion: true },
+            })
+          : [];
+        if (currentApproved && replaced.length !== 1) {
+          throw new RegistrationApiException(
+            409,
+            "STALE_VERSION",
+            "Current approved policy changed",
+          );
+        }
         const approved = await tx.academyRegistrationPolicy.update({
           where: { id: policyId },
           data: {

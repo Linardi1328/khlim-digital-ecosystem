@@ -37,6 +37,7 @@ import {
   AdminRegistrationPolicyListDto,
   AdminRegistrationSessionDto,
   AdminRegistrationSessionListDto,
+  ApproveRegistrationPolicyRequestDto,
   CreateRegistrationPolicyRequestDto,
   CreateRegistrationSessionRequestDto,
   UpdateRegistrationSessionRequestDto,
@@ -325,7 +326,7 @@ export class AcademyRegistrationPolicyAdminController {
   approve(
     @CurrentUser() user: AuthenticatedUserContext,
     @Param("id") id: string,
-    @Body() body: VersionRequestDto,
+    @Body() body: ApproveRegistrationPolicyRequestDto,
   ) {
     return this.policies.approve(organizationId(user), user, id, body);
   }

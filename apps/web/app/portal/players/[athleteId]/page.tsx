@@ -2,6 +2,7 @@
 
 import React, { use, useEffect, useState } from "react";
 import Link from "next/link";
+import { isFeatureNotAvailableError } from "@khlim/api-client";
 import { apiService } from "../../../../lib/api-service";
 import { isFeatureAvailable } from "../../../../lib/feature-availability";
 import { membershipStatusLabel } from "../../../../lib/display-labels";
@@ -39,9 +40,10 @@ export default function PlayerProfilePage({
   const [athlete, setAthlete] = useState<AthleteProfileResponse | null>(null);
   const [memberships, setMemberships] = useState<AthleteMembershipItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [serverDeferred, setServerDeferred] = useState(false);
 
   useEffect(() => {
-    if (!portalAvailable) {
+    if (!portalAvailable || serverDeferred) {
       setLoading(false);
       return;
     }
@@ -53,15 +55,18 @@ export default function PlayerProfilePage({
         setAthlete(profile);
         setMemberships(currentMemberships);
       })
-      .catch(() => {
+      .catch((caught) => {
+        if (isFeatureNotAvailableError(caught)) {
+          setServerDeferred(true);
+        }
         setAthlete(null);
         setMemberships([]);
       })
       .finally(() => setLoading(false));
-  }, [athleteId, portalAvailable]);
+  }, [athleteId, portalAvailable, serverDeferred]);
 
   return (
-    <PortalShell>
+    <PortalShell serverDeferred={serverDeferred}>
       <div>
         <p>
           <Link href="/portal/players">{t("portal.player.back")}</Link>

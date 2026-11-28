@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { isFeatureNotAvailableError } from "@khlim/api-client";
 import { apiService } from "../../../lib/api-service";
 import { isFeatureAvailable } from "../../../lib/feature-availability";
 import { membershipStatusLabel } from "../../../lib/display-labels";
@@ -26,9 +27,11 @@ export default function MembershipPage() {
     string | null
   >(null);
   const [checkoutError, setCheckoutError] = useState("");
+  const [checkoutDeferred, setCheckoutDeferred] = useState(false);
+  const [serverDeferred, setServerDeferred] = useState(false);
 
   useEffect(() => {
-    if (!portalAvailable || !activeChild) {
+    if (!portalAvailable || serverDeferred || !activeChild) {
       setMemberships([]);
       setLoading(false);
       return;
@@ -37,12 +40,17 @@ export default function MembershipPage() {
     apiService
       .listAthleteMemberships(activeChild.id)
       .then(setMemberships)
-      .catch(() => setMemberships([]))
+      .catch((caught) => {
+        if (isFeatureNotAvailableError(caught)) {
+          setServerDeferred(true);
+        }
+        setMemberships([]);
+      })
       .finally(() => setLoading(false));
-  }, [activeChild, portalAvailable]);
+  }, [activeChild, portalAvailable, serverDeferred]);
 
   const resumeCheckout = async (membershipId: string) => {
-    if (!activeChild || checkoutMembershipId) return;
+    if (!activeChild || checkoutMembershipId || checkoutDeferred) return;
     setCheckoutError("");
     setCheckoutMembershipId(membershipId);
     try {
@@ -53,17 +61,22 @@ export default function MembershipPage() {
       );
       window.location.assign(checkout.checkoutUrl);
     } catch (caught) {
-      setCheckoutError(
-        caught instanceof Error
-          ? caught.message
-          : t("portal.membership.checkoutError"),
-      );
+      if (isFeatureNotAvailableError(caught)) {
+        setCheckoutDeferred(true);
+        setCheckoutError(t("academyReg.error.FEATURE_NOT_AVAILABLE"));
+      } else {
+        setCheckoutError(
+          caught instanceof Error
+            ? caught.message
+            : t("portal.membership.checkoutError"),
+        );
+      }
       setCheckoutMembershipId(null);
     }
   };
 
   return (
-    <PortalShell>
+    <PortalShell serverDeferred={serverDeferred}>
       <div>
         <div
           style={{
@@ -140,7 +153,9 @@ export default function MembershipPage() {
                     <Button
                       variant="primary"
                       size="sm"
-                      disabled={checkoutMembershipId !== null}
+                      disabled={
+                        checkoutMembershipId !== null || checkoutDeferred
+                      }
                       onClick={() => void resumeCheckout(membership.id)}
                     >
                       {checkoutMembershipId === membership.id

@@ -1,6 +1,14 @@
 "use client";
 
-import { createApiClient, ApiError, type ApiClient } from "@khlim/api-client";
+import {
+  createApiClient,
+  ApiError,
+  type ApiClient,
+  type CreateRegistrationRequestDto,
+  type PublicRegistrationSessionsDto,
+  type RegistrationConfigDto,
+  type RegistrationReceiptDto,
+} from "@khlim/api-client";
 export { ApiError };
 import { getValidAccessToken } from "./supabase-auth";
 import type {
@@ -155,5 +163,39 @@ export const apiService = {
     return apiClient.post("/academy/leads", data, {
       authenticated: false,
     });
+  },
+
+  async getAcademyRegistrationConfig(): Promise<RegistrationConfigDto> {
+    return apiClient.get<RegistrationConfigDto>(
+      "/academy/registration-config",
+      {
+        authenticated: false,
+        cache: "no-store",
+      },
+    );
+  },
+
+  async listPublicAcademySessions(): Promise<PublicRegistrationSessionsDto> {
+    return apiClient.get<PublicRegistrationSessionsDto>("/academy/sessions", {
+      authenticated: false,
+      cache: "no-store",
+    });
+  },
+
+  async submitAcademyRegistration(
+    payload: CreateRegistrationRequestDto,
+    idempotencyKey: string,
+  ): Promise<RegistrationReceiptDto> {
+    return apiClient.post<RegistrationReceiptDto>(
+      "/academy/registrations",
+      payload,
+      {
+        authenticated: false,
+        cache: "no-store",
+        headers: {
+          "Idempotency-Key": idempotencyKey,
+        },
+      },
+    );
   },
 };

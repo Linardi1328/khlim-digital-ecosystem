@@ -1,5 +1,7 @@
 "use client";
 
+import { ADMIN_DEMO_MODE } from "./demo-mode";
+
 export interface AdminSupabaseUser {
   id: string;
   email?: string;
@@ -28,7 +30,19 @@ export interface AdminTotpEnrollment {
 export const ADMIN_SUPABASE_SESSION_STORAGE_KEY =
   "khlim_admin_supabase_session";
 const EXPIRY_SKEW_SECONDS = 60;
+let sessionMutationEpoch = 0;
 let refreshPromise: Promise<AdminSupabaseSession | null> | null = null;
+let refreshMeta: {
+  epoch: number;
+  refreshToken: string;
+  userId: string;
+} | null = null;
+
+export function invalidateAdminSessionOperations(): void {
+  sessionMutationEpoch += 1;
+  refreshPromise = null;
+  refreshMeta = null;
+}
 
 function getSupabaseConfig(): { url: string; anonKey: string } {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim().replace(/\/+$/, "");
@@ -48,7 +62,10 @@ function getSupabaseConfig(): { url: string; anonKey: string } {
   return { url, anonKey };
 }
 
-function normalizeSession(payload: unknown): AdminSupabaseSession | null {
+function normalizeSession(
+  payload: unknown,
+  options?: { requireExpiresAt?: boolean },
+): AdminSupabaseSession | null {
   if (typeof payload !== "object" || payload === null) return null;
 
   const value = payload as Record<string, unknown>;
@@ -56,6 +73,7 @@ function normalizeSession(payload: unknown): AdminSupabaseSession | null {
     typeof value.access_token !== "string" ||
     typeof value.refresh_token !== "string" ||
     typeof value.expires_in !== "number" ||
+    !Number.isFinite(value.expires_in) ||
     typeof value.token_type !== "string" ||
     typeof value.user !== "object" ||
     value.user === null
@@ -64,16 +82,21 @@ function normalizeSession(payload: unknown): AdminSupabaseSession | null {
   }
 
   const user = value.user as Record<string, unknown>;
-  if (typeof user.id !== "string") return null;
+  if (typeof user.id !== "string" || user.id.trim().length === 0) return null;
+
+  const hasValidExpiresAt =
+    typeof value.expires_at === "number" && Number.isFinite(value.expires_at);
+  if (options?.requireExpiresAt && !hasValidExpiresAt) {
+    return null;
+  }
 
   return {
     access_token: value.access_token,
     refresh_token: value.refresh_token,
     expires_in: value.expires_in,
-    expires_at:
-      typeof value.expires_at === "number"
-        ? value.expires_at
-        : Math.floor(Date.now() / 1000) + value.expires_in,
+    expires_at: hasValidExpiresAt
+      ? (value.expires_at as number)
+      : Math.floor(Date.now() / 1000) + value.expires_in,
     token_type: value.token_type,
     user: {
       id: user.id,
@@ -89,9 +112,8 @@ function readStoredSession(): AdminSupabaseSession | null {
   if (!raw) return null;
 
   try {
-    return normalizeSession(JSON.parse(raw));
+    return normalizeSession(JSON.parse(raw), { requireExpiresAt: true });
   } catch {
-    window.localStorage.removeItem(ADMIN_SUPABASE_SESSION_STORAGE_KEY);
     return null;
   }
 }
@@ -152,15 +174,17 @@ async function authRequest(
 }
 
 export function clearAdminSupabaseSession(): void {
+  invalidateAdminSessionOperations();
   storeSession(null);
 }
 
 export function getStoredAdminAccessToken(): string | null {
+  if (ADMIN_DEMO_MODE) return null;
   return readStoredSession()?.access_token ?? null;
 }
 
 export async function refreshAdminSupabaseSession(): Promise<AdminSupabaseSession | null> {
-  if (refreshPromise) return refreshPromise;
+  if (ADMIN_DEMO_MODE) return null;
 
   const current = readStoredSession();
   if (!current?.refresh_token) {
@@ -168,31 +192,73 @@ export async function refreshAdminSupabaseSession(): Promise<AdminSupabaseSessio
     return null;
   }
 
-  refreshPromise = (async () => {
+  if (
+    refreshPromise &&
+    refreshMeta &&
+    refreshMeta.epoch === sessionMutationEpoch &&
+    refreshMeta.refreshToken === current.refresh_token &&
+    refreshMeta.userId === current.user.id
+  ) {
+    return refreshPromise;
+  }
+
+  const startingEpoch = sessionMutationEpoch;
+  const startingRefreshToken = current.refresh_token;
+  const startingUserId = current.user.id;
+  const isStillSameSession = (): boolean => {
+    if (sessionMutationEpoch !== startingEpoch) return false;
+    const latest = readStoredSession();
+    return (
+      latest !== null &&
+      latest.refresh_token === startingRefreshToken &&
+      latest.user.id === startingUserId
+    );
+  };
+
+  let pending: Promise<AdminSupabaseSession | null> | null = null;
+  pending = (async (): Promise<AdminSupabaseSession | null> => {
     try {
       const body = await authRequest("/token?grant_type=refresh_token", {
         method: "POST",
-        body: JSON.stringify({ refresh_token: current.refresh_token }),
+        body: JSON.stringify({ refresh_token: startingRefreshToken }),
       });
+      if (!isStillSameSession()) {
+        return null;
+      }
       const session = normalizeSession(body);
-      if (!session) {
-        clearAdminSupabaseSession();
+      if (!session || session.user.id !== startingUserId) {
+        if (isStillSameSession()) {
+          clearAdminSupabaseSession();
+        }
         return null;
       }
       storeSession(session);
       return session;
     } catch (error) {
+      if (!isStillSameSession()) {
+        return null;
+      }
       clearAdminSupabaseSession();
       throw error;
     } finally {
-      refreshPromise = null;
+      if (refreshPromise === pending) {
+        refreshPromise = null;
+        refreshMeta = null;
+      }
     }
   })();
 
-  return refreshPromise;
+  refreshPromise = pending;
+  refreshMeta = {
+    epoch: startingEpoch,
+    refreshToken: startingRefreshToken,
+    userId: startingUserId,
+  };
+  return pending;
 }
 
 export async function restoreAdminSupabaseSession(): Promise<AdminSupabaseSession | null> {
+  if (ADMIN_DEMO_MODE) return null;
   const session = readStoredSession();
   if (!session) return null;
 
@@ -207,6 +273,7 @@ export async function restoreAdminSupabaseSession(): Promise<AdminSupabaseSessio
 }
 
 export async function getValidAdminAccessToken(): Promise<string | null> {
+  if (ADMIN_DEMO_MODE) return null;
   const session = await restoreAdminSupabaseSession();
   return session?.access_token ?? null;
 }
@@ -215,10 +282,15 @@ export async function adminSupabaseSignIn(
   email: string,
   password: string,
 ): Promise<AdminSupabaseSession> {
+  invalidateAdminSessionOperations();
+  const opEpoch = sessionMutationEpoch;
   const body = await authRequest("/token?grant_type=password", {
     method: "POST",
     body: JSON.stringify({ email, password }),
   });
+  if (sessionMutationEpoch !== opEpoch) {
+    throw new Error("Staff sign-in was superseded by a newer session change.");
+  }
   const session = normalizeSession(body);
   if (!session)
     throw new Error("Supabase did not return a valid staff session");
@@ -331,6 +403,10 @@ export async function verifyAdminTotpFactor(
   code: string,
 ): Promise<AdminSupabaseSession> {
   const session = currentAdminSession();
+  const opEpoch = sessionMutationEpoch;
+  const startingUserId = session.user.id;
+  const startingAccessToken = session.access_token;
+  const startingRefreshToken = session.refresh_token;
   const body = await authRequest(
     `/factors/${encodeURIComponent(factorId)}/verify`,
     {
@@ -343,8 +419,18 @@ export async function verifyAdminTotpFactor(
     },
     session.access_token,
   );
+  const latestStored = readStoredSession();
+  if (
+    sessionMutationEpoch !== opEpoch ||
+    !latestStored ||
+    latestStored.user.id !== startingUserId ||
+    latestStored.access_token !== startingAccessToken ||
+    latestStored.refresh_token !== startingRefreshToken
+  ) {
+    throw new Error("MFA verification was superseded by a session change.");
+  }
   const verified = normalizeSession(body);
-  if (!verified) {
+  if (!verified || verified.user.id !== startingUserId) {
     throw new Error("Supabase did not return an MFA-upgraded staff session");
   }
   storeSession(verified);
@@ -353,15 +439,15 @@ export async function verifyAdminTotpFactor(
 
 export async function adminSupabaseSignOut(): Promise<void> {
   const session = readStoredSession();
-  try {
-    if (session?.access_token) {
-      await authRequest(
-        "/logout",
-        { method: "POST", body: JSON.stringify({}) },
-        session.access_token,
-      );
-    }
-  } finally {
-    clearAdminSupabaseSession();
+  // Clear stored credentials and invalidate any in-flight token refreshes synchronously
+  // BEFORE awaiting the remote session-local logout call, so a slow /logout cannot
+  // clobber or revoke a later sign-in and a slow refresh cannot resurrect credentials.
+  clearAdminSupabaseSession();
+  if (session?.access_token) {
+    await authRequest(
+      "/logout?scope=local",
+      { method: "POST", body: JSON.stringify({}) },
+      session.access_token,
+    );
   }
 }

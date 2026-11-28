@@ -155,3 +155,130 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     margin-right: 12px;
   }
 }
+
+/* Admin responsive tabs, drawers, and registration forms */
+.admin-tabs {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.admin-drawer-panel {
+  height: 100vh;
+  height: 100dvh;
+}
+
+.admin-drawer-header {
+  padding: 20px 24px;
+}
+
+.admin-drawer-body {
+  padding: 24px;
+}
+
+.admin-drawer-footer {
+  padding: 16px 24px;
+}
+
+.admin-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  font-size: 0.8125rem;
+}
+
+.admin-detail-grid > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-form-grid-venue-capacity {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px;
+  gap: 12px;
+}
+
+.admin-policy-ref-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+.admin-policy-ref-grid > div {
+  min-width: 0;
+}
+
+.admin-drawer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+@media (max-width: 720px) {
+  .admin-policy-ref-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-tabs {
+    flex-wrap: wrap !important;
+    overflow-x: visible !important;
+    gap: 6px !important;
+    padding-bottom: 8px;
+  }
+
+  .admin-tab-btn {
+    padding: 8px 11px !important;
+    font-size: 0.8125rem !important;
+    border-radius: 8px;
+    background-color: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    border-bottom-width: 2px !important;
+    min-height: 40px;
+  }
+
+  .admin-tab-btn[aria-selected="true"] {
+    background-color: #fffbeb !important;
+    border-color: #fcd34d !important;
+    border-bottom-color: #f59e0b !important;
+  }
+
+  .admin-drawer-header {
+    padding: 14px 16px;
+  }
+
+  .admin-drawer-body {
+    padding: 16px;
+  }
+
+  .admin-drawer-footer {
+    padding: 12px 16px;
+  }
+
+  .admin-form-grid-venue-capacity {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-drawer-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .admin-drawer-actions > button {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 520px) {
+  .admin-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}

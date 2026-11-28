@@ -5,35 +5,36 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { isSupportedLocale, type SupportedLocale } from "@khlim/i18n";
 import { apiService } from "./api-service";
 import {
-  clearStoredSession,
-  getGuardianRegistrationMetadata,
+  clearStoredSessionIfEpoch,
+  invalidateWebSessionOperations,
   restoreSupabaseSession,
+  SUPABASE_SESSION_STORAGE_KEY,
   supabaseRecoverPassword,
   supabaseSignIn,
   supabaseSignOut,
   supabaseSignUp,
-  type SupabaseSession,
 } from "./supabase-auth";
+import {
+  WebAuthSessionController,
+  type WebAuthSessionState,
+  type WebLoginResult,
+  type WebRegistrationResult,
+} from "./web-auth-session-controller";
 import type {
   AccountMeResponse,
   GuardianProfile,
   UpsertGuardianProfileDto,
 } from "./types";
 
-export interface LoginResult {
-  guardianOnboardingRequired: boolean;
-}
-
-export interface RegistrationResult {
-  authenticated: boolean;
-  emailConfirmationOrSignInRequired: boolean;
-}
+export type LoginResult = WebLoginResult;
+export type RegistrationResult = WebRegistrationResult;
 
 interface AuthContextValue {
   isAuthenticated: boolean;
@@ -55,182 +56,114 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-async function finishPendingGuardianRegistration(
-  session: SupabaseSession,
-  account: AccountMeResponse,
-): Promise<{
-  account: AccountMeResponse;
-  guardianOnboardingRequired: boolean;
-}> {
-  if (account.guardianProfile) {
-    return { account, guardianOnboardingRequired: false };
-  }
-
-  const metadata = getGuardianRegistrationMetadata(session.user);
-  if (!metadata || !isSupportedLocale(metadata.preferredLocale)) {
-    return { account, guardianOnboardingRequired: false };
-  }
-
-  await apiService.updatePreferences({
-    preferredLocale: metadata.preferredLocale,
-  });
-  await apiService.upsertGuardianProfile({
-    displayName: metadata.displayName,
-  });
-
-  return {
-    account: await apiService.getMe(),
-    guardianOnboardingRequired: true,
-  };
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [account, setAccount] = useState<AccountMeResponse | null>(null);
-  const [guardianProfile, setGuardianProfile] =
-    useState<GuardianProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [authState, setAuthState] = useState<WebAuthSessionState>({
+    isAuthenticated: false,
+    account: null,
+    guardianProfile: null,
+    isLoading: true,
+  });
+  const controllerRef = useRef<WebAuthSessionController | null>(null);
 
-  const applyAccount = useCallback((value: AccountMeResponse | null) => {
-    setAccount(value);
-    setGuardianProfile(value?.guardianProfile ?? null);
-    setIsAuthenticated(Boolean(value));
+  useEffect(() => {
+    const controller = new WebAuthSessionController(
+      {
+        storageKey: SUPABASE_SESSION_STORAGE_KEY,
+        restoreSession: restoreSupabaseSession,
+        getMe: () => apiService.getMe(),
+        updatePreferences: (dto) => apiService.updatePreferences(dto),
+        upsertGuardianProfile: (profile) =>
+          apiService.upsertGuardianProfile(profile),
+        signIn: supabaseSignIn,
+        signUp: supabaseSignUp,
+        signOut: supabaseSignOut,
+        invalidateSessionOperations: invalidateWebSessionOperations,
+        clearStoredSessionIfEpoch,
+        isSupportedLocale,
+      },
+      setAuthState,
+      {
+        isAuthenticated: false,
+        account: null,
+        guardianProfile: null,
+        isLoading: true,
+      },
+    );
+    controllerRef.current = controller;
+    void controller.bootstrap();
+
+    const handleStorageChange = (event: StorageEvent) => {
+      const isSameStorageArea =
+        event.storageArea === null || event.storageArea === window.localStorage;
+      void controller.handleStorageChange({
+        key: event.key,
+        isSameStorageArea,
+      });
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => {
+      controller.dispose();
+      if (controllerRef.current === controller) {
+        controllerRef.current = null;
+      }
+      window.removeEventListener("storage", handleStorageChange);
+    };
   }, []);
 
   const refreshAccount = useCallback(async () => {
-    try {
-      const value = await apiService.getMe();
-      applyAccount(value);
-      return value;
-    } catch {
-      applyAccount(null);
-      return null;
-    }
-  }, [applyAccount]);
+    return (await controllerRef.current?.refreshAccount()) ?? null;
+  }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function bootstrap() {
-      setIsLoading(true);
-      try {
-        const session = await restoreSupabaseSession();
-        if (!session || cancelled) {
-          if (!cancelled) applyAccount(null);
-          return;
-        }
-
-        const value = await apiService.getMe();
-        if (!cancelled) applyAccount(value);
-      } catch {
-        if (!cancelled) applyAccount(null);
-      } finally {
-        if (!cancelled) setIsLoading(false);
+  const login = useCallback(
+    async (email: string, password: string): Promise<LoginResult> => {
+      const controller = controllerRef.current;
+      if (!controller) {
+        throw new Error("Authentication controller is not ready.");
       }
-    }
+      return controller.login(email, password);
+    },
+    [],
+  );
 
-    bootstrap();
-    return () => {
-      cancelled = true;
-    };
-  }, [applyAccount]);
-
-  const login = async (
-    email: string,
-    password: string,
-  ): Promise<LoginResult> => {
-    setIsLoading(true);
-    let supabaseSessionEstablished = false;
-    try {
-      const session = await supabaseSignIn(email, password);
-      supabaseSessionEstablished = true;
-      const account = await apiService.getMe();
-      const result = await finishPendingGuardianRegistration(session, account);
-      applyAccount(result.account);
-      return {
-        guardianOnboardingRequired: result.guardianOnboardingRequired,
-      };
-    } catch (error) {
-      if (supabaseSessionEstablished) {
-        clearStoredSession();
+  const register = useCallback(
+    async (
+      email: string,
+      password: string,
+      fullName: string,
+      preferredLocale: SupportedLocale = "en",
+    ): Promise<RegistrationResult> => {
+      const controller = controllerRef.current;
+      if (!controller) {
+        throw new Error("Authentication controller is not ready.");
       }
-      applyAccount(null);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      return controller.register(email, password, fullName, preferredLocale);
+    },
+    [],
+  );
 
-  const register = async (
-    email: string,
-    password: string,
-    fullName: string,
-    preferredLocale: SupportedLocale = "en",
-  ): Promise<RegistrationResult> => {
-    setIsLoading(true);
-    let supabaseSessionEstablished = false;
-    try {
-      const result = await supabaseSignUp(email, password, {
-        displayName: fullName.trim(),
-        preferredLocale,
-      });
-      supabaseSessionEstablished = Boolean(result.session);
-      if (!result.session) {
-        applyAccount(null);
-        return {
-          authenticated: false,
-          emailConfirmationOrSignInRequired:
-            result.emailConfirmationOrSignInRequired,
-        };
-      }
+  const logout = useCallback(async () => {
+    await controllerRef.current?.logout();
+  }, []);
 
-      await apiService.upsertGuardianProfile({
-        displayName: fullName.trim(),
-      });
-      await apiService.updatePreferences({ preferredLocale });
-      const value = await apiService.getMe();
-      applyAccount(value);
-      return {
-        authenticated: true,
-        emailConfirmationOrSignInRequired: false,
-      };
-    } catch (error) {
-      if (supabaseSessionEstablished) {
-        clearStoredSession();
-      }
-      applyAccount(null);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const updateGuardianProfile = useCallback(
+    async (profile: UpsertGuardianProfileDto) => {
+      await controllerRef.current?.updateGuardianProfile(profile);
+    },
+    [],
+  );
 
-  const logout = async () => {
-    setIsLoading(true);
-    try {
-      await supabaseSignOut();
-    } finally {
-      applyAccount(null);
-      setIsLoading(false);
-    }
-  };
-
-  const updateGuardianProfile = async (profile: UpsertGuardianProfileDto) => {
-    await apiService.upsertGuardianProfile(profile);
-    await refreshAccount();
-  };
-
-  const requestPasswordReset = async (email: string) => {
+  const requestPasswordReset = useCallback(async (email: string) => {
     await supabaseRecoverPassword(email);
-  };
+  }, []);
 
   return (
     <AuthContext.Provider
       value={{
-        isAuthenticated,
-        account,
-        guardianProfile,
-        isLoading,
+        isAuthenticated: authState.isAuthenticated,
+        account: authState.account,
+        guardianProfile: authState.guardianProfile,
+        isLoading: authState.isLoading,
         login,
         register,
         logout,

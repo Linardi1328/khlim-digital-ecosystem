@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./schema": "./src/schema.d.ts"
+    "./schema": "./src/schema.d.ts",
+    "./academy-registration": "./src/academy-registration-v1.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

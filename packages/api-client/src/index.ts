@@ -1,3 +1,6 @@
+import { parseRetryAfterHeader } from "./academy-registration-v1";
+export * from "./academy-registration-v1";
+
 export interface ApiClientOptions {
   baseUrl: string;
   fetchImpl?: typeof fetch;
@@ -11,12 +14,19 @@ export interface ApiRequestOptions extends RequestInit {
 export class ApiError extends Error {
   readonly status: number;
   readonly responseBody: unknown;
+  readonly retryAfterSeconds: number | null;
 
-  constructor(message: string, status: number, responseBody: unknown) {
+  constructor(
+    message: string,
+    status: number,
+    responseBody: unknown,
+    retryAfterSeconds: number | null = null,
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.responseBody = responseBody;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 }
 
@@ -93,10 +103,22 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
     const responseBody = await readResponseBody(response);
 
     if (!response.ok) {
+      const headerRetryAfter = parseRetryAfterHeader(
+        response.headers.get("retry-after"),
+      );
+      const bodyRetryAfter =
+        responseBody &&
+        typeof responseBody === "object" &&
+        typeof (responseBody as { retryAfter?: unknown }).retryAfter ===
+          "number"
+          ? (responseBody as { retryAfter: number }).retryAfter
+          : null;
+
       throw new ApiError(
         `KHLIM API request failed with status ${response.status}`,
         response.status,
         responseBody,
+        headerRetryAfter ?? bodyRetryAfter,
       );
     }
 

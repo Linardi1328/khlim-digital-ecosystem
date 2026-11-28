@@ -422,84 +422,112 @@ function MfaGate() {
 }
 
 export function AdminShell({ children }: AdminShellProps) {
-  const { isAuthenticated, isLoading, isDemoMode, mfaSatisfied } =
-    useAdminAuth();
+  const {
+    isAuthenticated,
+    isLoading,
+    isRevalidating,
+    workspaceEpoch,
+    isDemoMode,
+    mfaSatisfied,
+  } = useAdminAuth();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
-  if (isLoading && !isAuthenticated) {
-    return (
-      <main className="admin-access-gate" aria-live="polite">
-        <p>Verifying staff access…</p>
-      </main>
-    );
-  }
+  if (!isRevalidating) {
+    if (isLoading && !isAuthenticated) {
+      return (
+        <main className="admin-access-gate" aria-live="polite">
+          <p>Verifying staff access…</p>
+        </main>
+      );
+    }
 
-  if (!isAuthenticated) {
-    return <StaffSignIn />;
-  }
+    if (!isAuthenticated) {
+      return <StaffSignIn />;
+    }
 
-  if (!isDemoMode && !mfaSatisfied) {
-    return <MfaGate />;
+    if (!isDemoMode && !mfaSatisfied) {
+      return <MfaGate />;
+    }
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        backgroundColor: "#F8FAFC",
-      }}
-    >
-      <div className="admin-desktop-sidebar">
-        <AdminSidebar
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-        />
-      </div>
-
-      <Drawer
-        isOpen={isMobileNavOpen}
-        onClose={() => setIsMobileNavOpen(false)}
-        title="Operations Menu"
-        width="280px"
-      >
-        <AdminSidebar onNavigate={() => setIsMobileNavOpen(false)} />
-      </Drawer>
-
+    <>
+      {isRevalidating ? (
+        <main
+          className="admin-access-gate"
+          aria-live="polite"
+          data-testid="admin-revalidating-gate"
+        >
+          <p>Verifying staff access…</p>
+        </main>
+      ) : null}
       <div
+        key={`workspace-${workspaceEpoch}`}
+        hidden={isRevalidating}
+        inert={isRevalidating ? true : undefined}
+        aria-hidden={isRevalidating ? "true" : undefined}
+        data-testid={
+          isRevalidating
+            ? "admin-suspended-workspace"
+            : "admin-active-workspace"
+        }
         style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          minWidth: 0,
+          minHeight: "100vh",
+          display: isRevalidating ? "none" : "flex",
+          backgroundColor: "#F8FAFC",
         }}
       >
-        {isDemoMode && (
-          <div className="admin-demo-banner" role="status">
-            <strong>DEMO MODE</strong>
-            <span>{ADMIN_DEMO_NOTICE}</span>
-          </div>
-        )}
+        <div className="admin-desktop-sidebar">
+          <AdminSidebar
+            isCollapsed={isSidebarCollapsed}
+            onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          />
+        </div>
 
-        <AdminHeader
-          onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          onOpenMobileNav={() => setIsMobileNavOpen(true)}
-        />
+        <Drawer
+          isOpen={isMobileNavOpen && !isRevalidating}
+          onClose={() => setIsMobileNavOpen(false)}
+          title="Operations Menu"
+          width="280px"
+        >
+          <AdminSidebar onNavigate={() => setIsMobileNavOpen(false)} />
+        </Drawer>
 
-        <main
+        <div
           style={{
             flex: 1,
-            padding: "28px 28px 60px",
-            maxWidth: "1440px",
-            width: "100%",
-            margin: "0 auto",
-            boxSizing: "border-box",
+            display: "flex",
+            flexDirection: "column",
+            minWidth: 0,
           }}
         >
-          {children}
-        </main>
+          {isDemoMode && (
+            <div className="admin-demo-banner" role="status">
+              <strong>DEMO MODE</strong>
+              <span>{ADMIN_DEMO_NOTICE}</span>
+            </div>
+          )}
+
+          <AdminHeader
+            onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            onOpenMobileNav={() => setIsMobileNavOpen(true)}
+          />
+
+          <main
+            style={{
+              flex: 1,
+              padding: "28px 28px 60px",
+              maxWidth: "1440px",
+              width: "100%",
+              margin: "0 auto",
+              boxSizing: "border-box",
+            }}
+          >
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

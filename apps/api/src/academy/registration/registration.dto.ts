@@ -510,6 +510,25 @@ export class VersionRequestDto {
   @ApiProperty() expectedVersion!: number;
 }
 
+export class ApproveRegistrationPolicyRequestDto {
+  @ApiProperty() expectedVersion!: number;
+  @ApiProperty({
+    type: String,
+    format: "uuid",
+    nullable: true,
+    description:
+      "UUID of the currently approved predecessor policy to retire, or null when approving with no approved predecessor",
+  })
+  expectedApprovedPolicyId!: string | null;
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    description:
+      "Optimistic version of the currently approved predecessor policy, or null when expectedApprovedPolicyId is null",
+  })
+  expectedApprovedPolicyVersion!: number | null;
+}
+
 export class CreateRegistrationPolicyRequestDto {
   @ApiProperty({ example: "2026-12-v1" }) policyVersion!: string;
   @ApiProperty({

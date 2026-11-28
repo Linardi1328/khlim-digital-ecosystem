@@ -1,8 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useFamily } from "../../../lib/family-context";
+import { isFeatureNotAvailableError } from "@khlim/api-client";
+import { useAuth } from "../../../lib/auth-context";
+import {
+  isStaleAuthContextError,
+  useFamily,
+} from "../../../lib/family-context";
+import { buildWebAuthContextKey } from "../../../lib/family-session-isolation";
 import { useI18n } from "../../../lib/i18n-context";
 import { PortalShell } from "../../../components/portal/portal-shell";
 import { Alert } from "../../../components/ui/alert";
@@ -14,33 +20,72 @@ import { Input } from "../../../components/ui/input";
 
 export default function PlayersPage() {
   const { t, formatDate } = useI18n();
+  const { isAuthenticated, account } = useAuth();
   const { athletes, athleteLinks, addChild } = useFamily();
+  const authContextKey = buildWebAuthContextKey(isAuthenticated, account?.id);
+  const authGenRef = useRef(0);
+  const isMountedRef = useRef(true);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [serverDeferred, setServerDeferred] = useState(false);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      authGenRef.current += 1;
+    };
+  }, []);
+
+  useEffect(() => {
+    authGenRef.current += 1;
+    setOpen(false);
+    setName("");
+    setDateOfBirth("");
+    setSaving(false);
+    setError("");
+    setServerDeferred(false);
+  }, [authContextKey]);
 
   const addAthlete = async (event: React.FormEvent) => {
     event.preventDefault();
+    const authGen = authGenRef.current;
     setSaving(true);
     setError("");
     try {
       await addChild({ displayName: name.trim(), dateOfBirth });
+      if (!isMountedRef.current || authGenRef.current !== authGen) return;
       setName("");
       setDateOfBirth("");
       setOpen(false);
     } catch (caught) {
+      if (
+        !isMountedRef.current ||
+        authGenRef.current !== authGen ||
+        isStaleAuthContextError(caught)
+      ) {
+        return;
+      }
+      if (isFeatureNotAvailableError(caught)) {
+        setOpen(false);
+        setServerDeferred(true);
+        return;
+      }
       setError(
         caught instanceof Error ? caught.message : t("portal.players.addError"),
       );
     } finally {
-      setSaving(false);
+      if (isMountedRef.current && authGenRef.current === authGen) {
+        setSaving(false);
+      }
     }
   };
 
   return (
-    <PortalShell>
+    <PortalShell serverDeferred={serverDeferred}>
       <div>
         <div
           style={{

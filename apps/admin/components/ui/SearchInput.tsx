@@ -24,6 +24,7 @@ export function SearchInput({
   }, [value]);
 
   useEffect(() => {
+    if (debounceMs <= 0) return;
     const handler = setTimeout(() => {
       if (localVal !== value) {
         onChange(localVal);
@@ -61,7 +62,13 @@ export function SearchInput({
       <input
         type="search"
         value={localVal}
-        onChange={(e) => setLocalVal(e.target.value)}
+        onChange={(e) => {
+          const next = e.target.value;
+          setLocalVal(next);
+          if (debounceMs <= 0) {
+            onChange(next);
+          }
+        }}
         placeholder={placeholder}
         aria-label={placeholder}
         style={{
