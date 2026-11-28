@@ -214,6 +214,10 @@ export function ProgrammeCatalogueSection({
               {t("programmes.registerInterest")}
             </Link>
           </Card>
+        ) : !loadError && visible.length > 0 ? (
+          <span className="sr-only">
+            {t("programmes.showingCount", { count: visible.length })}
+          </span>
         ) : null}
       </div>
 

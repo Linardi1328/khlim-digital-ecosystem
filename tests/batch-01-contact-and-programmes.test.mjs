@@ -144,11 +144,16 @@ test("WhatsApp and email enquiry URL builders require privacy acknowledgement an
   // that are percent-encoded per RFC 6068 when constructing mailto: URIs.
   assert.equal(isValidContactEmail("enquiry@khlim.test"), true);
   assert.equal(isValidContactEmail("alex&family@example.com"), true);
+  assert.equal(isValidContactEmail("academy?team@example.com"), true);
   assert.equal(
     isValidContactEmail("enquiry@khlim.test\r\nBcc:evil@x.test"),
     false,
   );
   assert.equal(isValidContactEmail("not-an-email"), false);
+  assert.equal(isValidContactEmail("alex@example..com"), false);
+  assert.equal(isValidContactEmail("alex@.example.com"), false);
+  assert.equal(isValidContactEmail("alex@example.com."), false);
+  assert.equal(isValidContactEmail("alex@-example.com"), false);
   assert.equal(
     encodeMailtoRecipient("academy?team@example.com"),
     "academy%3Fteam@example.com",
@@ -252,6 +257,7 @@ test("all 6 contact categories and new contact/programmes keys exist across all 
     "contact.whatsappPromptedStatus",
     "contact.emailPromptedStatus",
     "contact.privacyPolicyLink",
+    "programmes.showingCount",
     "programmes.outageHelperNote",
     "programmes.emptyHelperNote",
     "programmes.pathway.eyebrow",

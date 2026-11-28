@@ -30,6 +30,7 @@ import {
   fetchPublishedSpotlights,
 } from "../../lib/editorial-api";
 import { resolveLocalVisualReviewImageUrl } from "../../lib/local-visual-review-media";
+import { useLocalVisualReviewEnabled } from "../../lib/use-local-visual-review";
 import { useI18n } from "../../lib/i18n-context";
 
 // Only Vercel-authenticated preview deployments can show internal review media.
@@ -91,6 +92,7 @@ function AchievementCard({ story: rawStory }: { story: AchievementStory }) {
 
 function SpotlightArchiveContent() {
   const { t } = useI18n();
+  const localVisualReviewEnabled = useLocalVisualReviewEnabled();
   const searchParams = useSearchParams();
   const queryCampaign = useMemo(
     () => getQueryCampaignSource(searchParams),
@@ -492,7 +494,10 @@ function SpotlightArchiveContent() {
               const showImage = canRenderYouthMedia(item);
               const localReviewImageUrl = showImage
                 ? undefined
-                : resolveLocalVisualReviewImageUrl(item.imageUrl);
+                : resolveLocalVisualReviewImageUrl(
+                    item.imageUrl,
+                    localVisualReviewEnabled,
+                  );
               const hasRenderedPhoto =
                 showImage || Boolean(localReviewImageUrl);
               return (

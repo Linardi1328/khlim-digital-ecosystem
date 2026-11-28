@@ -85,6 +85,7 @@ const en = {
   "programmes.catalogue": "Academy catalogue",
   "programmes.allLevels": "All levels",
   "programmes.loadingCurrent": "Loading current offerings…",
+  "programmes.showingCount": "Showing {count} open programme offering(s).",
   "programmes.noMatching": "No matching open programme offerings.",
   "programmes.catalogueLoadError":
     "Programme listings are temporarily unavailable. Please try again.",
@@ -213,6 +214,7 @@ const ms: Catalogue = {
   "programmes.catalogue": "Katalog akademi",
   "programmes.allLevels": "Semua tahap",
   "programmes.loadingCurrent": "Memuatkan tawaran semasa…",
+  "programmes.showingCount": "Memaparkan {count} tawaran program terbuka.",
   "programmes.noMatching": "Tiada tawaran program terbuka yang sepadan.",
   "programmes.catalogueLoadError":
     "Senarai program tidak dapat dimuatkan buat masa ini. Sila cuba lagi.",
@@ -333,6 +335,7 @@ const zhHans: Catalogue = {
   "programmes.catalogue": "学院课程目录",
   "programmes.allLevels": "全部级别",
   "programmes.loadingCurrent": "正在加载当前班次…",
+  "programmes.showingCount": "正在显示 {count} 个开放课程班次。",
   "programmes.noMatching": "没有符合条件的开放课程班次。",
   "programmes.catalogueLoadError": "暂时无法加载课程列表。请重试。",
   "programmes.outageHelperNote":
@@ -450,6 +453,7 @@ const zhHant: Catalogue = {
   "programmes.catalogue": "學院課程目錄",
   "programmes.allLevels": "全部級別",
   "programmes.loadingCurrent": "正在載入目前班次…",
+  "programmes.showingCount": "正在顯示 {count} 個開放課程班次。",
   "programmes.noMatching": "沒有符合條件的開放課程班次。",
   "programmes.catalogueLoadError": "暫時無法載入課程列表。請重試。",
   "programmes.outageHelperNote":
@@ -571,6 +575,7 @@ const hi: Catalogue = {
   "programmes.catalogue": "अकादमी कैटलॉग",
   "programmes.allLevels": "सभी स्तर",
   "programmes.loadingCurrent": "वर्तमान विकल्प लोड हो रहे हैं…",
+  "programmes.showingCount": "{count} खुले कार्यक्रम विकल्प दिखाए जा रहे हैं।",
   "programmes.noMatching": "कोई मेल खाता खुला कार्यक्रम विकल्प नहीं मिला।",
   "programmes.catalogueLoadError":
     "फ़िलहाल कार्यक्रम सूची लोड नहीं हो सकी। कृपया फिर से प्रयास करें।",

@@ -14,6 +14,7 @@ import { useAnalyticsConsent } from "../lib/analytics-consent";
 import { useI18n } from "../lib/i18n-context";
 import { canRenderYouthMedia } from "../lib/editorial-content";
 import { resolveLocalVisualReviewImageUrl } from "../lib/local-visual-review-media";
+import { useLocalVisualReviewEnabled } from "../lib/use-local-visual-review";
 import type { PublicOfferingItem } from "../lib/types";
 import { AcademyPillarsSection } from "../components/home/academy-pillars-section";
 import { AchievementsSection } from "../components/home/achievements-section";
@@ -116,6 +117,7 @@ function HomeContent() {
     imageUrl: "/media/khlim/team-hero-wide-1920.webp",
     photoRightsVerified: true,
   });
+  const localVisualReviewEnabled = useLocalVisualReviewEnabled();
 
   const heroSlides: HeroCarouselSlide[] = [
     {
@@ -128,12 +130,16 @@ function HomeContent() {
           : undefined) ??
         resolveLocalVisualReviewImageUrl(
           "/media/khlim/team-hero-wide-1920.webp",
+          localVisualReviewEnabled,
         ),
       imageUrlMobile:
         (heroYouthMediaEnabled
           ? "/media/khlim/team-hero-1920.webp"
           : undefined) ??
-        resolveLocalVisualReviewImageUrl("/media/khlim/team-hero-1920.webp"),
+        resolveLocalVisualReviewImageUrl(
+          "/media/khlim/team-hero-1920.webp",
+          localVisualReviewEnabled,
+        ),
       photoLabel: t("home.hero.photo.training"),
       showPlaceholderLabel: false,
       placeholderGradient:
@@ -147,12 +153,16 @@ function HomeContent() {
           : undefined) ??
         resolveLocalVisualReviewImageUrl(
           "/media/home/team-huddle-desktop.webp",
+          localVisualReviewEnabled,
         ),
       imageUrlMobile:
         (heroYouthMediaEnabled
           ? "/media/home/team-huddle-mobile.webp"
           : undefined) ??
-        resolveLocalVisualReviewImageUrl("/media/home/team-huddle-mobile.webp"),
+        resolveLocalVisualReviewImageUrl(
+          "/media/home/team-huddle-mobile.webp",
+          localVisualReviewEnabled,
+        ),
       photoLabel: t("home.hero.photo.coaching"),
       showPlaceholderLabel: false,
       placeholderGradient:
@@ -166,6 +176,7 @@ function HomeContent() {
           : undefined) ??
         resolveLocalVisualReviewImageUrl(
           "/media/home/sideline-energy-desktop.webp",
+          localVisualReviewEnabled,
         ),
       imageUrlMobile:
         (heroYouthMediaEnabled
@@ -173,6 +184,7 @@ function HomeContent() {
           : undefined) ??
         resolveLocalVisualReviewImageUrl(
           "/media/home/sideline-energy-mobile.webp",
+          localVisualReviewEnabled,
         ),
       photoLabel: t("home.hero.photo.gameDay"),
       showPlaceholderLabel: false,
@@ -187,6 +199,7 @@ function HomeContent() {
           : undefined) ??
         resolveLocalVisualReviewImageUrl(
           "/media/home/court-together-desktop.webp",
+          localVisualReviewEnabled,
         ),
       imageUrlMobile:
         (heroYouthMediaEnabled
@@ -194,6 +207,7 @@ function HomeContent() {
           : undefined) ??
         resolveLocalVisualReviewImageUrl(
           "/media/home/court-together-mobile.webp",
+          localVisualReviewEnabled,
         ),
       photoLabel: t("home.hero.photo.community"),
       showPlaceholderLabel: false,

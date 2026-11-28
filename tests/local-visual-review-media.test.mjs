@@ -174,7 +174,14 @@ test("local visual review resolution fails closed in production, when disabled, 
       undefined,
     );
 
-    // 5. Development with opt-in on loopback resolves allowlisted paths only
+    // 5. SSR (no window, no override) stays disabled to guarantee identical SSR/hydration HTML
+    assert.equal(isLocalVisualReviewActive(), false);
+    assert.equal(
+      resolveLocalVisualReviewImageUrl("/media/khlim/team-hero-wide-1920.webp"),
+      undefined,
+    );
+
+    // 6. Development with opt-in on loopback resolves allowlisted paths only
     assert.equal(isLocalVisualReviewActive("127.0.0.1"), true);
     assert.equal(
       resolveLocalVisualReviewImageUrl(
@@ -182,6 +189,20 @@ test("local visual review resolution fails closed in production, when disabled, 
         "127.0.0.1",
       ),
       `${LOCAL_VISUAL_REVIEW_PREFIX}khlim/team-hero-wide-1920.webp`,
+    );
+    assert.equal(
+      resolveLocalVisualReviewImageUrl(
+        "/media/khlim/team-hero-wide-1920.webp",
+        true,
+      ),
+      `${LOCAL_VISUAL_REVIEW_PREFIX}khlim/team-hero-wide-1920.webp`,
+    );
+    assert.equal(
+      resolveLocalVisualReviewImageUrl(
+        "/media/khlim/team-hero-wide-1920.webp",
+        false,
+      ),
+      undefined,
     );
     assert.equal(
       resolveLocalVisualReviewImageUrl(
@@ -200,15 +221,19 @@ test("local visual review resolution fails closed in production, when disabled, 
   }
 });
 
-test("next.config.ts unconditionally disables NEXT_PUBLIC_LOCAL_VISUAL_REVIEW in production and hosted builds", async () => {
+test("next.config.ts unconditionally disables NEXT_PUBLIC_LOCAL_VISUAL_REVIEW in production and hosted builds and web dev binds loopback", async () => {
   const nextConfig = await readFile(
     new URL("apps/web/next.config.ts", root),
     "utf8",
+  );
+  const webPkg = JSON.parse(
+    await readFile(new URL("apps/web/package.json", root), "utf8"),
   );
   assert.match(
     nextConfig,
     /NEXT_PUBLIC_LOCAL_VISUAL_REVIEW:\s*process\.env\.NODE_ENV === "development" &&\s*!process\.env\.VERCEL &&\s*!process\.env\.VERCEL_ENV &&\s*process\.env\.KHLIM_LOCAL_VISUAL_REVIEW === "1"\s*\?\s*"1"\s*:\s*"0"/,
   );
+  assert.equal(webPkg.scripts.dev, "next dev -H 127.0.0.1");
 });
 
 test("api/preview-media/recovered enforces production, hosted, opt-in, loopback, allowlist, traversal, and symlink containment gates", async () => {

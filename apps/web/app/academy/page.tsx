@@ -30,10 +30,12 @@ import { getButtonStyles } from "../../components/ui/button";
 import { Card } from "../../components/ui/card";
 import { canRenderYouthMedia } from "../../lib/editorial-content";
 import { resolveLocalVisualReviewImageUrl } from "../../lib/local-visual-review-media";
+import { useLocalVisualReviewEnabled } from "../../lib/use-local-visual-review";
 import { useI18n } from "../../lib/i18n-context";
 
 function AcademyContent() {
   const { t } = useI18n();
+  const localVisualReviewEnabled = useLocalVisualReviewEnabled();
   const searchParams = useSearchParams();
   const queryCampaign = useMemo(
     () => getQueryCampaignSource(searchParams),
@@ -446,6 +448,7 @@ function AcademyContent() {
                 ? undefined
                 : resolveLocalVisualReviewImageUrl(
                     "/media/khlim/training-group-1280.webp",
+                    localVisualReviewEnabled,
                   );
 
               if (!showConsentedTrainingGroup && !localReviewTrainingGroupUrl) {

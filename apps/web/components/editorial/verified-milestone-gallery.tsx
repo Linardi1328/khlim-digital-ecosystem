@@ -6,6 +6,7 @@ import {
   localizeAchievementStory,
 } from "../../lib/editorial-content";
 import { resolveLocalVisualReviewImageUrl } from "../../lib/local-visual-review-media";
+import { useLocalVisualReviewEnabled } from "../../lib/use-local-visual-review";
 import { useI18n } from "../../lib/i18n-context";
 
 export function VerifiedMilestoneGallery({
@@ -16,6 +17,7 @@ export function VerifiedMilestoneGallery({
   compact?: boolean;
 }) {
   const { t } = useI18n();
+  const localVisualReviewEnabled = useLocalVisualReviewEnabled();
 
   return (
     <div
@@ -26,7 +28,10 @@ export function VerifiedMilestoneGallery({
         const showImage = canRenderYouthMedia(story);
         const localReviewImageUrl = showImage
           ? undefined
-          : resolveLocalVisualReviewImageUrl(story.imageUrl);
+          : resolveLocalVisualReviewImageUrl(
+              story.imageUrl,
+              localVisualReviewEnabled,
+            );
         return (
           <article className="verified-milestone-card" key={story.id}>
             <div className="verified-milestone-media">

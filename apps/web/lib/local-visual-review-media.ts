@@ -114,20 +114,31 @@ export function isLocalVisualReviewActive(hostnameOverride?: string): boolean {
   if (typeof window !== "undefined") {
     return isLoopbackHostname(window.location.hostname);
   }
-  return true;
+  // Keep disabled during server rendering so SSR and initial browser hydration
+  // output always match before client mount verifies the loopback hostname.
+  return false;
 }
 
 /**
  * Resolves a historical `/media/...` image URL to the loopback-only,
  * development-only `/api/preview-media/recovered/...` endpoint when local
  * visual review is explicitly enabled. Always returns `undefined` in
- * production/hosted builds or for non-allowlisted paths.
+ * production/hosted builds, during SSR, or for non-allowlisted paths.
  */
 export function resolveLocalVisualReviewImageUrl(
   imageUrl: string | undefined,
-  hostnameOverride?: string,
+  enabledOrHostname?: boolean | string,
 ): string | undefined {
-  if (!imageUrl || !isLocalVisualReviewActive(hostnameOverride)) {
+  if (!imageUrl) {
+    return undefined;
+  }
+  const active =
+    typeof enabledOrHostname === "boolean"
+      ? enabledOrHostname &&
+        process.env.NODE_ENV === "development" &&
+        process.env.NEXT_PUBLIC_LOCAL_VISUAL_REVIEW === "1"
+      : isLocalVisualReviewActive(enabledOrHostname);
+  if (!active) {
     return undefined;
   }
   if (!imageUrl.startsWith("/media/")) {

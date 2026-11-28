@@ -35,7 +35,9 @@ export const CONTACT_EMAIL_BODY_MAX_LENGTH =
 
 const ALLOWED_RAW_PHONE_CHARS = /^[0-9+\s().-]+$/;
 // Keep RFC 5322 email syntax validation separate from RFC 6068 URI percent-encoding.
-const STRICT_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_LOCAL_PART_REGEX = /^[^\s@]+$/;
+const EMAIL_DOMAIN_LABEL_REGEX =
+  /^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/;
 
 /**
  * Removes any lone UTF-16 surrogates so `encodeURIComponent` can never throw `URIError`,
@@ -178,7 +180,19 @@ export function isValidContactEmail(raw: string | null | undefined): boolean {
   const trimmed = raw?.trim() ?? "";
   if (!trimmed || trimmed.length > CONTACT_EMAIL_MAX_LENGTH) return false;
   if (/[\r\n]/.test(trimmed)) return false;
-  return STRICT_EMAIL_REGEX.test(trimmed);
+
+  const atIndex = trimmed.indexOf("@");
+  if (atIndex <= 0 || atIndex !== trimmed.lastIndexOf("@")) return false;
+
+  const localPart = trimmed.slice(0, atIndex);
+  const domainPart = trimmed.slice(atIndex + 1);
+  if (!EMAIL_LOCAL_PART_REGEX.test(localPart)) return false;
+  if (!domainPart || domainPart.length > 253) return false;
+
+  const labels = domainPart.split(".");
+  if (labels.length < 2) return false;
+
+  return labels.every((label) => EMAIL_DOMAIN_LABEL_REGEX.test(label));
 }
 
 /**
