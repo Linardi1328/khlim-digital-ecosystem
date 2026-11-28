@@ -3504,19 +3504,13 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
     await page.getByRole("button", { name: "Confirm Status Change" }).click();
     await expect(page.locator('[role="dialog"]')).toHaveCount(1);
     await expect(page.getByTestId("open-status-confirm-btn")).toBeDisabled();
-    const activeFocusAfterDisabledOpener = await page
-      .locator('[role="dialog"]')
-      .first()
-      .evaluate((el) => {
-        const active = document.activeElement;
-        return {
-          insideDrawer: active instanceof Node && el.contains(active),
-          isDisabled:
-            active instanceof HTMLElement && active.hasAttribute("disabled"),
-        };
-      });
-    expect(activeFocusAfterDisabledOpener.insideDrawer).toBe(true);
-    expect(activeFocusAfterDisabledOpener.isDisabled).toBe(false);
+    // Assert focus moved specifically to an operable control (Close drawer button), not container or body (C3A9)
+    await expect(
+      page
+        .locator('[role="dialog"]')
+        .first()
+        .getByRole("button", { name: "Close drawer" }),
+    ).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(page.locator('[role="dialog"]')).toHaveCount(0);
 
@@ -3996,10 +3990,11 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
     await page.goto("/registrations", { waitUntil: "networkidle" });
     await expect(page.locator("body")).toContainText("KAR-R2FINAL1");
 
-    // 0) CnBl: Change search input just before same-context renewal -> debounce restarts cleanly after renewal!
+    // 0) CnBl + C3BA: Change search input just before same-context renewal -> assert NO search fired before renewal, then debounce restarts cleanly after renewal!
     const searchBox = page.locator('input[type="search"]').first();
     await searchBox.fill("Amina");
     const releaseSearchRenewal = await triggerSameContextRenewal();
+    expect(searchQueryHistory.includes("Amina")).toBe(false);
     releaseSearchRenewal();
     await expect.poll(() => searchQueryHistory.includes("Amina")).toBe(true);
     await searchBox.fill("");

@@ -128,6 +128,7 @@ test("Phase 5 registration handles email-confirmation mode without pretending th
   let epoch = 0;
   let getMeCalls = 0;
   let profileCalls = 0;
+  const signUpEmails = [];
   const controller = new WebAuthSessionController(
     {
       storageKey: "khlim_supabase_session",
@@ -143,11 +144,14 @@ test("Phase 5 registration handles email-confirmation mode without pretending th
       signIn: async () => {
         throw new Error("should not sign in");
       },
-      signUp: async () => ({
-        session: null,
-        user: { id: "pending-confirm-user", email: "pending@example.test" },
-        emailConfirmationOrSignInRequired: true,
-      }),
+      signUp: async (email) => {
+        signUpEmails.push(email);
+        return {
+          session: null,
+          user: { id: "pending-confirm-user", email },
+          emailConfirmationOrSignInRequired: true,
+        };
+      },
       signOut: async () => undefined,
       invalidateSessionOperations: () => ++epoch,
       clearStoredSessionIfEpoch: () => undefined,
@@ -161,6 +165,7 @@ test("Phase 5 registration handles email-confirmation mode without pretending th
     "Pending Parent",
     "en",
   );
+  assert.deepEqual(signUpEmails, ["pending@example.test"]);
   assert.deepEqual(result, {
     authenticated: false,
     emailConfirmationOrSignInRequired: true,

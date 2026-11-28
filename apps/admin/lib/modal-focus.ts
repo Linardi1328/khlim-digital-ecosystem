@@ -43,6 +43,13 @@ function getTopModal(): ModalStackEntry | null {
   return modalStack[modalStack.length - 1] ?? null;
 }
 
+function focusFirstOperable(elements: HTMLElement[]): boolean {
+  for (const el of elements) {
+    if (focusElementSafe(el)) return true;
+  }
+  return false;
+}
+
 function focusElementSafe(el: HTMLElement | null | undefined): boolean {
   if (!el || !el.isConnected) return false;
   if (el.hasAttribute("disabled") || el.closest("[hidden], [inert]") !== null) {
@@ -177,7 +184,7 @@ export function registerModalFocusTrap(options: {
         const mainEl = document.querySelector<HTMLElement>("main");
         if (mainEl) {
           const focusables = getModalFocusableElements(mainEl);
-          if (!focusElementSafe(focusables[0])) {
+          if (!focusFirstOperable(focusables)) {
             if (!mainEl.hasAttribute("tabindex")) {
               mainEl.setAttribute("tabindex", "-1");
             }
@@ -197,7 +204,7 @@ export function registerModalFocusTrap(options: {
         focusElementSafe(entry.previousActiveElement);
       if (!restored) {
         const focusables = getModalFocusableElements(nextTop.container);
-        if (!focusElementSafe(focusables[0])) {
+        if (!focusFirstOperable(focusables)) {
           focusElementSafe(nextTop.container);
         }
       }

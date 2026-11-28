@@ -109,6 +109,7 @@ export function AdminConsentPoliciesTab({
   const [banner, setBanner] = useState<{
     variant: "success" | "warning" | "error";
     message: string;
+    conflictRefreshFailed?: boolean;
   } | null>(null);
 
   // Inspect detail drawer
@@ -266,6 +267,15 @@ export function AdminConsentPoliciesTab({
       }
       setCurrentPolicy(response.current ?? null);
       setHistoryItems(Array.isArray(response.items) ? response.items : []);
+      setBanner((prev) =>
+        prev?.conflictRefreshFailed
+          ? {
+              variant: "warning",
+              message:
+                "The latest consent policies are now loaded — review the current policy before retrying.",
+            }
+          : prev,
+      );
       return "ok";
     } catch (error: unknown) {
       if (
@@ -355,6 +365,7 @@ export function AdminConsentPoliciesTab({
   };
 
   const openCreateDrawer = () => {
+    if (!isEligible || isSuspended) return;
     createDrawerInstanceIdRef.current += 1;
     activeCreateSubmissionRef.current = null;
     interruptedCreateRef.current = null;
@@ -584,6 +595,7 @@ export function AdminConsentPoliciesTab({
               }
             : {
                 variant: "error",
+                conflictRefreshFailed: true,
                 message:
                   "This consent policy or the currently approved predecessor was modified by another administrator, and the latest policies could not be refreshed. Use Retry below to reload before taking action.",
               },
@@ -676,6 +688,7 @@ export function AdminConsentPoliciesTab({
               }
             : {
                 variant: "error",
+                conflictRefreshFailed: true,
                 message:
                   "This consent policy changed, and the latest policies could not be refreshed. Use Retry below to reload before taking action.",
               },
@@ -858,6 +871,7 @@ export function AdminConsentPoliciesTab({
             size="sm"
             variant="primary"
             data-testid="create-policy-draft-btn"
+            disabled={!isEligible || isSuspended}
             onClick={openCreateDrawer}
           >
             + Create Policy Draft

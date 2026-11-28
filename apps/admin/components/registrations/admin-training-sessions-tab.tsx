@@ -450,6 +450,7 @@ export function AdminTrainingSessionsTab({
   );
 
   const openCreateDrawer = () => {
+    if (!isEligible || isSuspended) return;
     const instanceId = ++editorInstanceIdRef.current;
     activeSaveMutationRef.current = null;
     interruptedSaveRef.current = null;
@@ -470,7 +471,9 @@ export function AdminTrainingSessionsTab({
   };
 
   const openEditDrawer = (session: AdminRegistrationSessionDto) => {
-    if (session.publicationState === "CLOSED") return;
+    if (!isEligible || isSuspended || session.publicationState === "CLOSED") {
+      return;
+    }
     const instanceId = ++editorInstanceIdRef.current;
     activeSaveMutationRef.current = null;
     interruptedSaveRef.current = null;
@@ -868,7 +871,13 @@ export function AdminTrainingSessionsTab({
 
   const handleSaveSession = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (saving || Boolean(staleConflict) || Boolean(interruptedSaveReview)) {
+    if (
+      !isEligible ||
+      isSuspended ||
+      saving ||
+      Boolean(staleConflict) ||
+      Boolean(interruptedSaveReview)
+    ) {
       return;
     }
 
@@ -1452,6 +1461,7 @@ export function AdminTrainingSessionsTab({
             size="sm"
             variant="primary"
             data-testid="create-session-draft-btn"
+            disabled={!isEligible || isSuspended}
             onClick={openCreateDrawer}
           >
             + Create Draft Session
@@ -1705,9 +1715,39 @@ export function AdminTrainingSessionsTab({
                 )
               ) : interruptedSaveReview.status === "list_refreshed" ? (
                 (() => {
-                  const submittedName =
-                    interruptedSaveReview.attemptedForm.name.trim();
+                  const attempted = interruptedSaveReview.attemptedForm;
+                  const submittedName = attempted.name.trim();
                   const normalizedSubmitted = submittedName.toLowerCase();
+                  const attemptedProgrammeName =
+                    programmes.find((p) => p.id === attempted.programmeId)
+                      ?.name ||
+                    attempted.programmeId ||
+                    "Not set";
+                  const attemptedVenueName =
+                    venues.find((v) => v.id === attempted.venueId)?.name ||
+                    attempted.venueId ||
+                    "Not set";
+                  const attemptedWeekdayNum = attempted.weekday
+                    ? Number(attempted.weekday)
+                    : null;
+                  const attemptedScheduleParts = [
+                    attemptedWeekdayNum
+                      ? formatIsoWeekday(attemptedWeekdayNum)
+                      : null,
+                    attempted.startTime && attempted.endTime
+                      ? `${attempted.startTime}–${attempted.endTime}`
+                      : null,
+                    attempted.firstSessionDate
+                      ? `starts ${attempted.firstSessionDate}`
+                      : null,
+                    attempted.recurrence
+                      ? formatSessionRecurrence(attempted.recurrence)
+                      : null,
+                  ].filter(Boolean);
+                  const attemptedScheduleSummary =
+                    attemptedScheduleParts.length > 0
+                      ? attemptedScheduleParts.join(" · ")
+                      : "Schedule not set";
                   const matchingSessions = normalizedSubmitted
                     ? sessions.filter(
                         (item) =>
@@ -1722,30 +1762,47 @@ export function AdminTrainingSessionsTab({
                   return (
                     <>
                       <div data-testid="session-interrupted-create-lookup">
-                        {matchingSessions.length > 0 ? (
-                          <span>
-                            Refreshed sessions lookup found{" "}
-                            <strong>{matchingSessions.length}</strong> matching
-                            session
-                            {matchingSessions.length === 1
-                              ? ""
-                              : "s"} named{" "}
-                            <strong>&ldquo;{submittedName}&rdquo;</strong>.
-                            Close this drawer unless you intend to create
-                            another cohort.
-                          </span>
-                        ) : (
-                          <span>
-                            Refreshed sessions lookup did not find a session
-                            named{" "}
-                            <strong>
-                              &ldquo;{submittedName || "—"}&rdquo;
-                            </strong>{" "}
-                            among {sessions.length} loaded session
-                            {sessions.length === 1 ? "" : "s"}. Review the
-                            refreshed summary below before retrying.
-                          </span>
-                        )}
+                        <div>
+                          {matchingSessions.length > 0 ? (
+                            <span>
+                              Refreshed list lookup (not proof of the prior
+                              request&rsquo;s outcome) found{" "}
+                              <strong>{matchingSessions.length}</strong>{" "}
+                              candidate session
+                              {matchingSessions.length === 1
+                                ? ""
+                                : "s"} named{" "}
+                              <strong>&ldquo;{submittedName}&rdquo;</strong>.
+                              Compare programme, venue, and schedule below
+                              before retrying or closing this drawer.
+                            </span>
+                          ) : (
+                            <span>
+                              Refreshed list lookup (not proof of the prior
+                              request&rsquo;s outcome) did not find a session
+                              named{" "}
+                              <strong>
+                                &ldquo;{submittedName || "—"}&rdquo;
+                              </strong>{" "}
+                              among {sessions.length} loaded session
+                              {sessions.length === 1 ? "" : "s"}. Compare the
+                              attempted details and refreshed sessions below
+                              before retrying.
+                            </span>
+                          )}
+                        </div>
+                        <div
+                          style={{
+                            marginTop: 4,
+                            fontSize: "0.78rem",
+                            color: "#78350F",
+                          }}
+                        >
+                          <strong>Attempted draft:</strong>{" "}
+                          {submittedName || "—"} · Programme:{" "}
+                          {attemptedProgrammeName} · Venue: {attemptedVenueName}{" "}
+                          · {attemptedScheduleSummary}
+                        </div>
                       </div>
                       {previewSessions.length > 0 ? (
                         <ul
@@ -1756,16 +1813,32 @@ export function AdminTrainingSessionsTab({
                             color: "#78350F",
                           }}
                         >
-                          {previewSessions.map((item) => (
-                            <li key={item.id}>
-                              <strong>{item.name}</strong> —{" "}
-                              {formatPublicationStateLabel(
-                                item.publicationState,
-                              )}{" "}
-                              (v{item.version}, starts{" "}
-                              {item.firstSessionDate ?? "TBD"})
-                            </li>
-                          ))}
+                          {previewSessions.map((item) => {
+                            const itemScheduleParts = [
+                              item.weekday
+                                ? formatIsoWeekday(item.weekday)
+                                : null,
+                              item.startTime && item.endTime
+                                ? `${item.startTime}–${item.endTime}`
+                                : null,
+                              `starts ${item.firstSessionDate ?? "TBD"}`,
+                              item.recurrence
+                                ? formatSessionRecurrence(item.recurrence)
+                                : null,
+                            ].filter(Boolean);
+                            return (
+                              <li key={item.id}>
+                                <strong>{item.name}</strong> —{" "}
+                                {formatPublicationStateLabel(
+                                  item.publicationState,
+                                )}{" "}
+                                (v{item.version}) · Programme:{" "}
+                                {item.programme.name} · Venue:{" "}
+                                {item.venue?.name || "No venue"} ·{" "}
+                                {itemScheduleParts.join(" · ")}
+                              </li>
+                            );
+                          })}
                         </ul>
                       ) : null}
                       <div

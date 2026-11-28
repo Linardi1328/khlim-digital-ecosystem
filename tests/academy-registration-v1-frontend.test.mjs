@@ -2427,6 +2427,24 @@ describe("RIC-191 Academy Registration V1 frontend helpers & contract rules", ()
         null,
         "Malformed stored session without user.id must be purged before refresh",
       );
+
+      // C3A5: Stored session missing persisted expires_at must NOT regenerate a fresh future expiry on read
+      mockLocalStorage.setItem(
+        SUPABASE_SESSION_STORAGE_KEY,
+        JSON.stringify({
+          access_token: "synthetic-no-exp-tok",
+          refresh_token: "synthetic-no-exp-ref",
+          expires_in: 3600,
+          token_type: "bearer",
+          user: { id: "user-no-exp", email: "noexp@example.test" },
+        }),
+      );
+      const restoredMissingExpiry = await restoreSupabaseSession();
+      assert.equal(restoredMissingExpiry, null);
+      assert.equal(
+        mockLocalStorage.getItem(SUPABASE_SESSION_STORAGE_KEY),
+        null,
+      );
     } finally {
       globalThis.window = prevWindow;
       globalThis.fetch = prevFetch;

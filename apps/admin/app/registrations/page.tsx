@@ -292,6 +292,7 @@ function AcademyRegistrationsContent() {
         return;
       }
       setDebouncedSearch(trimmed);
+      setPage(1);
     }, 300);
     return () => {
       if (searchTimerRef.current !== null) {
@@ -905,8 +906,10 @@ function AcademyRegistrationsContent() {
         });
       }
 
-      // Synchronize summary row monotonically and trigger an effect-driven list refresh
-      // using current filters/search/page (never a stale closure) + authoritative seat counts.
+      // Invalidate any in-flight list reads predating this confirmed status change
+      // before merging the updated row and triggering the authoritative list reload.
+      listRequestSeq.current += 1;
+      listAbortRef.current?.abort();
       setRegistrations((prev) =>
         prev.map((row) =>
           row.id === updated.id && updated.version >= row.version
@@ -1405,7 +1408,6 @@ function AcademyRegistrationsContent() {
                   onChange={(val) => {
                     if (authInvalidatedRef.current) return;
                     setSearchInput(val);
-                    setPage(1);
                   }}
                   placeholder="Search player, guardian, phone, or KAR ref (min 2 chars)..."
                 />

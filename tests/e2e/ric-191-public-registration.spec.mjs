@@ -1160,8 +1160,25 @@ test.describe("RIC-191 Public Academy Registration V1", () => {
       });
     });
 
-    await page.route("**/v1/academy/registrations", (route) =>
-      route.fulfill({
+    const submittedSessionIds = [];
+    await page.route("**/v1/academy/registrations", (route) => {
+      const body = route.request().postDataJSON();
+      const submittedId = body?.sessionId ?? "";
+      submittedSessionIds.push(submittedId);
+      const expectedId =
+        submittedSessionIds.length === 1 ? SESSION_B : SESSION_A;
+      if (submittedId !== expectedId) {
+        return route.fulfill({
+          status: 400,
+          contentType: "application/json",
+          body: JSON.stringify({
+            statusCode: 400,
+            code: "VALIDATION_FAILED",
+            message: `Unexpected sessionId ${submittedId}, expected ${expectedId}`,
+          }),
+        });
+      }
+      return route.fulfill({
         status: 409,
         contentType: "application/json",
         body: JSON.stringify({
@@ -1169,8 +1186,8 @@ test.describe("RIC-191 Public Academy Registration V1", () => {
           code: "SESSION_NOT_AVAILABLE",
           message: "Selected session is no longer available",
         }),
-      }),
-    );
+      });
+    });
 
     // 1) 7oc: Navigate with ?sessionId=A, select B, keep B selected, submit -> 409 triggers refresh dropping B -> A auto-selected without clicking A!
     await page.setViewportSize({ width: 1280, height: 900 });

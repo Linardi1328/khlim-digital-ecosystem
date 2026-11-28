@@ -95,14 +95,20 @@ function readStoredSession(): SupabaseSession | null {
   if (!raw) return null;
 
   try {
-    const parsed = normalizeSession(JSON.parse(raw));
+    const parsed = normalizeSession(JSON.parse(raw), {
+      requireExpiresAt: true,
+    });
     if (!parsed) {
-      window.localStorage.removeItem(SUPABASE_SESSION_STORAGE_KEY);
+      if (window.localStorage.getItem(SUPABASE_SESSION_STORAGE_KEY) === raw) {
+        window.localStorage.removeItem(SUPABASE_SESSION_STORAGE_KEY);
+      }
       return null;
     }
     return parsed;
   } catch {
-    window.localStorage.removeItem(SUPABASE_SESSION_STORAGE_KEY);
+    if (window.localStorage.getItem(SUPABASE_SESSION_STORAGE_KEY) === raw) {
+      window.localStorage.removeItem(SUPABASE_SESSION_STORAGE_KEY);
+    }
     return null;
   }
 }
@@ -123,7 +129,10 @@ function normalizeUser(payload: unknown): SupabaseUser | null {
   };
 }
 
-function normalizeSession(payload: unknown): SupabaseSession | null {
+function normalizeSession(
+  payload: unknown,
+  options?: { requireExpiresAt?: boolean },
+): SupabaseSession | null {
   if (typeof payload !== "object" || payload === null) return null;
 
   const value = payload as Record<string, unknown>;
@@ -140,14 +149,19 @@ function normalizeSession(payload: unknown): SupabaseSession | null {
   const user = normalizeUser(value.user);
   if (!user) return null;
 
+  const hasValidExpiresAt =
+    typeof value.expires_at === "number" && Number.isFinite(value.expires_at);
+  if (options?.requireExpiresAt && !hasValidExpiresAt) {
+    return null;
+  }
+
   return {
     access_token: value.access_token,
     refresh_token: value.refresh_token,
     expires_in: value.expires_in,
-    expires_at:
-      typeof value.expires_at === "number" && Number.isFinite(value.expires_at)
-        ? value.expires_at
-        : Math.floor(Date.now() / 1000) + value.expires_in,
+    expires_at: hasValidExpiresAt
+      ? (value.expires_at as number)
+      : Math.floor(Date.now() / 1000) + value.expires_in,
     token_type: value.token_type,
     user,
   };
