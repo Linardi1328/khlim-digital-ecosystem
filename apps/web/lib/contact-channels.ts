@@ -34,8 +34,8 @@ export const CONTACT_EMAIL_BODY_MAX_LENGTH =
   300;
 
 const ALLOWED_RAW_PHONE_CHARS = /^[0-9+\s().-]+$/;
-// Disallow whitespace, control characters, and RFC 6068 URI delimiter characters (?, #, %, &)
-const STRICT_EMAIL_REGEX = /^[^\s@?#%&]+@[^\s@?#%&]+\.[^\s@?#%&]+$/;
+// Keep RFC 5322 email syntax validation separate from RFC 6068 URI percent-encoding.
+const STRICT_EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * Removes any lone UTF-16 surrogates so `encodeURIComponent` can never throw `URIError`,

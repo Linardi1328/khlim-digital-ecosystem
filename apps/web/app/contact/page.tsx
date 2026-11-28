@@ -19,8 +19,10 @@ import {
   CONTACT_MESSAGE_MAX_LENGTH,
   CONTACT_NAME_MAX_LENGTH,
   CONTACT_WHATSAPP_BODY_MAX_LENGTH,
+  buildEmailEnquiryUrl,
   buildWhatsAppDirectUrl,
   buildWhatsAppEnquiryUrl,
+  encodeMailtoRecipient,
   formatWhatsAppDisplayNumber,
   getConfiguredOfficialWhatsAppRaw,
   isValidContactEmail,
@@ -181,21 +183,20 @@ function ContactContent() {
     t,
   ]);
 
+  const encodedBusinessEmail = useMemo(
+    () => (hasEmail ? encodeMailtoRecipient(business.email) : ""),
+    [hasEmail, business.email],
+  );
+
   const emailEnquiryUrl = useMemo(() => {
-    if (
-      !hasEmail ||
-      !privacyConsent ||
-      !emailSubject ||
-      !emailBody ||
-      !emailInputValid
-    ) {
-      return null;
-    }
-    const subject = encodeURIComponent(emailSubject);
-    const body = encodeURIComponent(emailBody);
-    return `mailto:${business.email}?subject=${subject}&body=${body}`;
+    if (!emailInputValid) return null;
+    return buildEmailEnquiryUrl({
+      recipientEmail: business.email,
+      privacyAcknowledged: privacyConsent,
+      subject: emailSubject,
+      body: emailBody,
+    });
   }, [
-    hasEmail,
     business.email,
     privacyConsent,
     emailSubject,
@@ -367,7 +368,7 @@ function ContactContent() {
                   {hasEmail ? (
                     <div className="contact-channel-card-body">
                       <a
-                        href={`mailto:${business.email}`}
+                        href={`mailto:${encodedBusinessEmail}`}
                         data-testid="contact-email-direct-link"
                         style={{
                           color: "#18181B",
@@ -965,7 +966,7 @@ function ContactContent() {
                   <div>
                     {t("compliance.footer.emailLabel")}:{" "}
                     <a
-                      href={`mailto:${business.email}`}
+                      href={`mailto:${encodedBusinessEmail}`}
                       style={{
                         color: "#2563EB",
                         textDecoration: "underline",

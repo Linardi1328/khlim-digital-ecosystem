@@ -568,11 +568,15 @@ test("Contact and footer display the exact registered company identity with loca
   assert.doesNotMatch(footer, /business\.registrationNumber\.match/);
   assert.doesNotMatch(footer, /compliance\.footer\.companyNumberLabel/);
   assert.match(contactPage, /business\.businessAddress/);
-  assert.match(contactPage, /href=\{`mailto:\$\{business\.email\}`\}/);
+  assert.match(contactPage, /encodeMailtoRecipient\(business\.email\)/);
+  assert.match(contactPage, /href=\{`mailto:\$\{encodedBusinessEmail\}`\}/);
   assert.match(contactPage, /href=\{`tel:\$\{business\.phone\}`\}/);
 
-  // Enquiry submission uses business email
-  assert.match(contactPage, /mailto:\$\{business\.email\}\?subject=/);
+  // Enquiry submission uses business email via RFC 6068 encoded helper
+  assert.match(
+    contactPage,
+    /buildEmailEnquiryUrl\(\{[\s\S]*?recipientEmail:\s*business\.email/,
+  );
 
   // Scoped email warning instead of claiming entire contact page unconfigured
   assert.match(contactPage, /t\("contact\.emailUnavailableTitle"\)/);

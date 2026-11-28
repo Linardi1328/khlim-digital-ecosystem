@@ -139,18 +139,33 @@ test("WhatsApp and email enquiry URL builders require privacy acknowledgement an
   assert.ok(!mailUrl.includes("& #3"));
   assert.ok(mailUrl.includes("%26%20%233"));
 
-  // Email validation rejects header injection and RFC 6068 URI delimiters
+  // Email validation rejects CR/LF header injection while permitting valid RFC 5322 local-part chars
+  // that are percent-encoded per RFC 6068 when constructing mailto: URIs.
   assert.equal(isValidContactEmail("enquiry@khlim.test"), true);
+  assert.equal(isValidContactEmail("alex&family@example.com"), true);
   assert.equal(
     isValidContactEmail("enquiry@khlim.test\r\nBcc:evil@x.test"),
     false,
   );
-  assert.equal(isValidContactEmail("academy?team@example.com"), false);
-  assert.equal(isValidContactEmail("academy#team@example.com"), false);
   assert.equal(isValidContactEmail("not-an-email"), false);
   assert.equal(
     encodeMailtoRecipient("academy?team@example.com"),
     "academy%3Fteam@example.com",
+  );
+  assert.equal(
+    encodeMailtoRecipient("alex&family@example.com"),
+    "alex%26family@example.com",
+  );
+  const encodedRecipientUrl = buildEmailEnquiryUrl({
+    recipientEmail: "alex&family@example.com",
+    privacyAcknowledged: true,
+    subject: "Enquiry",
+    body: "Hello",
+  });
+  assert.ok(
+    encodedRecipientUrl?.startsWith(
+      "mailto:alex%26family@example.com?subject=",
+    ),
   );
 });
 
