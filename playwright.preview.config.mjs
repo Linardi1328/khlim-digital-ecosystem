@@ -14,6 +14,7 @@ export default defineConfig({
     "staging-browser-acceptance.spec.mjs",
     "ric-184-academy-parity-qa.spec.mjs",
     "ric-191-public-registration.spec.mjs",
+    "batch-01-website-readiness.spec.mjs",
   ],
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
