@@ -218,21 +218,6 @@ function ProgrammesContent() {
           aria-label={t("programmes.catalogue")}
           data-testid="programmes-live-catalogue"
         >
-          <div
-            role="status"
-            aria-live="polite"
-            aria-atomic="true"
-            className="sr-only"
-            data-testid="programmes-live-status"
-          >
-            {loading
-              ? t("programmes.loadingCurrent")
-              : loadError
-                ? t("programmes.catalogueLoadError")
-                : visible.length === 0
-                  ? t("programmes.noMatching")
-                  : ""}
-          </div>
           {levels.length > 1 ? (
             <div
               style={{
@@ -265,16 +250,60 @@ function ProgrammesContent() {
             </div>
           ) : null}
 
-          {loading ? (
-            <Card
-              style={{ padding: 32, textAlign: "center" }}
-              data-testid="programmes-state-loading"
-            >
-              <p role="status" style={{ margin: 0, color: "#52525B" }}>
-                {t("programmes.loadingCurrent")}
-              </p>
-            </Card>
-          ) : loadError ? (
+          <div
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            data-testid="programmes-live-status"
+          >
+            {loading ? (
+              <Card
+                style={{ padding: 32, textAlign: "center" }}
+                data-testid="programmes-state-loading"
+              >
+                <p style={{ margin: 0, color: "#52525B" }}>
+                  {t("programmes.loadingCurrent")}
+                </p>
+              </Card>
+            ) : !loadError && visible.length === 0 ? (
+              <Card
+                style={{ padding: 32, textAlign: "center" }}
+                data-testid="programmes-state-empty"
+              >
+                <p
+                  style={{
+                    margin: "0 0 10px",
+                    fontWeight: 600,
+                    color: "#18181B",
+                  }}
+                >
+                  {t("programmes.noMatching")}
+                </p>
+                <p
+                  style={{
+                    margin: "0 auto 20px",
+                    maxWidth: 560,
+                    color: "#52525B",
+                    fontSize: "0.92rem",
+                    lineHeight: 1.6,
+                  }}
+                >
+                  {t("programmes.emptyHelperNote")}
+                </p>
+                <Link
+                  href={registerInterestGeneralUrl}
+                  style={{
+                    ...getButtonStyles("primary", "sm"),
+                    minHeight: 44,
+                  }}
+                >
+                  {t("programmes.registerInterest")}
+                </Link>
+              </Card>
+            ) : null}
+          </div>
+
+          {!loading && loadError ? (
             <Card
               style={{ padding: 32, textAlign: "center" }}
               data-testid="programmes-state-unavailable"
@@ -330,42 +359,7 @@ function ProgrammesContent() {
                 </Link>
               </div>
             </Card>
-          ) : visible.length === 0 ? (
-            <Card
-              style={{ padding: 32, textAlign: "center" }}
-              data-testid="programmes-state-empty"
-            >
-              <p
-                style={{
-                  margin: "0 0 10px",
-                  fontWeight: 600,
-                  color: "#18181B",
-                }}
-              >
-                {t("programmes.noMatching")}
-              </p>
-              <p
-                style={{
-                  margin: "0 auto 20px",
-                  maxWidth: 560,
-                  color: "#52525B",
-                  fontSize: "0.92rem",
-                  lineHeight: 1.6,
-                }}
-              >
-                {t("programmes.emptyHelperNote")}
-              </p>
-              <Link
-                href={registerInterestGeneralUrl}
-                style={{
-                  ...getButtonStyles("primary", "sm"),
-                  minHeight: 44,
-                }}
-              >
-                {t("programmes.registerInterest")}
-              </Link>
-            </Card>
-          ) : (
+          ) : !loading && visible.length > 0 ? (
             <div
               className="khlim-programmes-catalogue"
               data-testid="programmes-state-available"
@@ -453,7 +447,7 @@ function ProgrammesContent() {
                 </Card>
               ))}
             </div>
-          )}
+          ) : null}
         </section>
 
         {/* Separate Informational Academy Development Pathway (Approved Existing Academy Copy Only) */}
