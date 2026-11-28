@@ -13,6 +13,7 @@ import { trackCampaignLanding } from "../lib/posthog";
 import { useAnalyticsConsent } from "../lib/analytics-consent";
 import { useI18n } from "../lib/i18n-context";
 import { canRenderYouthMedia } from "../lib/editorial-content";
+import { resolveLocalVisualReviewImageUrl } from "../lib/local-visual-review-media";
 import type { PublicOfferingItem } from "../lib/types";
 import { AcademyPillarsSection } from "../components/home/academy-pillars-section";
 import { AchievementsSection } from "../components/home/achievements-section";
@@ -120,12 +121,19 @@ function HomeContent() {
     {
       id: "academy-first",
       // Youth squad hero imagery renders only when youth media rights are explicitly confirmed
-      imageUrl: heroYouthMediaEnabled
-        ? "/media/khlim/team-hero-wide-1920.webp"
-        : undefined,
-      imageUrlMobile: heroYouthMediaEnabled
-        ? "/media/khlim/team-hero-1920.webp"
-        : undefined,
+      // (or during explicitly enabled localhost-only development visual review)
+      imageUrl:
+        (heroYouthMediaEnabled
+          ? "/media/khlim/team-hero-wide-1920.webp"
+          : undefined) ??
+        resolveLocalVisualReviewImageUrl(
+          "/media/khlim/team-hero-wide-1920.webp",
+        ),
+      imageUrlMobile:
+        (heroYouthMediaEnabled
+          ? "/media/khlim/team-hero-1920.webp"
+          : undefined) ??
+        resolveLocalVisualReviewImageUrl("/media/khlim/team-hero-1920.webp"),
       photoLabel: t("home.hero.photo.training"),
       showPlaceholderLabel: false,
       placeholderGradient:
@@ -133,12 +141,18 @@ function HomeContent() {
     },
     {
       id: "team-huddle",
-      imageUrl: heroYouthMediaEnabled
-        ? "/media/home/team-huddle-desktop.webp"
-        : undefined,
-      imageUrlMobile: heroYouthMediaEnabled
-        ? "/media/home/team-huddle-mobile.webp"
-        : undefined,
+      imageUrl:
+        (heroYouthMediaEnabled
+          ? "/media/home/team-huddle-desktop.webp"
+          : undefined) ??
+        resolveLocalVisualReviewImageUrl(
+          "/media/home/team-huddle-desktop.webp",
+        ),
+      imageUrlMobile:
+        (heroYouthMediaEnabled
+          ? "/media/home/team-huddle-mobile.webp"
+          : undefined) ??
+        resolveLocalVisualReviewImageUrl("/media/home/team-huddle-mobile.webp"),
       photoLabel: t("home.hero.photo.coaching"),
       showPlaceholderLabel: false,
       placeholderGradient:
@@ -146,12 +160,20 @@ function HomeContent() {
     },
     {
       id: "sideline-energy",
-      imageUrl: heroYouthMediaEnabled
-        ? "/media/home/sideline-energy-desktop.webp"
-        : undefined,
-      imageUrlMobile: heroYouthMediaEnabled
-        ? "/media/home/sideline-energy-mobile.webp"
-        : undefined,
+      imageUrl:
+        (heroYouthMediaEnabled
+          ? "/media/home/sideline-energy-desktop.webp"
+          : undefined) ??
+        resolveLocalVisualReviewImageUrl(
+          "/media/home/sideline-energy-desktop.webp",
+        ),
+      imageUrlMobile:
+        (heroYouthMediaEnabled
+          ? "/media/home/sideline-energy-mobile.webp"
+          : undefined) ??
+        resolveLocalVisualReviewImageUrl(
+          "/media/home/sideline-energy-mobile.webp",
+        ),
       photoLabel: t("home.hero.photo.gameDay"),
       showPlaceholderLabel: false,
       placeholderGradient:
@@ -159,12 +181,20 @@ function HomeContent() {
     },
     {
       id: "court-together",
-      imageUrl: heroYouthMediaEnabled
-        ? "/media/home/court-together-desktop.webp"
-        : undefined,
-      imageUrlMobile: heroYouthMediaEnabled
-        ? "/media/home/court-together-mobile.webp"
-        : undefined,
+      imageUrl:
+        (heroYouthMediaEnabled
+          ? "/media/home/court-together-desktop.webp"
+          : undefined) ??
+        resolveLocalVisualReviewImageUrl(
+          "/media/home/court-together-desktop.webp",
+        ),
+      imageUrlMobile:
+        (heroYouthMediaEnabled
+          ? "/media/home/court-together-mobile.webp"
+          : undefined) ??
+        resolveLocalVisualReviewImageUrl(
+          "/media/home/court-together-mobile.webp",
+        ),
       photoLabel: t("home.hero.photo.community"),
       showPlaceholderLabel: false,
       placeholderGradient:

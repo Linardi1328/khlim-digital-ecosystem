@@ -65,6 +65,15 @@ const nextConfig: NextConfig = {
       process.env.NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED === "1" ? "1" : "0",
     NEXT_PUBLIC_STAGING_MEDIA_REVIEW:
       process.env.VERCEL_ENV === "preview" ? "1" : "0",
+    // Localhost-only development visual review of recovered originals;
+    // unconditionally disabled in production builds and hosted deployments.
+    NEXT_PUBLIC_LOCAL_VISUAL_REVIEW:
+      process.env.NODE_ENV === "development" &&
+      !process.env.VERCEL &&
+      !process.env.VERCEL_ENV &&
+      process.env.KHLIM_LOCAL_VISUAL_REVIEW === "1"
+        ? "1"
+        : "0",
   },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];

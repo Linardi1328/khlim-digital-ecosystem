@@ -95,3 +95,23 @@ When the owner completes guardian consent collection and provisions authorized p
    - `apps/web/app/page.tsx`: pass the shared registered URLs to `canRenderYouthMedia()` and the hero slide `imageUrl` / `imageUrlMobile` fields.
    - `apps/web/lib/editorial-content.ts`: update each consented story/gallery item's `imageUrl` to match its exact `APPROVED_YOUTH_MEDIA` entry.
 6. Enable `NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED=1` in the authorized deployment environment after Steps 1–5 are deployed and verified.
+
+---
+
+## 5. Authorized Localhost-Only Visual Review (Development Only)
+
+For internal owner review of the original KHLIM visual composition without placing restricted youth photographs in `apps/web/public/` or manufacturing consent records:
+
+1. Recover the 52 historical files from commit `da0c9d72912bcd6a3ab238cdfbb122a21434d3c2` into a private directory outside the repository (`chmod 700 "$HOME/KHLIM-Private-Media-Recovery"`).
+2. Start the development server bound strictly to loopback with explicit opt-in:
+   ```bash
+   KHLIM_LOCAL_VISUAL_REVIEW=1 \
+   KHLIM_PRIVATE_MEDIA_RECOVERY_DIR="$HOME/KHLIM-Private-Media-Recovery/apps/web/public/media" \
+   pnpm --filter @khlim/web exec next dev -H 127.0.0.1 -p 3197
+   ```
+3. **Hard security invariants enforced by `apps/web/lib/local-visual-review-media.ts`, `apps/web/next.config.ts`, and `apps/web/app/api/preview-media/[...path]/route.ts`:**
+   - Unconditionally disabled in production builds (`NODE_ENV === "production"`) and hosted deployments (`VERCEL` / `VERCEL_ENV`).
+   - Enforces loopback-only access (`127.0.0.1`, `localhost`, `[::1]`) across URL hostname, `Host`, and `X-Forwarded-Host` headers.
+   - Serves only the exact 32-asset recovered youth-media allowlist via `/api/preview-media/recovered/...` with `Cache-Control: private, no-store, must-revalidate`, `X-Robots-Tag: noindex, nofollow, noimageindex`, and `X-Public-Ready: false`.
+   - Enforces path traversal and `realpath` symlink containment checks.
+   - Leaves `APPROVED_YOUTH_MEDIA` empty (`[]`), `NEXT_PUBLIC_YOUTH_MEDIA_RIGHTS_CONFIRMED` default `"0"`, and `apps/web/public/` SHA-256 allowlist untouched.
