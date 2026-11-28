@@ -258,6 +258,7 @@ test("all 6 contact categories and new contact/programmes keys exist across all 
     "contact.emailPromptedStatus",
     "contact.privacyPolicyLink",
     "programmes.showingCount",
+    "programmes.showingCountForLevel",
     "programmes.outageHelperNote",
     "programmes.emptyHelperNote",
     "programmes.pathway.eyebrow",
@@ -311,6 +312,7 @@ test("Academy consolidates resilient programme catalogue without duplicating U9/
   const catalogueSection = await read(
     "apps/web/components/academy/programme-catalogue-section.tsx",
   );
+  const buttonComponent = await read("apps/web/components/ui/button.tsx");
   const programmesRedirectPage = await read("apps/web/app/programmes/page.tsx");
   const header = await read("apps/web/components/layout/public-header.tsx");
   const footer = await read("apps/web/components/layout/public-footer.tsx");
@@ -336,6 +338,11 @@ test("Academy consolidates resilient programme catalogue without duplicating U9/
   assert.match(catalogueSection, /data-testid="programmes-state-unavailable"/);
   assert.match(catalogueSection, /data-testid="programmes-state-empty"/);
   assert.match(catalogueSection, /data-testid="programmes-state-available"/);
+  assert.match(catalogueSection, /aria-pressed=\{level === "ALL"\}/);
+  assert.match(catalogueSection, /aria-pressed=\{level === item\}/);
+  assert.match(catalogueSection, /t\("programmes\.showingCountForLevel"/);
+  assert.match(buttonComponent, /ButtonHTMLAttributes<HTMLButtonElement>/);
+  assert.match(buttonComponent, /\{\.\.\.props\}/);
   assert.doesNotMatch(catalogueSection, /academy\.pathway\.u9/);
   assert.doesNotMatch(catalogueSection, /academy\.pathway\.u12/);
   assert.doesNotMatch(catalogueSection, /academy\.pathway\.u15/);

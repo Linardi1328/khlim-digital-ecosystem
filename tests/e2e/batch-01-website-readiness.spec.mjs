@@ -391,4 +391,116 @@ test.describe("Batch 01: Visual assets, Contact upgrade, and Programmes resilien
     );
     expect(hasOverflow).toBe(false);
   });
+
+  test("4. Programme level filters expose aria-pressed and update polite live-region announcements when switching between levels with identical counts", async ({
+    page,
+  }) => {
+    const equalCountOfferings = [
+      mockOfferings[0],
+      {
+        id: "batch01-offering-u15-comp",
+        name: "U15 Competitive Squad",
+        capacity: 15,
+        startsOn: "2027-02-13",
+        endsOn: null,
+        programme: {
+          id: "prog-u15",
+          code: "U15-COMP",
+          name: "Youth Basketball Competitive",
+          description: "Structured competitive match preparation.",
+          minimumAge: 13,
+          maximumAge: 15,
+          level: "COMPETITIVE",
+          sport: { code: "BASKETBALL", defaultName: "Basketball" },
+        },
+        venue: { name: "Sports Garage, Seksyen 19" },
+        planEligibilities: [],
+      },
+    ];
+
+    await page.route("**/academy/offerings", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: { "access-control-allow-origin": "*" },
+        body: JSON.stringify(equalCountOfferings),
+      });
+    });
+
+    await page.goto("/academy#programmes", { waitUntil: "domcontentloaded" });
+
+    const catalogue = page.locator("#programmes");
+    const statusRegion = catalogue.getByTestId("programmes-live-status");
+    await expect(
+      catalogue.getByTestId("programmes-state-available"),
+    ).toBeVisible();
+    await expect(statusRegion).toHaveAttribute("role", "status");
+    await expect(statusRegion).toHaveAttribute("aria-live", "polite");
+
+    const allBtn = catalogue.getByRole("button", { name: "All levels" });
+    const devBtn = catalogue.getByRole("button", { name: "Development" });
+    const compBtn = catalogue.getByRole("button", { name: "Competitive" });
+
+    // Initial state: All levels pressed, 2 offerings announced with level label
+    await expect(allBtn).toHaveAttribute("aria-pressed", "true");
+    await expect(devBtn).toHaveAttribute("aria-pressed", "false");
+    await expect(compBtn).toHaveAttribute("aria-pressed", "false");
+    await expect(catalogue.locator(".khlim-offering-card")).toHaveCount(2);
+    await expect(statusRegion).toHaveText(
+      "Showing 2 open programme offering(s) for All levels.",
+    );
+
+    // Filter to Development (count = 1)
+    await devBtn.click();
+    await expect(allBtn).toHaveAttribute("aria-pressed", "false");
+    await expect(devBtn).toHaveAttribute("aria-pressed", "true");
+    await expect(compBtn).toHaveAttribute("aria-pressed", "false");
+    await expect(catalogue.locator(".khlim-offering-card")).toHaveCount(1);
+    await expect(catalogue.getByText("U12 Development Cohort")).toBeVisible();
+    const devStatusText = await statusRegion.innerText();
+    expect(devStatusText).toBe(
+      "Showing 1 open programme offering(s) for Development.",
+    );
+
+    // Switch to Competitive (identical count = 1): aria-pressed updates and live status text changes
+    await compBtn.click();
+    await expect(allBtn).toHaveAttribute("aria-pressed", "false");
+    await expect(devBtn).toHaveAttribute("aria-pressed", "false");
+    await expect(compBtn).toHaveAttribute("aria-pressed", "true");
+    await expect(catalogue.locator(".khlim-offering-card")).toHaveCount(1);
+    await expect(catalogue.getByText("U15 Competitive Squad")).toBeVisible();
+    const compStatusText = await statusRegion.innerText();
+    expect(compStatusText).toBe(
+      "Showing 1 open programme offering(s) for Competitive.",
+    );
+    expect(compStatusText).not.toBe(devStatusText);
+
+    // Verify localized live-region announcement and preserved aria-pressed in MS and ZH-Hans
+    const switcher = visibleLocaleSwitcher(page);
+    await switcher.selectOption("ms");
+    await expect(
+      catalogue.getByRole("button", { name: "Kompetitif" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(statusRegion).toHaveText(
+      "Memaparkan 1 tawaran program terbuka untuk Kompetitif.",
+    );
+
+    await switcher.selectOption("zh-Hans");
+    await expect(
+      catalogue.getByRole("button", { name: "竞技级" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(statusRegion).toHaveText(
+      "正在显示“竞技级”的 1 个开放课程班次。",
+    );
+
+    // Return to English and reset to All levels
+    await switcher.selectOption("en");
+    await allBtn.click();
+    await expect(allBtn).toHaveAttribute("aria-pressed", "true");
+    await expect(compBtn).toHaveAttribute("aria-pressed", "false");
+    await expect(catalogue.locator(".khlim-offering-card")).toHaveCount(2);
+    await expect(statusRegion).toHaveText(
+      "Showing 2 open programme offering(s) for All levels.",
+    );
+  });
 });

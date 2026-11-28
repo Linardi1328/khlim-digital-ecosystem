@@ -93,6 +93,9 @@ export function ProgrammeCatalogueSection({
       ? offerings
       : offerings.filter((item) => item.programme.level === level);
 
+  const selectedLevelLabel =
+    level === "ALL" ? t("programmes.allLevels") : programmeLevelLabel(level, t);
+
   const registerInterestGeneralUrl = buildUrlWithSource(
     "/interest",
     campaignSource,
@@ -143,8 +146,10 @@ export function ProgrammeCatalogueSection({
           }}
         >
           <Button
+            type="button"
             variant={level === "ALL" ? "primary" : "outline"}
             size="sm"
+            aria-pressed={level === "ALL"}
             onClick={() => setLevel("ALL")}
             style={{ minHeight: 40 }}
           >
@@ -153,8 +158,10 @@ export function ProgrammeCatalogueSection({
           {levels.map((item) => (
             <Button
               key={item}
+              type="button"
               variant={level === item ? "primary" : "outline"}
               size="sm"
+              aria-pressed={level === item}
               onClick={() => setLevel(item)}
               style={{ minHeight: 40 }}
             >
@@ -216,7 +223,10 @@ export function ProgrammeCatalogueSection({
           </Card>
         ) : !loadError && visible.length > 0 ? (
           <span className="sr-only">
-            {t("programmes.showingCount", { count: visible.length })}
+            {t("programmes.showingCountForLevel", {
+              count: visible.length,
+              level: selectedLevelLabel,
+            })}
           </span>
         ) : null}
       </div>
