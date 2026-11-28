@@ -1057,18 +1057,41 @@ test.describe("RIC-191 Public Academy Registration V1", () => {
     expect(postCount).toBe(1);
   });
 
-  test("Round 2 (7oc/7oe/7oi): query session fallback when prior selection disappears, full-load recovery never sticks in loading, and overlapping clipboard writes keep latest feedback", async ({
+  test("Round 2 (7oc/7oe): query session fallback when selected session disappears and overlapping recovery vs full loads clear loading cleanly", async ({
     page,
   }) => {
     const SESSION_A = "00000000-0000-4000-8000-000000000001";
     const SESSION_B = "00000000-0000-4000-8000-000000000002";
+    const SESSION_C = "00000000-0000-4000-8000-000000000003";
     const secondSession = {
       ...SYNTHETIC_SESSIONS.items[0],
       id: SESSION_B,
       name: "Sunday Ages 10–12 Cohort",
     };
+    const thirdSession = {
+      ...SYNTHETIC_SESSIONS.items[0],
+      id: SESSION_C,
+      name: "Wednesday Newer Full-Load Cohort",
+    };
 
     let sessionFetchCount = 0;
+    let holdRecovery3 = false;
+    let recovery3Started = () => {};
+    let releaseRecovery3 = () => {};
+    let recovery3Settled = Promise.resolve();
+
+    const trackReqDone = (req) =>
+      new Promise((resolve) => {
+        const done = (candidate) => {
+          if (candidate !== req) return;
+          page.off("requestfinished", done);
+          page.off("requestfailed", done);
+          resolve();
+        };
+        page.on("requestfinished", done);
+        page.on("requestfailed", done);
+      });
+
     await page.route("**/v1/academy/registration-config*", (route) =>
       route.fulfill({
         status: 200,
@@ -1076,23 +1099,140 @@ test.describe("RIC-191 Public Academy Registration V1", () => {
         body: JSON.stringify(makeSyntheticConfig("SYNTHETIC-EXAMPLE")),
       }),
     );
-    await page.route("**/v1/academy/sessions*", (route) => {
+
+    await page.route("**/v1/academy/sessions*", async (route) => {
       sessionFetchCount += 1;
-      // First load has both A and B; subsequent loads drop B while keeping query session A
-      const items =
-        sessionFetchCount === 1
-          ? [SYNTHETIC_SESSIONS.items[0], secondSession]
-          : [SYNTHETIC_SESSIONS.items[0]];
-      return route.fulfill({
+      if (sessionFetchCount === 1) {
+        // Initial load: both A (querySessionId) and B available
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            registrationOpen: true,
+            closedReason: null,
+            items: [SYNTHETIC_SESSIONS.items[0], secondSession],
+          }),
+        });
+        return;
+      }
+      if (sessionFetchCount === 2) {
+        // Recovery load after B returns 409 SESSION_NOT_AVAILABLE: drops B, keeps query session A
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            registrationOpen: true,
+            closedReason: null,
+            items: [SYNTHETIC_SESSIONS.items[0]],
+          }),
+        });
+        return;
+      }
+      if (sessionFetchCount === 3 && holdRecovery3) {
+        // Overlapping stale recovery load: held open until full load (#4) finishes, then returns stale B
+        holdRecovery3 = false;
+        recovery3Settled = trackReqDone(route.request());
+        const gate = new Promise((r) => {
+          releaseRecovery3 = r;
+        });
+        recovery3Started();
+        await gate;
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            registrationOpen: true,
+            closedReason: null,
+            items: [secondSession],
+          }),
+        });
+        return;
+      }
+      // Newer full load (#4): returns authoritative C
+      await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
           registrationOpen: true,
           closedReason: null,
-          items,
+          items: [thirdSession],
         }),
       });
     });
+
+    await page.route("**/v1/academy/registrations", (route) =>
+      route.fulfill({
+        status: 409,
+        contentType: "application/json",
+        body: JSON.stringify({
+          statusCode: 409,
+          code: "SESSION_NOT_AVAILABLE",
+          message: "Selected session is no longer available",
+        }),
+      }),
+    );
+
+    // 1) 7oc: Navigate with ?sessionId=A, select B, keep B selected, submit -> 409 triggers refresh dropping B -> A auto-selected without clicking A!
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(`/academy/register?sessionId=${SESSION_A}`, {
+      waitUntil: "networkidle",
+    });
+    await expect(page.locator(`#session-option-${SESSION_A}`)).toBeChecked();
+    await page.locator(`#session-option-${SESSION_B}`).check();
+    await expect(page.locator(`#session-option-${SESSION_B}`)).toBeChecked();
+
+    await fillStep1And2(page);
+    await page.check("#consent-checkbox-GUARDIAN_AUTHORITY");
+    await page.check("#consent-checkbox-REGISTRATION_PRIVACY");
+    await page.getByTestId("registration-submit-btn").click();
+
+    await expect.poll(() => sessionFetchCount).toBe(2);
+    await expect(page.locator(`#session-option-${SESSION_B}`)).toHaveCount(0);
+    await expect(page.locator(`#session-option-${SESSION_A}`)).toBeChecked();
+
+    // 2) 7oe: Overlap a pending recovery refresh (#3) with a newer full load (#4) -> loading clears & newer C stays visible when stale #3 settles!
+    holdRecovery3 = true;
+    const recovery3StartedP = new Promise((r) => {
+      recovery3Started = r;
+    });
+    await page.getByTestId("step1-next-btn").click();
+    await page.getByTestId("step2-next-btn").click();
+    await page.check("#consent-checkbox-GUARDIAN_AUTHORITY");
+    await page.check("#consent-checkbox-REGISTRATION_PRIVACY");
+    await page.getByTestId("registration-submit-btn").click();
+    await recovery3StartedP;
+
+    // Trigger full load (loadConfigAndSessions) while recovery #3 is still in flight
+    await page.evaluate((nextSessionId) => {
+      window.history.replaceState(
+        null,
+        "",
+        `/academy/register?sessionId=${nextSessionId}`,
+      );
+    }, SESSION_C);
+
+    await expect.poll(() => sessionFetchCount).toBe(4);
+    await expect(page.locator(`#session-option-${SESSION_C}`)).toBeVisible();
+    await expect(page.locator(`#session-option-${SESSION_C}`)).toBeChecked();
+
+    // Release stale recovery #3 (returning stale B) -> must NOT clobber newer C or strand loading!
+    releaseRecovery3();
+    await recovery3Settled;
+    await page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+        ),
+    );
+    await expect(page.locator(`#session-option-${SESSION_C}`)).toBeVisible();
+    await expect(page.locator(`#session-option-${SESSION_B}`)).toHaveCount(0);
+  });
+
+  test("Round 2 (7oi): overlapping clipboard writes keep latest feedback", async ({
+    page,
+  }) => {
+    const SESSION_A = "00000000-0000-4000-8000-000000000001";
+    await setupBasePublicMocks(page);
     await page.route("**/v1/academy/registrations", (route) =>
       route.fulfill({
         status: 201,
@@ -1115,16 +1255,10 @@ test.describe("RIC-191 Public Academy Registration V1", () => {
       });
     });
 
-    // 7oc: Navigate with ?sessionId=A, pick B, then complete flow and verify overlapping clipboard writes (7oi)
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(`/academy/register?sessionId=${SESSION_A}`, {
       waitUntil: "networkidle",
     });
-    await expect(page.locator(`#session-option-${SESSION_A}`)).toBeChecked();
-    await page.locator(`#session-option-${SESSION_B}`).check();
-    await expect(page.locator(`#session-option-${SESSION_B}`)).toBeChecked();
-
-    await page.locator(`#session-option-${SESSION_A}`).check();
     await fillStep1And2(page);
     await page.check("#consent-checkbox-GUARDIAN_AUTHORITY");
     await page.check("#consent-checkbox-REGISTRATION_PRIVACY");

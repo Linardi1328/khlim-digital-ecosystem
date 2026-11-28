@@ -3338,11 +3338,25 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
           return;
         }
 
+        const orgBSession = makeSyntheticSession({
+          id: "00000000-0000-4000-8000-000000000902",
+          name: "Org B Unique Cohort",
+          publicationState: "DRAFT",
+          version: 1,
+          capacity: 15,
+          coachDisplayName: "Coach Org B Server",
+        });
+
         await route.fulfill({
           status: 200,
           contentType: "application/json",
           body: JSON.stringify({
-            items: sessionListOmitAlpha ? [] : [sessionAlpha],
+            items:
+              nextSessionOrg === SECONDARY_ORG_ID
+                ? [orgBSession]
+                : sessionListOmitAlpha
+                  ? []
+                  : [sessionAlpha],
           }),
         });
       },
@@ -3481,6 +3495,31 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
     );
     expect(restoredToReview).toBe(true);
 
+    // CnB6: Reopen drawer and confirm status update (which disables Apply Status Change opener);
+    // focus MUST move to an operable control inside the remaining Drawer (never stuck on disabled button or body).
+    await reviewBtn.click();
+    await expect(page.getByTestId("registration-detail-content")).toBeVisible();
+    await page.selectOption("#registration-next-status", "UNDER_REVIEW");
+    await page.getByTestId("open-status-confirm-btn").click();
+    await page.getByRole("button", { name: "Confirm Status Change" }).click();
+    await expect(page.locator('[role="dialog"]')).toHaveCount(1);
+    await expect(page.getByTestId("open-status-confirm-btn")).toBeDisabled();
+    const activeFocusAfterDisabledOpener = await page
+      .locator('[role="dialog"]')
+      .first()
+      .evaluate((el) => {
+        const active = document.activeElement;
+        return {
+          insideDrawer: active instanceof Node && el.contains(active),
+          isDisabled:
+            active instanceof HTMLElement && active.hasAttribute("disabled"),
+        };
+      });
+    expect(activeFocusAfterDisabledOpener.insideDrawer).toBe(true);
+    expect(activeFocusAfterDisabledOpener.isDisabled).toBe(false);
+    await page.keyboard.press("Escape");
+    await expect(page.locator('[role="dialog"]')).toHaveCount(0);
+
     // --- 7oK + 7n6 + 7nx + 7n2: Training Sessions ---
     await page.getByRole("tab", { name: /Training Sessions/i }).click();
     await page
@@ -3542,14 +3581,14 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
       "latest policies are now loaded",
     );
 
-    // --- 7oK negative: Changed organization destroys workspace and unsaved session draft ---
+    // --- 7oK negative + CnCC: Changed organization destroys workspace and unsaved session draft ---
     sessionListOmitAlpha = false;
     await page.getByRole("tab", { name: /Training Sessions/i }).click();
     await page
       .getByTestId("edit-session-00000000-0000-4000-8000-000000000901")
       .click();
     await page.fill("#session-coach-name", "Should Be Destroyed On Org Change");
-    nextSessionOrg = "00000000-0000-4000-8000-000000000002";
+    nextSessionOrg = SECONDARY_ORG_ID;
     await page.evaluate((storageKey) => {
       window.dispatchEvent(
         new StorageEvent("storage", {
@@ -3558,8 +3597,19 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
         }),
       );
     }, ADMIN_SUPABASE_SESSION_STORAGE_KEY);
+    // Wait for data unique to Organization B after verification, then open B's session editor
+    // and assert the coach input contains B's authoritative server value (not Org A's draft!).
     await expect(page.getByTestId("session-editor-form")).toHaveCount(0);
-    await expect(page.locator("body")).not.toContainText(
+    await page.getByRole("tab", { name: /Training Sessions/i }).click();
+    await expect(page.locator("body")).toContainText("Org B Unique Cohort");
+    await page
+      .getByTestId("edit-session-00000000-0000-4000-8000-000000000902")
+      .click();
+    await expect(page.getByTestId("session-editor-form")).toBeVisible();
+    await expect(page.locator("#session-coach-name")).toHaveValue(
+      "Coach Org B Server",
+    );
+    await expect(page.locator("#session-coach-name")).not.toHaveValue(
       "Should Be Destroyed On Org Change",
     );
   });
@@ -3679,6 +3729,7 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
     };
 
     let statusPatchCount = 0;
+    const searchQueryHistory = [];
     let statusPatchStarted;
     const statusPatchStartedP = new Promise((r) => {
       statusPatchStarted = r;
@@ -3747,6 +3798,30 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
               ...regDetail,
               status: "CONFIRMED",
               version: 4,
+            }),
+          });
+          return;
+        }
+        if (url.includes("/registrations/search") && method === "POST") {
+          const body = route.request().postDataJSON();
+          if (body && typeof body.q === "string") {
+            searchQueryHistory.push(body.q);
+          }
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              items: [
+                {
+                  ...regRow,
+                  status: detailVersion >= 3 ? "UNDER_REVIEW" : "RECEIVED",
+                  version: detailVersion,
+                },
+              ],
+              total: 1,
+              page: 1,
+              limit: 20,
+              totalPages: 1,
             }),
           });
           return;
@@ -3835,7 +3910,7 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
               ...sessionRow,
               coachDisplayName:
                 sessionServerVersion >= 4
-                  ? "Coach Interrupted Pending"
+                  ? "Coach Authoritative Server V4"
                   : "Coach Original",
               version: sessionServerVersion,
             }),
@@ -3851,7 +3926,7 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
                 ...sessionRow,
                 coachDisplayName:
                   sessionServerVersion >= 4
-                    ? "Coach Interrupted Pending"
+                    ? "Coach Authoritative Server V4"
                     : "Coach Original",
                 version: sessionServerVersion,
               },
@@ -3921,6 +3996,15 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
     await page.goto("/registrations", { waitUntil: "networkidle" });
     await expect(page.locator("body")).toContainText("KAR-R2FINAL1");
 
+    // 0) CnBl: Change search input just before same-context renewal -> debounce restarts cleanly after renewal!
+    const searchBox = page.locator('input[type="search"]').first();
+    await searchBox.fill("Amina");
+    const releaseSearchRenewal = await triggerSameContextRenewal();
+    releaseSearchRenewal();
+    await expect.poll(() => searchQueryHistory.includes("Amina")).toBe(true);
+    await searchBox.fill("");
+    await expect(page.locator("body")).toContainText("KAR-R2FINAL1");
+
     // 1) Registration status PATCH pending during same-context renewal
     await page.getByTestId("review-registration-reg-r2f-1").click();
     await expect(page.getByTestId("registration-detail-content")).toBeVisible();
@@ -3976,11 +4060,14 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
     await expect(page.getByTestId("save-session-btn")).toBeDisabled();
     expect(sessionPatchCount).toBe(1);
 
-    // Explicit review loads v4 and unlocks Save cleanly
+    // Explicit review loads distinct server v4 coach and unlocks Save cleanly (CnCE)
     await page.getByTestId("load-interrupted-session-btn").click();
     await expect(
       page.getByTestId("session-interrupted-save-notice"),
     ).toHaveCount(0);
+    await expect(page.locator("#session-coach-name")).toHaveValue(
+      "Coach Authoritative Server V4",
+    );
     await expect(page.getByTestId("save-session-btn")).toBeEnabled();
     await page.getByRole("button", { name: "Close drawer" }).click();
 
@@ -4233,13 +4320,10 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
     ).toContainText("Refreshing latest server state");
     await expect(page.getByTestId("save-session-btn")).toBeDisabled();
 
-    // Renewal #2 interrupts the in-flight recovery GET #1
+    // Renewal #2 interrupts the in-flight recovery GET #1 (keep GET #1 HELD until v4 is visible — CnCF!)
     const releaseRenewal2 = await triggerSameContextRenewal();
-    releaseRecoveryGet1();
-    await flushUiAfterSettled(page, recoveryGet1Settled);
-    await expect(page.getByTestId("admin-revalidating-gate")).toBeVisible();
 
-    // Release Renewal #2 -> Recovery GET #2 runs automatically and resolves to v4 (NOT stranded in refreshing!)
+    // Release Renewal #2 -> Recovery GET #2 runs automatically and resolves to authoritative v4 (NOT stranded in refreshing!)
     releaseRenewal2();
     await expect(page.getByTestId("session-editor-form")).toBeVisible();
     await expect(page.locator("#session-coach-name")).toHaveValue(
@@ -4255,7 +4339,17 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
     expect(recoveryGetCount).toBeGreaterThanOrEqual(2);
     expect(sessionPatchCount).toBe(1);
 
-    // Explicit staff review loads authoritative v4 and unlocks Save cleanly
+    // NOW release stale Recovery GET #1 (returning stale v3) AFTER v4 is already visible -> wait for settlement/cancellation -> v4 MUST remain authoritative!
+    releaseRecoveryGet1();
+    await flushUiAfterSettled(page, recoveryGet1Settled);
+    await expect(
+      page.getByTestId("session-interrupted-save-notice"),
+    ).toContainText("v4");
+    await expect(
+      page.getByTestId("session-interrupted-save-notice"),
+    ).not.toContainText("v3");
+
+    // Explicit staff review loads authoritative v4 (never stale v3) and unlocks Save cleanly
     await page.getByTestId("load-interrupted-session-btn").click();
     await expect(
       page.getByTestId("session-interrupted-save-notice"),

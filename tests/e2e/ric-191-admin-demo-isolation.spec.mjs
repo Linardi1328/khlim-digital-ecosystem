@@ -8,7 +8,17 @@ test.describe("CR-03 Admin Demo-Mode Isolation", () => {
   }) => {
     const liveRegistrationRequests = [];
     const requestsWithAuthHeader = [];
+    const headerInspectionFailures = [];
     const headerCheckPromises = [];
+
+    const sanitizeRequestUrl = (rawUrl) => {
+      try {
+        const parsed = new URL(rawUrl);
+        return `${parsed.origin}${parsed.pathname}`;
+      } catch {
+        return "[invalid-url]";
+      }
+    };
 
     const futureExp = Math.floor(Date.now() / 1000) + 3600;
     await page.addInitScript(
@@ -53,10 +63,18 @@ test.describe("CR-03 Admin Demo-Mode Isolation", () => {
           .then((authHeader) => {
             if (authHeader !== null) {
               // Never record or log the Authorization header value itself
-              requestsWithAuthHeader.push({ method, url });
+              requestsWithAuthHeader.push({
+                method,
+                url: sanitizeRequestUrl(url),
+              });
             }
           })
-          .catch(() => undefined),
+          .catch(() => {
+            headerInspectionFailures.push({
+              method,
+              url: sanitizeRequestUrl(url),
+            });
+          }),
       );
     });
 
@@ -99,6 +117,10 @@ test.describe("CR-03 Admin Demo-Mode Isolation", () => {
       "Demo build must issue zero live /v1/admin/* registration requests",
     ).toEqual([]);
     expect(
+      headerInspectionFailures,
+      "Authorization header inspection must succeed for every observed request",
+    ).toEqual([]);
+    expect(
       requestsWithAuthHeader,
       "Demo build must never attach stored real Authorization headers",
     ).toEqual([]);
@@ -119,6 +141,10 @@ test.describe("CR-03 Admin Demo-Mode Isolation", () => {
     await Promise.all(headerCheckPromises);
 
     expect(liveRegistrationRequests).toEqual([]);
+    expect(
+      headerInspectionFailures,
+      "Authorization header inspection must succeed after reload",
+    ).toEqual([]);
     expect(requestsWithAuthHeader).toEqual([]);
   });
 });

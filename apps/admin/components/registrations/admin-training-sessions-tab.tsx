@@ -175,8 +175,8 @@ export function AdminTrainingSessionsTab({
     attemptedForm: SessionFormState;
     staleVersion: number;
   } | null>(null);
-  const publishingRef = useRef(false);
-  const closingRef = useRef(false);
+  const publishingTokenRef = useRef<symbol | null>(null);
+  const closingTokenRef = useRef<symbol | null>(null);
   const drawerModeRef = useRef<"create" | "edit" | null>(null);
   drawerModeRef.current = drawerMode;
   const editingSessionRef = useRef<AdminRegistrationSessionDto | null>(null);
@@ -253,8 +253,8 @@ export function AdminTrainingSessionsTab({
     setPublishError(null);
     setCloseTarget(null);
 
-    if (publishingRef.current) {
-      publishingRef.current = false;
+    if (publishingTokenRef.current) {
+      publishingTokenRef.current = null;
       setPublishing(false);
       setBanner({
         variant: "warning",
@@ -263,8 +263,8 @@ export function AdminTrainingSessionsTab({
       });
     }
 
-    if (closingRef.current) {
-      closingRef.current = false;
+    if (closingTokenRef.current) {
+      closingTokenRef.current = null;
       setClosing(false);
       setBanner({
         variant: "warning",
@@ -289,8 +289,8 @@ export function AdminTrainingSessionsTab({
     interruptedSaveLoadingRef.current = null;
     staleConflictLoadingRef.current = null;
     interruptedConflictLookupRef.current = null;
-    publishingRef.current = false;
-    closingRef.current = false;
+    publishingTokenRef.current = null;
+    closingTokenRef.current = null;
     setSessions([]);
     setProgrammes([]);
     setVenues([]);
@@ -916,13 +916,17 @@ export function AdminTrainingSessionsTab({
     const submittedMode = drawerMode;
     const submittedSession = editingSession;
     const attemptedSnapshot: SessionFormState = { ...form };
-    if (submittedMode === "create" || submittedMode === "edit") {
-      activeSaveMutationRef.current = {
-        mode: submittedMode,
-        sessionId: submittedSession?.id ?? null,
-        staleVersion: submittedSession?.version ?? null,
-        attemptedForm: attemptedSnapshot,
-      };
+    const saveMutation =
+      submittedMode === "create" || submittedMode === "edit"
+        ? {
+            mode: submittedMode,
+            sessionId: submittedSession?.id ?? null,
+            staleVersion: submittedSession?.version ?? null,
+            attemptedForm: attemptedSnapshot,
+          }
+        : null;
+    if (saveMutation) {
+      activeSaveMutationRef.current = saveMutation;
     }
     setSaving(true);
     try {
@@ -931,6 +935,13 @@ export function AdminTrainingSessionsTab({
           buildSessionCreatePayload(attemptedSnapshot),
         );
         if (!isCurrentAuthGen(authGen)) return;
+        if (
+          editorInstanceIdRef.current === editorInstanceId &&
+          activeSaveMutationRef.current === saveMutation
+        ) {
+          activeSaveMutationRef.current = null;
+          setSaving(false);
+        }
         if (editorInstanceIdRef.current === editorInstanceId) {
           closeDrawer();
         }
@@ -945,6 +956,13 @@ export function AdminTrainingSessionsTab({
           attemptedSnapshot,
         );
         if (!patchPayload) {
+          if (
+            editorInstanceIdRef.current === editorInstanceId &&
+            activeSaveMutationRef.current === saveMutation
+          ) {
+            activeSaveMutationRef.current = null;
+            setSaving(false);
+          }
           setFormError("No changes detected to save.");
           return;
         }
@@ -953,6 +971,13 @@ export function AdminTrainingSessionsTab({
           patchPayload,
         );
         if (!isCurrentAuthGen(authGen)) return;
+        if (
+          editorInstanceIdRef.current === editorInstanceId &&
+          activeSaveMutationRef.current === saveMutation
+        ) {
+          activeSaveMutationRef.current = null;
+          setSaving(false);
+        }
         if (editorInstanceIdRef.current === editorInstanceId) {
           closeDrawer();
         }
@@ -964,6 +989,13 @@ export function AdminTrainingSessionsTab({
       }
     } catch (error: unknown) {
       if (!isCurrentAuthGen(authGen)) return;
+      if (
+        editorInstanceIdRef.current === editorInstanceId &&
+        activeSaveMutationRef.current === saveMutation
+      ) {
+        activeSaveMutationRef.current = null;
+        setSaving(false);
+      }
       const classified = classifyAdminRegistrationError(error);
       if (
         classified.kind === "UNAUTHENTICATED" ||
@@ -972,7 +1004,6 @@ export function AdminTrainingSessionsTab({
         authGenerationRef.current += 1;
         closeDrawer();
         onAuthError(classified.kind, classified.message);
-        setSaving(false);
         return;
       }
 
@@ -991,13 +1022,16 @@ export function AdminTrainingSessionsTab({
         setFieldErrors(mapped);
       }
 
-      setFormError(classified.message);
-
       if (
         classified.kind === "STALE_VERSION" &&
         submittedMode === "edit" &&
         submittedSession
       ) {
+        // Use neutral conflict wording while the by-ID recovery lookup runs;
+        // the conflict panel reports loading, loaded, missing, or failed status.
+        setFormError(
+          "This training session was modified by another administrator before your changes were saved. Review the latest server version below before retrying.",
+        );
         // Immediately disable Save on stale version and load latest row by ID independently
         // of the bounded 100-row list request so unrelated list refreshes cannot abort recovery.
         setStaleConflict({
@@ -1013,11 +1047,15 @@ export function AdminTrainingSessionsTab({
           attemptedSnapshot,
           submittedSession.version,
         );
+        return;
       }
+
+      setFormError(classified.message);
     } finally {
       if (
         isCurrentAuthGen(authGen) &&
-        editorInstanceIdRef.current === editorInstanceId
+        editorInstanceIdRef.current === editorInstanceId &&
+        activeSaveMutationRef.current === saveMutation
       ) {
         activeSaveMutationRef.current = null;
         setSaving(false);
@@ -1036,13 +1074,21 @@ export function AdminTrainingSessionsTab({
   };
 
   const handleConfirmPublish = async () => {
-    if (!publishTarget || publishing || !scheduleApproved || !ageRuleApproved) {
+    if (
+      !publishTarget ||
+      publishing ||
+      !scheduleApproved ||
+      !ageRuleApproved ||
+      !isEligible ||
+      isSuspended
+    ) {
       return;
     }
     const authGen = authGenerationRef.current;
     const targetId = publishTarget.id;
     const targetVersion = publishTarget.version;
-    publishingRef.current = true;
+    const publishToken = Symbol("publish");
+    publishingTokenRef.current = publishToken;
     setPublishing(true);
     setPublishError(null);
     try {
@@ -1054,7 +1100,10 @@ export function AdminTrainingSessionsTab({
         },
       });
       if (!isCurrentAuthGen(authGen)) return;
-      publishingRef.current = false;
+      if (publishingTokenRef.current === publishToken) {
+        publishingTokenRef.current = null;
+        setPublishing(false);
+      }
       setPublishTarget(null);
       setScheduleApproved(false);
       setAgeRuleApproved(false);
@@ -1065,16 +1114,18 @@ export function AdminTrainingSessionsTab({
       await fetchSessions();
     } catch (error: unknown) {
       if (!isCurrentAuthGen(authGen)) return;
+      if (publishingTokenRef.current === publishToken) {
+        publishingTokenRef.current = null;
+        setPublishing(false);
+      }
       const classified = classifyAdminRegistrationError(error);
       if (
         classified.kind === "UNAUTHENTICATED" ||
         classified.kind === "FORBIDDEN"
       ) {
         authGenerationRef.current += 1;
-        publishingRef.current = false;
         setPublishTarget(null);
         onAuthError(classified.kind, classified.message);
-        setPublishing(false);
         return;
       }
       if (
@@ -1082,7 +1133,6 @@ export function AdminTrainingSessionsTab({
         classified.kind === "INVALID_TRANSITION"
       ) {
         // Invalidate stale publish confirmation & acknowledgements so staff must review the refreshed draft
-        publishingRef.current = false;
         setPublishTarget(null);
         setScheduleApproved(false);
         setAgeRuleApproved(false);
@@ -1096,19 +1146,23 @@ export function AdminTrainingSessionsTab({
       }
       setPublishError(classified.message);
     } finally {
-      if (isCurrentAuthGen(authGen)) {
-        publishingRef.current = false;
+      if (
+        isCurrentAuthGen(authGen) &&
+        publishingTokenRef.current === publishToken
+      ) {
+        publishingTokenRef.current = null;
         setPublishing(false);
       }
     }
   };
 
   const handleConfirmClose = async () => {
-    if (!closeTarget || closing) return;
+    if (!closeTarget || closing || !isEligible || isSuspended) return;
     const authGen = authGenerationRef.current;
     const targetId = closeTarget.id;
     const targetVersion = closeTarget.version;
-    closingRef.current = true;
+    const closeToken = Symbol("close");
+    closingTokenRef.current = closeToken;
     setClosing(true);
     setBanner(null);
     try {
@@ -1116,7 +1170,10 @@ export function AdminTrainingSessionsTab({
         expectedVersion: targetVersion,
       });
       if (!isCurrentAuthGen(authGen)) return;
-      closingRef.current = false;
+      if (closingTokenRef.current === closeToken) {
+        closingTokenRef.current = null;
+        setClosing(false);
+      }
       setCloseTarget(null);
       setBanner({
         variant: "success",
@@ -1125,6 +1182,10 @@ export function AdminTrainingSessionsTab({
       await fetchSessions();
     } catch (error: unknown) {
       if (!isCurrentAuthGen(authGen)) return;
+      if (closingTokenRef.current === closeToken) {
+        closingTokenRef.current = null;
+        setClosing(false);
+      }
       const classified = classifyAdminRegistrationError(error);
       setCloseTarget(null);
       if (
@@ -1132,9 +1193,7 @@ export function AdminTrainingSessionsTab({
         classified.kind === "FORBIDDEN"
       ) {
         authGenerationRef.current += 1;
-        closingRef.current = false;
         onAuthError(classified.kind, classified.message);
-        setClosing(false);
         return;
       }
       setBanner({
@@ -1148,8 +1207,8 @@ export function AdminTrainingSessionsTab({
         await fetchSessions();
       }
     } finally {
-      if (isCurrentAuthGen(authGen)) {
-        closingRef.current = false;
+      if (isCurrentAuthGen(authGen) && closingTokenRef.current === closeToken) {
+        closingTokenRef.current = null;
         setClosing(false);
       }
     }
@@ -1645,33 +1704,94 @@ export function AdminTrainingSessionsTab({
                   </div>
                 )
               ) : interruptedSaveReview.status === "list_refreshed" ? (
-                <>
-                  <div>
-                    Your draft creation was interrupted by session revalidation
-                    and may already exist on the server. The sessions list has
-                    been refreshed — check whether it was created before
-                    retrying.
-                  </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="primary"
-                      data-testid="acknowledge-interrupted-session-create-btn"
-                      onClick={() => setInterruptedSaveReview(null)}
-                    >
-                      I Reviewed the List — Enable Retry
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={closeDrawer}
-                    >
-                      Close Drawer
-                    </Button>
-                  </div>
-                </>
+                (() => {
+                  const submittedName =
+                    interruptedSaveReview.attemptedForm.name.trim();
+                  const normalizedSubmitted = submittedName.toLowerCase();
+                  const matchingSessions = normalizedSubmitted
+                    ? sessions.filter(
+                        (item) =>
+                          item.name.trim().toLowerCase() ===
+                          normalizedSubmitted,
+                      )
+                    : [];
+                  const previewSessions =
+                    matchingSessions.length > 0
+                      ? matchingSessions.slice(0, 5)
+                      : sessions.slice(0, 5);
+                  return (
+                    <>
+                      <div data-testid="session-interrupted-create-lookup">
+                        {matchingSessions.length > 0 ? (
+                          <span>
+                            Refreshed sessions lookup found{" "}
+                            <strong>{matchingSessions.length}</strong> matching
+                            session
+                            {matchingSessions.length === 1
+                              ? ""
+                              : "s"} named{" "}
+                            <strong>&ldquo;{submittedName}&rdquo;</strong>.
+                            Close this drawer unless you intend to create
+                            another cohort.
+                          </span>
+                        ) : (
+                          <span>
+                            Refreshed sessions lookup did not find a session
+                            named{" "}
+                            <strong>
+                              &ldquo;{submittedName || "—"}&rdquo;
+                            </strong>{" "}
+                            among {sessions.length} loaded session
+                            {sessions.length === 1 ? "" : "s"}. Review the
+                            refreshed summary below before retrying.
+                          </span>
+                        )}
+                      </div>
+                      {previewSessions.length > 0 ? (
+                        <ul
+                          style={{
+                            margin: 0,
+                            paddingLeft: 18,
+                            fontSize: "0.78rem",
+                            color: "#78350F",
+                          }}
+                        >
+                          {previewSessions.map((item) => (
+                            <li key={item.id}>
+                              <strong>{item.name}</strong> —{" "}
+                              {formatPublicationStateLabel(
+                                item.publicationState,
+                              )}{" "}
+                              (v{item.version}, starts{" "}
+                              {item.firstSessionDate ?? "TBD"})
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                      <div
+                        style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
+                      >
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="primary"
+                          data-testid="acknowledge-interrupted-session-create-btn"
+                          onClick={() => setInterruptedSaveReview(null)}
+                        >
+                          I Reviewed the Refreshed Sessions — Enable Retry
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={closeDrawer}
+                        >
+                          Close Drawer
+                        </Button>
+                      </div>
+                    </>
+                  );
+                })()
               ) : interruptedSaveReview.status === "failed" ? (
                 <div
                   style={{

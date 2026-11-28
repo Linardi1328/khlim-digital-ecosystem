@@ -1,6 +1,13 @@
 "use client";
 
-import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  Suspense,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { isFeatureNotAvailableError } from "@khlim/api-client";
@@ -137,7 +144,7 @@ function EnrolmentWizardContent() {
     };
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (prevAuthContextKeyRef.current === authContextKey) {
       return;
     }

@@ -228,6 +228,10 @@ function AcademyRegistrationsContent() {
     detailId: string;
     requestedStatus: RegistrationTargetStatus;
   } | null>(null);
+  const reconcilingStatusMutationRef = useRef<{
+    detailId: string;
+    requestedStatus: RegistrationTargetStatus;
+  } | null>(null);
   const selectedIdRef = useRef<string | null>(null);
   selectedIdRef.current = selectedId;
   const activeStatusMutationRef = useRef<{
@@ -257,22 +261,37 @@ function AcademyRegistrationsContent() {
       activeStatusMutationRef.current = null;
       interruptedDetailReadRef.current = null;
       interruptedStatusMutationRef.current = null;
+      reconcilingStatusMutationRef.current = null;
     };
   }, []);
 
-  // Debounce POST search input so we never hammer the search endpoint
+  // Debounce POST search input so we never hammer the search endpoint.
+  // Restart the debounce when same-context revalidation finishes so pending
+  // edits to searchInput stay synchronized with debouncedSearch.
   useEffect(() => {
     if (searchTimerRef.current !== null) {
       window.clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
     }
-    if (authInvalidatedRef.current) {
+    if (!isEligible || isRevalidating || authInvalidatedRef.current) {
+      return;
+    }
+    const trimmed = searchInput.trim();
+    if (trimmed === debouncedSearch) {
       return;
     }
     const authGen = authGenerationRef.current;
     searchTimerRef.current = window.setTimeout(() => {
       searchTimerRef.current = null;
-      if (!isCurrentAuthGen(authGen) || authInvalidatedRef.current) return;
-      setDebouncedSearch(searchInput.trim());
+      if (
+        !isCurrentAuthGen(authGen) ||
+        authInvalidatedRef.current ||
+        !isEligible ||
+        isRevalidating
+      ) {
+        return;
+      }
+      setDebouncedSearch(trimmed);
     }, 300);
     return () => {
       if (searchTimerRef.current !== null) {
@@ -280,7 +299,14 @@ function AcademyRegistrationsContent() {
         searchTimerRef.current = null;
       }
     };
-  }, [searchInput, isCurrentAuthGen]);
+  }, [
+    searchInput,
+    debouncedSearch,
+    isEligible,
+    isRevalidating,
+    authTransitionSeq,
+    isCurrentAuthGen,
+  ]);
 
   // Immediately abort and invalidate all in-flight reads/mutations whenever
   // an authentication transition or token revalidation begins, reconciling
@@ -309,7 +335,13 @@ function AcademyRegistrationsContent() {
     setIsRecoveringAuth(false);
     setConfirmOpen(false);
 
-    if (detailLoadingRef.current) {
+    if (reconcilingStatusMutationRef.current) {
+      interruptedStatusMutationRef.current =
+        reconcilingStatusMutationRef.current;
+      reconcilingStatusMutationRef.current = null;
+      detailLoadingRef.current = false;
+      setDetailLoading(false);
+    } else if (detailLoadingRef.current) {
       detailLoadingRef.current = false;
       setDetailLoading(false);
       if (selectedIdRef.current) {
@@ -357,6 +389,7 @@ function AcademyRegistrationsContent() {
     activeStatusMutationRef.current = null;
     interruptedDetailReadRef.current = null;
     interruptedStatusMutationRef.current = null;
+    reconcilingStatusMutationRef.current = null;
     setRegistrations([]);
     setTotalItems(0);
     setTotalPages(1);
@@ -411,6 +444,7 @@ function AcademyRegistrationsContent() {
       activeStatusMutationRef.current = null;
       interruptedDetailReadRef.current = null;
       interruptedStatusMutationRef.current = null;
+      reconcilingStatusMutationRef.current = null;
       setRegistrations([]);
       setTotalItems(0);
       setTotalPages(1);
@@ -657,6 +691,7 @@ function AcademyRegistrationsContent() {
       activeStatusMutationRef.current = null;
       interruptedDetailReadRef.current = null;
       interruptedStatusMutationRef.current = null;
+      reconcilingStatusMutationRef.current = null;
       setIsUpdatingStatus(false);
 
       try {
@@ -702,6 +737,7 @@ function AcademyRegistrationsContent() {
     if (interruptedMutation && selectedId === interruptedMutation.detailId) {
       interruptedStatusMutationRef.current = null;
       interruptedDetailReadRef.current = null;
+      reconcilingStatusMutationRef.current = interruptedMutation;
       const authGen = authGenerationRef.current;
       detailAbortRef.current?.abort();
       const controller = new AbortController();
@@ -722,24 +758,15 @@ function AcademyRegistrationsContent() {
           ) {
             return;
           }
+          reconcilingStatusMutationRef.current = null;
           setSelectedDetail(fresh);
           setDetailRefreshFailed(false);
           setStatusFeedback({
             variant: "warning",
             message: `Session revalidation interrupted your prior status update to ${formatRegistrationStatusLabel(interruptedMutation.requestedStatus)}. Loaded the latest server record (v${fresh.version}, ${formatRegistrationStatusLabel(fresh.status)}) — review before submitting any new change.`,
           });
-          setRegistrations((prev) =>
-            prev.map((row) =>
-              row.id === fresh.id
-                ? {
-                    ...row,
-                    status: fresh.status,
-                    version: fresh.version,
-                    updatedAt: fresh.updatedAt,
-                  }
-                : row,
-            ),
-          );
+          setListRefreshNonce((prev) => prev + 1);
+          void fetchAuthoritativeSessionFilter();
         } catch (error: unknown) {
           if (
             controller.signal.aborted ||
@@ -748,6 +775,7 @@ function AcademyRegistrationsContent() {
           ) {
             return;
           }
+          reconcilingStatusMutationRef.current = null;
           const classified = classifyAdminRegistrationError(error);
           if (
             classified.kind === "UNAUTHENTICATED" ||
@@ -779,10 +807,12 @@ function AcademyRegistrationsContent() {
   }, [
     isEligible,
     isRevalidating,
+    authTransitionSeq,
     selectedId,
     isCurrentAuthGen,
     handleGlobalAuthError,
     loadRegistrationDetail,
+    fetchAuthoritativeSessionFilter,
   ]);
 
   const handleCloseDrawer = () => {
@@ -794,6 +824,7 @@ function AcademyRegistrationsContent() {
     activeStatusMutationRef.current = null;
     interruptedDetailReadRef.current = null;
     interruptedStatusMutationRef.current = null;
+    reconcilingStatusMutationRef.current = null;
     setSelectedId(null);
     setSelectedDetail(null);
     setDetailLoading(false);
@@ -857,6 +888,12 @@ function AcademyRegistrationsContent() {
 
       if (!isCurrentAuthGen(authGen)) return;
 
+      if (statusMutationSeq.current === mutationSeq) {
+        updatingStatusRef.current = false;
+        activeStatusMutationRef.current = null;
+        setIsUpdatingStatus(false);
+      }
+
       if (detailRequestSeq.current === detailSeq) {
         setConfirmOpen(false);
         setSelectedDetail(updated);
@@ -868,11 +905,11 @@ function AcademyRegistrationsContent() {
         });
       }
 
-      // Synchronize summary row and trigger an effect-driven list refresh using
-      // current filters/search/page (never a stale closure) + authoritative seat counts.
+      // Synchronize summary row monotonically and trigger an effect-driven list refresh
+      // using current filters/search/page (never a stale closure) + authoritative seat counts.
       setRegistrations((prev) =>
         prev.map((row) =>
-          row.id === updated.id
+          row.id === updated.id && updated.version >= row.version
             ? {
                 ...row,
                 status: updated.status,
@@ -886,6 +923,11 @@ function AcademyRegistrationsContent() {
       void fetchAuthoritativeSessionFilter();
     } catch (error: unknown) {
       if (!isCurrentAuthGen(authGen)) return;
+      if (statusMutationSeq.current === mutationSeq) {
+        updatingStatusRef.current = false;
+        activeStatusMutationRef.current = null;
+        setIsUpdatingStatus(false);
+      }
       const classified = classifyAdminRegistrationError(error);
 
       if (
@@ -933,6 +975,8 @@ function AcademyRegistrationsContent() {
         const followUpController = new AbortController();
         detailAbortRef.current = followUpController;
         const followUpSeq = ++detailRequestSeq.current;
+        detailLoadingRef.current = true;
+        setDetailLoading(true);
         try {
           const fresh = await getAdminRegistrationDetail(
             detailId,
@@ -951,18 +995,7 @@ function AcademyRegistrationsContent() {
             variant: "warning",
             message: `${conflictLead} Loaded the latest record (v${fresh.version}, ${formatRegistrationStatusLabel(fresh.status)}) — review before retrying.`,
           });
-          setRegistrations((prev) =>
-            prev.map((row) =>
-              row.id === fresh.id
-                ? {
-                    ...row,
-                    status: fresh.status,
-                    version: fresh.version,
-                    updatedAt: fresh.updatedAt,
-                  }
-                : row,
-            ),
-          );
+          setListRefreshNonce((prev) => prev + 1);
         } catch (refreshError: unknown) {
           if (
             followUpController.signal.aborted ||
@@ -989,6 +1022,14 @@ function AcademyRegistrationsContent() {
             variant: "error",
             message: `${conflictLead} Could not refresh the latest registration record (${refreshClassified.message}). Click Refresh Record to reload before applying another status change.`,
           });
+        } finally {
+          if (
+            isCurrentAuthGen(authGen) &&
+            followUpSeq === detailRequestSeq.current
+          ) {
+            detailLoadingRef.current = false;
+            setDetailLoading(false);
+          }
         }
         return;
       }
@@ -1360,6 +1401,7 @@ function AcademyRegistrationsContent() {
                 <SearchInput
                   key={searchResetKey}
                   value={searchInput}
+                  debounceMs={0}
                   onChange={(val) => {
                     if (authInvalidatedRef.current) return;
                     setSearchInput(val);

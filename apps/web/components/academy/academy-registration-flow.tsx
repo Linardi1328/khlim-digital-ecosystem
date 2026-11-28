@@ -433,13 +433,19 @@ export function AcademyRegistrationFlow() {
           return { kind: "empty", config: prev.config };
         return { ...prev, sessions: refreshed.items };
       });
+      const preselected = refreshed.items.find(
+        (item) => item.id === querySessionId,
+      );
+      setStalePreselectedSession(Boolean(querySessionId && !preselected));
       setForm((prev) => ({
         ...prev,
         sessionId:
           refreshed.registrationOpen &&
           refreshed.items.some((item) => item.id === prev.sessionId)
             ? prev.sessionId
-            : "",
+            : refreshed.registrationOpen
+              ? (preselected?.id ?? "")
+              : "",
       }));
       setSessionRefreshRequired(false);
     } catch (error) {

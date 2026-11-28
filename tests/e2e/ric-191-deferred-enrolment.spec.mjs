@@ -511,6 +511,19 @@ test.describe("IR-05 Deferred Enrolment & Checkout Browser Verification", () => 
     const firstMeGate = new Promise((r) => {
       releaseFirstMe = r;
     });
+    let firstMeSettled = Promise.resolve();
+
+    const trackReqSettlement = (req) =>
+      new Promise((resolve) => {
+        const done = (candidate) => {
+          if (candidate !== req) return;
+          page.off("requestfinished", done);
+          page.off("requestfailed", done);
+          resolve();
+        };
+        page.on("requestfinished", done);
+        page.on("requestfailed", done);
+      });
 
     await page.addInitScript(
       ({ storageKey, exp }) => {
@@ -529,9 +542,11 @@ test.describe("IR-05 Deferred Enrolment & Checkout Browser Verification", () => 
       { storageKey: SUPABASE_SESSION_STORAGE_KEY, exp: expiresAt },
     );
 
+    let athletesRequests = 0;
     await page.route(/\/v1\/me$/, async (route) => {
       meCalls += 1;
       if (meCalls === 1) {
+        firstMeSettled = trackReqSettlement(route.request());
         firstMeStarted();
         await firstMeGate;
       }
@@ -547,8 +562,9 @@ test.describe("IR-05 Deferred Enrolment & Checkout Browser Verification", () => 
       });
     });
 
-    await page.route(/\/v1\/me\/athletes$/, (route) =>
-      route.fulfill({
+    await page.route(/\/v1\/me\/athletes$/, (route) => {
+      athletesRequests += 1;
+      return route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify([
@@ -563,8 +579,8 @@ test.describe("IR-05 Deferred Enrolment & Checkout Browser Verification", () => 
             },
           },
         ]),
-      }),
-    );
+      });
+    });
 
     await page.route(/\/v1\/academy\/offerings$/, (route) =>
       route.fulfill({
@@ -588,17 +604,234 @@ test.describe("IR-05 Deferred Enrolment & Checkout Browser Verification", () => 
       );
     }, SUPABASE_SESSION_STORAGE_KEY);
 
-    // Release delayed /v1/me for Account A -> MUST NOT restore Account A or its child!
+    // Release delayed /v1/me for Account A -> wait for actual response settlement + microtasks + render frames!
     releaseFirstMe();
+    await firstMeSettled;
     await page.evaluate(
       () =>
         new Promise((resolve) =>
-          requestAnimationFrame(() => requestAnimationFrame(resolve)),
+          setTimeout(
+            () => requestAnimationFrame(() => requestAnimationFrame(resolve)),
+            0,
+          ),
         ),
     );
+    expect(athletesRequests).toBe(0);
     await expect(page.locator("body")).not.toContainText(
       "Delayed Account A Child",
     );
     await expect(page.locator("body")).not.toContainText("Parent Account A");
+  });
+
+  test("CnB7: synchronous layout-effect auth reset blocks previous-account checkout navigation after account change", async ({
+    page,
+  }) => {
+    const expiresAt = Math.floor(Date.now() / 1000) + 3600;
+    let activeAccount = "A";
+    let prepareStarted;
+    const prepareStartedP = new Promise((r) => {
+      prepareStarted = r;
+    });
+    let releasePrepare;
+    const prepareGate = new Promise((r) => {
+      releasePrepare = r;
+    });
+    let prepareSettled = Promise.resolve();
+
+    const trackReqSettlement = (req) =>
+      new Promise((resolve) => {
+        const done = (candidate) => {
+          if (candidate !== req) return;
+          page.off("requestfinished", done);
+          page.off("requestfailed", done);
+          resolve();
+        };
+        page.on("requestfinished", done);
+        page.on("requestfailed", done);
+      });
+
+    let externalCheckoutNavigations = 0;
+    await page.route("https://billplz.example.test/**", (route) => {
+      externalCheckoutNavigations += 1;
+      return route.fulfill({ status: 200, body: "should-never-navigate" });
+    });
+
+    await page.addInitScript(
+      ({ storageKey, exp }) => {
+        window.localStorage.setItem(
+          storageKey,
+          JSON.stringify({
+            access_token: "synthetic-web-parent-token-a",
+            refresh_token: "synthetic-web-refresh-token-a",
+            expires_in: 3600,
+            expires_at: exp,
+            token_type: "bearer",
+            user: { id: "acc-syn-parent-a", email: "parent.a@example.test" },
+          }),
+        );
+      },
+      { storageKey: SUPABASE_SESSION_STORAGE_KEY, exp: expiresAt },
+    );
+
+    await page.route(/\/v1\/me$/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(
+          activeAccount === "A"
+            ? {
+                ...SYNTHETIC_ACCOUNT,
+                id: "acc-syn-parent-a",
+                email: "parent.a@example.test",
+                displayName: "Parent Account A",
+              }
+            : {
+                ...SYNTHETIC_ACCOUNT,
+                id: "acc-syn-parent-b",
+                email: "parent.b@example.test",
+                displayName: "Parent Account B",
+              },
+        ),
+      }),
+    );
+
+    await page.route(/\/v1\/me\/athletes$/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(
+          activeAccount === "A"
+            ? [
+                {
+                  id: "link-a-1",
+                  relationshipType: "guardian",
+                  status: "ACTIVE",
+                  athlete: {
+                    id: "ath-syn-a-1",
+                    displayName: "Account A Athlete",
+                    dateOfBirth: "2015-05-10",
+                  },
+                },
+              ]
+            : [
+                {
+                  id: "link-b-1",
+                  relationshipType: "guardian",
+                  status: "ACTIVE",
+                  athlete: {
+                    id: "ath-syn-b-1",
+                    displayName: "Account B Athlete",
+                    dateOfBirth: "2016-06-15",
+                  },
+                },
+              ],
+        ),
+      }),
+    );
+
+    await page.route(/\/v1\/academy\/offerings$/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(SYNTHETIC_OFFERINGS),
+      }),
+    );
+
+    await page.route(/\/v1\/athletes\/[^/]+\/memberships$/, (route) =>
+      route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "mem-syn-a-1",
+          status: "PENDING",
+          athleteId: "ath-syn-a-1",
+          programmeOfferingId: SYNTHETIC_OFFERINGS[0].id,
+          membershipPlanId: SYNTHETIC_OFFERINGS[0].planEligibilities[0].plan.id,
+        }),
+      }),
+    );
+
+    await page.route(
+      /\/v1\/athletes\/[^/]+\/memberships\/[^/]+\/checkout$/,
+      async (route) => {
+        prepareSettled = trackReqSettlement(route.request());
+        prepareStarted();
+        await prepareGate;
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            checkoutUrl: "https://billplz.example.test/pay/account-a-bill",
+          }),
+        });
+      },
+    );
+
+    await page.goto(
+      `/enrol?offeringId=${SYNTHETIC_OFFERINGS[0].id}&planId=${SYNTHETIC_OFFERINGS[0].planEligibilities[0].plan.id}`,
+      { waitUntil: "networkidle" },
+    );
+
+    // Step 1 -> Step 2 -> Step 3 -> Step 4 (terms) -> Step 5 (submit checkout)
+    await expect(page.getByText("Account A Athlete").first()).toBeVisible();
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    const checkboxes = page.locator('input[type="checkbox"]');
+    const checkboxCount = await checkboxes.count();
+    for (let i = 0; i < checkboxCount; i += 1) {
+      await checkboxes.nth(i).check();
+    }
+    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    const submitBtn = page
+      .locator("main button")
+      .filter({ hasNotText: /Back/i })
+      .last();
+    await expect(submitBtn).toBeEnabled();
+    await submitBtn.click();
+    await prepareStartedP;
+
+    // Switch account from A to B while Account A's prepareCheckout is pending
+    activeAccount = "B";
+    await page.evaluate(
+      ({ storageKey, exp }) => {
+        const nextSession = JSON.stringify({
+          access_token: "synthetic-web-parent-token-b",
+          refresh_token: "synthetic-web-refresh-token-b",
+          expires_in: 3600,
+          expires_at: exp,
+          token_type: "bearer",
+          user: { id: "acc-syn-parent-b", email: "parent.b@example.test" },
+        });
+        window.localStorage.setItem(storageKey, nextSession);
+        window.dispatchEvent(
+          new StorageEvent("storage", {
+            key: storageKey,
+            newValue: nextSession,
+          }),
+        );
+      },
+      { storageKey: SUPABASE_SESSION_STORAGE_KEY, exp: expiresAt },
+    );
+
+    // Wait for Account B to be committed, then release Account A's checkout response
+    await expect(page.locator("body")).toContainText("Account B Athlete");
+    releasePrepare();
+    await prepareSettled;
+    await page.evaluate(
+      () =>
+        new Promise((resolve) =>
+          setTimeout(
+            () => requestAnimationFrame(() => requestAnimationFrame(resolve)),
+            0,
+          ),
+        ),
+    );
+
+    // Zero navigation to Account A's checkout URL!
+    expect(externalCheckoutNavigations).toBe(0);
+    expect(page.url()).toContain("/enrol");
+    await expect(page.locator("body")).toContainText("Account B Athlete");
+    await expect(page.locator("body")).not.toContainText("Account A Athlete");
   });
 });

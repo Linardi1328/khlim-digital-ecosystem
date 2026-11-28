@@ -103,7 +103,12 @@ function readStoredSession(): AdminSupabaseSession | null {
   if (!raw) return null;
 
   try {
-    return normalizeSession(JSON.parse(raw));
+    const parsed = normalizeSession(JSON.parse(raw));
+    if (!parsed) {
+      window.localStorage.removeItem(ADMIN_SUPABASE_SESSION_STORAGE_KEY);
+      return null;
+    }
+    return parsed;
   } catch {
     window.localStorage.removeItem(ADMIN_SUPABASE_SESSION_STORAGE_KEY);
     return null;

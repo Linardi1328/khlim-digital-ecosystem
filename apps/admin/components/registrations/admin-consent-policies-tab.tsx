@@ -21,6 +21,7 @@ import {
   createAdminRegistrationPolicy,
   createEmptyPolicyContentMap,
   formatFieldErrorMessage,
+  formatPolicyStatusLabel,
   listAdminRegistrationPolicies,
   retireAdminRegistrationPolicy,
   validatePolicyDraftInput,
@@ -69,7 +70,19 @@ function readContentEntry(
   return { ref: candidate.ref, sha256: candidate.sha256 };
 }
 
-export interface AdminConsentPoliciesTabProps {
+export type PolicyFetchOutcome = "ok" | "failed" | "superseded";
+
+interface InterruptedCreateSubmission {
+  policyVersion: string;
+  drawerInstanceId: number;
+}
+
+interface InterruptedCreateReviewState {
+  submittedVersion: string;
+  status: "refreshing" | "ready" | "failed";
+}
+
+interface AdminConsentPoliciesTabProps {
   isEligible: boolean;
   isSuspended?: boolean;
   authTransitionSeq?: number;
@@ -110,9 +123,8 @@ export function AdminConsentPoliciesTab({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [interruptedCreateReview, setInterruptedCreateReview] = useState<
-    "refreshing" | "ready" | "failed" | null
-  >(null);
+  const [interruptedCreateReview, setInterruptedCreateReview] =
+    useState<InterruptedCreateReviewState | null>(null);
 
   // Approve & Retire dialogs (only accessible to SUPER_ADMIN / MANAGEMENT)
   // Snapshot both the target draft and the currently approved predecessor at dialog open
@@ -126,13 +138,21 @@ export function AdminConsentPoliciesTab({
   const [mutating, setMutating] = useState(false);
 
   const authGenerationRef = useRef(0);
+  const createDrawerInstanceIdRef = useRef(0);
   const isMountedRef = useRef(true);
   const prevAuthTransitionSeqRef = useRef(authTransitionSeq);
   const listSeq = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
-  const creatingRef = useRef(false);
-  const interruptedCreateRef = useRef(false);
-  const activePolicyMutationRef = useRef<"approve" | "retire" | null>(null);
+  const activeCreateSubmissionRef = useRef<InterruptedCreateSubmission | null>(
+    null,
+  );
+  const interruptedCreateRef = useRef<InterruptedCreateSubmission | null>(null);
+  const interruptedCreateLoadingRef =
+    useRef<InterruptedCreateSubmission | null>(null);
+  const activePolicyMutationRef = useRef<{
+    action: "approve" | "retire";
+    token: symbol;
+  } | null>(null);
 
   const isCurrentAuthGen = useCallback(
     (gen: number) => isMountedRef.current && authGenerationRef.current === gen,
@@ -144,6 +164,7 @@ export function AdminConsentPoliciesTab({
     return () => {
       isMountedRef.current = false;
       authGenerationRef.current += 1;
+      createDrawerInstanceIdRef.current += 1;
       abortRef.current?.abort();
     };
   }, []);
@@ -162,15 +183,24 @@ export function AdminConsentPoliciesTab({
     setApproveDialogState(null);
     setRetireTarget(null);
 
-    if (creatingRef.current) {
-      creatingRef.current = false;
-      interruptedCreateRef.current = true;
+    if (interruptedCreateLoadingRef.current) {
+      interruptedCreateRef.current = interruptedCreateLoadingRef.current;
+      interruptedCreateLoadingRef.current = null;
+    }
+
+    if (activeCreateSubmissionRef.current) {
+      const interrupted = activeCreateSubmissionRef.current;
+      activeCreateSubmissionRef.current = null;
+      interruptedCreateRef.current = interrupted;
       setCreating(false);
-      setInterruptedCreateReview("refreshing");
+      setInterruptedCreateReview({
+        submittedVersion: interrupted.policyVersion,
+        status: "refreshing",
+      });
     }
 
     if (activePolicyMutationRef.current) {
-      const action = activePolicyMutationRef.current;
+      const { action } = activePolicyMutationRef.current;
       activePolicyMutationRef.current = null;
       setMutating(false);
       setBanner({
@@ -182,10 +212,12 @@ export function AdminConsentPoliciesTab({
 
   useLayoutEffect(() => {
     authGenerationRef.current += 1;
+    createDrawerInstanceIdRef.current += 1;
     listSeq.current += 1;
     abortRef.current?.abort();
-    creatingRef.current = false;
-    interruptedCreateRef.current = false;
+    activeCreateSubmissionRef.current = null;
+    interruptedCreateRef.current = null;
+    interruptedCreateLoadingRef.current = null;
     activePolicyMutationRef.current = null;
     setCurrentPolicy(null);
     setHistoryItems([]);
@@ -204,19 +236,19 @@ export function AdminConsentPoliciesTab({
     setMutating(false);
   }, [authContextKey]);
 
-  const fetchPolicies = useCallback(async (): Promise<boolean> => {
+  const fetchPolicies = useCallback(async (): Promise<PolicyFetchOutcome> => {
     void authContextKey;
     const authGen = authGenerationRef.current;
     if (isSuspended) {
       listSeq.current += 1;
       abortRef.current?.abort();
-      return false;
+      return "superseded";
     }
     if (!isEligible) {
       setCurrentPolicy(null);
       setHistoryItems([]);
       setLoading(false);
-      return false;
+      return "superseded";
     }
 
     abortRef.current?.abort();
@@ -229,17 +261,19 @@ export function AdminConsentPoliciesTab({
 
     try {
       const response = await listAdminRegistrationPolicies(controller.signal);
-      if (!isCurrentAuthGen(authGen) || seq !== listSeq.current) return false;
+      if (!isCurrentAuthGen(authGen) || seq !== listSeq.current) {
+        return "superseded";
+      }
       setCurrentPolicy(response.current ?? null);
       setHistoryItems(Array.isArray(response.items) ? response.items : []);
-      return true;
+      return "ok";
     } catch (error: unknown) {
       if (
         controller.signal.aborted ||
         !isCurrentAuthGen(authGen) ||
         seq !== listSeq.current
       ) {
-        return false;
+        return "superseded";
       }
       const classified = classifyAdminRegistrationError(error);
       if (
@@ -251,10 +285,10 @@ export function AdminConsentPoliciesTab({
         setHistoryItems([]);
         onAuthError(classified.kind, classified.message);
         setLoading(false);
-        return false;
+        return "superseded";
       }
       setLoadError(classified.message);
-      return false;
+      return "failed";
     } finally {
       if (isCurrentAuthGen(authGen) && seq === listSeq.current) {
         setLoading(false);
@@ -264,28 +298,67 @@ export function AdminConsentPoliciesTab({
 
   useEffect(() => {
     let cancelled = false;
+    const authGen = authGenerationRef.current;
+    const pendingCreate =
+      !isSuspended &&
+      isEligible &&
+      interruptedCreateRef.current &&
+      interruptedCreateRef.current.drawerInstanceId ===
+        createDrawerInstanceIdRef.current
+        ? interruptedCreateRef.current
+        : null;
+    if (pendingCreate) {
+      interruptedCreateRef.current = null;
+      interruptedCreateLoadingRef.current = pendingCreate;
+    }
+
     void (async () => {
-      const ok = await fetchPolicies();
+      const outcome = await fetchPolicies();
       if (
         cancelled ||
-        !interruptedCreateRef.current ||
-        isSuspended ||
-        !isEligible
+        !pendingCreate ||
+        !isCurrentAuthGen(authGen) ||
+        createDrawerInstanceIdRef.current !== pendingCreate.drawerInstanceId
       ) {
         return;
       }
-      interruptedCreateRef.current = false;
-      setInterruptedCreateReview(ok ? "ready" : "failed");
+      if (outcome === "superseded") {
+        return;
+      }
+      if (interruptedCreateLoadingRef.current === pendingCreate) {
+        interruptedCreateLoadingRef.current = null;
+      }
+      setInterruptedCreateReview({
+        submittedVersion: pendingCreate.policyVersion,
+        status: outcome === "ok" ? "ready" : "failed",
+      });
     })();
     return () => {
       cancelled = true;
       abortRef.current?.abort();
     };
-  }, [fetchPolicies, isSuspended, isEligible]);
+  }, [
+    fetchPolicies,
+    isSuspended,
+    isEligible,
+    authTransitionSeq,
+    isCurrentAuthGen,
+  ]);
+
+  const closeCreateDrawer = () => {
+    createDrawerInstanceIdRef.current += 1;
+    activeCreateSubmissionRef.current = null;
+    interruptedCreateRef.current = null;
+    interruptedCreateLoadingRef.current = null;
+    setCreateOpen(false);
+    setInterruptedCreateReview(null);
+  };
 
   const openCreateDrawer = () => {
-    creatingRef.current = false;
-    interruptedCreateRef.current = false;
+    createDrawerInstanceIdRef.current += 1;
+    activeCreateSubmissionRef.current = null;
+    interruptedCreateRef.current = null;
+    interruptedCreateLoadingRef.current = null;
     setBanner(null);
     setDraftVersion("");
     setDraftContent(createEmptyPolicyContentMap());
@@ -293,6 +366,40 @@ export function AdminConsentPoliciesTab({
     setFormError(null);
     setInterruptedCreateReview(null);
     setCreateOpen(true);
+  };
+
+  const handleRetryInterruptedCreateRefresh = async () => {
+    if (!interruptedCreateReview || !isEligible || isSuspended) return;
+    const authGen = authGenerationRef.current;
+    const drawerInstanceId = createDrawerInstanceIdRef.current;
+    const submittedVersion = interruptedCreateReview.submittedVersion;
+    const target: InterruptedCreateSubmission = {
+      policyVersion: submittedVersion,
+      drawerInstanceId,
+    };
+    interruptedCreateRef.current = null;
+    interruptedCreateLoadingRef.current = target;
+    setInterruptedCreateReview({
+      submittedVersion,
+      status: "refreshing",
+    });
+    const outcome = await fetchPolicies();
+    if (
+      !isCurrentAuthGen(authGen) ||
+      createDrawerInstanceIdRef.current !== drawerInstanceId
+    ) {
+      return;
+    }
+    if (outcome === "superseded") {
+      return;
+    }
+    if (interruptedCreateLoadingRef.current === target) {
+      interruptedCreateLoadingRef.current = null;
+    }
+    setInterruptedCreateReview({
+      submittedVersion,
+      status: outcome === "ok" ? "ready" : "failed",
+    });
   };
 
   const updateContentCell = (
@@ -323,7 +430,14 @@ export function AdminConsentPoliciesTab({
 
   const handleCreateDraft = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (creating || interruptedCreateReview !== null) return;
+    if (
+      creating ||
+      interruptedCreateReview !== null ||
+      !isEligible ||
+      isSuspended
+    ) {
+      return;
+    }
     setFormError(null);
 
     const validated = validatePolicyDraftInput(draftVersion, draftContent);
@@ -336,14 +450,24 @@ export function AdminConsentPoliciesTab({
     }
 
     const authGen = authGenerationRef.current;
+    const drawerInstanceId = createDrawerInstanceIdRef.current;
     setFieldErrors({});
-    creatingRef.current = true;
+    const submission: InterruptedCreateSubmission = {
+      policyVersion: validated.payload.policyVersion,
+      drawerInstanceId,
+    };
+    activeCreateSubmissionRef.current = submission;
     setCreating(true);
     try {
       const created = await createAdminRegistrationPolicy(validated.payload);
       if (!isCurrentAuthGen(authGen)) return;
-      creatingRef.current = false;
-      setCreateOpen(false);
+      if (activeCreateSubmissionRef.current === submission) {
+        activeCreateSubmissionRef.current = null;
+        setCreating(false);
+      }
+      if (createDrawerInstanceIdRef.current === drawerInstanceId) {
+        closeCreateDrawer();
+      }
       setBanner({
         variant: "success",
         message: `Draft consent policy "${created.policyVersion}" created (v${created.version}).`,
@@ -351,18 +475,21 @@ export function AdminConsentPoliciesTab({
       await fetchPolicies();
     } catch (error: unknown) {
       if (!isCurrentAuthGen(authGen)) return;
+      if (activeCreateSubmissionRef.current === submission) {
+        activeCreateSubmissionRef.current = null;
+        setCreating(false);
+      }
       const classified = classifyAdminRegistrationError(error);
       if (
         classified.kind === "UNAUTHENTICATED" ||
         classified.kind === "FORBIDDEN"
       ) {
         authGenerationRef.current += 1;
-        creatingRef.current = false;
-        setCreateOpen(false);
+        closeCreateDrawer();
         onAuthError(classified.kind, classified.message);
-        setCreating(false);
         return;
       }
+      if (createDrawerInstanceIdRef.current !== drawerInstanceId) return;
       if (classified.fieldErrors.length > 0) {
         const mapped: Record<string, string> = {};
         for (const fe of classified.fieldErrors) {
@@ -372,22 +499,37 @@ export function AdminConsentPoliciesTab({
       }
       setFormError(classified.message);
     } finally {
-      if (isCurrentAuthGen(authGen)) {
-        creatingRef.current = false;
+      if (
+        isCurrentAuthGen(authGen) &&
+        activeCreateSubmissionRef.current === submission
+      ) {
+        activeCreateSubmissionRef.current = null;
         setCreating(false);
       }
     }
   };
 
   const handleConfirmApprove = async () => {
-    if (!approveDialogState || !canApprovePolicies || mutating) return;
+    if (
+      !approveDialogState ||
+      !canApprovePolicies ||
+      mutating ||
+      !isEligible ||
+      isSuspended
+    ) {
+      return;
+    }
     const authGen = authGenerationRef.current;
     const targetId = approveDialogState.target.id;
     const targetVersion = approveDialogState.target.version;
     const expectedApprovedPolicyId = approveDialogState.predecessor?.id ?? null;
     const expectedApprovedPolicyVersion =
       approveDialogState.predecessor?.version ?? null;
-    activePolicyMutationRef.current = "approve";
+    const mutationEntry = {
+      action: "approve" as const,
+      token: Symbol("approve"),
+    };
+    activePolicyMutationRef.current = mutationEntry;
     setMutating(true);
     setBanner(null);
     try {
@@ -397,7 +539,10 @@ export function AdminConsentPoliciesTab({
         expectedApprovedPolicyVersion,
       });
       if (!isCurrentAuthGen(authGen)) return;
-      activePolicyMutationRef.current = null;
+      if (activePolicyMutationRef.current === mutationEntry) {
+        activePolicyMutationRef.current = null;
+        setMutating(false);
+      }
       setApproveDialogState(null);
       setBanner({
         variant: "success",
@@ -406,6 +551,10 @@ export function AdminConsentPoliciesTab({
       await fetchPolicies();
     } catch (error: unknown) {
       if (!isCurrentAuthGen(authGen)) return;
+      if (activePolicyMutationRef.current === mutationEntry) {
+        activePolicyMutationRef.current = null;
+        setMutating(false);
+      }
       const classified = classifyAdminRegistrationError(error);
       setApproveDialogState(null);
       if (
@@ -413,9 +562,7 @@ export function AdminConsentPoliciesTab({
         classified.kind === "FORBIDDEN"
       ) {
         authGenerationRef.current += 1;
-        activePolicyMutationRef.current = null;
         onAuthError(classified.kind, classified.message);
-        setMutating(false);
         return;
       }
       if (classified.kind === "STALE_VERSION") {
@@ -424,10 +571,12 @@ export function AdminConsentPoliciesTab({
           message:
             "This consent policy or the currently approved predecessor was modified by another administrator before your approval was applied. Refreshing the latest policies...",
         });
-        const refreshed = await fetchPolicies();
-        if (!isCurrentAuthGen(authGen)) return;
+        const refreshOutcome = await fetchPolicies();
+        if (!isCurrentAuthGen(authGen) || refreshOutcome === "superseded") {
+          return;
+        }
         setBanner(
-          refreshed
+          refreshOutcome === "ok"
             ? {
                 variant: "warning",
                 message:
@@ -447,7 +596,10 @@ export function AdminConsentPoliciesTab({
       });
       await fetchPolicies();
     } finally {
-      if (isCurrentAuthGen(authGen)) {
+      if (
+        isCurrentAuthGen(authGen) &&
+        activePolicyMutationRef.current === mutationEntry
+      ) {
         activePolicyMutationRef.current = null;
         setMutating(false);
       }
@@ -455,11 +607,23 @@ export function AdminConsentPoliciesTab({
   };
 
   const handleConfirmRetire = async () => {
-    if (!retireTarget || !canApprovePolicies || mutating) return;
+    if (
+      !retireTarget ||
+      !canApprovePolicies ||
+      mutating ||
+      !isEligible ||
+      isSuspended
+    ) {
+      return;
+    }
     const authGen = authGenerationRef.current;
     const targetId = retireTarget.id;
     const targetVersion = retireTarget.version;
-    activePolicyMutationRef.current = "retire";
+    const mutationEntry = {
+      action: "retire" as const,
+      token: Symbol("retire"),
+    };
+    activePolicyMutationRef.current = mutationEntry;
     setMutating(true);
     setBanner(null);
     try {
@@ -467,7 +631,10 @@ export function AdminConsentPoliciesTab({
         expectedVersion: targetVersion,
       });
       if (!isCurrentAuthGen(authGen)) return;
-      activePolicyMutationRef.current = null;
+      if (activePolicyMutationRef.current === mutationEntry) {
+        activePolicyMutationRef.current = null;
+        setMutating(false);
+      }
       setRetireTarget(null);
       setBanner({
         variant: "success",
@@ -476,6 +643,10 @@ export function AdminConsentPoliciesTab({
       await fetchPolicies();
     } catch (error: unknown) {
       if (!isCurrentAuthGen(authGen)) return;
+      if (activePolicyMutationRef.current === mutationEntry) {
+        activePolicyMutationRef.current = null;
+        setMutating(false);
+      }
       const classified = classifyAdminRegistrationError(error);
       setRetireTarget(null);
       if (
@@ -483,9 +654,7 @@ export function AdminConsentPoliciesTab({
         classified.kind === "FORBIDDEN"
       ) {
         authGenerationRef.current += 1;
-        activePolicyMutationRef.current = null;
         onAuthError(classified.kind, classified.message);
-        setMutating(false);
         return;
       }
       if (classified.kind === "STALE_VERSION") {
@@ -494,10 +663,12 @@ export function AdminConsentPoliciesTab({
           message:
             "This consent policy changed before your retirement was applied. Refreshing the latest policies...",
         });
-        const refreshed = await fetchPolicies();
-        if (!isCurrentAuthGen(authGen)) return;
+        const refreshOutcome = await fetchPolicies();
+        if (!isCurrentAuthGen(authGen) || refreshOutcome === "superseded") {
+          return;
+        }
         setBanner(
-          refreshed
+          refreshOutcome === "ok"
             ? {
                 variant: "warning",
                 message:
@@ -517,7 +688,10 @@ export function AdminConsentPoliciesTab({
       });
       await fetchPolicies();
     } finally {
-      if (isCurrentAuthGen(authGen)) {
+      if (
+        isCurrentAuthGen(authGen) &&
+        activePolicyMutationRef.current === mutationEntry
+      ) {
         activePolicyMutationRef.current = null;
         setMutating(false);
       }
@@ -997,9 +1171,7 @@ export function AdminConsentPoliciesTab({
         isOpen={createOpen}
         onClose={() => {
           if (!creating) {
-            setCreateOpen(false);
-            setInterruptedCreateReview(null);
-            interruptedCreateRef.current = false;
+            closeCreateDrawer();
           }
         }}
         title="Create Consent Policy Draft"
@@ -1033,12 +1205,14 @@ export function AdminConsentPoliciesTab({
                 Session revalidation interrupted policy draft creation — outcome
                 uncertain
               </strong>
-              {interruptedCreateReview === "refreshing" ? (
+              {interruptedCreateReview.status === "refreshing" ? (
                 <div>
-                  Refreshing the policy list to check whether this draft was
-                  already created...
+                  Refreshing the policy list to check whether submitted policy
+                  version{" "}
+                  <strong>{interruptedCreateReview.submittedVersion}</strong>{" "}
+                  was already created...
                 </div>
-              ) : interruptedCreateReview === "failed" ? (
+              ) : interruptedCreateReview.status === "failed" ? (
                 <div
                   style={{
                     display: "flex",
@@ -1049,54 +1223,105 @@ export function AdminConsentPoliciesTab({
                   }}
                 >
                   <span>
-                    Could not refresh the policy list after revalidation. Retry
-                    refresh before creating again.
+                    Could not refresh the policy list after revalidation for
+                    submitted policy version{" "}
+                    <strong>{interruptedCreateReview.submittedVersion}</strong>.
+                    Retry refresh before creating again.
                   </span>
                   <Button
                     type="button"
                     size="sm"
                     variant="secondary"
                     data-testid="retry-interrupted-policy-refresh-btn"
-                    onClick={() => {
-                      setInterruptedCreateReview("refreshing");
-                      void fetchPolicies().then((ok) =>
-                        setInterruptedCreateReview(ok ? "ready" : "failed"),
-                      );
-                    }}
+                    onClick={() => void handleRetryInterruptedCreateRefresh()}
                   >
                     Retry Refresh
                   </Button>
                 </div>
               ) : (
-                <>
-                  <div>
-                    The policy list has been refreshed. Verify whether policy
-                    version <strong>{draftVersion || "—"}</strong> was already
-                    created before submitting again.
-                  </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="primary"
-                      data-testid="acknowledge-interrupted-policy-create-btn"
-                      onClick={() => setInterruptedCreateReview(null)}
-                    >
-                      I Reviewed the Policy List — Enable Retry
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => {
-                        setCreateOpen(false);
-                        setInterruptedCreateReview(null);
-                      }}
-                    >
-                      Close Drawer
-                    </Button>
-                  </div>
-                </>
+                (() => {
+                  const matchedPolicy =
+                    historyItems.find(
+                      (item) =>
+                        item.policyVersion ===
+                        interruptedCreateReview.submittedVersion,
+                    ) ??
+                    (currentPolicy?.policyVersion ===
+                    interruptedCreateReview.submittedVersion
+                      ? currentPolicy
+                      : null);
+                  return (
+                    <>
+                      <div data-testid="policy-interrupted-lookup-result">
+                        {matchedPolicy ? (
+                          <span>
+                            Refreshed policy lookup found submitted version{" "}
+                            <strong>{matchedPolicy.policyVersion}</strong> (
+                            {formatPolicyStatusLabel(matchedPolicy.status)}, v
+                            {matchedPolicy.version}, created{" "}
+                            {formatMytDateTime(matchedPolicy.createdAt)}). Close
+                            this drawer unless you intend to create a different
+                            version.
+                          </span>
+                        ) : (
+                          <span>
+                            Refreshed policy lookup did not find submitted
+                            version{" "}
+                            <strong>
+                              {interruptedCreateReview.submittedVersion}
+                            </strong>{" "}
+                            among {historyItems.length} loaded polic
+                            {historyItems.length === 1 ? "y" : "ies"} (current
+                            approved:{" "}
+                            <strong>
+                              {currentPolicy?.policyVersion ?? "None"}
+                            </strong>
+                            ).
+                          </span>
+                        )}
+                      </div>
+                      {historyItems.length > 0 ? (
+                        <ul
+                          style={{
+                            margin: 0,
+                            paddingLeft: 18,
+                            fontSize: "0.78rem",
+                            color: "#78350F",
+                          }}
+                        >
+                          {historyItems.slice(0, 5).map((item) => (
+                            <li key={item.id}>
+                              <code>{item.policyVersion}</code> —{" "}
+                              {formatPolicyStatusLabel(item.status)} (v
+                              {item.version})
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                      <div
+                        style={{ display: "flex", gap: 8, flexWrap: "wrap" }}
+                      >
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="primary"
+                          data-testid="acknowledge-interrupted-policy-create-btn"
+                          onClick={() => setInterruptedCreateReview(null)}
+                        >
+                          I Reviewed the Policy Lookup — Enable Retry
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={closeCreateDrawer}
+                        >
+                          Close Drawer
+                        </Button>
+                      </div>
+                    </>
+                  );
+                })()
               )}
             </div>
           ) : null}
@@ -1290,11 +1515,7 @@ export function AdminConsentPoliciesTab({
             <Button
               type="button"
               variant="secondary"
-              onClick={() => {
-                setCreateOpen(false);
-                setInterruptedCreateReview(null);
-                interruptedCreateRef.current = false;
-              }}
+              onClick={closeCreateDrawer}
               disabled={creating}
             >
               Cancel

@@ -2129,18 +2129,12 @@ describe("RIC-191 Academy Registration V1 frontend helpers & contract rules", ()
 
     // 2) Superseded login(A) completing OR failing after login(B) succeeds MUST NOT clobber Account B or clear B's storage
     const loginASignIn = makeDeferred();
-    const loginAGetMe = makeDeferred();
     const loginBSignIn = makeDeferred();
-    let signInCount = 0;
     signInImpl = (email) => {
-      signInCount += 1;
       if (email === "parent.a@example.test") return loginASignIn.promise;
       return loginBSignIn.promise;
     };
-    getMeImpl = async () => {
-      if (signInCount === 1) return loginAGetMe.promise;
-      return accountB;
-    };
+    getMeImpl = async () => accountB;
 
     const loginAPromise = controller
       .login("parent.a@example.test", "synthetic-pass-a") // betterleaks:allow -- mocked sign-in fixture only
@@ -2161,6 +2155,38 @@ describe("RIC-191 Academy Registration V1 frontend helpers & contract rules", ()
     assert.ok(loginAResult && "caught" in loginAResult);
     assert.equal(controller.getState().account?.id, "acc-b");
     assert.equal(controller.getState().isAuthenticated, true);
+    assert.deepEqual(clearedEpochs, []);
+    assert.deepEqual(onboardingCalls, []);
+
+    // 2b) CnB_: login(A) actually enters getMe(A), login(B) completes, then stale getMe(A) resolves with Account A -> Account B stays active & storage untouched
+    const staleGetMeADeferred = makeDeferred();
+    const staleGetMeAEntered = makeDeferred();
+    let activeGetMeAttempt = 0;
+    signInImpl = async (email) =>
+      email === "parent.a@example.test" ? sessionA : sessionB;
+    getMeImpl = () => {
+      activeGetMeAttempt += 1;
+      if (activeGetMeAttempt === 1) {
+        staleGetMeAEntered.resolve();
+        return staleGetMeADeferred.promise;
+      }
+      return Promise.resolve(accountB);
+    };
+    const loginAPausedInGetMe = controller
+      .login("parent.a@example.test", "synthetic-pass-a") // betterleaks:allow -- mocked sign-in fixture only
+      .catch((err) => ({ caught: err }));
+    await staleGetMeAEntered.promise;
+    await controller.login(
+      "parent.b@example.test",
+      "synthetic-pass-b", // betterleaks:allow -- mocked sign-in fixture only
+    );
+    assert.equal(controller.getState().account?.id, "acc-b");
+    staleGetMeADeferred.resolve(accountA);
+    const staleGetMeAOutcome = await loginAPausedInGetMe;
+    assert.ok(staleGetMeAOutcome && "caught" in staleGetMeAOutcome);
+    assert.equal(controller.getState().isAuthenticated, true);
+    assert.equal(controller.getState().account?.id, "acc-b");
+    assert.equal(controller.getState().isLoading, false);
     assert.deepEqual(clearedEpochs, []);
     assert.deepEqual(onboardingCalls, []);
 
@@ -2363,6 +2389,43 @@ describe("RIC-191 Academy Registration V1 frontend helpers & contract rules", ()
       assert.equal(
         mockLocalStorage.getItem(SUPABASE_SESSION_STORAGE_KEY),
         null,
+      );
+
+      // 3) CnB8: Malformed stored session shape (missing user.id) is rejected and removed without throwing
+      const { restoreSupabaseSession } =
+        await import("../apps/web/lib/supabase-auth.ts");
+      mockLocalStorage.setItem(
+        SUPABASE_SESSION_STORAGE_KEY,
+        JSON.stringify({
+          refresh_token: "synthetic-corrupt-refresh",
+          expires_at: 0,
+        }),
+      );
+      const restoredMalformed = await restoreSupabaseSession();
+      assert.equal(restoredMalformed, null);
+      assert.equal(
+        mockLocalStorage.getItem(SUPABASE_SESSION_STORAGE_KEY),
+        null,
+        "Malformed stored session must be purged from localStorage",
+      );
+
+      mockLocalStorage.setItem(
+        SUPABASE_SESSION_STORAGE_KEY,
+        JSON.stringify({
+          access_token: "synthetic-bad-tok",
+          refresh_token: "synthetic-bad-ref",
+          expires_in: 3600,
+          expires_at: 0,
+          token_type: "bearer",
+          user: { email: "missing-id@example.test" },
+        }),
+      );
+      const refreshedMalformed = await refreshSupabaseSession();
+      assert.equal(refreshedMalformed, null);
+      assert.equal(
+        mockLocalStorage.getItem(SUPABASE_SESSION_STORAGE_KEY),
+        null,
+        "Malformed stored session without user.id must be purged before refresh",
       );
     } finally {
       globalThis.window = prevWindow;

@@ -95,7 +95,12 @@ function readStoredSession(): SupabaseSession | null {
   if (!raw) return null;
 
   try {
-    return JSON.parse(raw) as SupabaseSession;
+    const parsed = normalizeSession(JSON.parse(raw));
+    if (!parsed) {
+      window.localStorage.removeItem(SUPABASE_SESSION_STORAGE_KEY);
+      return null;
+    }
+    return parsed;
   } catch {
     window.localStorage.removeItem(SUPABASE_SESSION_STORAGE_KEY);
     return null;
@@ -106,7 +111,7 @@ function normalizeUser(payload: unknown): SupabaseUser | null {
   if (typeof payload !== "object" || payload === null) return null;
 
   const user = payload as Record<string, unknown>;
-  if (typeof user.id !== "string") return null;
+  if (typeof user.id !== "string" || user.id.trim().length === 0) return null;
 
   return {
     id: user.id,
@@ -126,6 +131,7 @@ function normalizeSession(payload: unknown): SupabaseSession | null {
     typeof value.access_token !== "string" ||
     typeof value.refresh_token !== "string" ||
     typeof value.expires_in !== "number" ||
+    !Number.isFinite(value.expires_in) ||
     typeof value.token_type !== "string"
   ) {
     return null;
@@ -139,7 +145,7 @@ function normalizeSession(payload: unknown): SupabaseSession | null {
     refresh_token: value.refresh_token,
     expires_in: value.expires_in,
     expires_at:
-      typeof value.expires_at === "number"
+      typeof value.expires_at === "number" && Number.isFinite(value.expires_at)
         ? value.expires_at
         : Math.floor(Date.now() / 1000) + value.expires_in,
     token_type: value.token_type,

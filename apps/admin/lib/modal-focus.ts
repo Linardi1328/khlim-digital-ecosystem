@@ -43,13 +43,17 @@ function getTopModal(): ModalStackEntry | null {
   return modalStack[modalStack.length - 1] ?? null;
 }
 
-function focusElementSafe(el: HTMLElement | null | undefined): void {
-  if (!el || !el.isConnected) return;
+function focusElementSafe(el: HTMLElement | null | undefined): boolean {
+  if (!el || !el.isConnected) return false;
+  if (el.hasAttribute("disabled") || el.closest("[hidden], [inert]") !== null) {
+    return false;
+  }
   try {
     el.focus({ preventScroll: false });
   } catch {
     el.focus();
   }
+  return document.activeElement === el;
 }
 
 function handleModalKeyDown(event: KeyboardEvent): void {
@@ -169,8 +173,17 @@ export function registerModalFocusTrap(options: {
 
     if (modalStack.length === 0) {
       detachGlobalListeners();
-      if (entry.previousActiveElement?.isConnected) {
-        focusElementSafe(entry.previousActiveElement);
+      if (!focusElementSafe(entry.previousActiveElement)) {
+        const mainEl = document.querySelector<HTMLElement>("main");
+        if (mainEl) {
+          const focusables = getModalFocusableElements(mainEl);
+          if (!focusElementSafe(focusables[0])) {
+            if (!mainEl.hasAttribute("tabindex")) {
+              mainEl.setAttribute("tabindex", "-1");
+            }
+            focusElementSafe(mainEl);
+          }
+        }
       }
       return;
     }
@@ -178,14 +191,15 @@ export function registerModalFocusTrap(options: {
     if (wasTop) {
       const nextTop = getTopModal();
       if (!nextTop) return;
-      if (
-        entry.previousActiveElement?.isConnected &&
-        nextTop.container.contains(entry.previousActiveElement)
-      ) {
+      const restored =
+        entry.previousActiveElement !== null &&
+        nextTop.container.contains(entry.previousActiveElement) &&
         focusElementSafe(entry.previousActiveElement);
-      } else {
+      if (!restored) {
         const focusables = getModalFocusableElements(nextTop.container);
-        focusElementSafe(focusables[0] ?? nextTop.container);
+        if (!focusElementSafe(focusables[0])) {
+          focusElementSafe(nextTop.container);
+        }
       }
     }
   };
