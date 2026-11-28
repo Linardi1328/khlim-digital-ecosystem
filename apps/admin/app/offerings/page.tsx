@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AdminShell } from "../../components/layout/AdminShell";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { DataTable, type Column } from "../../components/ui/DataTable";
@@ -14,6 +15,7 @@ import { FormSection } from "../../components/ui/FormSection";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import { LoadingState } from "../../components/ui/LoadingState";
 import { updateOfferingStatus } from "../../lib/admin-academy-write-api";
 import { adminApi } from "../../lib/admin-api";
 import { ADMIN_DEMO_MODE } from "../../lib/demo-mode";
@@ -30,7 +32,16 @@ function getErrorMessage(error: unknown, fallback: string) {
     : fallback;
 }
 
-export default function OfferingsPage() {
+const VALID_OFFERING_STATUSES = ["DRAFT", "OPEN", "CLOSED", "INACTIVE"];
+
+function OfferingsContent() {
+  const searchParams = useSearchParams();
+  const rawStatus = (searchParams.get("status") || "").toUpperCase();
+  const initialStatus = VALID_OFFERING_STATUSES.includes(rawStatus)
+    ? rawStatus
+    : "ALL";
+  const initialProgramme = searchParams.get("programmeId") || "ALL";
+
   const [offerings, setOfferings] = useState<OfferingItem[]>([]);
   const [programmes, setProgrammes] = useState<ProgrammeItem[]>([]);
   const [venues, setVenues] = useState<VenueItem[]>([]);
@@ -39,8 +50,8 @@ export default function OfferingsPage() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
-  const [programmeFilter, setProgrammeFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
+  const [programmeFilter, setProgrammeFilter] = useState(initialProgramme);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -315,17 +326,53 @@ export default function OfferingsPage() {
         />
 
         {pageError && (
-          <div role="alert" style={{ marginBottom: 16, color: "#991B1B" }}>
+          <div
+            role="alert"
+            style={{
+              marginBottom: 16,
+              padding: "12px 16px",
+              borderRadius: 8,
+              backgroundColor: "#FEF2F2",
+              border: "1px solid #FECACA",
+              color: "#991B1B",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+            }}
+          >
             {pageError}
           </div>
         )}
         {statusMessage && (
-          <div role="status" style={{ marginBottom: 16, color: "#065F46" }}>
+          <div
+            role="status"
+            style={{
+              marginBottom: 16,
+              padding: "12px 16px",
+              borderRadius: 8,
+              backgroundColor: "#ECFDF5",
+              border: "1px solid #A7F3D0",
+              color: "#065F46",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+            }}
+          >
             {statusMessage}
           </div>
         )}
         {!loading && programmes.length === 0 && (
-          <div role="alert" style={{ marginBottom: 16, color: "#92400E" }}>
+          <div
+            role="alert"
+            style={{
+              marginBottom: 16,
+              padding: "12px 16px",
+              borderRadius: 8,
+              backgroundColor: "#FFFBEB",
+              border: "1px solid #FDE68A",
+              color: "#92400E",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+            }}
+          >
             Create an active programme before creating an offering.
           </div>
         )}
@@ -569,5 +616,19 @@ export default function OfferingsPage() {
         </Drawer>
       </div>
     </AdminShell>
+  );
+}
+
+export default function OfferingsPage() {
+  return (
+    <Suspense
+      fallback={
+        <AdminShell>
+          <LoadingState message="Loading programme offerings..." />
+        </AdminShell>
+      }
+    >
+      <OfferingsContent />
+    </Suspense>
   );
 }

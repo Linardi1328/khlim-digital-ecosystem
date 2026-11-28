@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { Suspense, useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { AdminShell } from "../../components/layout/AdminShell";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { DataTable, type Column } from "../../components/ui/DataTable";
@@ -11,17 +13,53 @@ import { Pagination } from "../../components/ui/Pagination";
 import { Button } from "../../components/ui/Button";
 import { Drawer } from "../../components/ui/Drawer";
 import { Tabs } from "../../components/ui/Tabs";
-import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import { ErrorState } from "../../components/ui/ErrorState";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { LoadingState } from "../../components/ui/LoadingState";
+import { useAdminAuth } from "../../lib/auth-context";
 import { adminApi } from "../../lib/admin-api";
-import type { MembershipItem } from "../../lib/types";
+import type { MembershipItem, StaffRole } from "../../lib/types";
 
-export default function MembershipsPage() {
+const PLAYER_OPERATIONS_ROLES: StaffRole[] = [
+  "SUPER_ADMIN",
+  "MANAGEMENT",
+  "ACADEMY_ADMIN",
+  "HEAD_COACH",
+  "COACH",
+];
+
+const VALID_STATUSES = [
+  "ACTIVE",
+  "PENDING",
+  "SUSPENDED",
+  "CANCELLED",
+  "COMPLETED",
+  "EXPIRED",
+];
+
+function MembershipsContent() {
+  const searchParams = useSearchParams();
+  const initialQuery = searchParams.get("q") || "";
+  const rawStatus = (searchParams.get("status") || "").toUpperCase();
+  const initialStatus = VALID_STATUSES.includes(rawStatus) ? rawStatus : "ALL";
+
+  const {
+    hasRole,
+    canAccessFinance,
+    isAuthenticated,
+    isDemoMode,
+    mfaSatisfied,
+  } = useAdminAuth();
+  const canView = hasRole(PLAYER_OPERATIONS_ROLES);
+  const canViewFinance = canAccessFinance();
+
   const [memberships, setMemberships] = useState<MembershipItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Search & Filter
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [search, setSearch] = useState(initialQuery);
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -30,33 +68,68 @@ export default function MembershipsPage() {
     useState<MembershipItem | null>(null);
   const [detailTab, setDetailTab] = useState("contract");
 
-  // State Change Confirm
-  const [suspendTarget, setSuspendTarget] = useState<MembershipItem | null>(
-    null,
-  );
+  const loadMemberships = useCallback(async () => {
+    if (!canView) {
+      setMemberships([]);
+      setLoading(false);
+      return;
+    }
+    if (!isDemoMode && (!isAuthenticated || !mfaSatisfied)) {
+      setMemberships([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const list = await adminApi.listMemberships();
+      setMemberships(list);
+    } catch (err) {
+      setLoadError(
+        err instanceof Error
+          ? err.message
+          : "Memberships could not be loaded from the backend.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [canView, isAuthenticated, isDemoMode, mfaSatisfied]);
 
   useEffect(() => {
-    async function load() {
-      try {
-        const list = await adminApi.listMemberships();
-        setMemberships(list);
-      } catch (err) {
-        console.warn("Failed to load memberships:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, []);
+    void loadMemberships();
+  }, [loadMemberships]);
+
+  if (!canView) {
+    return (
+      <AdminShell>
+        <div>
+          <PageHeader
+            title="Active Memberships"
+            subtitle="Inspect enrolled player contracts, terms snapshots, recurring billing states, and status history."
+            breadcrumbs={[
+              { label: "Operations", href: "/" },
+              { label: "Memberships" },
+            ]}
+          />
+          <EmptyState
+            icon="🔒"
+            title="Restricted Membership Records"
+            description="Membership contract records are limited to authorized coaches, academy administrators, and management."
+          />
+        </div>
+      </AdminShell>
+    );
+  }
 
   const filtered = memberships.filter((m) => {
+    const q = search.trim().toLowerCase();
     const matchesSearch =
-      m.athleteName.toLowerCase().includes(search.toLowerCase()) ||
-      (m.guardianName &&
-        m.guardianName.toLowerCase().includes(search.toLowerCase())) ||
-      m.offeringName.toLowerCase().includes(search.toLowerCase()) ||
-      m.planName.toLowerCase().includes(search.toLowerCase()) ||
-      m.id.toLowerCase().includes(search.toLowerCase());
+      q === "" ||
+      m.athleteName.toLowerCase().includes(q) ||
+      Boolean(m.guardianName && m.guardianName.toLowerCase().includes(q)) ||
+      m.offeringName.toLowerCase().includes(q) ||
+      m.planName.toLowerCase().includes(q) ||
+      m.id.toLowerCase().includes(q);
     const matchesStatus = statusFilter === "ALL" || m.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -64,15 +137,11 @@ export default function MembershipsPage() {
   const totalPages = Math.ceil(filtered.length / pageSize);
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-  const handleConfirmSuspend = () => {
-    if (!suspendTarget) return;
-    setMemberships((prev) =>
-      prev.map((m) =>
-        m.id === suspendTarget.id ? { ...m, status: "SUSPENDED" } : m,
-      ),
-    );
-    setSuspendTarget(null);
-  };
+  const activeCount = memberships.filter((m) => m.status === "ACTIVE").length;
+  const pendingCount = memberships.filter((m) => m.status === "PENDING").length;
+  const paymentAttentionCount = memberships.filter(
+    (m) => m.paymentIndicator === "OVERDUE" || m.paymentIndicator === "FAILED",
+  ).length;
 
   const columns: Column<MembershipItem>[] = [
     {
@@ -83,8 +152,14 @@ export default function MembershipsPage() {
           <div style={{ fontWeight: 700, color: "#0F172A" }}>
             {m.athleteName}
           </div>
-          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
-            Contract: {m.id}
+          <div
+            style={{
+              fontSize: "0.72rem",
+              color: "#64748B",
+              fontFamily: "monospace",
+            }}
+          >
+            {m.id}
           </div>
         </div>
       ),
@@ -107,7 +182,18 @@ export default function MembershipsPage() {
       key: "planName",
       header: "Membership Plan",
       render: (m) => (
-        <span style={{ fontWeight: 600, color: "#0F172A" }}>{m.planName}</span>
+        <div>
+          <div style={{ fontWeight: 600, color: "#0F172A" }}>{m.planName}</div>
+          <div
+            style={{
+              fontSize: "0.74rem",
+              color: "#64748B",
+              fontVariantNumeric: "tabular-nums",
+            }}
+          >
+            {m.currency} {(m.recurringAmountMinor / 100).toFixed(2)}
+          </div>
+        </div>
       ),
     },
     {
@@ -126,11 +212,11 @@ export default function MembershipsPage() {
     },
     {
       key: "term",
-      header: "Term Dates",
+      header: "Validity",
       render: (m) => (
-        <div style={{ fontSize: "0.8125rem" }}>
-          <div>{m.startsOn}</div>
-          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+        <div style={{ fontSize: "0.8rem", whiteSpace: "nowrap" }}>
+          <div style={{ fontWeight: 600 }}>{m.startsOn}</div>
+          <div style={{ fontSize: "0.74rem", color: "#64748B" }}>
             to {m.endsOn || "Ongoing"}
           </div>
         </div>
@@ -151,49 +237,66 @@ export default function MembershipsPage() {
       header: "Actions",
       align: "right",
       render: (m) => (
-        <div
-          style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}
+        <Button
+          variant="outline"
+          size="sm"
+          style={{ whiteSpace: "nowrap" }}
+          onClick={(e) => {
+            e.stopPropagation();
+            setSelectedMembership(m);
+            setDetailTab("contract");
+          }}
         >
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              setSelectedMembership(m);
-              setDetailTab("contract");
-            }}
-          >
-            Inspect
-          </Button>
-          {m.status === "ACTIVE" && (
-            <Button
-              variant="outline"
-              size="sm"
-              style={{ borderColor: "#FCA5A5", color: "#DC2626" }}
-              onClick={(e) => {
-                e.stopPropagation();
-                setSuspendTarget(m);
-              }}
-            >
-              Suspend
-            </Button>
-          )}
-        </div>
+          Inspect
+        </Button>
       ),
     },
   ];
 
   return (
     <AdminShell>
-      <div>
+      <div style={{ minWidth: 0 }}>
         <PageHeader
           title="Active Memberships"
-          subtitle="Inspect enrolled player contracts, terms snapshots, recurring billing states, and status history."
+          subtitle="Inspect enrolled player contracts, validity dates, terms snapshots, and payment indicators."
           breadcrumbs={[
             { label: "Operations", href: "/" },
             { label: "Memberships" },
           ]}
         />
+
+        <div className="admin-summary-strip" aria-label="Membership summary">
+          <div className="admin-summary-tile">
+            <div className="admin-summary-tile-label">Active Contracts</div>
+            <div className="admin-summary-tile-value">{activeCount}</div>
+            <div className="admin-summary-tile-sub">
+              of {memberships.length} total
+            </div>
+          </div>
+          <div className="admin-summary-tile">
+            <div className="admin-summary-tile-label">Pending Activation</div>
+            <div className="admin-summary-tile-value">{pendingCount}</div>
+            <div className="admin-summary-tile-sub">
+              Awaiting confirmation or payment
+            </div>
+          </div>
+          <div className="admin-summary-tile">
+            <div className="admin-summary-tile-label">
+              Overdue / Failed Billing
+            </div>
+            <div
+              className="admin-summary-tile-value"
+              style={{
+                color: paymentAttentionCount > 0 ? "#991B1B" : "#0F172A",
+              }}
+            >
+              {paymentAttentionCount}
+            </div>
+            <div className="admin-summary-tile-sub">
+              Separate from contract state
+            </div>
+          </div>
+        </div>
 
         {/* Filter Controls */}
         <FilterBar
@@ -201,11 +304,15 @@ export default function MembershipsPage() {
           onReset={() => {
             setSearch("");
             setStatusFilter("ALL");
+            setPage(1);
           }}
         >
           <SearchInput
             value={search}
-            onChange={setSearch}
+            onChange={(val) => {
+              setSearch(val);
+              setPage(1);
+            }}
             placeholder="Search memberships by athlete, guardian, offering, contract ID..."
           />
 
@@ -219,9 +326,12 @@ export default function MembershipsPage() {
             <select
               id="mem-status-select"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
               style={{
-                padding: "6px 10px",
+                padding: "7px 10px",
                 fontSize: "0.8125rem",
                 backgroundColor: "#F8FAFC",
                 border: "1px solid #CBD5E1",
@@ -240,39 +350,37 @@ export default function MembershipsPage() {
           </div>
         </FilterBar>
 
-        {/* Data Table */}
-        <DataTable
-          columns={columns}
-          data={paginated}
-          keyExtractor={(item) => item.id}
-          isLoading={loading}
-          onRowClick={(item) => {
-            setSelectedMembership(item);
-            setDetailTab("contract");
-          }}
-        />
-
-        {/* Pagination */}
-        <Pagination
-          currentPage={page}
-          totalPages={totalPages}
-          totalItems={filtered.length}
-          itemsPerPage={pageSize}
-          onPageChange={setPage}
-          onItemsPerPageChange={setPageSize}
-        />
-
-        {/* Suspend Confirmation Dialog */}
-        {suspendTarget && (
-          <ConfirmDialog
-            isOpen={!!suspendTarget}
-            onClose={() => setSuspendTarget(null)}
-            onConfirm={handleConfirmSuspend}
-            title="Suspend Membership Contract"
-            description={`Are you sure you want to suspend the membership for ${suspendTarget.athleteName}? Session attendance will be temporarily placed on hold.`}
-            confirmLabel="Confirm Suspension"
-            variant="danger"
+        {loadError ? (
+          <ErrorState
+            title="Unable to Load Memberships"
+            message={loadError}
+            onRetry={() => void loadMemberships()}
           />
+        ) : (
+          <>
+            <DataTable
+              columns={columns}
+              data={paginated}
+              keyExtractor={(item) => item.id}
+              isLoading={loading}
+              onRowClick={(item) => {
+                setSelectedMembership(item);
+                setDetailTab("contract");
+              }}
+            />
+
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              totalItems={filtered.length}
+              itemsPerPage={pageSize}
+              onPageChange={setPage}
+              onItemsPerPageChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+            />
+          </>
         )}
 
         {/* Membership Detail Drawer */}
@@ -283,13 +391,24 @@ export default function MembershipsPage() {
           subtitle={`${selectedMembership?.athleteName} • ${selectedMembership?.offeringName}`}
           width="600px"
           footer={
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectedMembership(null)}
-            >
-              Close
-            </Button>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {selectedMembership && (
+                <Link
+                  href={`/athletes?q=${encodeURIComponent(selectedMembership.athleteName)}`}
+                >
+                  <Button variant="secondary" size="sm">
+                    Open Athlete →
+                  </Button>
+                </Link>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedMembership(null)}
+              >
+                Close
+              </Button>
+            </div>
           }
         >
           {selectedMembership && (
@@ -297,8 +416,8 @@ export default function MembershipsPage() {
               <Tabs
                 tabs={[
                   { id: "contract", label: "Contract & Billing" },
-                  { id: "schedule", label: "Payment Schedule" },
-                  { id: "audit", label: "Audit Trail" },
+                  { id: "schedule", label: "Billing Summary" },
+                  { id: "audit", label: "Terms Snapshot" },
                 ]}
                 activeTab={detailTab}
                 onChange={setDetailTab}
@@ -313,10 +432,8 @@ export default function MembershipsPage() {
                   }}
                 >
                   <div
+                    className="admin-detail-grid"
                     style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: "12px",
                       backgroundColor: "#F8FAFC",
                       padding: "16px",
                       borderRadius: "10px",
@@ -326,7 +443,7 @@ export default function MembershipsPage() {
                     <div>
                       <div
                         style={{
-                          fontSize: "0.75rem",
+                          fontSize: "0.72rem",
                           color: "#64748B",
                           fontWeight: 700,
                         }}
@@ -343,7 +460,7 @@ export default function MembershipsPage() {
                     <div>
                       <div
                         style={{
-                          fontSize: "0.75rem",
+                          fontSize: "0.72rem",
                           color: "#64748B",
                           fontWeight: 700,
                         }}
@@ -360,7 +477,7 @@ export default function MembershipsPage() {
                     <div>
                       <div
                         style={{
-                          fontSize: "0.75rem",
+                          fontSize: "0.72rem",
                           color: "#64748B",
                           fontWeight: 700,
                         }}
@@ -380,7 +497,7 @@ export default function MembershipsPage() {
                     <div>
                       <div
                         style={{
-                          fontSize: "0.75rem",
+                          fontSize: "0.72rem",
                           color: "#64748B",
                           fontWeight: 700,
                         }}
@@ -415,26 +532,35 @@ export default function MembershipsPage() {
                         backgroundColor: "#FFFFFF",
                         borderRadius: "8px",
                         border: "1px solid #E2E8F0",
-                        fontSize: "0.875rem",
+                        fontSize: "0.84rem",
                         color: "#334155",
+                        display: "grid",
+                        gap: 6,
                       }}
                     >
                       <div>
-                        • Terms Accepted Version:{" "}
+                        Terms Accepted Version:{" "}
                         <strong>
                           {selectedMembership.termsAcceptedVersion}
                         </strong>
                       </div>
-                      <div style={{ marginTop: "4px" }}>
-                        • Enrolled Offering:{" "}
+                      <div>
+                        Enrolled Offering:{" "}
                         <strong>{selectedMembership.offeringName}</strong>
                       </div>
-                      <div style={{ marginTop: "4px" }}>
-                        • Plan Package:{" "}
+                      <div>
+                        Plan Package:{" "}
                         <strong>{selectedMembership.planName}</strong>
                       </div>
-                      <div style={{ marginTop: "4px" }}>
-                        • Price Rate:{" "}
+                      <div>
+                        Validity Window:{" "}
+                        <strong>
+                          {selectedMembership.startsOn} to{" "}
+                          {selectedMembership.endsOn || "Ongoing"}
+                        </strong>
+                      </div>
+                      <div>
+                        Price Rate:{" "}
                         <strong>
                           {selectedMembership.currency}{" "}
                           {(
@@ -447,18 +573,36 @@ export default function MembershipsPage() {
 
                   <div
                     style={{
-                      padding: "12px",
+                      padding: "12px 14px",
                       borderRadius: "8px",
                       backgroundColor: "#FFFBEB",
                       border: "1px solid #FDE68A",
                       fontSize: "0.8125rem",
                       color: "#92400E",
+                      lineHeight: 1.5,
                     }}
                   >
                     <strong>Domain Rule:</strong> Membership state and payment
                     state are separate. A failed payment installment does not
                     automatically cancel the underlying legal membership
                     contract without administrative review.
+                  </div>
+
+                  <div
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: "8px",
+                      backgroundColor: "#F8FAFC",
+                      border: "1px solid #E2E8F0",
+                      fontSize: "0.78rem",
+                      color: "#475569",
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    Read-only inspection: direct contract suspension or
+                    cancellation actions are not enabled in this release until
+                    the corresponding audited backend mutation endpoint is
+                    available.
                   </div>
                 </div>
               )}
@@ -484,40 +628,71 @@ export default function MembershipsPage() {
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
+                        gap: 12,
+                        flexWrap: "wrap",
                       }}
                     >
                       <div>
                         <div style={{ fontWeight: 700, fontSize: "0.875rem" }}>
-                          Installment #1
+                          Latest Payment Indicator
                         </div>
                         <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
-                          Due: {selectedMembership.startsOn}
-                        </div>
-                      </div>
-                      <div style={{ textAlign: "right" }}>
-                        <div style={{ fontWeight: 800, color: "#0F172A" }}>
-                          {selectedMembership.currency}{" "}
+                          Plan rate: {selectedMembership.currency}{" "}
                           {(
                             selectedMembership.recurringAmountMinor / 100
-                          ).toFixed(2)}
+                          ).toFixed(2)}{" "}
+                          · Term start {selectedMembership.startsOn}
                         </div>
-                        <StatusBadge status="PAID" size="sm" />
                       </div>
+                      <StatusBadge
+                        status={selectedMembership.paymentIndicator}
+                        size="sm"
+                      />
                     </div>
                   </div>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "0.8125rem",
+                      color: "#64748B",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Individual installment ledgers and webhook settlement logs
+                    are managed under Payment Operations for authorized finance
+                    staff.
+                  </p>
+                  {canViewFinance && (
+                    <div>
+                      <Link
+                        href={`/payments?q=${encodeURIComponent(selectedMembership.athleteName)}`}
+                      >
+                        <Button variant="outline" size="sm">
+                          Inspect Payments for {selectedMembership.athleteName}{" "}
+                          →
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
                 </div>
               )}
 
               {detailTab === "audit" && (
                 <div
                   style={{
-                    fontSize: "0.8125rem",
-                    color: "#64748B",
-                    padding: "12px",
+                    fontSize: "0.84rem",
+                    color: "#475569",
+                    padding: "14px",
+                    backgroundColor: "#F8FAFC",
+                    borderRadius: 8,
+                    border: "1px solid #E2E8F0",
+                    lineHeight: 1.55,
                   }}
                 >
-                  📜 Created on backend with terms version{" "}
+                  Contract recorded with terms snapshot version{" "}
                   <code>{selectedMembership.termsAcceptedVersion}</code>.
+                  Privileged administrative mutations are logged in the
+                  append-only Audit Trail.
                 </div>
               )}
             </div>
@@ -525,5 +700,19 @@ export default function MembershipsPage() {
         </Drawer>
       </div>
     </AdminShell>
+  );
+}
+
+export default function MembershipsPage() {
+  return (
+    <Suspense
+      fallback={
+        <AdminShell>
+          <LoadingState message="Loading memberships..." />
+        </AdminShell>
+      }
+    >
+      <MembershipsContent />
+    </Suspense>
   );
 }

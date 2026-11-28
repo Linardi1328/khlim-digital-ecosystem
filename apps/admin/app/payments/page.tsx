@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { AdminShell } from "../../components/layout/AdminShell";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { DataTable, type Column } from "../../components/ui/DataTable";
@@ -10,21 +11,42 @@ import { FilterBar } from "../../components/ui/FilterBar";
 import { Pagination } from "../../components/ui/Pagination";
 import { Button } from "../../components/ui/Button";
 import { Drawer } from "../../components/ui/Drawer";
+import { ErrorState } from "../../components/ui/ErrorState";
+import { LoadingState } from "../../components/ui/LoadingState";
 import { useAdminAuth } from "../../lib/auth-context";
 import { adminApi, reconcileStaleCheckouts } from "../../lib/admin-api";
 import type { PaymentItem } from "../../lib/types";
 
-export default function PaymentsPage() {
+const VALID_PAYMENT_FILTERS = [
+  "ALL",
+  "ATTENTION",
+  "PAID",
+  "PENDING",
+  "PROCESSING",
+  "FAILED",
+  "REFUNDED",
+  "CANCELLED",
+];
+
+function PaymentsContent() {
+  const searchParams = useSearchParams();
+  const initialQuery = searchParams.get("q") || "";
+  const rawStatus = (searchParams.get("status") || "").toUpperCase();
+  const initialStatus = VALID_PAYMENT_FILTERS.includes(rawStatus)
+    ? rawStatus
+    : "ALL";
+
   const { canAccessFinance, role, isDemoMode } = useAdminAuth();
   const canViewFinance = canAccessFinance();
   const [payments, setPayments] = useState<PaymentItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [reconciling, setReconciling] = useState(false);
   const [reconciliationMessage, setReconciliationMessage] = useState("");
 
   // Search & Filter
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [search, setSearch] = useState(initialQuery);
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
   const [providerFilter, setProviderFilter] = useState("ALL");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -33,6 +55,30 @@ export default function PaymentsPage() {
   const [selectedPayment, setSelectedPayment] = useState<PaymentItem | null>(
     null,
   );
+
+  const loadPayments = useCallback(async () => {
+    if (!canViewFinance) {
+      setPayments([]);
+      setSelectedPayment(null);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const list = await adminApi.listPayments();
+      setPayments(list);
+    } catch (err) {
+      setLoadError(
+        err instanceof Error
+          ? err.message
+          : "Payment ledger could not be loaded from the backend.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [canViewFinance]);
 
   useEffect(() => {
     let cancelled = false;
@@ -47,19 +93,26 @@ export default function PaymentsPage() {
     }
 
     setLoading(true);
+    setLoadError(null);
 
     async function load() {
       try {
         const list = await adminApi.listPayments();
         if (!cancelled) setPayments(list);
       } catch (err) {
-        if (!cancelled) console.warn("Failed to load payments:", err);
+        if (!cancelled) {
+          setLoadError(
+            err instanceof Error
+              ? err.message
+              : "Payment ledger could not be loaded from the backend.",
+          );
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
 
-    load();
+    void load();
 
     return () => {
       cancelled = true;
@@ -110,7 +163,7 @@ export default function PaymentsPage() {
             border: "1px solid #E2E8F0",
           }}
         >
-          <div style={{ fontSize: "2.5rem", marginBottom: "12px" }}>🔒</div>
+          <div style={{ fontSize: "2.25rem", marginBottom: "12px" }}>🔒</div>
           <h2
             style={{
               fontSize: "1.25rem",
@@ -127,6 +180,7 @@ export default function PaymentsPage() {
               maxWidth: "460px",
               margin: "0 auto 20px",
               fontSize: "0.875rem",
+              lineHeight: 1.55,
             }}
           >
             Financial transactions and payment provider ledgers are restricted
@@ -139,13 +193,21 @@ export default function PaymentsPage() {
   }
 
   const filtered = payments.filter((p) => {
+    const q = search.trim().toLowerCase();
     const matchesSearch =
-      p.paymentId.toLowerCase().includes(search.toLowerCase()) ||
-      p.payerName.toLowerCase().includes(search.toLowerCase()) ||
-      p.athleteName.toLowerCase().includes(search.toLowerCase()) ||
-      (p.providerReference &&
-        p.providerReference.toLowerCase().includes(search.toLowerCase()));
-    const matchesStatus = statusFilter === "ALL" || p.status === statusFilter;
+      q === "" ||
+      p.paymentId.toLowerCase().includes(q) ||
+      p.payerName.toLowerCase().includes(q) ||
+      p.athleteName.toLowerCase().includes(q) ||
+      Boolean(
+        p.providerReference && p.providerReference.toLowerCase().includes(q),
+      );
+    const matchesStatus =
+      statusFilter === "ALL"
+        ? true
+        : statusFilter === "ATTENTION"
+          ? p.status === "FAILED" || p.status === "PROCESSING"
+          : p.status === statusFilter;
     const matchesProvider =
       providerFilter === "ALL" || p.provider === providerFilter;
     return matchesSearch && matchesStatus && matchesProvider;
@@ -154,14 +216,29 @@ export default function PaymentsPage() {
   const totalPages = Math.ceil(filtered.length / pageSize);
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
 
+  const paidCount = payments.filter((p) => p.status === "PAID").length;
+  const attentionCount = payments.filter(
+    (p) => p.status === "FAILED" || p.status === "PROCESSING",
+  ).length;
+  const failedCount = payments.filter((p) => p.status === "FAILED").length;
+
   const columns: Column<PaymentItem>[] = [
     {
       key: "paymentId",
       header: "Payment ID",
       render: (p) => (
         <div>
-          <div style={{ fontWeight: 700, color: "#0F172A" }}>{p.paymentId}</div>
-          <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+          <div
+            style={{
+              fontWeight: 700,
+              color: "#0F172A",
+              fontFamily: "monospace",
+              fontSize: "0.8125rem",
+            }}
+          >
+            {p.paymentId}
+          </div>
+          <div style={{ fontSize: "0.74rem", color: "#64748B" }}>
             Ref: {p.providerReference || "Pending Webhook"}
           </div>
         </div>
@@ -183,7 +260,14 @@ export default function PaymentsPage() {
       key: "amount",
       header: "Amount",
       render: (p) => (
-        <span style={{ fontWeight: 800, color: "#0F172A" }}>
+        <span
+          style={{
+            fontWeight: 800,
+            color: "#0F172A",
+            fontVariantNumeric: "tabular-nums",
+            whiteSpace: "nowrap",
+          }}
+        >
           {p.currency} {(p.amountMinor / 100).toFixed(2)}
         </span>
       ),
@@ -194,12 +278,13 @@ export default function PaymentsPage() {
       render: (p) => (
         <span
           style={{
-            fontSize: "0.75rem",
+            fontSize: "0.74rem",
             fontWeight: 700,
-            padding: "2px 6px",
+            padding: "2px 7px",
             backgroundColor: "#F1F5F9",
             color: "#334155",
             borderRadius: "4px",
+            whiteSpace: "nowrap",
           }}
         >
           {p.provider}
@@ -209,13 +294,21 @@ export default function PaymentsPage() {
     {
       key: "attemptNumber",
       header: "Attempt",
-      render: (p) => <span>Attempt #{p.attemptNumber}</span>,
+      render: (p) => (
+        <span style={{ whiteSpace: "nowrap" }}>Attempt #{p.attemptNumber}</span>
+      ),
     },
     {
       key: "createdAt",
       header: "Timestamp",
       render: (p) => (
-        <div style={{ fontSize: "0.75rem", color: "#64748B" }}>
+        <div
+          style={{
+            fontSize: "0.75rem",
+            color: "#64748B",
+            whiteSpace: "nowrap",
+          }}
+        >
           <div>{p.createdAt}</div>
           {p.settledAt && (
             <div style={{ color: "#065F46" }}>Settled: {p.settledAt}</div>
@@ -236,6 +329,7 @@ export default function PaymentsPage() {
         <Button
           variant="outline"
           size="sm"
+          style={{ whiteSpace: "nowrap" }}
           onClick={(e) => {
             e.stopPropagation();
             setSelectedPayment(p);
@@ -249,15 +343,44 @@ export default function PaymentsPage() {
 
   return (
     <AdminShell>
-      <div>
+      <div style={{ minWidth: 0 }}>
         <PageHeader
           title="Payment Operations"
-          subtitle="Inspect webhook-settled payment attempts, gateway provider references, and audit logs."
+          subtitle="Inspect webhook-settled payment attempts, gateway provider references, and stale checkout recovery."
           breadcrumbs={[
             { label: "Operations", href: "/" },
             { label: "Payments" },
           ]}
         />
+
+        <div className="admin-summary-strip" aria-label="Payment summary">
+          <div className="admin-summary-tile">
+            <div className="admin-summary-tile-label">Settled (Paid)</div>
+            <div className="admin-summary-tile-value">{paidCount}</div>
+            <div className="admin-summary-tile-sub">
+              Webhook-verified settlements
+            </div>
+          </div>
+          <div className="admin-summary-tile">
+            <div className="admin-summary-tile-label">Requires Attention</div>
+            <div
+              className="admin-summary-tile-value"
+              style={{ color: attentionCount > 0 ? "#991B1B" : "#0F172A" }}
+            >
+              {attentionCount}
+            </div>
+            <div className="admin-summary-tile-sub">
+              {failedCount} failed · {attentionCount - failedCount} processing
+            </div>
+          </div>
+          <div className="admin-summary-tile">
+            <div className="admin-summary-tile-label">Total Records</div>
+            <div className="admin-summary-tile-value">{payments.length}</div>
+            <div className="admin-summary-tile-sub">
+              Organization-scoped ledger
+            </div>
+          </div>
+        </div>
 
         {!isDemoMode ? (
           <div
@@ -268,10 +391,10 @@ export default function PaymentsPage() {
               gap: "12px",
               flexWrap: "wrap",
               marginBottom: "16px",
-              padding: "12px 14px",
+              padding: "12px 16px",
               border: "1px solid #E2E8F0",
-              borderRadius: "8px",
-              backgroundColor: "#F8FAFC",
+              borderRadius: "10px",
+              backgroundColor: "#FFFFFF",
             }}
           >
             <div style={{ fontSize: "0.8125rem", color: "#475569" }}>
@@ -310,11 +433,15 @@ export default function PaymentsPage() {
             setSearch("");
             setStatusFilter("ALL");
             setProviderFilter("ALL");
+            setPage(1);
           }}
         >
           <SearchInput
             value={search}
-            onChange={setSearch}
+            onChange={(val) => {
+              setSearch(val);
+              setPage(1);
+            }}
             placeholder="Search payments by ID, payer, athlete, provider ref..."
           />
 
@@ -328,9 +455,12 @@ export default function PaymentsPage() {
             <select
               id="pay-status"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
               style={{
-                padding: "6px 10px",
+                padding: "7px 10px",
                 fontSize: "0.8125rem",
                 backgroundColor: "#F8FAFC",
                 border: "1px solid #CBD5E1",
@@ -339,6 +469,9 @@ export default function PaymentsPage() {
               }}
             >
               <option value="ALL">All Statuses</option>
+              <option value="ATTENTION">
+                Needs Attention (Failed / Processing)
+              </option>
               <option value="PAID">PAID</option>
               <option value="PENDING">PENDING</option>
               <option value="PROCESSING">PROCESSING</option>
@@ -358,9 +491,12 @@ export default function PaymentsPage() {
             <select
               id="pay-provider"
               value={providerFilter}
-              onChange={(e) => setProviderFilter(e.target.value)}
+              onChange={(e) => {
+                setProviderFilter(e.target.value);
+                setPage(1);
+              }}
               style={{
-                padding: "6px 10px",
+                padding: "7px 10px",
                 fontSize: "0.8125rem",
                 backgroundColor: "#F8FAFC",
                 border: "1px solid #CBD5E1",
@@ -376,24 +512,35 @@ export default function PaymentsPage() {
           </div>
         </FilterBar>
 
-        {/* Data Table */}
-        <DataTable
-          columns={columns}
-          data={paginated}
-          keyExtractor={(item) => item.id}
-          isLoading={loading}
-          onRowClick={(item) => setSelectedPayment(item)}
-        />
+        {loadError ? (
+          <ErrorState
+            title="Unable to Load Payment Ledger"
+            message={loadError}
+            onRetry={() => void loadPayments()}
+          />
+        ) : (
+          <>
+            <DataTable
+              columns={columns}
+              data={paginated}
+              keyExtractor={(item) => item.id}
+              isLoading={loading}
+              onRowClick={(item) => setSelectedPayment(item)}
+            />
 
-        {/* Pagination */}
-        <Pagination
-          currentPage={page}
-          totalPages={totalPages}
-          totalItems={filtered.length}
-          itemsPerPage={pageSize}
-          onPageChange={setPage}
-          onItemsPerPageChange={setPageSize}
-        />
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              totalItems={filtered.length}
+              itemsPerPage={pageSize}
+              onPageChange={setPage}
+              onItemsPerPageChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+            />
+          </>
+        )}
 
         {/* Payment Detail Drawer */}
         <Drawer
@@ -417,10 +564,8 @@ export default function PaymentsPage() {
               style={{ display: "flex", flexDirection: "column", gap: "16px" }}
             >
               <div
+                className="admin-detail-grid"
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "12px",
                   backgroundColor: "#F8FAFC",
                   padding: "16px",
                   borderRadius: "10px",
@@ -430,7 +575,7 @@ export default function PaymentsPage() {
                 <div>
                   <div
                     style={{
-                      fontSize: "0.75rem",
+                      fontSize: "0.72rem",
                       color: "#64748B",
                       fontWeight: 700,
                     }}
@@ -444,7 +589,7 @@ export default function PaymentsPage() {
                 <div>
                   <div
                     style={{
-                      fontSize: "0.75rem",
+                      fontSize: "0.72rem",
                       color: "#64748B",
                       fontWeight: 700,
                     }}
@@ -464,7 +609,7 @@ export default function PaymentsPage() {
                 <div>
                   <div
                     style={{
-                      fontSize: "0.75rem",
+                      fontSize: "0.72rem",
                       color: "#64748B",
                       fontWeight: 700,
                     }}
@@ -484,7 +629,7 @@ export default function PaymentsPage() {
                 <div>
                   <div
                     style={{
-                      fontSize: "0.75rem",
+                      fontSize: "0.72rem",
                       color: "#64748B",
                       fontWeight: 700,
                     }}
@@ -519,7 +664,7 @@ export default function PaymentsPage() {
                       fontSize: "0.875rem",
                     }}
                   >
-                    ⚠️ Failure Diagnostics
+                    Failure Diagnostics
                   </div>
                   <p
                     style={{
@@ -550,17 +695,19 @@ export default function PaymentsPage() {
                     borderRadius: "8px",
                     border: "1px solid #E2E8F0",
                     fontSize: "0.8125rem",
+                    display: "grid",
+                    gap: 4,
                   }}
                 >
                   <div>
-                    • Provider: <strong>{selectedPayment.provider}</strong>
+                    Provider: <strong>{selectedPayment.provider}</strong>
                   </div>
-                  <div style={{ marginTop: "4px" }}>
-                    • Gateway Intent ID:{" "}
+                  <div>
+                    Gateway Intent ID:{" "}
                     <code>{selectedPayment.providerReference || "None"}</code>
                   </div>
-                  <div style={{ marginTop: "4px" }}>
-                    • Attempt Sequence:{" "}
+                  <div>
+                    Attempt Sequence:{" "}
                     <strong>#{selectedPayment.attemptNumber}</strong>
                   </div>
                 </div>
@@ -568,12 +715,13 @@ export default function PaymentsPage() {
 
               <div
                 style={{
-                  padding: "12px",
+                  padding: "12px 14px",
                   borderRadius: "8px",
                   backgroundColor: "#FFFBEB",
                   border: "1px solid #FDE68A",
                   fontSize: "0.8125rem",
                   color: "#92400E",
+                  lineHeight: 1.5,
                 }}
               >
                 <strong>Security Invariant:</strong> Raw credit card numbers and
@@ -585,5 +733,19 @@ export default function PaymentsPage() {
         </Drawer>
       </div>
     </AdminShell>
+  );
+}
+
+export default function PaymentsPage() {
+  return (
+    <Suspense
+      fallback={
+        <AdminShell>
+          <LoadingState message="Loading payment operations..." />
+        </AdminShell>
+      }
+    >
+      <PaymentsContent />
+    </Suspense>
   );
 }

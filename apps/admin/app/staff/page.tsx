@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { AdminShell } from "../../components/layout/AdminShell";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { DataTable, type Column } from "../../components/ui/DataTable";
@@ -11,6 +12,9 @@ import { Pagination } from "../../components/ui/Pagination";
 import { Button } from "../../components/ui/Button";
 import { Drawer } from "../../components/ui/Drawer";
 import { FormSection } from "../../components/ui/FormSection";
+import { ErrorState } from "../../components/ui/ErrorState";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { useAdminAuth } from "../../lib/auth-context";
 import { adminApi } from "../../lib/admin-api";
 import type { StaffUserItem, StaffRole } from "../../lib/types";
 
@@ -25,8 +29,12 @@ const ALL_ROLES: StaffRole[] = [
 ];
 
 export default function StaffPage() {
+  const { hasRole, isAuthenticated, isDemoMode, mfaSatisfied } = useAdminAuth();
+  const canManage = hasRole(["SUPER_ADMIN", "MANAGEMENT"]);
+
   const [staffList, setStaffList] = useState<StaffUserItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Search & Filter
   const [search, setSearch] = useState("");
@@ -39,20 +47,60 @@ export default function StaffPage() {
   const [selectedRoles, setSelectedRoles] = useState<StaffRole[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const loadStaff = useCallback(async () => {
+    if (!canManage) {
+      setStaffList([]);
+      setLoading(false);
+      return;
+    }
+    if (!isDemoMode && (!isAuthenticated || !mfaSatisfied)) {
+      setStaffList([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const list = await adminApi.listStaff();
+      setStaffList(list);
+    } catch (err) {
+      setLoadError(
+        err instanceof Error
+          ? err.message
+          : "Staff directory could not be loaded from the backend.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [canManage, isAuthenticated, isDemoMode, mfaSatisfied]);
 
   useEffect(() => {
-    async function load() {
-      try {
-        const list = await adminApi.listStaff();
-        setStaffList(list);
-      } catch (err) {
-        console.warn("Failed to load staff:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, []);
+    void loadStaff();
+  }, [loadStaff]);
+
+  if (!canManage) {
+    return (
+      <AdminShell>
+        <div>
+          <PageHeader
+            title="Staff & Role Permissions"
+            subtitle="Manage administrative staff access, role assignments, and privileged operations."
+            breadcrumbs={[
+              { label: "Operations", href: "/" },
+              { label: "Staff" },
+            ]}
+          />
+          <EmptyState
+            icon="🔒"
+            title="Management Access Required"
+            description="Staff role permissions can only be viewed and updated by Management and Super Admin accounts with verified MFA."
+          />
+        </div>
+      </AdminShell>
+    );
+  }
 
   const filtered = staffList.filter((s) => {
     const matchesSearch =
@@ -84,26 +132,28 @@ export default function StaffPage() {
     if (!editingStaff) return;
 
     setIsSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
     try {
       await adminApi.updateStaffRoles(editingStaff.id, selectedRoles);
-      setStaffList((prev) =>
-        prev.map((s) =>
-          s.id === editingStaff.id ? { ...s, roles: selectedRoles } : s,
-        ),
-      );
+      if (isDemoMode) {
+        setStaffList((prev) =>
+          prev.map((s) =>
+            s.id === editingStaff.id ? { ...s, roles: selectedRoles } : s,
+          ),
+        );
+      } else {
+        await loadStaff();
+      }
       setEditingStaff(null);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
-      console.warn("Update staff roles fallback:", err);
-      setStaffList((prev) =>
-        prev.map((s) =>
-          s.id === editingStaff.id ? { ...s, roles: selectedRoles } : s,
-        ),
+      setSaveError(
+        err instanceof Error
+          ? err.message
+          : "Staff roles were not updated. Backend state remains authoritative.",
       );
-      setEditingStaff(null);
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
     } finally {
       setIsSaving(false);
     }
@@ -221,7 +271,24 @@ export default function StaffPage() {
           title="Staff & Role Permissions"
           subtitle="Manage administrative staff access, role assignments, and privileged operations."
           breadcrumbs={[{ label: "Operations", href: "/" }, { label: "Staff" }]}
+          actions={
+            <Link href="/users">
+              <Button variant="outline" size="sm">
+                Open Accounts &amp; Access →
+              </Button>
+            </Link>
+          }
         />
+
+        {loadError && (
+          <div style={{ marginBottom: 16 }}>
+            <ErrorState
+              title="Unable to Load Staff Directory"
+              message={loadError}
+              onRetry={() => void loadStaff()}
+            />
+          </div>
+        )}
 
         {saveSuccess && (
           <div
@@ -380,6 +447,23 @@ export default function StaffPage() {
                   })}
                 </div>
               </FormSection>
+
+              {saveError && (
+                <div
+                  role="alert"
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 8,
+                    backgroundColor: "#FEF2F2",
+                    border: "1px solid #FECACA",
+                    color: "#991B1B",
+                    fontSize: "0.84rem",
+                    marginTop: 14,
+                  }}
+                >
+                  {saveError}
+                </div>
+              )}
 
               <div
                 style={{

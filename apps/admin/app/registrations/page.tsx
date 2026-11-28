@@ -9,6 +9,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { useSearchParams } from "next/navigation";
 import type {
   AdminRegistrationSessionDto,
   RegistrationDetailDto,
@@ -154,7 +155,22 @@ function AcademyRegistrationsContent() {
     }
   }, [isDemoMode]);
 
-  const [activeTab, setActiveTab] = useState<string>("registrations");
+  const searchParams = useSearchParams();
+  const initialTabParam = searchParams.get("tab");
+  const initialStatusParam = searchParams.get("status");
+  const resolvedInitialTab =
+    initialTabParam === "sessions" || initialTabParam === "policies"
+      ? initialTabParam
+      : "registrations";
+  const resolvedInitialStatus =
+    initialStatusParam &&
+    REGISTRATION_STATUS_OPTIONS.includes(
+      initialStatusParam as RegistrationStatus,
+    )
+      ? initialStatusParam
+      : "ALL";
+
+  const [activeTab, setActiveTab] = useState<string>(resolvedInitialTab);
   const [listRefreshNonce, setListRefreshNonce] = useState(0);
 
   // Authoritative session filter state (loaded from GET /v1/admin/academy/registration-sessions)
@@ -185,7 +201,9 @@ function AcademyRegistrationsContent() {
   const [searchResetKey, setSearchResetKey] = useState(0);
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [statusFilter, setStatusFilter] = useState<string>(
+    resolvedInitialStatus,
+  );
   const [sessionFilter, setSessionFilter] = useState<string>("ALL");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -1390,6 +1408,95 @@ function AcademyRegistrationsContent() {
           activeTab === "registrations" &&
           !isAuthInvalidated && (
             <div role="tabpanel" id="panel-registrations">
+              {authoritativeSessions.length > 0 ? (
+                <div
+                  className="admin-summary-strip"
+                  aria-label="Registration queue and capacity summary"
+                >
+                  {(() => {
+                    const published = authoritativeSessions.filter(
+                      (s) => s.publicationState === "PUBLISHED",
+                    );
+                    const receivedCount = authoritativeSessions.reduce(
+                      (sum, s) => sum + (s.seatCounts.RECEIVED ?? 0),
+                      0,
+                    );
+                    const underReviewCount = authoritativeSessions.reduce(
+                      (sum, s) => sum + (s.seatCounts.UNDER_REVIEW ?? 0),
+                      0,
+                    );
+                    const confirmedCount = published.reduce(
+                      (sum, s) => sum + (s.seatCounts.CONFIRMED ?? 0),
+                      0,
+                    );
+                    const totalCapacity = published.reduce(
+                      (sum, s) => sum + s.capacity,
+                      0,
+                    );
+                    const remainingPlaces = published.reduce(
+                      (sum, s) => sum + s.seatsRemaining,
+                      0,
+                    );
+                    return (
+                      <>
+                        <div className="admin-summary-tile">
+                          <div className="admin-summary-tile-label">
+                            New Received
+                          </div>
+                          <div className="admin-summary-tile-value">
+                            {receivedCount}
+                          </div>
+                          <div className="admin-summary-tile-sub">
+                            {underReviewCount} currently under review
+                          </div>
+                        </div>
+                        <div className="admin-summary-tile">
+                          <div className="admin-summary-tile-label">
+                            Confirmed Capacity
+                          </div>
+                          <div className="admin-summary-tile-value">
+                            {confirmedCount} / {totalCapacity}
+                          </div>
+                          <div className="admin-summary-tile-sub">
+                            {remainingPlaces} remaining across published
+                            sessions
+                          </div>
+                        </div>
+                        <div className="admin-summary-tile">
+                          <div className="admin-summary-tile-label">
+                            Published Sessions
+                          </div>
+                          <div className="admin-summary-tile-value">
+                            {published.length}
+                          </div>
+                          <div className="admin-summary-tile-sub">
+                            {authoritativeSessions.length} total configured
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              ) : null}
+
+              <div
+                style={{
+                  marginBottom: 14,
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  backgroundColor: "#FFFBEB",
+                  border: "1px solid #FDE68A",
+                  color: "#78350F",
+                  fontSize: "0.8rem",
+                  lineHeight: 1.45,
+                }}
+              >
+                <strong>Submission snapshot boundary:</strong> A received
+                registration is a submission snapshot only — it does not reserve
+                a training place, create a verified athlete or guardian account,
+                or activate a membership.
+              </div>
+
               <FilterBar
                 hasActiveFilters={hasActiveFilters}
                 onReset={() => {
@@ -2220,7 +2327,9 @@ function AcademyRegistrationsContent() {
                       >
                         <strong>Note:</strong> Confirming allocates a seat in
                         backend session capacity. It does not indicate that
-                        payment has been collected or verified.
+                        payment has been collected or verified, and it does not
+                        automatically create or link an athlete profile,
+                        guardian account, or membership contract.
                       </div>
                     ) : null}
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useAdminAuth } from "../../lib/auth-context";
 import type { StaffRole } from "../../lib/types";
@@ -20,35 +20,120 @@ const DEMO_ROLES: StaffRole[] = [
   "EVENT_STAFF",
 ];
 
+function resolveSectionContext(pathname: string): {
+  title: string;
+  group: string;
+} {
+  if (pathname === "/" || pathname === "/dashboard") {
+    return { title: "Operations Dashboard", group: "Overview" };
+  }
+  if (pathname.startsWith("/insights/campaigns")) {
+    return { title: "3x3 Campaign Analytics", group: "Overview" };
+  }
+  if (pathname.startsWith("/insights")) {
+    return { title: "KPI & Operational Health", group: "Overview" };
+  }
+  if (pathname.startsWith("/registrations")) {
+    return { title: "Academy Registrations", group: "Academy Operations" };
+  }
+  if (pathname.startsWith("/leads")) {
+    return { title: "Academy Leads", group: "Academy Operations" };
+  }
+  if (pathname.startsWith("/programmes")) {
+    return { title: "Programmes Catalogue", group: "Academy Operations" };
+  }
+  if (pathname.startsWith("/offerings")) {
+    return { title: "Programme Offerings", group: "Academy Operations" };
+  }
+  if (pathname.startsWith("/venues")) {
+    return { title: "Venues & Courts", group: "Academy Operations" };
+  }
+  if (pathname.startsWith("/scheduling")) {
+    return {
+      title: "Scheduling & Attendance (Legacy)",
+      group: "Academy Operations",
+    };
+  }
+  if (pathname.startsWith("/athletes")) {
+    return { title: "Athletes Directory", group: "Academy Operations" };
+  }
+  if (pathname.startsWith("/guardians")) {
+    return { title: "Guardians Directory", group: "Academy Operations" };
+  }
+  if (pathname.startsWith("/memberships")) {
+    return { title: "Active Memberships", group: "Finance" };
+  }
+  if (pathname.startsWith("/plans")) {
+    return { title: "Membership Plans", group: "Finance" };
+  }
+  if (pathname.startsWith("/payments")) {
+    return { title: "Payment Operations", group: "Finance" };
+  }
+  if (pathname.startsWith("/reports")) {
+    return { title: "Operations Reports", group: "Finance" };
+  }
+  if (pathname.startsWith("/editorial")) {
+    return { title: "Editorial Studio", group: "Content & Communications" };
+  }
+  if (pathname.startsWith("/moderation")) {
+    return { title: "Editorial Moderation", group: "Content & Communications" };
+  }
+  if (pathname.startsWith("/notifications")) {
+    return { title: "Notifications", group: "Content & Communications" };
+  }
+  if (pathname.startsWith("/users")) {
+    return { title: "Accounts & Access", group: "Administration" };
+  }
+  if (pathname.startsWith("/staff")) {
+    return { title: "Staff & Roles", group: "Administration" };
+  }
+  if (pathname.startsWith("/audit")) {
+    return { title: "Audit Trail", group: "Administration" };
+  }
+  if (pathname.startsWith("/settings")) {
+    return { title: "Settings", group: "Administration" };
+  }
+  return { title: "Operations Console", group: "KHLIM Digital Ecosystem" };
+}
+
 export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
   const pathname = usePathname();
   const { user, role, setRole, isDemoMode, logout } = useAdminAuth();
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const roleMenuRef = useRef<HTMLDivElement>(null);
+  const alertsRef = useRef<HTMLDivElement>(null);
+
   const availableWorkViews = isDemoMode ? DEMO_ROLES : (user?.roles ?? []);
   const canSwitchWorkView = Boolean(role && availableWorkViews.length > 1);
+  const section = resolveSectionContext(pathname);
 
-  const getSectionTitle = () => {
-    if (pathname === "/" || pathname === "/dashboard") {
-      return "Operations Dashboard";
-    }
-    if (pathname.startsWith("/programmes")) return "Programmes Catalogue";
-    if (pathname.startsWith("/offerings")) return "Programme Offerings";
-    if (pathname.startsWith("/plans")) return "Membership Plans";
-    if (pathname.startsWith("/memberships")) return "Active Memberships";
-    if (pathname.startsWith("/athletes")) return "Athletes Directory";
-    if (pathname.startsWith("/guardians")) return "Guardians Directory";
-    if (pathname.startsWith("/payments")) return "Payment Operations";
-    if (pathname.startsWith("/venues")) return "Venues & Courts";
-    if (pathname.startsWith("/scheduling")) return "Scheduling & Sessions";
-    if (pathname.startsWith("/editorial")) return "Editorial Studio";
-    if (pathname.startsWith("/notifications")) return "Notifications";
-    if (pathname.startsWith("/users")) return "Accounts & Access";
-    if (pathname.startsWith("/staff")) return "Staff & Roles";
-    if (pathname.startsWith("/audit")) return "Audit Trail";
-    if (pathname.startsWith("/settings")) return "Settings";
-    return "Operations Console";
-  };
+  useEffect(() => {
+    if (!showRoleMenu && !showNotifications) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShowRoleMenu(false);
+        setShowNotifications(false);
+      }
+    };
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (roleMenuRef.current && !roleMenuRef.current.contains(target)) {
+        setShowRoleMenu(false);
+      }
+      if (alertsRef.current && !alertsRef.current.contains(target)) {
+        setShowNotifications(false);
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, [showRoleMenu, showNotifications]);
 
   return (
     <header
@@ -56,7 +141,7 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
         minHeight: "64px",
         backgroundColor: "#FFFFFF",
         borderBottom: "1px solid #E2E8F0",
-        padding: "0 16px",
+        padding: "0 20px",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
@@ -82,7 +167,7 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
           style={{
             minWidth: 44,
             minHeight: 44,
-            background: "none",
+            background: "#FFFFFF",
             border: "1px solid #CBD5E1",
             borderRadius: "8px",
             fontSize: "1.125rem",
@@ -95,14 +180,23 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
         </button>
 
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: "1rem", fontWeight: 800, color: "#0F172A" }}>
-            {getSectionTitle()}
+          <div
+            style={{
+              fontSize: "0.975rem",
+              fontWeight: 800,
+              color: "#0F172A",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {section.title}
           </div>
           <div
             className="hide-on-mobile"
             style={{ fontSize: "0.6875rem", color: "#64748B" }}
           >
-            KHLIM Digital Sports Ecosystem • Operations Console
+            {section.group} • Operations Console
           </div>
         </div>
       </div>
@@ -121,10 +215,10 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
           style={{
             fontSize: "0.6875rem",
             fontWeight: 800,
-            color: isDemoMode ? "#92400E" : "#166534",
-            backgroundColor: isDemoMode ? "#FEF3C7" : "#F0FDF4",
-            border: `1px solid ${isDemoMode ? "#FDE68A" : "#BBF7D0"}`,
-            padding: "4px 8px",
+            color: isDemoMode ? "#92400E" : "#065F46",
+            backgroundColor: isDemoMode ? "#FEF3C7" : "#ECFDF5",
+            border: `1px solid ${isDemoMode ? "#FDE68A" : "#A7F3D0"}`,
+            padding: "4px 9px",
             borderRadius: "999px",
             letterSpacing: "0.04em",
           }}
@@ -132,40 +226,72 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
           {isDemoMode ? "DEMO" : "MFA VERIFIED"}
         </span>
 
-        <div className="hide-on-mobile" style={{ position: "relative" }}>
+        <div
+          ref={alertsRef}
+          className="hide-on-mobile"
+          style={{ position: "relative" }}
+        >
           <button
             type="button"
-            onClick={() => setShowNotifications((current) => !current)}
+            onClick={() => {
+              setShowRoleMenu(false);
+              setShowNotifications((current) => !current);
+            }}
             aria-label="View operational alerts"
+            aria-expanded={showNotifications}
             style={{
               minWidth: 44,
               minHeight: 44,
-              background: "none",
+              background: showNotifications ? "#F8FAFC" : "#FFFFFF",
               border: "1px solid #E2E8F0",
               borderRadius: "8px",
               cursor: "pointer",
-              fontSize: "1rem",
+              color: "#334155",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            🔔
+            <svg
+              width="17"
+              height="17"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M18 16v-5a6 6 0 1 0-12 0v5l-2 2h16l-2-2z" />
+              <path d="M10 20a2 2 0 0 0 4 0" />
+            </svg>
           </button>
 
           {showNotifications && (
             <div
+              role="region"
+              aria-label="Operational alerts"
               style={{
                 position: "absolute",
                 right: 0,
-                top: "48px",
-                width: "280px",
+                top: "50px",
+                width: "290px",
                 backgroundColor: "#FFFFFF",
                 borderRadius: "10px",
                 border: "1px solid #E2E8F0",
-                boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)",
+                boxShadow: "0 12px 28px -6px rgba(15, 23, 42, 0.14)",
                 padding: "16px",
                 zIndex: 50,
               }}
             >
-              <div style={{ fontWeight: 700, fontSize: "0.875rem" }}>
+              <div
+                style={{
+                  fontWeight: 700,
+                  fontSize: "0.875rem",
+                  color: "#0F172A",
+                }}
+              >
                 Operational Alerts
               </div>
               <p
@@ -185,11 +311,12 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
         </div>
 
         {role && (
-          <div style={{ position: "relative" }}>
+          <div ref={roleMenuRef} style={{ position: "relative" }}>
             <button
               type="button"
               onClick={() => {
                 if (canSwitchWorkView) {
+                  setShowNotifications(false);
                   setShowRoleMenu((current) => !current);
                 }
               }}
@@ -205,22 +332,27 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
                 display: "flex",
                 alignItems: "center",
                 gap: "8px",
-                padding: "6px 10px",
+                padding: "6px 12px",
                 backgroundColor: "#18181B",
                 color: "#FFFFFF",
                 borderRadius: "8px",
-                border: "none",
+                border: "1px solid #27272A",
                 cursor: canSwitchWorkView ? "pointer" : "default",
                 fontSize: "0.75rem",
-                fontWeight: 600,
+                fontWeight: 700,
+                letterSpacing: "0.02em",
               }}
             >
-              <span style={{ color: "#F59E0B" }}>●</span>
+              <span style={{ color: "#F59E0B" }} aria-hidden="true">
+                ●
+              </span>
               <span className="hide-on-mobile">
                 {role.replaceAll("_", " ")}
               </span>
               {canSwitchWorkView && (
-                <span style={{ fontSize: "0.625rem" }}>▼</span>
+                <span style={{ fontSize: "0.625rem" }} aria-hidden="true">
+                  ▼
+                </span>
               )}
             </button>
 
@@ -231,14 +363,14 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
                 style={{
                   position: "absolute",
                   right: 0,
-                  top: "48px",
-                  width: "260px",
+                  top: "50px",
+                  width: "264px",
                   maxHeight: "70vh",
                   overflowY: "auto",
                   backgroundColor: "#FFFFFF",
                   borderRadius: "10px",
                   border: "1px solid #E2E8F0",
-                  boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)",
+                  boxShadow: "0 12px 28px -6px rgba(15, 23, 42, 0.14)",
                   padding: "8px",
                   zIndex: 50,
                 }}
@@ -249,6 +381,8 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
                     fontWeight: 700,
                     color: "#64748B",
                     padding: "6px 8px 2px",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
                   }}
                 >
                   Active work view
@@ -278,7 +412,7 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
                       width: "100%",
                       minHeight: 44,
                       textAlign: "left",
-                      padding: "8px",
+                      padding: "8px 10px",
                       fontSize: "0.8125rem",
                       fontWeight: role === workView ? 700 : 500,
                       color: role === workView ? "#92400E" : "#0F172A",
@@ -306,6 +440,7 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
             borderRadius: "50%",
             backgroundColor: "#18181B",
             color: "#F59E0B",
+            border: "1px solid #3F3F46",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -329,6 +464,7 @@ export function AdminHeader({ onOpenMobileNav }: AdminHeaderProps) {
               padding: "0 12px",
               cursor: "pointer",
               fontWeight: 700,
+              fontSize: "0.8125rem",
             }}
           >
             Sign out

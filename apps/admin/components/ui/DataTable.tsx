@@ -31,17 +31,35 @@ export function DataTable<T>({
   if (isLoading) {
     return (
       <div
+        role="status"
+        aria-live="polite"
         style={{
-          padding: "40px",
+          padding: "40px 24px",
           textAlign: "center",
           backgroundColor: "#FFFFFF",
-          borderRadius: "12px",
+          borderRadius: "10px",
           border: "1px solid #E2E8F0",
           color: "#64748B",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "10px",
         }}
       >
-        <div style={{ fontSize: "1.5rem", marginBottom: "8px" }}>⏳</div>
-        <div>Loading operational records...</div>
+        <div
+          style={{
+            width: "24px",
+            height: "24px",
+            border: "3px solid #E2E8F0",
+            borderTopColor: "#F59E0B",
+            borderRadius: "50%",
+            animation: "spin 0.8s linear infinite",
+          }}
+        />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <div style={{ fontSize: "0.875rem", fontWeight: 500 }}>
+          Loading operational records...
+        </div>
       </div>
     );
   }
@@ -51,19 +69,18 @@ export function DataTable<T>({
       emptyState || (
         <div
           style={{
-            padding: "48px 24px",
+            padding: "44px 24px",
             textAlign: "center",
             backgroundColor: "#FFFFFF",
-            borderRadius: "12px",
+            borderRadius: "10px",
             border: "1px dashed #CBD5E1",
             color: "#64748B",
           }}
         >
-          <div style={{ fontSize: "2rem", marginBottom: "8px" }}>📋</div>
-          <div style={{ fontWeight: 600, color: "#0F172A" }}>
+          <div style={{ fontWeight: 700, color: "#0F172A", fontSize: "1rem" }}>
             No records found
           </div>
-          <div style={{ fontSize: "0.875rem", marginTop: "4px" }}>
+          <div style={{ fontSize: "0.84rem", marginTop: "4px" }}>
             Try adjusting your search criteria or filters.
           </div>
         </div>
@@ -75,10 +92,10 @@ export function DataTable<T>({
     <div
       style={{
         backgroundColor: "#FFFFFF",
-        borderRadius: "12px",
+        borderRadius: "10px",
         border: "1px solid #E2E8F0",
         overflowX: "auto",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+        boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
       }}
     >
       <table
@@ -87,7 +104,7 @@ export function DataTable<T>({
           width: "100%",
           borderCollapse: "collapse",
           textAlign: "left",
-          fontSize: "0.875rem",
+          fontSize: "0.84rem",
         }}
       >
         <thead>
@@ -101,14 +118,15 @@ export function DataTable<T>({
               <th
                 key={col.key}
                 style={{
-                  padding: "12px 16px",
+                  padding: "11px 14px",
                   fontWeight: 700,
-                  fontSize: "0.75rem",
+                  fontSize: "0.7rem",
                   color: "#475569",
                   textTransform: "uppercase",
-                  letterSpacing: "0.04em",
+                  letterSpacing: "0.05em",
                   width: col.width,
                   textAlign: col.align || "left",
+                  whiteSpace: "nowrap",
                 }}
               >
                 {col.header}
@@ -139,7 +157,7 @@ export function DataTable<T>({
               }}
               onMouseEnter={(e) => {
                 if (onRowClick)
-                  e.currentTarget.style.backgroundColor = "#F8FAFC";
+                  e.currentTarget.style.backgroundColor = "#FFFDF5";
               }}
               onMouseLeave={(e) => {
                 if (onRowClick)
@@ -147,7 +165,7 @@ export function DataTable<T>({
               }}
               onFocus={(e) => {
                 if (onRowClick)
-                  e.currentTarget.style.backgroundColor = "#F8FAFC";
+                  e.currentTarget.style.backgroundColor = "#FFFDF5";
               }}
               onBlur={(e) => {
                 if (onRowClick)
@@ -159,7 +177,7 @@ export function DataTable<T>({
                   key={col.key}
                   data-label={col.header}
                   style={{
-                    padding: "14px 16px",
+                    padding: "12px 14px",
                     color: "#0F172A",
                     verticalAlign: "middle",
                     textAlign: col.align || "left",

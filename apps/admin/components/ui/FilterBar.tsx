@@ -50,12 +50,14 @@ export function FilterBar({
           display: "flex",
           alignItems: "center",
           gap: "6px",
-          color: "#64748B",
-          fontSize: "0.8125rem",
-          fontWeight: 600,
+          color: "#475569",
+          fontSize: "0.75rem",
+          fontWeight: 700,
+          textTransform: "uppercase",
+          letterSpacing: "0.04em",
         }}
       >
-        <span aria-hidden="true">⚡</span> Filters:
+        Filters
       </div>
 
       {filters.map((filter) => (
