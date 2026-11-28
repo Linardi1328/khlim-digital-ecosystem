@@ -193,6 +193,8 @@ const en = {
   "academyReg.receipt.referenceLabel": "Reference code",
   "academyReg.receipt.copyCode": "Copy reference code",
   "academyReg.receipt.copied": "Reference code copied",
+  "academyReg.receipt.copyManual":
+    "Automatic copy is unavailable in this browser. Please select and copy the reference code shown above.",
   "academyReg.receipt.receivedAtLabel": "Received at (MYT)",
   "academyReg.receipt.sessionLabel": "Selected session",
   "academyReg.receipt.statusLabel": "Current status",
@@ -455,6 +457,8 @@ const ms: Catalogue = {
   "academyReg.receipt.referenceLabel": "Kod rujukan",
   "academyReg.receipt.copyCode": "Salin kod rujukan",
   "academyReg.receipt.copied": "Kod rujukan disalin",
+  "academyReg.receipt.copyManual":
+    "Salinan automatik tidak tersedia dalam pelayar ini. Sila pilih dan salin kod rujukan yang dipaparkan di atas.",
   "academyReg.receipt.receivedAtLabel": "Diterima pada (MYT)",
   "academyReg.receipt.sessionLabel": "Sesi yang dipilih",
   "academyReg.receipt.statusLabel": "Status semasa",
@@ -703,6 +707,8 @@ const zhHans: Catalogue = {
   "academyReg.receipt.referenceLabel": "报名参考编号",
   "academyReg.receipt.copyCode": "复制参考编号",
   "academyReg.receipt.copied": "已复制参考编号",
+  "academyReg.receipt.copyManual":
+    "当前浏览器无法自动复制，请手动选择并复制上方显示的参考编号。",
   "academyReg.receipt.receivedAtLabel": "接收时间 (MYT)",
   "academyReg.receipt.sessionLabel": "所选班次",
   "academyReg.receipt.statusLabel": "当前状态",

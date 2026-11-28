@@ -5,9 +5,11 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { isFeatureNotAvailableError } from "@khlim/api-client";
 import { useAuth } from "../../lib/auth-context";
-import { useFamily } from "../../lib/family-context";
+import { isStaleAuthContextError, useFamily } from "../../lib/family-context";
+import { buildWebAuthContextKey } from "../../lib/family-session-isolation";
 import { useI18n } from "../../lib/i18n-context";
 import { apiService } from "../../lib/api-service";
+import { executeEnrolmentCheckout } from "../../lib/enrol-submission";
 import {
   getMissingCommerceBusinessFields,
   getPublicBusinessDetails,
@@ -15,7 +17,6 @@ import {
 } from "../../lib/business-details";
 import {
   getPlanChargeMinor,
-  type AthleteMembershipItem,
   type MembershipPlanItem,
   type PublicOfferingItem,
 } from "../../lib/types";
@@ -99,8 +100,11 @@ function EnrolmentWizardContent() {
   }, [searchParams]);
   const campaignSource = queryCampaign ?? storedCampaign;
   const enrolmentAvailable = isFeatureAvailable("academyEnrolmentCheckout");
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, account } = useAuth();
   const { athletes, activeChild, addChild } = useFamily();
+  const authContextKey = buildWebAuthContextKey(isAuthenticated, account?.id);
+  const authGenRef = useRef(0);
+  const isMountedRef = useRef(true);
   const preAthleteId = searchParams.get("athleteId");
   const preOfferingId = searchParams.get("offeringId");
   const prePlanId = searchParams.get("planId");
@@ -122,6 +126,24 @@ function EnrolmentWizardContent() {
   const [error, setError] = useState("");
   const [serverFeatureDeferred, setServerFeatureDeferred] = useState(false);
   const childCreationInFlight = useRef(false);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      authGenRef.current += 1;
+    };
+  }, []);
+
+  useEffect(() => {
+    authGenRef.current += 1;
+    childCreationInFlight.current = false;
+    setIsProcessing(false);
+    setError("");
+    setServerFeatureDeferred(false);
+    setSelectedChildId(preAthleteId ?? "new");
+    setCurrentStep(1);
+  }, [authContextKey, preAthleteId]);
 
   const businessDetails = getPublicBusinessDetails();
   const commerceReady = isCommerceBusinessDetailsComplete(businessDetails);
@@ -228,39 +250,6 @@ function EnrolmentWizardContent() {
     { id: 5, label: t("enrol.steps.payment") },
   ];
 
-  const ensurePendingMembership = async (
-    athleteId: string,
-    offering: PublicOfferingItem,
-    plan: MembershipPlanItem,
-  ): Promise<AthleteMembershipItem> => {
-    try {
-      return await apiService.createPendingMembership(athleteId, {
-        offeringId: offering.id,
-        planId: plan.id,
-      });
-    } catch (caught) {
-      // Never issue an automatic recovery lookup when the server reports a deferred feature gate
-      if (isFeatureNotAvailableError(caught)) {
-        throw caught;
-      }
-      try {
-        const current = await apiService.listAthleteMemberships(athleteId);
-        const existing = current.find(
-          (membership) =>
-            membership.programmeOfferingId === offering.id &&
-            membership.membershipPlanId === plan.id &&
-            membership.status === "PENDING",
-        );
-        if (existing) return existing;
-      } catch (lookupError) {
-        if (isFeatureNotAvailableError(lookupError)) {
-          throw lookupError;
-        }
-      }
-      throw caught;
-    }
-  };
-
   const handleNext = async () => {
     setError("");
 
@@ -279,6 +268,7 @@ function EnrolmentWizardContent() {
           return;
         }
         if (childCreationInFlight.current) return;
+        const authGen = authGenRef.current;
         childCreationInFlight.current = true;
         setIsProcessing(true);
         try {
@@ -293,8 +283,16 @@ function EnrolmentWizardContent() {
                 }
               : {}),
           });
+          if (!isMountedRef.current || authGenRef.current !== authGen) return;
           setSelectedChildId(created.id);
         } catch (caught) {
+          if (
+            !isMountedRef.current ||
+            authGenRef.current !== authGen ||
+            isStaleAuthContextError(caught)
+          ) {
+            return;
+          }
           if (isFeatureNotAvailableError(caught)) {
             setServerFeatureDeferred(true);
             return;
@@ -306,8 +304,10 @@ function EnrolmentWizardContent() {
           );
           return;
         } finally {
-          childCreationInFlight.current = false;
-          setIsProcessing(false);
+          if (isMountedRef.current && authGenRef.current === authGen) {
+            childCreationInFlight.current = false;
+            setIsProcessing(false);
+          }
         }
       }
       setCurrentStep(2);
@@ -357,38 +357,40 @@ function EnrolmentWizardContent() {
       return;
     }
 
+    const offering = selectedOffering;
+    const plan = selectedPlan;
+    const authGen = authGenRef.current;
     setIsProcessing(true);
     try {
-      const membership = await ensurePendingMembership(
+      const checkout = await executeEnrolmentCheckout(
+        {
+          createPendingMembership: (id) =>
+            apiService.createPendingMembership(id, {
+              offeringId: offering.id,
+              planId: plan.id,
+            }),
+          listAthleteMemberships: (id) => apiService.listAthleteMemberships(id),
+          prepareCheckout: (id, membershipId) =>
+            apiService.prepareCheckout(id, membershipId, {
+              acceptTerms: true,
+            }),
+        },
         athleteId,
-        selectedOffering,
-        selectedPlan,
+        offering,
+        plan,
       );
-
-      try {
-        const checkout = await apiService.prepareCheckout(
-          athleteId,
-          membership.id,
-          { acceptTerms: true },
-        );
-        if (checkout.checkoutUrl) {
-          window.location.assign(checkout.checkoutUrl);
-          return;
-        }
-      } catch (checkoutError) {
-        // Do not swallow a server-authoritative deferred feature gate or redirect into confirmation lookups
-        if (isFeatureNotAvailableError(checkoutError)) {
-          setServerFeatureDeferred(true);
-          return;
-        }
-        // The pending membership remains authoritative even when a payment provider
-        // is intentionally unavailable in this environment.
+      if (!isMountedRef.current || authGenRef.current !== authGen) return;
+      if (checkout.kind === "deferred") {
+        setServerFeatureDeferred(true);
+        return;
       }
-
-      router.push(
-        `/enrol/confirmation?athleteId=${encodeURIComponent(athleteId)}&membershipId=${encodeURIComponent(membership.id)}`,
-      );
+      if (checkout.kind === "checkout") {
+        window.location.assign(checkout.checkoutUrl);
+        return;
+      }
+      router.push(checkout.confirmationUrl);
     } catch (caught) {
+      if (!isMountedRef.current || authGenRef.current !== authGen) return;
       if (isFeatureNotAvailableError(caught)) {
         setServerFeatureDeferred(true);
         return;
@@ -399,7 +401,9 @@ function EnrolmentWizardContent() {
           : t("enrol.error.createPending"),
       );
     } finally {
-      setIsProcessing(false);
+      if (isMountedRef.current && authGenRef.current === authGen) {
+        setIsProcessing(false);
+      }
     }
   };
 

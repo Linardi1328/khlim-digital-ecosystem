@@ -29,35 +29,47 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const isLoadingRef = useRef(isLoading);
+  isLoadingRef.current = isLoading;
   const titleId = useId();
   const descId = useId();
 
   useEffect(() => {
+    if (!isOpen) return;
+
+    previousActiveElement.current =
+      document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen && !isLoading) {
-        onClose();
+      if (e.key === "Escape") {
+        e.preventDefault();
+        if (!isLoadingRef.current) {
+          onCloseRef.current();
+        }
       }
     };
 
-    if (isOpen) {
-      previousActiveElement.current =
-        document.activeElement as HTMLElement | null;
-      document.body.style.overflow = "hidden";
-      window.addEventListener("keydown", handleKeyDown);
-      setTimeout(() => {
-        const focusable = dialogRef.current?.querySelector<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-        );
-        focusable?.focus();
-      }, 50);
-    }
+    window.addEventListener("keydown", handleKeyDown, true);
+    const focusTimer = window.setTimeout(() => {
+      const focusable = dialogRef.current?.querySelector<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      (focusable ?? dialogRef.current)?.focus();
+    }, 50);
 
     return () => {
-      document.body.style.overflow = "unset";
-      window.removeEventListener("keydown", handleKeyDown);
-      previousActiveElement.current?.focus();
+      window.clearTimeout(focusTimer);
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown, true);
+      if (previousActiveElement.current?.isConnected) {
+        previousActiveElement.current.focus();
+      }
     };
-  }, [isOpen, isLoading, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

@@ -11,12 +11,13 @@ Harness path: [`tests/integration/ric-191-integrated-acceptance.mjs`](../../test
 The acceptance harness refuses to execute unless **all** of the following hold:
 
 1. `KHLIM_TEST_DATABASE=1` is explicitly set.
-2. `DATABASE_URL` targets a local loopback host only (`localhost`, `127.0.0.1`, or `::1`).
-3. The target PostgreSQL database name contains `test` (e.g. `khlim_ric191_<run_id>_test`).
+2. `DATABASE_URL` (validated via URL parsing, query parameters, `pg-connection-string`, `pg.Client`, and `PGHOST`/`PGHOSTADDR`/`PGDATABASE` fallback checks) targets a local loopback host only (`localhost`, `127.0.0.1`, or `::1`).
+3. The effective PostgreSQL database name contains `test` (e.g. `khlim_ric191_<run_id>_test`).
 4. The target database is a **freshly provisioned empty disposable database** — the harness performs zero `TRUNCATE` or destructive resets and fails closed if any existing rows exist in `academy_registration_policies`, `academy_registration_sessions`, `academy_registrations`, or `academy_registration_consents`.
-5. Every disposable resource (container name, database name, ephemeral password, and host port) is uniquely allocated per run and torn down unconditionally via `trap cleanup EXIT`.
-6. Only synthetic records (`Synthetic Int Player One`, `SYNTHETIC-V1`, `synthetic://...`), synthetic AAL2 tokens, and ephemeral per-run HMAC keys (`KHLIM_REGISTRATION_HMAC_KEYS`) are used.
-7. No hosted staging/production environment, Supabase Cloud project, or external payment provider is ever contacted.
+5. Loopback server startup fails closed if a target port is already occupied or if listener ownership cannot be verified against the spawned process tree, and cleanup only terminates child handles owned by the current run.
+6. Every disposable resource (container name, database name, ephemeral password, and host port) is uniquely allocated per run and torn down unconditionally via `trap cleanup EXIT`.
+7. Only synthetic records (`Synthetic Int Player One`, `SYNTHETIC-V1`, `synthetic://...`), synthetic AAL2 tokens, and ephemeral per-run HMAC keys (`KHLIM_REGISTRATION_HMAC_KEYS`) are used.
+8. No hosted staging/production environment, Supabase Cloud project, or external payment provider is ever contacted.
 
 ---
 
@@ -28,9 +29,9 @@ The acceptance harness refuses to execute unless **all** of the following hold:
 | PostgreSQL 16 + Frozen Prisma Migrations | **Real** | All migrations deployed in order via `prisma migrate deploy`, including both frozen RIC-190 migrations (`20261125000000_academy_registration_v1` and `20261126000000_academy_registration_lock_corrections`); triggers, constraints, RLS, and HMAC blind indexes execute normally. |
 | API RBAC & AAL2 Authorization | **Real** | Server-side guards enforce role & AAL2 checks against real PostgreSQL `User` and `OrganizationMembership` rows (Step 2 verifies real HTTP `403` when `ACADEMY_ADMIN` calls `POST .../approve`). |
 | Public Website (`@khlim/web`) | **Real (zero interception)** | Built production bundle running on `127.0.0.1:3191`, talking directly to `http://127.0.0.1:3193/v1`. |
-| Admin Console (`@khlim/admin`) | **Real UI + real API** | Built production bundle running on `127.0.0.1:3192` with `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:3193/v1`. |
+| Admin Console (`@khlim/admin`) | **Real authenticated UI + real API (zero interception)** | Built production bundle running on `127.0.0.1:3192` with `NEXT_PUBLIC_ADMIN_DEMO_MODE=false` and `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:3193/v1`. |
 | Supabase JWT Signature Verification | **Simulated (local-only)** | `SupabaseJwtService.verify` is stubbed in-process for two synthetic AAL2 tokens (`synthetic-aal2-super-admin` and `synthetic-aal2-academy-admin`) so no hosted Supabase project is required. |
-| Admin Browser Bearer Injection | **Simulated (local-only)** | Playwright intercepts `/v1/admin/**` solely to attach `Authorization: Bearer synthetic-aal2-super-admin` and calls `route.continue({ headers })` so 100% of HTTP requests and responses flow through the real NestJS server. |
+| Admin Browser Session Seeding | **Simulated (local-only)** | Playwright seeds a synthetic future-expiring session in `localStorage["khlim_admin_supabase_session"]` so authenticated `@khlim/admin` attaches `Authorization: Bearer synthetic-aal2-super-admin` directly to `/v1/admin/session` and `/v1/admin/academy/**` with zero Playwright HTTP interception. |
 
 ---
 
@@ -96,9 +97,9 @@ if [ "$APPLIED_FROZEN" != "$EXPECTED_FROZEN" ]; then
   exit 1
 fi
 
-# 4. Build against the local acceptance API origin and execute all 12 real-stack steps
+# 4. Build against the local acceptance API origin (non-demo authenticated Admin) and execute all 12 real-stack steps
 NEXT_PUBLIC_API_BASE_URL="http://127.0.0.1:3193/v1" \
-NEXT_PUBLIC_ADMIN_DEMO_MODE="true" \
+NEXT_PUBLIC_ADMIN_DEMO_MODE="false" \
   pnpm build
 
 node tests/integration/ric-191-integrated-acceptance.mjs

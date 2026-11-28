@@ -3,11 +3,13 @@ import {
   ApiBearerAuth,
   ApiOperation,
   ApiQuery,
+  ApiResponse,
   ApiTags,
 } from "@nestjs/swagger";
 import type { AuthenticatedUserContext } from "../auth/authenticated-user";
 import { RequireAnyRole, RequireMfa } from "../auth/authorization.decorators";
 import { CurrentUser } from "../auth/current-user.decorator";
+import { AdminSessionResponseDto } from "./admin.dto";
 import { AdminObservabilityService } from "./admin-observability.service";
 import { AdminService } from "./admin.service";
 
@@ -43,6 +45,7 @@ export class AdminAccessController {
   @ApiOperation({
     summary: "Resolve the current staff session and permissions",
   })
+  @ApiResponse({ status: 200, type: AdminSessionResponseDto })
   getSession(@CurrentUser() actor: AuthenticatedUserContext) {
     return this.admin.getSession(actor);
   }

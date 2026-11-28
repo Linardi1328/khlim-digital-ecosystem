@@ -53,6 +53,8 @@ export type PublishApprovalsDto = Schemas["PublishApprovalsDto"];
 export type PublishRegistrationSessionRequestDto =
   Schemas["PublishRegistrationSessionRequestDto"];
 export type VersionRequestDto = Schemas["VersionRequestDto"];
+export type ApproveRegistrationPolicyRequestDto =
+  Schemas["ApproveRegistrationPolicyRequestDto"];
 export type AdminRegistrationPolicyDto = Schemas["AdminRegistrationPolicyDto"];
 export type AdminRegistrationPolicyListDto =
   Schemas["AdminRegistrationPolicyListDto"];

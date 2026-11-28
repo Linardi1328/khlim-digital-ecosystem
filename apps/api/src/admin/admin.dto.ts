@@ -1,5 +1,31 @@
 import { ApiProperty } from "@nestjs/swagger";
 
+export class AdminSessionResponseDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty({ type: String, nullable: true })
+  organizationId!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  email!: string | null;
+
+  @ApiProperty()
+  displayName!: string;
+
+  @ApiProperty()
+  preferredLocale!: string;
+
+  @ApiProperty({ type: [String] })
+  roles!: string[];
+
+  @ApiProperty({ enum: ["aal1", "aal2"] })
+  authenticatorAssuranceLevel!: "aal1" | "aal2";
+
+  @ApiProperty()
+  mfaSatisfied!: boolean;
+}
+
 export class UpdateStaffRolesDto {
   @ApiProperty({ type: [String] })
   roles!: string[];

@@ -4,17 +4,24 @@ import React, {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { getAdminSession } from "./admin-api";
+import {
+  AdminAuthSessionController,
+  type AdminAuthSessionState,
+} from "./admin-auth-session-controller";
 import { ADMIN_DEMO_MODE } from "./demo-mode";
 import {
+  ADMIN_SUPABASE_SESSION_STORAGE_KEY,
   adminSupabaseSignIn,
   adminSupabaseSignOut,
+  invalidateAdminSessionOperations,
   restoreAdminSupabaseSession,
 } from "./supabase-auth";
-import type { AdminSession, AdminUser, StaffRole } from "./types";
+import type { AdminUser, StaffRole } from "./types";
 
 interface AuthContextValue {
   user: AdminUser | null;
@@ -32,26 +39,6 @@ interface AuthContextValue {
   logout: () => Promise<void>;
 }
 
-const STAFF_ROLE_SET = new Set<StaffRole>([
-  "SUPER_ADMIN",
-  "MANAGEMENT",
-  "FINANCE_ADMIN",
-  "ACADEMY_ADMIN",
-  "HEAD_COACH",
-  "COACH",
-  "EVENT_STAFF",
-]);
-
-const ROLE_PRIORITY: StaffRole[] = [
-  "SUPER_ADMIN",
-  "MANAGEMENT",
-  "FINANCE_ADMIN",
-  "ACADEMY_ADMIN",
-  "HEAD_COACH",
-  "COACH",
-  "EVENT_STAFF",
-];
-
 const DEMO_ADMIN_USER: AdminUser = {
   id: "demo-admin-user",
   email: "demo-admin@example.invalid",
@@ -65,133 +52,78 @@ const DEMO_ADMIN_USER: AdminUser = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function toStaffRoles(roles: string[]): StaffRole[] {
-  return roles.filter((role): role is StaffRole =>
-    STAFF_ROLE_SET.has(role as StaffRole),
-  );
-}
-
-function choosePrimaryRole(roles: StaffRole[]): StaffRole | null {
-  return ROLE_PRIORITY.find((role) => roles.includes(role)) ?? roles[0] ?? null;
-}
-
-function toAdminUser(session: AdminSession): AdminUser | null {
-  const roles = toStaffRoles(session.roles);
-  const role = choosePrimaryRole(roles);
-  if (!role) return null;
-
-  return {
-    id: session.id,
-    organizationId: session.organizationId ?? null,
-    email: session.email ?? "",
-    displayName: session.displayName,
-    role,
-    roles,
-    mfaEnabled: session.mfaSatisfied,
-    mfaSatisfied: session.mfaSatisfied,
-    preferredLocale: session.preferredLocale,
-    authenticatorAssuranceLevel: session.authenticatorAssuranceLevel,
-  };
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AdminUser | null>(
-    ADMIN_DEMO_MODE ? DEMO_ADMIN_USER : null,
+  const [authState, setAuthState] = useState<AdminAuthSessionState>(() =>
+    ADMIN_DEMO_MODE
+      ? {
+          user: DEMO_ADMIN_USER,
+          role: "SUPER_ADMIN",
+          isLoading: false,
+          authError: null,
+        }
+      : {
+          user: null,
+          role: null,
+          isLoading: true,
+          authError: null,
+        },
   );
-  const [role, setActiveRole] = useState<StaffRole | null>(
-    ADMIN_DEMO_MODE ? "SUPER_ADMIN" : null,
-  );
-  const [isLoading, setIsLoading] = useState(!ADMIN_DEMO_MODE);
-  const [authError, setAuthError] = useState<string | null>(null);
-
-  async function loadRealStaffSession(): Promise<void> {
-    const session = await restoreAdminSupabaseSession();
-    if (!session) {
-      setUser(null);
-      setActiveRole(null);
-      return;
-    }
-
-    const resolved = await getAdminSession();
-    const adminUser = toAdminUser(resolved);
-    if (!adminUser) {
-      await adminSupabaseSignOut();
-      throw new Error("This account does not have KHLIM staff access.");
-    }
-
-    setUser(adminUser);
-    setActiveRole((current) =>
-      current && adminUser.roles.includes(current) ? current : adminUser.role,
-    );
-  }
+  const controllerRef = useRef<AdminAuthSessionController | null>(null);
 
   useEffect(() => {
     if (ADMIN_DEMO_MODE) return;
 
-    let cancelled = false;
-    setIsLoading(true);
-    void loadRealStaffSession()
-      .catch((error) => {
-        if (cancelled) return;
-        setUser(null);
-        setActiveRole(null);
-        setAuthError(
-          error instanceof Error
-            ? error.message
-            : "Staff session could not be restored.",
-        );
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
+    const controller = new AdminAuthSessionController(
+      {
+        storageKey: ADMIN_SUPABASE_SESSION_STORAGE_KEY,
+        restoreSession: restoreAdminSupabaseSession,
+        getAdminSession,
+        signIn: adminSupabaseSignIn,
+        signOut: adminSupabaseSignOut,
+        invalidateSessionOperations: invalidateAdminSessionOperations,
+      },
+      setAuthState,
+      { user: null, role: null, isLoading: true, authError: null },
+    );
+    controllerRef.current = controller;
+    void controller.bootstrap();
+
+    const handleStorageChange = (event: StorageEvent) => {
+      const isSameStorageArea =
+        event.storageArea === null || event.storageArea === window.localStorage;
+      void controller.handleStorageChange({
+        key: event.key,
+        oldValue: event.oldValue,
+        newValue: event.newValue,
+        isSameStorageArea,
       });
+    };
+
+    window.addEventListener("storage", handleStorageChange);
 
     return () => {
-      cancelled = true;
+      controller.dispose();
+      if (controllerRef.current === controller) {
+        controllerRef.current = null;
+      }
+      window.removeEventListener("storage", handleStorageChange);
     };
   }, []);
 
+  const { user, role, isLoading, authError } = authState;
+
   const signIn = async (email: string, password: string): Promise<void> => {
     if (ADMIN_DEMO_MODE) return;
-
-    setIsLoading(true);
-    setAuthError(null);
-    try {
-      await adminSupabaseSignIn(email.trim(), password);
-      await loadRealStaffSession();
-    } catch (error) {
-      await adminSupabaseSignOut().catch(() => undefined);
-      setUser(null);
-      setActiveRole(null);
-      const message =
-        error instanceof Error ? error.message : "Staff sign-in failed.";
-      setAuthError(message);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
+    await controllerRef.current?.signIn(email, password);
   };
 
   const refreshSession = async (): Promise<void> => {
     if (ADMIN_DEMO_MODE) return;
-
-    setIsLoading(true);
-    setAuthError(null);
-    try {
-      await loadRealStaffSession();
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Staff session refresh failed.";
-      setAuthError(message);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
+    await controllerRef.current?.refreshSession();
   };
 
   const hasRole = (targetRoles: StaffRole | StaffRole[]): boolean => {
-    if (!user || !role) return false;
+    if (!user || !role || isLoading) return false;
     const targets = Array.isArray(targetRoles) ? targetRoles : [targetRoles];
 
     if (ADMIN_DEMO_MODE) {
@@ -207,20 +139,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     hasRole(["SUPER_ADMIN", "MANAGEMENT", "FINANCE_ADMIN"]);
 
   const logout = async (): Promise<void> => {
-    if (!ADMIN_DEMO_MODE) {
-      await adminSupabaseSignOut().catch(() => undefined);
+    if (ADMIN_DEMO_MODE) {
+      setAuthState({
+        user: null,
+        role: null,
+        isLoading: false,
+        authError: null,
+      });
+      return;
     }
-    setUser(null);
-    setActiveRole(null);
-    setAuthError(null);
+    await controllerRef.current?.logout();
   };
 
   const setRole = (newRole: StaffRole) => {
     if (!user) return;
     if (!ADMIN_DEMO_MODE && !user.roles.includes(newRole)) return;
 
-    setActiveRole(newRole);
-    setUser({ ...user, role: newRole });
+    if (ADMIN_DEMO_MODE) {
+      setAuthState((current) =>
+        current.user
+          ? {
+              ...current,
+              role: newRole,
+              user: { ...current.user, role: newRole },
+            }
+          : current,
+      );
+      return;
+    }
+
+    controllerRef.current?.setWorkViewRole(newRole);
   };
 
   return (
@@ -228,11 +176,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         role,
-        isAuthenticated: Boolean(user),
+        isAuthenticated: Boolean(user) && !isLoading,
         isLoading,
         isDemoMode: ADMIN_DEMO_MODE,
         authError,
-        mfaSatisfied: Boolean(user?.mfaSatisfied ?? user?.mfaEnabled),
+        mfaSatisfied:
+          !isLoading && Boolean(user?.mfaSatisfied ?? user?.mfaEnabled),
         signIn,
         refreshSession,
         setRole,

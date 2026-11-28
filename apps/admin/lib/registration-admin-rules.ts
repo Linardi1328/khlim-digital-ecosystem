@@ -440,9 +440,36 @@ export function sessionDtoToFormState(
   };
 }
 
+export const MAX_SESSION_CAPACITY = 10000;
+
+/**
+ * Strictly parses a whole-number session capacity string (digits only, 1..10000).
+ * Rejects fractions ("12.5"), scientific notation ("1e3"), signs, trailing
+ * characters, empty strings, and out-of-range values.
+ */
+export function parseStrictSessionCapacity(value: string): number | null {
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed)) return null;
+  const parsed = Number(trimmed);
+  if (
+    !Number.isSafeInteger(parsed) ||
+    parsed < 1 ||
+    parsed > MAX_SESSION_CAPACITY
+  ) {
+    return null;
+  }
+  return parsed;
+}
+
 export function buildSessionCreatePayload(
   form: SessionFormState,
 ): CreateRegistrationSessionRequestDto {
+  const capacity = parseStrictSessionCapacity(form.capacity);
+  if (capacity === null) {
+    throw new Error(
+      `Capacity must be a whole number between 1 and ${MAX_SESSION_CAPACITY}.`,
+    );
+  }
   const ageRule = form.ageReferenceRule
     ? (form.ageReferenceRule as RegistrationAgeReferenceRule)
     : null;
@@ -451,7 +478,7 @@ export function buildSessionCreatePayload(
     programmeId: form.programmeId.trim(),
     name: form.name.trim(),
     venueId: form.venueId.trim(),
-    capacity: Number.parseInt(form.capacity.trim(), 10),
+    capacity,
     coachDisplayName: form.coachDisplayName.trim() || null,
     weekday: form.weekday ? Number.parseInt(form.weekday, 10) : null,
     startTime: form.startTime.trim() || null,
@@ -483,8 +510,8 @@ export function buildSessionUpdatePayload(
   let hasChange = false;
 
   const isDraft = original.publicationState === "DRAFT";
-  const nextCapacity = Number.parseInt(form.capacity.trim(), 10);
-  if (Number.isFinite(nextCapacity) && nextCapacity !== original.capacity) {
+  const nextCapacity = parseStrictSessionCapacity(form.capacity);
+  if (nextCapacity !== null && nextCapacity !== original.capacity) {
     payload.capacity = nextCapacity;
     hasChange = true;
   }
@@ -495,15 +522,19 @@ export function buildSessionUpdatePayload(
     hasChange = true;
   }
 
-  const nextOpens = mytDateTimeLocalToIso(form.enrollmentOpensAt);
-  if (nextOpens !== original.enrollmentOpensAt) {
-    payload.enrollmentOpensAt = nextOpens;
+  if (
+    form.enrollmentOpensAt.trim() !==
+    isoToMytDateTimeLocal(original.enrollmentOpensAt)
+  ) {
+    payload.enrollmentOpensAt = mytDateTimeLocalToIso(form.enrollmentOpensAt);
     hasChange = true;
   }
 
-  const nextCloses = mytDateTimeLocalToIso(form.enrollmentClosesAt);
-  if (nextCloses !== original.enrollmentClosesAt) {
-    payload.enrollmentClosesAt = nextCloses;
+  if (
+    form.enrollmentClosesAt.trim() !==
+    isoToMytDateTimeLocal(original.enrollmentClosesAt)
+  ) {
+    payload.enrollmentClosesAt = mytDateTimeLocalToIso(form.enrollmentClosesAt);
     hasChange = true;
   }
 

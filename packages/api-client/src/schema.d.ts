@@ -1452,6 +1452,17 @@ export interface components {
             /** @description One-time invitation token */
             token: string;
         };
+        AdminSessionResponseDto: {
+            id: string;
+            organizationId: string | null;
+            email: string | null;
+            displayName: string;
+            preferredLocale: string;
+            roles: string[];
+            /** @enum {string} */
+            authenticatorAssuranceLevel: "aal1" | "aal2";
+            mfaSatisfied: boolean;
+        };
         UpdateStaffRolesDto: {
             roles: string[];
         };
@@ -2173,6 +2184,16 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        ApproveRegistrationPolicyRequestDto: {
+            expectedVersion: number;
+            /**
+             * Format: uuid
+             * @description UUID of the currently approved predecessor policy to retire, or null when approving with no approved predecessor
+             */
+            expectedApprovedPolicyId: string | null;
+            /** @description Optimistic version of the currently approved predecessor policy, or null when expectedApprovedPolicyId is null */
+            expectedApprovedPolicyVersion: number | null;
+        };
         PrepareMembershipCheckoutDto: {
             /** @example true */
             acceptTerms: boolean;
@@ -2448,7 +2469,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AdminSessionResponseDto"];
+                };
             };
         };
     };
@@ -3661,7 +3684,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["VersionRequestDto"];
+                "application/json": components["schemas"]["ApproveRegistrationPolicyRequestDto"];
             };
         };
         responses: {

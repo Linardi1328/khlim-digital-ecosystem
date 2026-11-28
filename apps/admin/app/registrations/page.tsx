@@ -108,6 +108,7 @@ function AcademyRegistrationsContent() {
     role,
     hasRole,
     isAuthenticated,
+    isLoading: isAuthLoading,
     isDemoMode,
     mfaSatisfied,
     logout,
@@ -116,7 +117,7 @@ function AcademyRegistrationsContent() {
   const canView = hasRole(["SUPER_ADMIN", "MANAGEMENT", "ACADEMY_ADMIN"]);
   const canApprovePolicies = hasRole(["SUPER_ADMIN", "MANAGEMENT"]);
   const isEligible =
-    canView && (isDemoMode || (isAuthenticated && mfaSatisfied));
+    canView && !isDemoMode && !isAuthLoading && isAuthenticated && mfaSatisfied;
   const authContextKey = buildAdminAuthContextKey({
     userId: user?.id ?? null,
     organizationId: user?.organizationId ?? null,
@@ -186,6 +187,7 @@ function AcademyRegistrationsContent() {
   const searchTimerRef = useRef<number | null>(null);
   const listRequestSeq = useRef(0);
   const detailRequestSeq = useRef(0);
+  const statusMutationSeq = useRef(0);
   const sessionFilterSeq = useRef(0);
   const listAbortRef = useRef<AbortController | null>(null);
   const detailAbortRef = useRef<AbortController | null>(null);
@@ -240,6 +242,7 @@ function AcademyRegistrationsContent() {
     authInvalidatedRef.current = false;
     listRequestSeq.current += 1;
     detailRequestSeq.current += 1;
+    statusMutationSeq.current += 1;
     sessionFilterSeq.current += 1;
     if (searchTimerRef.current !== null) {
       window.clearTimeout(searchTimerRef.current);
@@ -287,6 +290,7 @@ function AcademyRegistrationsContent() {
       authInvalidatedRef.current = true;
       listRequestSeq.current += 1;
       detailRequestSeq.current += 1;
+      statusMutationSeq.current += 1;
       sessionFilterSeq.current += 1;
       if (searchTimerRef.current !== null) {
         window.clearTimeout(searchTimerRef.current);
@@ -446,9 +450,14 @@ function AcademyRegistrationsContent() {
 
       if (!isCurrentAuthGen(authGen) || seq !== listRequestSeq.current) return;
 
-      setRegistrations(res.items);
+      const nextTotalPages = Math.max(1, res.totalPages);
       setTotalItems(res.total);
-      setTotalPages(Math.max(1, res.totalPages));
+      setTotalPages(nextTotalPages);
+      if (res.items.length === 0 && page > nextTotalPages) {
+        setPage(nextTotalPages);
+        return;
+      }
+      setRegistrations(res.items);
     } catch (error: unknown) {
       if (
         controller.signal.aborted ||
@@ -501,14 +510,17 @@ function AcademyRegistrationsContent() {
       const controller = new AbortController();
       detailAbortRef.current = controller;
       const seq = ++detailRequestSeq.current;
+      statusMutationSeq.current += 1;
 
       setSelectedId(id);
+      setSelectedDetail(null);
       setDetailLoading(true);
       setDetailError(null);
       setStatusFeedback(null);
       setTargetStatus("");
       setReasonCode("");
       setConfirmOpen(false);
+      setIsUpdatingStatus(false);
 
       try {
         const detail = await getAdminRegistrationDetail(id, controller.signal);
@@ -544,6 +556,7 @@ function AcademyRegistrationsContent() {
 
   const handleCloseDrawer = () => {
     detailRequestSeq.current += 1;
+    statusMutationSeq.current += 1;
     detailAbortRef.current?.abort();
     setSelectedId(null);
     setSelectedDetail(null);
@@ -552,6 +565,7 @@ function AcademyRegistrationsContent() {
     setTargetStatus("");
     setReasonCode("");
     setConfirmOpen(false);
+    setIsUpdatingStatus(false);
   };
 
   const allowedTransitions = useMemo(() => {
@@ -582,6 +596,8 @@ function AcademyRegistrationsContent() {
     if (reasonRequired && !reasonCode) return;
 
     const authGen = authGenerationRef.current;
+    const detailSeq = detailRequestSeq.current;
+    const mutationSeq = ++statusMutationSeq.current;
     const detailId = selectedDetail.id;
     const expectedVersion = selectedDetail.version;
     const requestedStatus = targetStatus;
@@ -599,14 +615,16 @@ function AcademyRegistrationsContent() {
 
       if (!isCurrentAuthGen(authGen)) return;
 
-      setConfirmOpen(false);
-      setSelectedDetail(updated);
-      setTargetStatus("");
-      setReasonCode("");
-      setStatusFeedback({
-        variant: "success",
-        message: `Registration status updated to ${formatRegistrationStatusLabel(updated.status)} (${updated.status}, version ${updated.version}).`,
-      });
+      if (detailRequestSeq.current === detailSeq) {
+        setConfirmOpen(false);
+        setSelectedDetail(updated);
+        setTargetStatus("");
+        setReasonCode("");
+        setStatusFeedback({
+          variant: "success",
+          message: `Registration status updated to ${formatRegistrationStatusLabel(updated.status)} (${updated.status}, version ${updated.version}).`,
+        });
+      }
 
       // Synchronize summary row and refresh bounded list + authoritative seat counts
       setRegistrations((prev) =>
@@ -625,7 +643,6 @@ function AcademyRegistrationsContent() {
       void fetchAuthoritativeSessionFilter();
     } catch (error: unknown) {
       if (!isCurrentAuthGen(authGen)) return;
-      setConfirmOpen(false);
       const classified = classifyAdminRegistrationError(error);
 
       if (
@@ -635,6 +652,19 @@ function AcademyRegistrationsContent() {
         handleGlobalAuthError(classified.kind, classified.message, authGen);
         return;
       }
+
+      if (detailRequestSeq.current !== detailSeq) {
+        if (
+          classified.kind === "STALE_VERSION" ||
+          classified.kind === "INVALID_TRANSITION" ||
+          classified.kind === "SESSION_NOT_AVAILABLE"
+        ) {
+          void fetchAuthoritativeSessionFilter();
+        }
+        return;
+      }
+
+      setConfirmOpen(false);
 
       // On STALE_VERSION, INVALID_TRANSITION, or SESSION_NOT_AVAILABLE, refresh the authoritative record
       // and session filter under the same auth-generation guard (never auto-replay stale updates).
@@ -680,7 +710,27 @@ function AcademyRegistrationsContent() {
                 : row,
             ),
           );
-        } catch {
+        } catch (refreshError: unknown) {
+          if (
+            followUpController.signal.aborted ||
+            !isCurrentAuthGen(authGen) ||
+            followUpSeq !== detailRequestSeq.current
+          ) {
+            return;
+          }
+          const refreshClassified =
+            classifyAdminRegistrationError(refreshError);
+          if (
+            refreshClassified.kind === "UNAUTHENTICATED" ||
+            refreshClassified.kind === "FORBIDDEN"
+          ) {
+            handleGlobalAuthError(
+              refreshClassified.kind,
+              refreshClassified.message,
+              authGen,
+            );
+            return;
+          }
           // Keep warning visible if still in the same auth context
         }
         return;
@@ -699,7 +749,10 @@ function AcademyRegistrationsContent() {
         message: classified.message,
       });
     } finally {
-      if (isCurrentAuthGen(authGen)) {
+      if (
+        isCurrentAuthGen(authGen) &&
+        statusMutationSeq.current === mutationSeq
+      ) {
         setIsUpdatingStatus(false);
       }
     }
@@ -783,6 +836,52 @@ function AcademyRegistrationsContent() {
       ),
     },
   ];
+
+  if (isDemoMode) {
+    return (
+      <AdminShell>
+        <div style={{ minWidth: 0 }}>
+          <PageHeader
+            title="Academy Registrations"
+            subtitle="Review submitted Academy registrations, manage training sessions, and govern localized consent policies."
+            breadcrumbs={[
+              { label: "Academy", href: "/offerings" },
+              { label: "Academy Registrations" },
+            ]}
+          />
+          <div
+            data-testid="registrations-demo-unavailable"
+            role="status"
+            style={{
+              backgroundColor: "#FFFBEB",
+              border: "1px solid #FDE68A",
+              borderRadius: 12,
+              padding: "20px 24px",
+              color: "#78350F",
+              fontSize: "0.9rem",
+              lineHeight: 1.6,
+            }}
+          >
+            <strong style={{ display: "block", marginBottom: 6 }}>
+              Unavailable in Admin Demo Mode
+            </strong>
+            Live Academy registration records, training sessions, and consent
+            policies are strictly isolated from Admin Demo Mode and never issue
+            live API requests or read stored staff credentials. Sign in through
+            an authenticated AAL2 staff console to manage Academy registrations.
+          </div>
+        </div>
+      </AdminShell>
+    );
+  }
+
+  if (isAuthLoading) {
+    return (
+      <AdminShell>
+        <LoadingState message="Verifying staff access…" />
+      </AdminShell>
+    );
+  }
 
   if (!canView) {
     return (
@@ -887,10 +986,6 @@ function AcademyRegistrationsContent() {
         setAuthErrorKind(null);
         setListError(null);
         setAuthInvalidationCount((prev) => prev + 1);
-        void fetchAuthoritativeSessionFilter();
-        if (activeTab === "registrations") {
-          void fetchRegistrations();
-        }
       } catch (error: unknown) {
         if (!isMountedRef.current) return;
         const classified = classifyAdminRegistrationError(error);

@@ -174,13 +174,55 @@ export function AcademyRegistrationFlow() {
   const [retryCountdown, setRetryCountdown] = useState<number>(0);
 
   const [receipt, setReceipt] = useState<RegistrationReceiptDto | null>(null);
-  const [copiedReference, setCopiedReference] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "manual">(
+    "idle",
+  );
+  const copyTimerRef = useRef<number | null>(null);
+  const loadSequence = useRef(0);
+  const loadedPolicyVersion = useRef<string | null | undefined>(undefined);
+  const [acceptedConsentKey, setAcceptedConsentKey] = useState<string | null>(
+    null,
+  );
+  const [rejectedConsentVersion, setRejectedConsentVersion] = useState<
+    string | null
+  >(null);
+  const [configRefreshing, setConfigRefreshing] = useState(false);
+  const [sessionRefreshing, setSessionRefreshing] = useState(false);
+  const [sessionRefreshRequired, setSessionRefreshRequired] = useState(false);
+  const [policyChangedNotice, setPolicyChangedNotice] = useState(false);
+
+  const resetConsent = useCallback(() => {
+    setAcceptedConsentKey(null);
+    setForm((prev) => ({
+      ...prev,
+      authorityConfirmed: false,
+      registrationPrivacy: false,
+      marketing: false,
+      photography: false,
+    }));
+  }, []);
+
+  const trackPolicyVersion = useCallback(
+    (config: RegistrationConfigDto) => {
+      const version = config.consent?.policyVersion ?? null;
+      if (
+        loadedPolicyVersion.current !== undefined &&
+        loadedPolicyVersion.current !== version
+      ) {
+        resetConsent();
+        setPolicyChangedNotice(true);
+      }
+      loadedPolicyVersion.current = version;
+    },
+    [resetConsent],
+  );
 
   // Track locale changes so consent checkboxes are NEVER silently preserved across different wording
   const previousLocaleRef = useRef(registrationLocale);
   useEffect(() => {
     if (previousLocaleRef.current !== registrationLocale) {
       previousLocaleRef.current = registrationLocale;
+      setAcceptedConsentKey(null);
       const hadAnyConsentChecked =
         form.authorityConfirmed ||
         form.registrationPrivacy ||
@@ -230,54 +272,140 @@ export function AcademyRegistrationFlow() {
     }, 40);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current !== null) {
+        window.clearTimeout(copyTimerRef.current);
+        copyTimerRef.current = null;
+      }
+    };
+  }, []);
+
   const loadConfigAndSessions = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     setLoadState({ kind: "loading" });
     setBannerError(null);
+    setConfigRefreshing(false);
+    setSessionRefreshing(false);
     try {
       const [config, sessionsResponse] = await Promise.all([
         apiService.getAcademyRegistrationConfig(),
         apiService.listPublicAcademySessions(),
       ]);
+      if (sequence !== loadSequence.current) return;
+      trackPolicyVersion(config);
+      setSessionRefreshRequired(false);
 
       if (!config.registrationOpen || !sessionsResponse.registrationOpen) {
         setLoadState({ kind: "closed", config });
         return;
       }
-
       if (!sessionsResponse.items || sessionsResponse.items.length === 0) {
         setLoadState({ kind: "empty", config });
         return;
       }
-
-      setLoadState({
-        kind: "ready",
-        config,
-        sessions: sessionsResponse.items,
-      });
-
-      if (querySessionId) {
-        const matched = sessionsResponse.items.find(
-          (item) => item.id === querySessionId,
-        );
-        if (matched) {
-          setForm((prev) => ({ ...prev, sessionId: matched.id }));
-          setStalePreselectedSession(false);
-        } else {
-          setStalePreselectedSession(true);
-        }
-      }
+      const sessions = sessionsResponse.items;
+      setLoadState({ kind: "ready", config, sessions });
+      const preselected = sessions.find((item) => item.id === querySessionId);
+      setStalePreselectedSession(Boolean(querySessionId && !preselected));
+      setForm((prev) => ({
+        ...prev,
+        sessionId: prev.sessionId
+          ? sessions.some((item) => item.id === prev.sessionId)
+            ? prev.sessionId
+            : ""
+          : (preselected?.id ?? ""),
+      }));
     } catch (error) {
+      if (sequence !== loadSequence.current) return;
       setLoadState(
         isFeatureNotAvailableError(error)
           ? { kind: "deferred" }
           : { kind: "error" },
       );
     }
-  }, [querySessionId]);
+  }, [querySessionId, trackPolicyVersion]);
 
   useEffect(() => {
     void loadConfigAndSessions();
+    return () => {
+      ++loadSequence.current;
+    };
   }, [loadConfigAndSessions]);
+
+  const refreshConsentConfig = async (options?: { clearBanner?: boolean }) => {
+    const sequence = ++loadSequence.current;
+    setConfigRefreshing(true);
+    if (options?.clearBanner) {
+      setBannerError(null);
+    }
+    try {
+      const config = await apiService.getAcademyRegistrationConfig();
+      if (sequence !== loadSequence.current) return;
+      trackPolicyVersion(config);
+      setLoadState((prev) =>
+        !config.registrationOpen
+          ? { kind: "closed", config }
+          : prev.kind === "ready"
+            ? { ...prev, config }
+            : prev,
+      );
+    } catch (error) {
+      if (sequence !== loadSequence.current) return;
+      if (isFeatureNotAvailableError(error)) {
+        setLoadState({ kind: "deferred" });
+      } else {
+        setBannerError(t("academyReg.sessions.errorBody"));
+      }
+    } finally {
+      if (sequence === loadSequence.current) setConfigRefreshing(false);
+    }
+  };
+
+  const refreshUnavailableSessions = async (options?: {
+    clearBanner?: boolean;
+  }) => {
+    const sequence = ++loadSequence.current;
+    setSessionRefreshing(true);
+    setSessionRefreshRequired(true);
+    if (options?.clearBanner) {
+      setBannerError(null);
+    }
+    try {
+      const refreshed = await apiService.listPublicAcademySessions();
+      if (sequence !== loadSequence.current) return;
+      setLoadState((prev) => {
+        if (prev.kind !== "ready") return prev;
+        if (!refreshed.registrationOpen) {
+          return {
+            kind: "closed",
+            config: { ...prev.config, registrationOpen: false },
+          };
+        }
+        if (refreshed.items.length === 0)
+          return { kind: "empty", config: prev.config };
+        return { ...prev, sessions: refreshed.items };
+      });
+      setForm((prev) => ({
+        ...prev,
+        sessionId:
+          refreshed.registrationOpen &&
+          refreshed.items.some((item) => item.id === prev.sessionId)
+            ? prev.sessionId
+            : "",
+      }));
+      setSessionRefreshRequired(false);
+    } catch (error) {
+      if (sequence !== loadSequence.current) return;
+      if (isFeatureNotAvailableError(error)) {
+        setLoadState({ kind: "deferred" });
+      } else {
+        setBannerError(t("academyReg.sessions.errorBody"));
+      }
+    } finally {
+      if (sequence === loadSequence.current) setSessionRefreshing(false);
+    }
+  };
 
   const selectedSession = useMemo(() => {
     if (loadState.kind !== "ready") return null;
@@ -287,12 +415,40 @@ export function AcademyRegistrationFlow() {
   }, [loadState, form.sessionId]);
 
   const resolvedConsent = useMemo(() => {
-    if (loadState.kind !== "ready") return null;
+    if (
+      loadState.kind !== "ready" ||
+      !loadState.config.consent ||
+      loadState.config.consent.policyVersion === rejectedConsentVersion
+    )
+      return null;
     return resolveConsentPolicyForLocale(
       loadState.config.consent,
       registrationLocale,
     );
-  }, [loadState, registrationLocale]);
+  }, [loadState, registrationLocale, rejectedConsentVersion]);
+
+  const consentContextKey = resolvedConsent?.allResolved
+    ? JSON.stringify([resolvedConsent.policyVersion, registrationLocale])
+    : null;
+  const hasCurrentConsent = Boolean(
+    consentContextKey &&
+    acceptedConsentKey === consentContextKey &&
+    form.authorityConfirmed &&
+    form.registrationPrivacy,
+  );
+  const canRetryOriginal = Boolean(
+    pendingAttempt &&
+    hasCurrentConsent &&
+    resolvedConsent &&
+    pendingAttempt.payload.consentVersion === resolvedConsent.policyVersion &&
+    pendingAttempt.payload.locale === registrationLocale &&
+    pendingAttempt.payload.guardian.authorityConfirmed ===
+      form.authorityConfirmed &&
+    pendingAttempt.payload.consents.registrationPrivacy ===
+      form.registrationPrivacy &&
+    pendingAttempt.payload.consents.marketing === form.marketing &&
+    pendingAttempt.payload.consents.photography === form.photography,
+  );
 
   const todayMyt = useMemo(() => getMalaysiaTodayDateOnly(), []);
 
@@ -347,6 +503,8 @@ export function AcademyRegistrationFlow() {
     value: RegistrationFormValues[K],
     errorKey?: string,
   ) => {
+    if (submittingLockRef.current) return;
+    if (typeof value === "boolean") setAcceptedConsentKey(consentContextKey);
     setForm((prev) => ({ ...prev, [field]: value }));
     if (errorKey) {
       setFieldErrors((prev) => {
@@ -358,76 +516,48 @@ export function AcademyRegistrationFlow() {
     }
   };
 
-  const buildRequestPayload = (): CreateRegistrationRequestDto | null => {
-    if (loadState.kind !== "ready" || !loadState.config.consent) return null;
-    const payload: CreateRegistrationRequestDto = {
-      sessionId: form.sessionId,
-      locale: registrationLocale,
-      consentVersion: loadState.config.consent.policyVersion,
-      player: {
-        fullName: form.playerFullName.trim(),
-        dateOfBirth: form.playerDateOfBirth.trim(),
-        gender: form.playerGender,
-        jerseySize: form.playerJerseySize,
-        phone: form.playerPhone.trim() ? form.playerPhone.trim() : null,
-      },
-      guardian: {
-        fullName: form.guardianFullName.trim(),
-        phone: form.guardianPhone.trim(),
-        relationship: form.guardianRelationship,
-        authorityConfirmed: form.authorityConfirmed,
-      },
-      emergencyContact: {
-        fullName: form.emergencyFullName.trim(),
-        phone: form.emergencyPhone.trim(),
-        relationship: form.emergencyRelationship,
-      },
-      consents: {
-        registrationPrivacy: form.registrationPrivacy,
-        marketing: form.marketing,
-        photography: form.photography,
-      },
-    };
+  const buildRequestPayload =
+    useCallback((): CreateRegistrationRequestDto | null => {
+      if (loadState.kind !== "ready" || !loadState.config.consent) return null;
+      const payload: CreateRegistrationRequestDto = {
+        sessionId: form.sessionId,
+        locale: registrationLocale,
+        consentVersion: loadState.config.consent.policyVersion,
+        player: {
+          fullName: form.playerFullName.trim(),
+          dateOfBirth: form.playerDateOfBirth.trim(),
+          gender: form.playerGender,
+          jerseySize: form.playerJerseySize,
+          phone: form.playerPhone.trim() ? form.playerPhone.trim() : null,
+        },
+        guardian: {
+          fullName: form.guardianFullName.trim(),
+          phone: form.guardianPhone.trim(),
+          relationship: form.guardianRelationship,
+          authorityConfirmed: form.authorityConfirmed,
+        },
+        emergencyContact: {
+          fullName: form.emergencyFullName.trim(),
+          phone: form.emergencyPhone.trim(),
+          relationship: form.emergencyRelationship,
+        },
+        consents: {
+          registrationPrivacy: form.registrationPrivacy,
+          marketing: form.marketing,
+          photography: form.photography,
+        },
+      };
 
-    if (campaignSource) {
-      payload.source = campaignSource;
-    }
-    return payload;
-  };
+      if (campaignSource) {
+        payload.source = campaignSource;
+      }
+      return payload;
+    }, [loadState, form, registrationLocale, campaignSource]);
 
   const currentFingerprint = useMemo(() => {
-    if (loadState.kind !== "ready" || !loadState.config.consent) return null;
-    const payload: CreateRegistrationRequestDto = {
-      sessionId: form.sessionId,
-      locale: registrationLocale,
-      consentVersion: loadState.config.consent.policyVersion,
-      ...(campaignSource ? { source: campaignSource } : {}),
-      player: {
-        fullName: form.playerFullName.trim(),
-        dateOfBirth: form.playerDateOfBirth.trim(),
-        gender: form.playerGender,
-        jerseySize: form.playerJerseySize,
-        phone: form.playerPhone.trim() ? form.playerPhone.trim() : null,
-      },
-      guardian: {
-        fullName: form.guardianFullName.trim(),
-        phone: form.guardianPhone.trim(),
-        relationship: form.guardianRelationship,
-        authorityConfirmed: form.authorityConfirmed,
-      },
-      emergencyContact: {
-        fullName: form.emergencyFullName.trim(),
-        phone: form.emergencyPhone.trim(),
-        relationship: form.emergencyRelationship,
-      },
-      consents: {
-        registrationPrivacy: form.registrationPrivacy,
-        marketing: form.marketing,
-        photography: form.photography,
-      },
-    };
-    return fingerprintRegistrationPayload(payload);
-  }, [loadState, form, registrationLocale, campaignSource]);
+    const payload = buildRequestPayload();
+    return payload ? fingerprintRegistrationPayload(payload) : null;
+  }, [buildRequestPayload]);
 
   const editedAfterAmbiguousAttempt = Boolean(
     pendingAttempt?.ambiguous &&
@@ -437,7 +567,7 @@ export function AcademyRegistrationFlow() {
 
   const validateStep1 = (): boolean => {
     const errors: Record<string, string> = {};
-    if (!form.sessionId) {
+    if (!selectedSession || sessionRefreshRequired || sessionRefreshing) {
       errors.sessionId = t("academyReg.step1.sessionRequired");
     }
     if (!form.playerFullName.trim()) {
@@ -512,7 +642,11 @@ export function AcademyRegistrationFlow() {
 
   const validateStep3 = (): boolean => {
     const errors: Record<string, string> = {};
-    if (!form.authorityConfirmed) {
+    if (
+      !form.authorityConfirmed ||
+      acceptedConsentKey !== consentContextKey ||
+      !consentContextKey
+    ) {
       errors["guardian.authorityConfirmed"] = t(
         "academyReg.fieldError.MUST_BE_TRUE",
       );
@@ -566,6 +700,7 @@ export function AcademyRegistrationFlow() {
     setSubmitting(true);
     setBannerError(null);
     setNoticeBanner(null);
+    setPolicyChangedNotice(false);
 
     try {
       const response = await apiService.submitAcademyRegistration(
@@ -574,6 +709,12 @@ export function AcademyRegistrationFlow() {
       );
 
       if (!isValidRegistrationReceipt(response)) {
+        setPendingAttempt({
+          key: idempotencyKey,
+          fingerprint,
+          payload,
+          ambiguous: true,
+        });
         setBannerError(t("academyReg.error.GENERIC"));
         return;
       }
@@ -602,70 +743,19 @@ export function AcademyRegistrationFlow() {
 
         if (code === "CONSENT_VERSION_MISMATCH") {
           setPendingAttempt(null);
-          try {
-            const refreshedConfig =
-              await apiService.getAcademyRegistrationConfig();
-            if (!refreshedConfig.registrationOpen) {
-              setLoadState({ kind: "closed", config: refreshedConfig });
-              return;
-            }
-            setLoadState((prev) =>
-              prev.kind === "ready"
-                ? { ...prev, config: refreshedConfig }
-                : prev,
-            );
-          } catch {
-            // Keep existing state if config refetch fails
-          }
-          // Preserve non-consent form state, reset affected consent checkboxes
-          setForm((prev) => ({
-            ...prev,
-            authorityConfirmed: false,
-            registrationPrivacy: false,
-            marketing: false,
-            photography: false,
-          }));
-          setNoticeBanner(t("academyReg.step3.consentUpdatedNotice"));
+          setRejectedConsentVersion(payload.consentVersion);
+          resetConsent();
           setBannerError(t("academyReg.error.CONSENT_VERSION_MISMATCH"));
+          await refreshConsentConfig();
           return;
         }
 
         if (code === "SESSION_FULL" || code === "SESSION_NOT_AVAILABLE") {
           setPendingAttempt(null);
           setBannerError(t(`academyReg.error.${code}`));
-          try {
-            const refreshedSessions =
-              await apiService.listPublicAcademySessions();
-            if (!refreshedSessions.registrationOpen) {
-              setLoadState((prev) =>
-                prev.kind === "ready"
-                  ? {
-                      kind: "closed",
-                      config: { ...prev.config, registrationOpen: false },
-                    }
-                  : prev,
-              );
-              return;
-            }
-            if (refreshedSessions.items.length === 0) {
-              setLoadState((prev) =>
-                prev.kind === "ready"
-                  ? { kind: "empty", config: prev.config }
-                  : prev,
-              );
-              return;
-            }
-            setLoadState((prev) =>
-              prev.kind === "ready"
-                ? { ...prev, sessions: refreshedSessions.items }
-                : prev,
-            );
-          } catch {
-            // Keep current list if refresh fails
-          }
-          // Never silently switch to another session; clear unavailable selection
           setForm((prev) => ({ ...prev, sessionId: "" }));
           setStep(1);
+          await refreshUnavailableSessions();
           focusField("sessionId");
           return;
         }
@@ -730,7 +820,7 @@ export function AcademyRegistrationFlow() {
               code !== "REGISTRATION_PERSISTENCE_FAILED",
           });
           if (retrySeconds > 0) {
-            setRetryCountdown(Math.min(retrySeconds, 600));
+            setRetryCountdown(Math.ceil(retrySeconds));
           }
           const errorKey =
             code &&
@@ -801,6 +891,15 @@ export function AcademyRegistrationFlow() {
       return;
     }
 
+    if (
+      !selectedSession ||
+      sessionRefreshRequired ||
+      sessionRefreshing ||
+      configRefreshing
+    ) {
+      setStep(1);
+      return;
+    }
     if (!validateStep3()) return;
 
     const payload = buildRequestPayload();
@@ -826,7 +925,17 @@ export function AcademyRegistrationFlow() {
   };
 
   const handleRetryOriginalAttempt = async () => {
-    if (!pendingAttempt || submitting || retryCountdown > 0) return;
+    if (
+      !pendingAttempt ||
+      !canRetryOriginal ||
+      submitting ||
+      submittingLockRef.current ||
+      retryCountdown > 0 ||
+      configRefreshing ||
+      sessionRefreshing ||
+      sessionRefreshRequired
+    )
+      return;
     await executeSubmission(
       pendingAttempt.payload,
       pendingAttempt.key,
@@ -835,7 +944,16 @@ export function AcademyRegistrationFlow() {
   };
 
   const handleStartFreshAttempt = async () => {
-    if (submitting || retryCountdown > 0) return;
+    if (
+      submitting ||
+      submittingLockRef.current ||
+      retryCountdown > 0 ||
+      configRefreshing ||
+      sessionRefreshing ||
+      sessionRefreshRequired ||
+      !selectedSession
+    )
+      return;
     if (!resolvedConsent?.allResolved) return;
     if (!validateStep3()) return;
     const payload = buildRequestPayload();
@@ -848,14 +966,26 @@ export function AcademyRegistrationFlow() {
 
   const handleCopyReferenceCode = async () => {
     if (!receipt) return;
+    if (copyTimerRef.current !== null) {
+      window.clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = null;
+    }
+    if (
+      !navigator.clipboard ||
+      typeof navigator.clipboard.writeText !== "function"
+    ) {
+      setCopyStatus("manual");
+      return;
+    }
     try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(receipt.referenceCode);
-      }
-      setCopiedReference(true);
-      window.setTimeout(() => setCopiedReference(false), 3000);
+      await navigator.clipboard.writeText(receipt.referenceCode);
+      setCopyStatus("copied");
+      copyTimerRef.current = window.setTimeout(() => {
+        copyTimerRef.current = null;
+        setCopyStatus("idle");
+      }, 3000);
     } catch {
-      setCopiedReference(false);
+      setCopyStatus("manual");
     }
   };
 
@@ -1002,11 +1132,30 @@ export function AcademyRegistrationFlow() {
                   data-testid="copy-reference-code-btn"
                   style={{ minHeight: 44 }}
                 >
-                  {copiedReference
+                  {copyStatus === "copied"
                     ? t("academyReg.receipt.copied")
                     : t("academyReg.receipt.copyCode")}
                 </Button>
               </div>
+
+              {copyStatus === "manual" ? (
+                <div
+                  role="status"
+                  data-testid="copy-reference-manual-notice"
+                  style={{
+                    marginBottom: 14,
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    background: "#fffbeb",
+                    border: "1px solid #fde68a",
+                    color: "#78350f",
+                    fontSize: "0.84rem",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  {t("academyReg.receipt.copyManual")}
+                </div>
+              ) : null}
 
               <dl className="registration-meta-dl">
                 <dt style={{ color: "#71717a", fontWeight: 600 }}>
@@ -1353,9 +1502,11 @@ export function AcademyRegistrationFlow() {
                 </div>
               ) : null}
 
-              {noticeBanner ? (
+              {noticeBanner || policyChangedNotice ? (
                 <div style={{ marginBottom: 20 }} role="status">
-                  <Alert variant="info">{noticeBanner}</Alert>
+                  <Alert variant="info">
+                    {noticeBanner ?? t("academyReg.step3.consentUpdatedNotice")}
+                  </Alert>
                 </div>
               ) : null}
 
@@ -1369,6 +1520,24 @@ export function AcademyRegistrationFlow() {
                     {bannerError}
                   </Alert>
                 </div>
+              ) : null}
+
+              {sessionRefreshRequired ? (
+                <Alert
+                  variant="warning"
+                  title={t("academyReg.sessions.errorTitle")}
+                >
+                  <Button
+                    type="button"
+                    disabled={sessionRefreshing || submitting}
+                    data-testid="registration-session-refresh-btn"
+                    onClick={() =>
+                      void refreshUnavailableSessions({ clearBanner: true })
+                    }
+                  >
+                    {t("academyReg.sessions.retry")}
+                  </Button>
+                </Alert>
               ) : null}
 
               {pendingAttempt?.ambiguous && step === 3 ? (
@@ -1390,7 +1559,14 @@ export function AcademyRegistrationFlow() {
                         type="button"
                         variant="primary"
                         size="sm"
-                        disabled={submitting || retryCountdown > 0}
+                        disabled={
+                          submitting ||
+                          retryCountdown > 0 ||
+                          !canRetryOriginal ||
+                          configRefreshing ||
+                          sessionRefreshing ||
+                          sessionRefreshRequired
+                        }
                         onClick={() => void handleRetryOriginalAttempt()}
                         data-testid="retry-original-attempt-btn"
                         style={{ minHeight: 44 }}
@@ -1404,7 +1580,11 @@ export function AcademyRegistrationFlow() {
                         disabled={
                           submitting ||
                           retryCountdown > 0 ||
-                          !resolvedConsent?.allResolved
+                          !resolvedConsent?.allResolved ||
+                          !selectedSession ||
+                          configRefreshing ||
+                          sessionRefreshing ||
+                          sessionRefreshRequired
                         }
                         onClick={() => void handleStartFreshAttempt()}
                         data-testid="start-new-attempt-btn"
@@ -2117,6 +2297,7 @@ export function AcademyRegistrationFlow() {
                         </strong>
                         <button
                           type="button"
+                          disabled={submitting}
                           onClick={() => setStep(1)}
                           style={{
                             border: "none",
@@ -2235,6 +2416,7 @@ export function AcademyRegistrationFlow() {
                         </strong>
                         <button
                           type="button"
+                          disabled={submitting}
                           onClick={() => setStep(2)}
                           style={{
                             border: "none",
@@ -2387,6 +2569,18 @@ export function AcademyRegistrationFlow() {
                           <p style={{ margin: "0 0 12px", lineHeight: 1.55 }}>
                             {t("academyReg.step3.consentUnavailableBody")}
                           </p>
+                          {rejectedConsentVersion !== null && (
+                            <Button
+                              type="button"
+                              disabled={configRefreshing || submitting}
+                              data-testid="registration-config-refresh-btn"
+                              onClick={() =>
+                                void refreshConsentConfig({ clearBanner: true })
+                              }
+                            >
+                              {t("academyReg.sessions.retry")}
+                            </Button>
+                          )}
                           <Link
                             href={interestHref}
                             style={{
@@ -2506,6 +2700,7 @@ export function AcademyRegistrationFlow() {
                                 ref={setFieldRef(fieldKey)}
                                 id={`consent-checkbox-${item.type}`}
                                 checked={checked}
+                                disabled={submitting || configRefreshing}
                                 required={item.required}
                                 onChange={(e) =>
                                   updateField(
@@ -2568,6 +2763,10 @@ export function AcademyRegistrationFlow() {
                         submitting ||
                         retryCountdown > 0 ||
                         !resolvedConsent?.allResolved ||
+                        !selectedSession ||
+                        configRefreshing ||
+                        sessionRefreshing ||
+                        sessionRefreshRequired ||
                         editedAfterAmbiguousAttempt
                       }
                       data-testid="registration-submit-btn"

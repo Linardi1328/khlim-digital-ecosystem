@@ -33,47 +33,49 @@
 
 ## 2. Combined Validation Summary (Reconciled on `3470201cedd59c47c445538ab6a75f0acd03b38f`)
 
-### A. Static Checks, Direct Schema Typechecks & Unit/Security Regression Tests
+### A. Static Checks, Direct Schema Typechecks, OpenAPI Sync & Unit/Contract Tests (Current Remediation Pass)
 - `pnpm format:check` — **PASS**
 - `pnpm i18n:audit` — **PASS** (0 hard-coded user-facing strings across EN/MS/ZH-Hans)
-- `pnpm lint` — **PASS**
-- `pnpm prisma:generate` — **PASS**
-- Uncached `tsc --noEmit` (`@khlim/api-client`, `@khlim/web`, `@khlim/admin`, `@khlim/api`) — **PASS (0 errors)** against direct `schema.d.ts` aliases
-- `pnpm openapi:check` — **PASS**
-- `pnpm test` — **PASS (`457 passed, 0 failed, 0 skipped`)** — includes PR #129's `tests/public-media-allowlist.test.mjs`, `tests/v1-deferred-feature-gates.test.mjs`, youth-media gallery/carousel tests, and `tests/academy-registration-v1-frontend.test.mjs` (covering I02 deferred consumer guards and T01/T02 checks).
-- `pnpm build` (`@khlim/api`, `@khlim/admin`, `@khlim/web`) — **PASS (`3/3`)**
-- Prohibited-path & secret scan check — **PASS** (`0` edits to `apps/api/`, `prisma/`, `supabase/`, `.github/`, `openapi/`, `packages/api-client/src/schema.d.ts`, `vercel.json`, `apps/web/public/media/`, `media/RIGHTS-MANIFEST.md`, or `apps/web/lib/editorial-content.ts`)
+- `pnpm lint` — **PASS** (`eslint .`, 0 errors, 0 warnings)
+- `pnpm typecheck` (`pnpm prisma:generate && turbo run typecheck` across `@khlim/api-client`, `@khlim/i18n`, `@khlim/web`, `@khlim/admin`, `@khlim/api`) — **PASS (5/5 packages, 0 errors)** against regenerated `schema.d.ts` aliases
+- `pnpm openapi:generate` idempotent sync check — **PASS** (`openapi/khlim-v1.json` and `packages/api-client/src/schema.d.ts` match regenerated output byte-for-byte with zero drift; includes `ApproveRegistrationPolicyRequestDto` for CR-17 and `AdminSessionResponseDto` with `organizationId: string | null` for CR-25)
+- `pnpm test` — **PASS (`461 passed, 0 failed, 0 skipped, 0 retries`)** — includes PR #129's `tests/public-media-allowlist.test.mjs`, `tests/v1-deferred-feature-gates.test.mjs`, youth-media gallery/carousel tests, and `tests/academy-registration-v1-frontend.test.mjs` (`11/11 passed`, covering **FINAL-01** `AdminAuthSessionController` fail-closed revalidation/generation isolation & `supabase-auth.ts` stale token-refresh credential write protection vs ordinary same-session refresh, IR-01 fail-closed port/listener ownership/premature-exit/owned-cleanup guards, IR-02 driver-level PostgreSQL host/database/query-param/env-fallback validation, IR-04 `FamilySessionController` auth-transition isolation, IR-05 behavioral `executeEnrolmentCheckout` + full deferred portal consumer coverage, strict capacity parsing, minute-precision enrollment timestamp preservation, and 3-language localization parity).
+- Local production builds — **PASS**:
+  - `@khlim/api`: `pnpm --filter @khlim/api build`
+  - `@khlim/admin` (demo mode): `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:3001/v1 NEXT_PUBLIC_ADMIN_DEMO_MODE=true pnpm --filter @khlim/admin build`
+  - `@khlim/admin` (authenticated mode): `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:3001/v1 NEXT_PUBLIC_ADMIN_DEMO_MODE=false pnpm --filter @khlim/admin build`
+  - `@khlim/web` (default production mode, no deferred feature flags): `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:3001/v1 pnpm --filter @khlim/web build`
+  - Combined local acceptance build: `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:3193/v1 NEXT_PUBLIC_ADMIN_DEMO_MODE=false pnpm build` (`3/3` tasks succeeded)
+- Frozen-migration & scope-boundary check — **PASS**:
+  - `prisma/migrations/20261125000000_academy_registration_v1/migration.sql` SHA-256 `aae10d0e38c1d26841029918c924489e87a61443262f4107bfdbfe7675694123` (matches `3470201cedd59c47c445538ab6a75f0acd03b38f`)
+  - `prisma/migrations/20261126000000_academy_registration_lock_corrections/migration.sql` SHA-256 `43e5e20b45bdcbdc34049d6dab720e5b5d5152c3f97cd179fb5e9861454a7afb` (matches `3470201cedd59c47c445538ab6a75f0acd03b38f`)
+  - `0` edits to `prisma/`, `supabase/`, `vercel.json`, `apps/web/public/media/`, `media/RIGHTS-MANIFEST.md`, or `apps/web/lib/editorial-content.ts`; `APPROVED_CONSENT_WORDING_REGISTRY` and `APPROVED_YOUTH_MEDIA` remain empty; authorized backend/OpenAPI/CI edits are strictly limited to CR-03, CR-17, and CR-25.
 
-### B. GitHub-Equivalent Playwright Browser Suites (Production Builds)
-- `tests/e2e/ric-191-public-registration.spec.mjs` (`desktop`, `tablet`, `mobile`): **15 passed, 0 failed, 0 skipped** — covers open `/academy` CTA hierarchy & contradiction removal, closed/empty/outage states, 3-step flow, non-reserving receipt, idempotent `200` replay, consent reset on locale switch, header CTA suppression on `/academy/register`, and 7-viewport (`360–1440px`) zero-overflow checks including Receipt in `en`, `ms`, `zh-Hans`.
-- `tests/e2e/ric-184-academy-parity-qa.spec.mjs` (`desktop`, `tablet`, `mobile`): **27 passed, 0 failed, 0 skipped** — confirms 100% preservation of RIC-184 parity fixes AND PR #129's direct HTTP media-takedown regression checks.
-- `tests/e2e/web-preview.spec.mjs` (`desktop`, `tablet`, `mobile`): **119 passed, 0 failed, 4 skipped** (existing viewport-conditional skips).
-- `tests/e2e/ric-191-admin-registrations.spec.mjs` (`admin-desktop`, `admin-tablet`, `admin-mobile`): **24 passed, 0 failed, 0 skipped** — covers authoritative session filter, POST search (`200`), detail & status transitions, Sessions & Consent Policies CRUD/publish/approve/retire, delayed-mutation auth-context isolation, cross-component concurrent `401`/`403` invalidation, post-`401`/`403` tab-switch zero-refetch regression, PR #129 `403 FEATURE_NOT_AVAILABLE` non-retrying deferred state, discoverable mobile tabs, readable display labels, safe missing age (`—`), and 7-viewport drawer responsiveness (`360–1440px`).
-- `tests/e2e/admin-ui.spec.mjs` (`admin-desktop`): **29 passed (28 first-pass + 1 retry pass), 0 failed, 1 intentional mobile-only skip**.
+### B. Playwright Browser Suites (Local Loopback Production Builds — Current Remediation Pass)
+- **Admin Demo Mode CI Job (`NEXT_PUBLIC_ADMIN_DEMO_MODE=true`, `PLAYWRIGHT_ADMIN_BASE_URL=http://127.0.0.1:3196`)**:
+  - Full 5-spec `playwright-demo` CI set (`admin-ui.spec.mjs`, `admin-kpi-observability.spec.mjs`, `admin-governance.spec.mjs`, `admin-walkthrough-visual.spec.mjs`, `ric-191-admin-demo-isolation.spec.mjs`) across `admin-desktop`, `admin-tablet`, `admin-mobile`: **113 passed, 3 passed on retry (flaky), 10 viewport-specific skips, 0 failed** (`126` total). Proves all 4 pre-existing demo browser specs remain preserved alongside CR-03 demo-mode isolation (`3/3` demo-isolation tests passed on first try with `0` live `/v1/admin/*` requests and `0` `Authorization` headers).
+  - **Flaky desktop coach work-view investigation:** Running `tests/e2e/admin-ui.spec.mjs` `"coach work view hides privileged navigation"` with `--project=admin-desktop --repeat-each=5 --retries=0` produced **3 passed, 2 failed** (identical timeout waiting for `menuitemradio "COACH"` after clicking `"Switch active work view"`). Root cause: pre-existing test navigates to statically prerendered `/payments` with `{ waitUntil: "domcontentloaded" }` and clicks `"Switch active work view"` before Next.js client hydration attaches `onClick` under parallel worker contention (unrelated to CR-03/FINAL-01; `admin-ui.spec.mjs` is untouched).
+- **Admin Authenticated Mode CI Job (`NEXT_PUBLIC_ADMIN_DEMO_MODE=false`, `PLAYWRIGHT_ADMIN_BASE_URL=http://127.0.0.1:3196`)**:
+  - `tests/e2e/ric-191-admin-registrations.spec.mjs` (`admin-desktop`, `admin-tablet`, `admin-mobile`): **33 passed, 0 failed, 0 skipped, 0 retries** (`11 tests × 3 projects`) — covers **FINAL-01** fail-closed authentication revalidation (Org A records & mutation controls immediately unavailable while `/admin/session` is pending, delayed Org A reads/mutations cannot restore UI, superseded `/admin/session` 500 failure cannot clear newer valid Org B session, cross-tab logout during pending restoration discards late 200), CR-03 authenticated non-demo console, CR-17 predecessor-bound policy approval dialog & payload, CR-25 same-user/same-role organization switching, IR-03 missing-session-after-conflict-refresh honest unavailable notice with disabled Save & safe dismissal, authoritative session filter, POST search (`200`), pagination clamping, conflict-refresh `401` invalidation, `ConfirmDialog` Escape isolation, strict capacity validation, publish-conflict acknowledgement invalidation, editor-instance isolation, policy draft pending lock, and 7-viewport responsiveness (`360–1440px`).
+- **Web Ephemeral Feature-Enabled IR-05 Verification (`NEXT_PUBLIC_ENABLE_V1_ENROLMENT=1`, `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3195`)**:
+  - `tests/e2e/ric-191-deferred-enrolment.spec.mjs`: **3 passed, 0 failed, 0 skipped, 0 retries** — proves server `403 FEATURE_NOT_AVAILABLE` on `createPendingMembership` and `prepareCheckout` renders `<ComingSoonPanel />` with `0` `listAthleteMemberships` recovery lookups and no `/enrol/confirmation` navigation, while ordinary recoverable `409`/`503` errors preserve recovery lookup and confirmation fallback. *(Build immediately replaced by the default production Web build with no deferred flags.)*
+- **Web Default Production Mode (No Deferred Flags, `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3195`)**:
+  - `tests/e2e/ric-191-public-registration.spec.mjs` + companion `tests/e2e/ric-184-academy-parity-qa.spec.mjs` + `tests/e2e/web-preview.spec.mjs` (`chromium-desktop`, `chromium-tablet`, `chromium-mobile`): **167 passed, 4 viewport-specific skips, 0 failed, 0 retries** (`171` total; includes `21/21` `ric-191-public-registration.spec.mjs` passes across all 3 projects).
 
-### C. Fresh Disposable PostgreSQL 16 Combined Acceptance (Zero `TRUNCATE`, Auto-Cleaned)
-1. **RIC-191 Integrated Acceptance** ([`tests/integration/ric-191-integrated-acceptance.mjs`](../../tests/integration/ric-191-integrated-acceptance.mjs)):
-   - Fresh uniquely named disposable container (`khlim-ric191_1795619332_32446-pg1`, database `khlim_ric191_1795619332_32446_acc_test`, ephemeral loopback port `127.0.0.1:55005`).
-   - Deployed all **19** Prisma migrations cleanly and explicitly verified both frozen RIC-190 migrations in order (`20261125000000_academy_registration_v1`, `20261126000000_academy_registration_lock_corrections`).
-   - **12/12 steps PASSED** (real PostgreSQL 16 + real NestJS `AppModule` + built `@khlim/web` & `@khlim/admin`):
-     1. `SUPER_ADMIN` creates `SYNTHETIC-V1` consent policy draft in PostgreSQL.
-     2. `SUPER_ADMIN` approves `SYNTHETIC-V1` (verified real API HTTP `403` for `ACADEMY_ADMIN`).
-     3. Staff creates & publishes synthetic training session (`capacity = 1`) with initially unchecked approvals.
-     4. Parent submits public registration via `/academy` → `/academy/register` → real HTTP `201` (`KAR-6980QDXX`).
-     5. Parent receives non-reserving receipt (`reservesPlace: false`).
-     6. Admin locates `KAR-6980QDXX` via authoritative session filter & Malaysian local phone `POST /search` (HTTP `200`, HMAC blind index).
-     7. Admin confirms `KAR-6980QDXX` (`RECEIVED → CONFIRMED`).
-     8. Confirmed seat count updates authoritatively to `1 / 1 confirmed` (`0 remaining`).
-     9. Capacity enforcement blocks confirming a 2nd registration (`CAPACITY_EXCEEDED`) and rejects new public submission (`409 SESSION_FULL`).
-     10. Terminal session closure rejects new submission (`409 SESSION_NOT_AVAILABLE`).
-     11. Identical `Idempotency-Key` replay returns HTTP `200` (`KAR-6980QDXX`) even after closure.
-     12. Retiring current policy `SYNTHETIC-V1` immediately closes public registration (`registrationOpen: false`).
+### C. Fresh Disposable PostgreSQL 16 Suites (Current Remediation Pass — Zero `TRUNCATE`, Auto-Cleaned)
+1. **Full 9-File Persistence & Security Integrity Suite (`pnpm test:pre-alpha:persistence`)**:
+   - Fresh uniquely named disposable container (`khlim-ric191_final_1795836967_16238-pg1`, database `khlim_ric191_final_1795836967_16238_persist_test`, ephemeral loopback port `127.0.0.1:55005`), deploying all **19** Prisma migrations cleanly.
+   - Executed the exact 9-file CI persistence command (`supabase-data-api-rls-lockdown`, `pre-alpha-persistence-integrity`, `admin-governance-persistence`, `organization-tenancy-isolation`, `organization-finance-isolation`, `organization-access-editorial-isolation`, `phase-2-admin-leads`, `academy-registration-v1`, `v1-deferred-feature-gates`): **68 passed, 0 failed, 0 skipped, 0 cancelled** (reconciling all 66 historical persistence tests plus 2 new CR-17/CR-25 real PostgreSQL tests).
    - Container destroyed cleanly via `trap cleanup EXIT`.
-2. **PR #129 Server-Side Deferred Feature Gates DB Test** (`tests/integration/v1-deferred-feature-gates.test.mjs`):
-   - Second fresh uniquely named disposable container (`khlim-ric191_1795619332_32446-pg2`, database `khlim_ric191_1795619332_32446_gates_test`, ephemeral loopback port `127.0.0.1:55006`), deploying all **19** Prisma migrations cleanly.
-   - **4/4 tests PASSED (`0 failed, 0 skipped`)** proving disabled paid enrolment/checkout and parent portal routes fail closed with HTTP `403 FEATURE_NOT_AVAILABLE` and write zero rows while RIC-191 registration, `/me`, offerings, webhooks, and reconciliation remain unaffected.
+2. **Final Modified RIC-191 Integrated Acceptance (Post-FINAL-01)** ([`tests/integration/ric-191-integrated-acceptance.mjs`](../../tests/integration/ric-191-integrated-acceptance.mjs)):
+   - Fresh uniquely named empty disposable container (`khlim-ric191_final_1795836967_16238-pg2`, database `khlim_ric191_final_1795836967_16238_acc_test`, ephemeral loopback port `127.0.0.1:55006`), deploying all **19** Prisma migrations cleanly and explicitly verifying both frozen RIC-190 migrations in `_prisma_migrations`.
+   - Executed against real NestJS `AppModule`, built `@khlim/web` (zero interception), and built authenticated `@khlim/admin` (`NEXT_PUBLIC_ADMIN_DEMO_MODE=false`, zero Playwright HTTP route interception, including FINAL-01 fail-closed auth revalidation), with fail-closed IR-01 listener ownership verification and IR-02 driver-level database identity validation active.
+   - **12/12 steps PASSED** (`KAR-QECJ1MZ3`, over-confirmation blocked on `KAR-WHP7W7RC`).
    - Container destroyed cleanly via `trap cleanup EXIT`.
-3. **Database Hygiene Confirmation:** No persistent or hosted database was touched at any stage; earlier and current migration checks ran strictly against freshly provisioned disposable local Docker PostgreSQL 16 containers.
+3. **Database Hygiene Confirmation:** No persistent or hosted database was touched at any stage; all database tests ran strictly against freshly provisioned disposable local Docker PostgreSQL 16 containers on ephemeral loopback ports (`127.0.0.1:0:5432`).
+
+### D. Historical Pre-Remediation Baseline Reference (Superseded by Sections A–C Above)
+- Earlier baseline validation on `3470201cedd59c47c445538ab6a75f0acd03b38f` prior to CR-03/CR-17/CR-25 and IR-01–IR-06 remediation had recorded: local persistence 66/66, 19/19 migrations, frontend unit tests 7/7, public Playwright 18/18, and earlier combined acceptance (`KAR-6980QDXX`) running `@khlim/admin` in demo mode with Playwright Bearer injection. Those historical results are superseded by the current remediation results in Sections A–C above.
 
 ---
 

@@ -12,22 +12,26 @@
  * - REAL: Built NestJS `AppModule`, PostgreSQL database with deployed Prisma migrations,
  *   database triggers/constraints/RLS, HMAC blind-index phone search, optimistic concurrency,
  *   server-side RBAC/AAL2 guards (including real HTTP 403 for `ACADEMY_ADMIN` on policy approve),
- *   built `@khlim/web` (zero request interception), and built `@khlim/admin`.
+ *   built `@khlim/web` (zero request interception), and built authenticated `@khlim/admin`
+ *   (`NEXT_PUBLIC_ADMIN_DEMO_MODE=false`, zero request interception).
  * - SIMULATED (strictly in-process for local testing without hosted Supabase):
  *   1. `SupabaseJwtService.verify` is stubbed in-process to recognize two synthetic AAL2 staff tokens
  *      (`synthetic-aal2-super-admin` -> SUPER_ADMIN, `synthetic-aal2-academy-admin` -> ACADEMY_ADMIN)
  *      backed by real `User` and `OrganizationMembership` rows in the disposable PostgreSQL database.
- *   2. Playwright attaches `Authorization: Bearer synthetic-aal2-super-admin` on `/v1/admin/**` requests
- *      and calls `route.continue({ headers })` so 100% of HTTP traffic hits the real NestJS server.
+ *   2. Playwright seeds a synthetic future-expiring session in `localStorage["khlim_admin_supabase_session"]`
+ *      so authenticated `@khlim/admin` reads `access_token: synthetic-aal2-super-admin` locally and
+ *      talks directly to the real NestJS server (`/v1/admin/session` and `/v1/admin/academy/**`)
+ *      with zero Playwright HTTP interception.
  *
  * Usage: see `docs/implementation/ric-191-integrated-acceptance-procedure.md`.
  */
 
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";
+import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -52,13 +56,23 @@ const WEB_URL = `http://127.0.0.1:${WEB_PORT}`;
 const ADMIN_URL = `http://127.0.0.1:${ADMIN_PORT}`;
 const API_URL = `http://127.0.0.1:${API_PORT}/v1`;
 
-function assertSafeDisposableLocalDatabase() {
-  if (process.env.KHLIM_TEST_DATABASE !== "1") {
+const LOOPBACK_URL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+const LOOPBACK_PG_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
+const ADMIN_SUPABASE_SESSION_STORAGE_KEY = "khlim_admin_supabase_session";
+
+function normalizeHostValue(value) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase();
+}
+
+export function assertSafeDisposableLocalDatabase(env = process.env) {
+  if (env.KHLIM_TEST_DATABASE !== "1") {
     throw new Error(
       "Refusing to run: set KHLIM_TEST_DATABASE=1 to opt into disposable local PostgreSQL acceptance.",
     );
   }
-  const databaseUrl = process.env.DATABASE_URL;
+  const databaseUrl = env.DATABASE_URL;
   if (!databaseUrl) {
     throw new Error("Refusing to run: DATABASE_URL is required.");
   }
@@ -68,15 +82,122 @@ function assertSafeDisposableLocalDatabase() {
   } catch {
     throw new Error("Refusing to run: DATABASE_URL is not a valid URL.");
   }
-  if (!["localhost", "127.0.0.1", "::1", "[::1]"].includes(parsed.hostname)) {
+  if (!["postgres:", "postgresql:"].includes(parsed.protocol)) {
+    throw new Error(
+      `Refusing to run against unsupported database protocol "${parsed.protocol}". Only postgres:/postgresql: is permitted.`,
+    );
+  }
+
+  // Validate environment fallbacks that libpq / pg / Prisma may honor when omitted or overridden
+  for (const envHostKey of ["PGHOST", "PGHOSTADDR"]) {
+    const rawEnvHost = env[envHostKey];
+    if (
+      rawEnvHost !== undefined &&
+      rawEnvHost.trim() !== "" &&
+      !LOOPBACK_PG_HOSTS.has(normalizeHostValue(rawEnvHost))
+    ) {
+      throw new Error(
+        `Refusing to run with non-local ${envHostKey}="${rawEnvHost}". Only localhost/127.0.0.1/::1 is permitted.`,
+      );
+    }
+  }
+  if (
+    env.PGDATABASE !== undefined &&
+    env.PGDATABASE.trim() !== "" &&
+    !env.PGDATABASE.toLowerCase().includes("test")
+  ) {
+    throw new Error(
+      `Refusing to run with non-test PGDATABASE="${env.PGDATABASE}". Disposable database name must include "test".`,
+    );
+  }
+
+  // Validate URL authority host and every host/hostaddr query parameter override
+  const urlHost = normalizeHostValue(parsed.hostname);
+  if (!urlHost || !LOOPBACK_URL_HOSTS.has(urlHost)) {
     throw new Error(
       `Refusing to run against non-local database host "${parsed.hostname}". Only localhost/127.0.0.1/::1 is permitted.`,
     );
   }
-  const dbName = parsed.pathname.replace(/^\//, "");
-  if (!dbName.toLowerCase().includes("test")) {
+  for (const [paramKey, paramValue] of parsed.searchParams.entries()) {
+    const keyLower = paramKey.toLowerCase();
+    if (keyLower === "host" || keyLower === "hostaddr") {
+      const normalized = normalizeHostValue(paramValue);
+      if (!normalized || !LOOPBACK_URL_HOSTS.has(normalized)) {
+        throw new Error(
+          `Refusing to run against non-local database ${paramKey} override "${paramValue}". Only localhost/127.0.0.1/::1 is permitted.`,
+        );
+      }
+    }
+    if (keyLower === "database" || keyLower === "dbname") {
+      const normalizedDb = paramValue.trim().toLowerCase();
+      if (!normalizedDb || !normalizedDb.includes("test")) {
+        throw new Error(
+          `Refusing to run against non-test database ${paramKey} override "${paramValue}". Disposable database name must include "test".`,
+        );
+      }
+    }
+  }
+
+  // Validate using actual pg driver parser & Client configuration so effective host and database match
+  const apiRequire = createRequire(
+    path.join(REPO_ROOT, "apps/api/package.json"),
+  );
+  const { parseIntoClientConfig } = apiRequire("pg-connection-string");
+  const { Client } = apiRequire("pg");
+  const pgConfig = parseIntoClientConfig(databaseUrl);
+  const effectivePgHost = normalizeHostValue(pgConfig.host);
+  if (!effectivePgHost || !LOOPBACK_PG_HOSTS.has(effectivePgHost)) {
     throw new Error(
-      `Refusing to run against database "${dbName}". Disposable database name must include "test".`,
+      `Refusing to run against non-local effective pg host "${pgConfig.host ?? ""}". Only localhost/127.0.0.1/::1 is permitted.`,
+    );
+  }
+  if (
+    pgConfig.hostaddr !== undefined &&
+    !LOOPBACK_PG_HOSTS.has(normalizeHostValue(pgConfig.hostaddr))
+  ) {
+    throw new Error(
+      `Refusing to run against non-local effective pg hostaddr "${pgConfig.hostaddr}". Only localhost/127.0.0.1/::1 is permitted.`,
+    );
+  }
+  const effectivePgDb = String(pgConfig.database ?? "").trim();
+  if (!effectivePgDb || !effectivePgDb.toLowerCase().includes("test")) {
+    throw new Error(
+      `Refusing to run against effective pg database "${effectivePgDb}". Disposable database name must include "test".`,
+    );
+  }
+
+  // Instantiate pg.Client with the parsed driver config + env fallbacks to verify resolved driver identity
+  const driverClient = new Client({
+    ...pgConfig,
+    host: pgConfig.host || env.PGHOST,
+    database: pgConfig.database || env.PGDATABASE,
+  });
+  const driverHost = normalizeHostValue(driverClient.host);
+  const driverDb = String(driverClient.database ?? "").trim();
+  if (!driverHost || !LOOPBACK_PG_HOSTS.has(driverHost)) {
+    throw new Error(
+      `Refusing to run against non-local pg.Client host "${driverClient.host ?? ""}". Only localhost/127.0.0.1/::1 is permitted.`,
+    );
+  }
+  if (!driverDb || !driverDb.toLowerCase().includes("test")) {
+    throw new Error(
+      `Refusing to run against non-test pg.Client database "${driverDb}". Disposable database name must include "test".`,
+    );
+  }
+
+  let decodedPathDb;
+  try {
+    decodedPathDb = decodeURIComponent(
+      parsed.pathname.replace(/^\//, ""),
+    ).trim();
+  } catch {
+    throw new Error(
+      "Refusing to run: DATABASE_URL database path contains invalid percent-encoding.",
+    );
+  }
+  if (!decodedPathDb || !decodedPathDb.toLowerCase().includes("test")) {
+    throw new Error(
+      `Refusing to run against database "${decodedPathDb}". Disposable database name must include "test".`,
     );
   }
 }
@@ -93,13 +214,13 @@ function assertIntegratedArtifactsExist() {
   if (!fs.existsSync(apiEntry) || !fs.existsSync(regController)) {
     throw new Error(
       `RIC-190 backend build artifacts not found under ${REPO_ROOT}/apps/api/dist. ` +
-        "Until PR #126 is merged into main, run this harness from an isolated integration worktree combining PR #126 + PR #127 (see docs/implementation/ric-191-integrated-acceptance-procedure.md).",
+        "Build @khlim/api first (see docs/implementation/ric-191-integrated-acceptance-procedure.md).",
     );
   }
   if (!fs.existsSync(webBuild) || !fs.existsSync(adminBuild)) {
     throw new Error(
       `Built Next.js apps not found under ${REPO_ROOT}/apps/{web,admin}/.next. ` +
-        `Build with NEXT_PUBLIC_API_BASE_URL=${API_URL} NEXT_PUBLIC_ADMIN_DEMO_MODE=true pnpm build first.`,
+        `Build with NEXT_PUBLIC_API_BASE_URL=${API_URL} NEXT_PUBLIC_ADMIN_DEMO_MODE=false pnpm build first.`,
     );
   }
 }
@@ -181,18 +302,212 @@ function nextFutureSaturdayIso() {
   return candidate.toISOString().slice(0, 10);
 }
 
-async function waitForHttpReady(url, timeoutMs = 30_000) {
+export async function assertLoopbackPortAvailable(port, label) {
+  await new Promise((resolve, reject) => {
+    const probe = net.createServer();
+    probe.unref();
+    probe.once("error", (err) => {
+      if (err && err.code === "EADDRINUSE") {
+        reject(
+          new Error(
+            `Refusing to start ${label}: loopback port 127.0.0.1:${port} is already occupied.`,
+          ),
+        );
+        return;
+      }
+      reject(err);
+    });
+    probe.listen(port, "127.0.0.1", () => {
+      probe.close((closeErr) => {
+        if (closeErr) reject(closeErr);
+        else resolve();
+      });
+    });
+  });
+}
+
+function collectProcessTreePids(rootPid) {
+  const pids = new Set([rootPid]);
+  try {
+    const output = execFileSync("ps", ["-eo", "pid=,ppid="], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    const childrenByParent = new Map();
+    for (const line of output.split("\n")) {
+      const match = /^\s*(\d+)\s+(\d+)\s*$/.exec(line);
+      if (!match) continue;
+      const pid = Number(match[1]);
+      const ppid = Number(match[2]);
+      if (!childrenByParent.has(ppid)) childrenByParent.set(ppid, []);
+      childrenByParent.get(ppid).push(pid);
+    }
+    const queue = [rootPid];
+    while (queue.length > 0) {
+      const current = queue.shift();
+      for (const childPid of childrenByParent.get(current) ?? []) {
+        if (!pids.has(childPid)) {
+          pids.add(childPid);
+          queue.push(childPid);
+        }
+      }
+    }
+  } catch {
+    // Fallback to root PID only if ps is unavailable
+  }
+  return pids;
+}
+
+export function getListeningPidsForPort(port) {
+  try {
+    const out = execFileSync(
+      "lsof",
+      ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-Fp"],
+      {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+    return out
+      .split("\n")
+      .filter((line) => line.startsWith("p"))
+      .map((line) => Number(line.slice(1)))
+      .filter((pid) => Number.isInteger(pid) && pid > 0);
+  } catch (err) {
+    // lsof exits with status 1 and empty stderr when installed but no listener is bound
+    if (
+      err &&
+      typeof err === "object" &&
+      err.status === 1 &&
+      !String(err.stderr ?? "").trim()
+    ) {
+      return [];
+    }
+    // Linux fallback when lsof is absent
+    try {
+      const ssOut = execFileSync("ss", ["-tlnp", `sport = :${port}`], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      const pids = new Set();
+      for (const match of ssOut.matchAll(/pid=(\d+)/g)) {
+        const pid = Number(match[1]);
+        if (Number.isInteger(pid) && pid > 0) pids.add(pid);
+      }
+      // If ss ran but could not reveal any PIDs (e.g. unprivileged container without CAP_SYS_PTRACE),
+      // return null so ownership verification fails closed.
+      return pids.size > 0 ? [...pids] : null;
+    } catch {
+      return null;
+    }
+  }
+}
+
+function makeFatalReadinessError(message) {
+  const err = new Error(message);
+  err.fatalReadiness = true;
+  return err;
+}
+
+export function verifyListenerOwnership({
+  port,
+  rootPid,
+  label,
+  getListeningPids = getListeningPidsForPort,
+  collectTreePids = collectProcessTreePids,
+}) {
+  if (!Number.isInteger(rootPid) || rootPid <= 0) {
+    throw makeFatalReadinessError(
+      `Fail-closed: spawned ${label} has no valid root PID (${String(rootPid)}) for port 127.0.0.1:${port}.`,
+    );
+  }
+  const listeningPids = getListeningPids(port);
+  if (!Array.isArray(listeningPids) || listeningPids.length === 0) {
+    throw makeFatalReadinessError(
+      `Fail-closed: unable to verify listener ownership on 127.0.0.1:${port} for ${label} (root PID ${rootPid}).`,
+    );
+  }
+  const ownedPids = collectTreePids(rootPid);
+  const allOwned = listeningPids.every((pid) => ownedPids.has(pid));
+  if (!allOwned) {
+    throw makeFatalReadinessError(
+      `Port 127.0.0.1:${port} is owned by PID(s) [${listeningPids.join(", ")}], not exclusively by spawned ${label} process tree (root PID ${rootPid}).`,
+    );
+  }
+  return listeningPids;
+}
+
+export async function waitForHttpReady(
+  url,
+  procHandle,
+  port,
+  label,
+  timeoutMsOrOptions = 30_000,
+) {
+  const options =
+    typeof timeoutMsOrOptions === "number"
+      ? { timeoutMs: timeoutMsOrOptions }
+      : (timeoutMsOrOptions ?? {});
+  const timeoutMs = options.timeoutMs ?? 30_000;
+  const requestTimeoutMs = options.requestTimeoutMs ?? 3_000;
+  const pollIntervalMs = options.pollIntervalMs ?? 300;
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const getListeningPids = options.getListeningPids ?? getListeningPidsForPort;
+  const collectTreePids = options.collectTreePids ?? collectProcessTreePids;
+
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    try {
-      const res = await fetch(url);
-      if (res.ok) return;
-    } catch {
-      // retry until deadline
+    if (procHandle.spawnError) {
+      throw makeFatalReadinessError(
+        `${label} failed to spawn: ${procHandle.spawnError.message}`,
+      );
     }
-    await new Promise((r) => setTimeout(r, 300));
+    if (
+      procHandle.child.exitCode !== null ||
+      procHandle.child.signalCode !== null
+    ) {
+      throw makeFatalReadinessError(
+        `${label} exited prematurely before becoming ready (code=${procHandle.child.exitCode}, signal=${procHandle.child.signalCode}). Output:\n${procHandle.getLogs()}`,
+      );
+    }
+    try {
+      const remainingMs = Math.max(100, deadline - Date.now());
+      const perAttemptTimeoutMs = Math.min(requestTimeoutMs, remainingMs);
+      const res = await fetchImpl(url, {
+        signal: AbortSignal.timeout(perAttemptTimeoutMs),
+      });
+      if (res.ok) {
+        if (
+          procHandle.child.exitCode !== null ||
+          procHandle.child.signalCode !== null
+        ) {
+          throw makeFatalReadinessError(
+            `${label} exited before ownership verification (code=${procHandle.child.exitCode}, signal=${procHandle.child.signalCode}).`,
+          );
+        }
+        verifyListenerOwnership({
+          port,
+          rootPid: procHandle.child.pid,
+          label,
+          getListeningPids,
+          collectTreePids,
+        });
+        return;
+      }
+    } catch (err) {
+      if (err && typeof err === "object" && err.fatalReadiness === true) {
+        throw err;
+      }
+      // retry transient network/startup/request-timeout failures until deadline
+    }
+    const waitMs = Math.min(pollIntervalMs, Math.max(0, deadline - Date.now()));
+    if (waitMs > 0) {
+      await new Promise((r) => setTimeout(r, waitMs));
+    }
   }
-  throw new Error(`Timed out waiting for ${url}`);
+  throw new Error(
+    `Timed out waiting for ${label} at ${url}. Output:\n${procHandle.getLogs()}`,
+  );
 }
 
 async function startRealNestApi() {
@@ -395,31 +710,57 @@ async function startRealNestApi() {
   return { app, prisma };
 }
 
-function startNextServer(pkgFilter, port) {
+const ownedChildHandles = new Set();
+
+function startNextServer(appRelDir, port, ownedRegistry = ownedChildHandles) {
+  const appDir = path.join(REPO_ROOT, appRelDir);
+  const appRequire = createRequire(path.join(appDir, "package.json"));
+  const nextBin = appRequire.resolve("next/dist/bin/next");
+
+  const logs = [];
+  const pushLog = (chunk) => {
+    const text = chunk.toString();
+    logs.push(text);
+    if (logs.length > 40) logs.shift();
+  };
+
   const child = spawn(
-    "pnpm",
-    [
-      "--filter",
-      pkgFilter,
-      "exec",
-      "next",
-      "start",
-      "-H",
-      "127.0.0.1",
-      "-p",
-      String(port),
-    ],
+    process.execPath,
+    [nextBin, "start", "-H", "127.0.0.1", "-p", String(port)],
     {
-      cwd: REPO_ROOT,
+      cwd: appDir,
       stdio: ["ignore", "pipe", "pipe"],
       env: { ...process.env },
     },
   );
-  return child;
+  const handle = {
+    child,
+    spawnError: null,
+    getLogs: () => logs.join("").slice(-4000),
+  };
+  ownedRegistry.add(handle);
+  child.once("exit", () => {
+    ownedRegistry.delete(handle);
+  });
+  child.stdout?.on("data", pushLog);
+  child.stderr?.on("data", pushLog);
+  child.once("error", (err) => {
+    handle.spawnError = err;
+    ownedRegistry.delete(handle);
+  });
+  return handle;
 }
 
-async function stopChild(child) {
-  if (!child || child.killed) return;
+export async function stopOwnedChild(
+  handle,
+  ownedRegistry = ownedChildHandles,
+) {
+  if (!handle || !ownedRegistry.has(handle)) return false;
+  const child = handle.child;
+  if (!child || child.killed || child.exitCode !== null) {
+    ownedRegistry.delete(handle);
+    return false;
+  }
   child.kill("SIGTERM");
   await new Promise((resolve) => {
     const timer = setTimeout(() => {
@@ -435,6 +776,8 @@ async function stopChild(child) {
       resolve();
     });
   });
+  ownedRegistry.delete(handle);
+  return true;
 }
 
 async function runIntegratedSteps() {
@@ -449,18 +792,36 @@ async function runIntegratedSteps() {
   };
 
   try {
-    // Admin browser context attaches synthetic AAL2 Bearer token ONLY and forwards all traffic to real API
+    // Authenticated Admin browser context seeds a synthetic local session for the real non-demo
+    // @khlim/admin build; 100% of HTTP requests flow directly to NestJS with zero route interception.
     const adminContext = await browser.newContext({
       viewport: { width: 1280, height: 900 },
     });
+    const sessionExpiresAt = Math.floor(Date.now() / 1000) + 3600;
+    await adminContext.addInitScript(
+      ({ storageKey, token, expiresAt }) => {
+        window.localStorage.setItem(
+          storageKey,
+          JSON.stringify({
+            access_token: token,
+            refresh_token: "synthetic-int-refresh-token",
+            expires_in: 3600,
+            expires_at: expiresAt,
+            token_type: "bearer",
+            user: {
+              id: "ric191-int-super-admin",
+              email: "super.int@example.test",
+            },
+          }),
+        );
+      },
+      {
+        storageKey: ADMIN_SUPABASE_SESSION_STORAGE_KEY,
+        token: SUPER_ADMIN_TOKEN,
+        expiresAt: sessionExpiresAt,
+      },
+    );
     const adminPage = await adminContext.newPage();
-    await adminPage.route(`${API_URL}/admin/**`, async (route) => {
-      const headers = {
-        ...route.request().headers(),
-        authorization: `Bearer ${SUPER_ADMIN_TOKEN}`,
-      };
-      await route.continue({ headers });
-    });
 
     // Public parent context has zero interception (100% direct to real API)
     const webContext = await browser.newContext({
@@ -477,10 +838,20 @@ async function runIntegratedSteps() {
       "Registration must be closed before policy approval",
     );
 
-    // Step 1: Create synthetic consent policy via Admin UI
+    // Step 1: Create synthetic consent policy via authenticated Admin UI
     await adminPage.goto(`${ADMIN_URL}/registrations`, {
       waitUntil: "networkidle",
     });
+    if (
+      await adminPage
+        .getByTestId("registrations-demo-unavailable")
+        .isVisible()
+        .catch(() => false)
+    ) {
+      throw new Error(
+        "@khlim/admin was built with NEXT_PUBLIC_ADMIN_DEMO_MODE=true. Rebuild with NEXT_PUBLIC_ADMIN_DEMO_MODE=false for integrated acceptance.",
+      );
+    }
     await adminPage.getByRole("tab", { name: /Consent Policies/i }).click();
     await adminPage
       .getByTestId("no-current-approved-policy-card")
@@ -520,7 +891,11 @@ async function runIntegratedSteps() {
           Authorization: `Bearer ${ACADEMY_ADMIN_TOKEN}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ expectedVersion: 1 }),
+        body: JSON.stringify({
+          expectedVersion: 1,
+          expectedApprovedPolicyId: null,
+          expectedApprovedPolicyVersion: null,
+        }),
       },
     );
     assert.equal(
@@ -884,6 +1259,11 @@ async function runIntegratedSteps() {
 async function main() {
   assertSafeDisposableLocalDatabase();
   assertIntegratedArtifactsExist();
+  await Promise.all([
+    assertLoopbackPortAvailable(API_PORT, "NestJS API"),
+    assertLoopbackPortAvailable(WEB_PORT, "@khlim/web"),
+    assertLoopbackPortAvailable(ADMIN_PORT, "@khlim/admin"),
+  ]);
 
   let nestHandle = null;
   let webProc = null;
@@ -891,24 +1271,35 @@ async function main() {
 
   try {
     nestHandle = await startRealNestApi();
-    webProc = startNextServer("@khlim/web", WEB_PORT);
-    adminProc = startNextServer("@khlim/admin", ADMIN_PORT);
+    webProc = startNextServer("apps/web", WEB_PORT);
+    adminProc = startNextServer("apps/admin", ADMIN_PORT);
 
     await Promise.all([
-      waitForHttpReady(`${WEB_URL}/academy`),
-      waitForHttpReady(`${ADMIN_URL}/registrations`),
+      waitForHttpReady(`${WEB_URL}/academy`, webProc, WEB_PORT, "@khlim/web"),
+      waitForHttpReady(
+        `${ADMIN_URL}/registrations`,
+        adminProc,
+        ADMIN_PORT,
+        "@khlim/admin",
+      ),
     ]);
 
     await runIntegratedSteps();
   } finally {
-    await Promise.all([stopChild(webProc), stopChild(adminProc)]);
+    await Promise.all([stopOwnedChild(webProc), stopOwnedChild(adminProc)]);
     if (nestHandle?.app) {
       await nestHandle.app.close().catch(() => undefined);
     }
   }
 }
 
-main().catch((error) => {
-  console.error("RIC-191 INTEGRATED ACCEPTANCE FAILED:", error);
-  process.exit(1);
-});
+const isDirectEntry =
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isDirectEntry) {
+  main().catch((error) => {
+    console.error("RIC-191 INTEGRATED ACCEPTANCE FAILED:", error);
+    process.exit(1);
+  });
+}

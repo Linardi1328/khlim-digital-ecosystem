@@ -1,7 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
-import { useFamily } from "../../lib/family-context";
+import React, { useEffect, useRef, useState } from "react";
+import { useAuth } from "../../lib/auth-context";
+import { isStaleAuthContextError, useFamily } from "../../lib/family-context";
+import { buildWebAuthContextKey } from "../../lib/family-session-isolation";
 import { useI18n } from "../../lib/i18n-context";
 import { Alert } from "../ui/alert";
 import { Dialog } from "../ui/dialog";
@@ -10,12 +12,33 @@ import { Button } from "../ui/button";
 
 export function ChildSwitcher() {
   const { t } = useI18n();
+  const { isAuthenticated, account } = useAuth();
   const { athletes, activeChild, setActiveChild, addChild } = useFamily();
+  const authContextKey = buildWebAuthContextKey(isAuthenticated, account?.id);
+  const authGenRef = useRef(0);
+  const isMountedRef = useRef(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [newChildName, setNewChildName] = useState("");
   const [newChildDob, setNewChildDob] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      authGenRef.current += 1;
+    };
+  }, []);
+
+  useEffect(() => {
+    authGenRef.current += 1;
+    setModalOpen(false);
+    setNewChildName("");
+    setNewChildDob("");
+    setIsSaving(false);
+    setError("");
+  }, [authContextKey]);
 
   const handleAddChild = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,6 +47,7 @@ export function ChildSwitcher() {
       return;
     }
 
+    const authGen = authGenRef.current;
     setIsSaving(true);
     setError("");
     try {
@@ -31,17 +55,27 @@ export function ChildSwitcher() {
         displayName: newChildName.trim(),
         dateOfBirth: newChildDob,
       });
+      if (!isMountedRef.current || authGenRef.current !== authGen) return;
       setNewChildName("");
       setNewChildDob("");
       setModalOpen(false);
     } catch (caught) {
+      if (
+        !isMountedRef.current ||
+        authGenRef.current !== authGen ||
+        isStaleAuthContextError(caught)
+      ) {
+        return;
+      }
       setError(
         caught instanceof Error
           ? caught.message
           : t("enrol.error.createAthlete"),
       );
     } finally {
-      setIsSaving(false);
+      if (isMountedRef.current && authGenRef.current === authGen) {
+        setIsSaving(false);
+      }
     }
   };
 

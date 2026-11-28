@@ -12,6 +12,7 @@ import type { ProgrammeItem, VenueItem } from "../../lib/types";
 import {
   AGE_REFERENCE_RULE_OPTIONS,
   ISO_WEEKDAY_OPTIONS,
+  MAX_SESSION_CAPACITY,
   SESSION_RECURRENCE_OPTIONS,
   buildSessionCreatePayload,
   buildSessionUpdatePayload,
@@ -22,10 +23,12 @@ import {
   formatAgeReferenceRule,
   formatFieldErrorMessage,
   formatIsoWeekday,
+  formatPublicationStateLabel,
   formatSessionRecurrence,
   listAdminRegistrationSessions,
   listAuthoritativeProgrammes,
   listAuthoritativeVenues,
+  parseStrictSessionCapacity,
   publishAdminRegistrationSession,
   sessionDtoToFormState,
   updateAdminRegistrationSession,
@@ -98,6 +101,14 @@ export function AdminTrainingSessionsTab({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [staleConflict, setStaleConflict] = useState<{
+    status: "loading" | "loaded" | "missing" | "failed";
+    staleVersion: number;
+    attemptedForm: SessionFormState;
+    refreshedSession: AdminRegistrationSessionDto | null;
+  } | null>(null);
+  const [conflictComparison, setConflictComparison] =
+    useState<SessionFormState | null>(null);
 
   // Publish confirmation dialog state
   const [publishTarget, setPublishTarget] =
@@ -113,6 +124,7 @@ export function AdminTrainingSessionsTab({
   const [closing, setClosing] = useState(false);
 
   const authGenerationRef = useRef(0);
+  const editorInstanceIdRef = useRef(0);
   const isMountedRef = useRef(true);
   const listSeq = useRef(0);
   const listAbortRef = useRef<AbortController | null>(null);
@@ -128,6 +140,7 @@ export function AdminTrainingSessionsTab({
     return () => {
       isMountedRef.current = false;
       authGenerationRef.current += 1;
+      editorInstanceIdRef.current += 1;
       listAbortRef.current?.abort();
       selectorsAbortRef.current?.abort();
     };
@@ -135,6 +148,7 @@ export function AdminTrainingSessionsTab({
 
   useLayoutEffect(() => {
     authGenerationRef.current += 1;
+    editorInstanceIdRef.current += 1;
     listSeq.current += 1;
     listAbortRef.current?.abort();
     selectorsAbortRef.current?.abort();
@@ -147,6 +161,8 @@ export function AdminTrainingSessionsTab({
     setBanner(null);
     setDrawerMode(null);
     setEditingSession(null);
+    setStaleConflict(null);
+    setConflictComparison(null);
     setPublishTarget(null);
     setCloseTarget(null);
     setScheduleApproved(false);
@@ -159,13 +175,15 @@ export function AdminTrainingSessionsTab({
     setClosing(false);
   }, [authContextKey]);
 
-  const fetchSessions = useCallback(async () => {
+  const fetchSessions = useCallback(async (): Promise<
+    AdminRegistrationSessionDto[] | null
+  > => {
     void authContextKey;
     const authGen = authGenerationRef.current;
     if (!isEligible) {
       setSessions([]);
       setLoading(false);
-      return;
+      return null;
     }
 
     listAbortRef.current?.abort();
@@ -178,17 +196,18 @@ export function AdminTrainingSessionsTab({
 
     try {
       const response = await listAdminRegistrationSessions(controller.signal);
-      if (!isCurrentAuthGen(authGen) || seq !== listSeq.current) return;
+      if (!isCurrentAuthGen(authGen) || seq !== listSeq.current) return null;
       const items = Array.isArray(response.items) ? response.items : [];
       setSessions(items);
       onSessionsChange(items);
+      return items;
     } catch (error: unknown) {
       if (
         controller.signal.aborted ||
         !isCurrentAuthGen(authGen) ||
         seq !== listSeq.current
       ) {
-        return;
+        return null;
       }
       const classified = classifyAdminRegistrationError(error);
       if (
@@ -200,9 +219,10 @@ export function AdminTrainingSessionsTab({
         onSessionsChange([]);
         onAuthError(classified.kind, classified.message);
         setLoading(false);
-        return;
+        return null;
       }
       setLoadError(classified.message);
+      return null;
     } finally {
       if (isCurrentAuthGen(authGen) && seq === listSeq.current) {
         setLoading(false);
@@ -223,72 +243,150 @@ export function AdminTrainingSessionsTab({
     };
   }, [fetchSessions]);
 
-  const loadReferenceSelectors = useCallback(async () => {
-    const authGen = authGenerationRef.current;
-    selectorsAbortRef.current?.abort();
-    const controller = new AbortController();
-    selectorsAbortRef.current = controller;
-    setSelectorsLoading(true);
-    setSelectorsError(null);
-    try {
-      const [progItems, venueItems] = await Promise.all([
-        listAuthoritativeProgrammes(controller.signal),
-        listAuthoritativeVenues(controller.signal),
-      ]);
-      if (controller.signal.aborted || !isCurrentAuthGen(authGen)) return;
-      setProgrammes(Array.isArray(progItems) ? progItems : []);
-      setVenues(Array.isArray(venueItems) ? venueItems : []);
-    } catch (error: unknown) {
-      if (controller.signal.aborted || !isCurrentAuthGen(authGen)) return;
-      const classified = classifyAdminRegistrationError(error);
-      if (
-        classified.kind === "UNAUTHENTICATED" ||
-        classified.kind === "FORBIDDEN"
-      ) {
-        authGenerationRef.current += 1;
-        onAuthError(classified.kind, classified.message);
-        setSelectorsLoading(false);
-        return;
+  const loadReferenceSelectors = useCallback(
+    async (expectedInstanceId?: number) => {
+      const authGen = authGenerationRef.current;
+      const instanceId = expectedInstanceId ?? editorInstanceIdRef.current;
+      selectorsAbortRef.current?.abort();
+      const controller = new AbortController();
+      selectorsAbortRef.current = controller;
+      setSelectorsLoading(true);
+      setSelectorsError(null);
+      try {
+        const [progItems, venueItems] = await Promise.all([
+          listAuthoritativeProgrammes(controller.signal),
+          listAuthoritativeVenues(controller.signal),
+        ]);
+        if (
+          controller.signal.aborted ||
+          !isCurrentAuthGen(authGen) ||
+          editorInstanceIdRef.current !== instanceId
+        ) {
+          return;
+        }
+        setProgrammes(Array.isArray(progItems) ? progItems : []);
+        setVenues(Array.isArray(venueItems) ? venueItems : []);
+      } catch (error: unknown) {
+        if (
+          controller.signal.aborted ||
+          !isCurrentAuthGen(authGen) ||
+          editorInstanceIdRef.current !== instanceId
+        ) {
+          return;
+        }
+        const classified = classifyAdminRegistrationError(error);
+        if (
+          classified.kind === "UNAUTHENTICATED" ||
+          classified.kind === "FORBIDDEN"
+        ) {
+          authGenerationRef.current += 1;
+          onAuthError(classified.kind, classified.message);
+          setSelectorsLoading(false);
+          return;
+        }
+        setSelectorsError(
+          "Unable to load authoritative programmes and venues. Retry before creating or editing.",
+        );
+      } finally {
+        if (
+          !controller.signal.aborted &&
+          isCurrentAuthGen(authGen) &&
+          editorInstanceIdRef.current === instanceId
+        ) {
+          setSelectorsLoading(false);
+        }
       }
-      setSelectorsError(
-        "Unable to load authoritative programmes and venues. Retry before creating or editing.",
-      );
-    } finally {
-      if (!controller.signal.aborted && isCurrentAuthGen(authGen)) {
-        setSelectorsLoading(false);
-      }
-    }
-  }, [isCurrentAuthGen, onAuthError]);
+    },
+    [isCurrentAuthGen, onAuthError],
+  );
 
   const openCreateDrawer = () => {
+    const instanceId = ++editorInstanceIdRef.current;
     setBanner(null);
     setEditingSession(null);
     setForm(createEmptySessionForm());
     setFieldErrors({});
     setFormError(null);
+    setStaleConflict(null);
+    setConflictComparison(null);
+    setSaving(false);
     setDrawerMode("create");
-    void loadReferenceSelectors();
+    void loadReferenceSelectors(instanceId);
   };
 
   const openEditDrawer = (session: AdminRegistrationSessionDto) => {
     if (session.publicationState === "CLOSED") return;
+    const instanceId = ++editorInstanceIdRef.current;
     setBanner(null);
     setEditingSession(session);
     setForm(sessionDtoToFormState(session));
     setFieldErrors({});
     setFormError(null);
+    setStaleConflict(null);
+    setConflictComparison(null);
+    setSaving(false);
     setDrawerMode("edit");
     if (session.publicationState === "DRAFT") {
-      void loadReferenceSelectors();
+      void loadReferenceSelectors(instanceId);
     }
   };
 
   const closeDrawer = () => {
+    editorInstanceIdRef.current += 1;
     selectorsAbortRef.current?.abort();
     setDrawerMode(null);
     setEditingSession(null);
+    setStaleConflict(null);
+    setConflictComparison(null);
+    setSaving(false);
     setFieldErrors({});
     setFormError(null);
+  };
+
+  const handleLoadRefreshedSessionIntoEditor = () => {
+    const refreshed = staleConflict?.refreshedSession;
+    if (!refreshed || refreshed.publicationState === "CLOSED") return;
+    const instanceId = editorInstanceIdRef.current;
+    setConflictComparison(staleConflict.attemptedForm);
+    setEditingSession(refreshed);
+    setForm(sessionDtoToFormState(refreshed));
+    setStaleConflict(null);
+    setFormError(null);
+    setFieldErrors({});
+    if (refreshed.publicationState === "DRAFT") {
+      void loadReferenceSelectors(instanceId);
+    }
+  };
+
+  const handleRetryStaleConflictRefresh = async () => {
+    if (!editingSession || !staleConflict) return;
+    const authGen = authGenerationRef.current;
+    const instanceId = editorInstanceIdRef.current;
+    const targetId = editingSession.id;
+    setStaleConflict((prev) => (prev ? { ...prev, status: "loading" } : null));
+    const refreshedItems = await fetchSessions();
+    if (
+      !isCurrentAuthGen(authGen) ||
+      editorInstanceIdRef.current !== instanceId
+    ) {
+      return;
+    }
+    const refreshedRow =
+      refreshedItems?.find((item) => item.id === targetId) ?? null;
+    setStaleConflict((prev) =>
+      prev
+        ? {
+            ...prev,
+            status:
+              refreshedItems === null
+                ? "failed"
+                : refreshedRow
+                  ? "loaded"
+                  : "missing",
+            refreshedSession: refreshedRow,
+          }
+        : null,
+    );
   };
 
   const updateFormField = <K extends keyof SessionFormState>(
@@ -312,7 +410,7 @@ export function AdminTrainingSessionsTab({
 
   const handleSaveSession = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (saving) return;
+    if (saving || Boolean(staleConflict)) return;
 
     setFormError(null);
     setFieldErrors({});
@@ -335,9 +433,9 @@ export function AdminTrainingSessionsTab({
     ) {
       localErrors.venueId = "Venue is required.";
     }
-    const cap = Number.parseInt(form.capacity.trim(), 10);
-    if (!form.capacity.trim() || !Number.isInteger(cap) || cap < 1) {
-      localErrors.capacity = "Capacity must be a positive whole number.";
+    const cap = parseStrictSessionCapacity(form.capacity);
+    if (cap === null) {
+      localErrors.capacity = `Capacity must be a whole number between 1 and ${MAX_SESSION_CAPACITY}.`;
     }
     if (
       form.ageReferenceRule === "FIXED_DATE" &&
@@ -354,31 +452,42 @@ export function AdminTrainingSessionsTab({
     }
 
     const authGen = authGenerationRef.current;
+    const editorInstanceId = editorInstanceIdRef.current;
+    const submittedMode = drawerMode;
+    const submittedSession = editingSession;
+    const attemptedSnapshot: SessionFormState = { ...form };
     setSaving(true);
     try {
-      if (drawerMode === "create") {
+      if (submittedMode === "create") {
         const created = await createAdminRegistrationSession(
-          buildSessionCreatePayload(form),
+          buildSessionCreatePayload(attemptedSnapshot),
         );
         if (!isCurrentAuthGen(authGen)) return;
-        closeDrawer();
+        if (editorInstanceIdRef.current === editorInstanceId) {
+          closeDrawer();
+        }
         setBanner({
           variant: "success",
           message: `Draft session "${created.name}" created (v${created.version}).`,
         });
         await fetchSessions();
-      } else if (drawerMode === "edit" && editingSession) {
-        const patchPayload = buildSessionUpdatePayload(editingSession, form);
+      } else if (submittedMode === "edit" && submittedSession) {
+        const patchPayload = buildSessionUpdatePayload(
+          submittedSession,
+          attemptedSnapshot,
+        );
         if (!patchPayload) {
           setFormError("No changes detected to save.");
           return;
         }
         const updated = await updateAdminRegistrationSession(
-          editingSession.id,
+          submittedSession.id,
           patchPayload,
         );
         if (!isCurrentAuthGen(authGen)) return;
-        closeDrawer();
+        if (editorInstanceIdRef.current === editorInstanceId) {
+          closeDrawer();
+        }
         setBanner({
           variant: "success",
           message: `Session "${updated.name}" updated (v${updated.version}).`,
@@ -399,6 +508,13 @@ export function AdminTrainingSessionsTab({
         return;
       }
 
+      if (editorInstanceIdRef.current !== editorInstanceId) {
+        if (classified.kind === "STALE_VERSION") {
+          void fetchSessions();
+        }
+        return;
+      }
+
       if (classified.fieldErrors.length > 0) {
         const mapped: Record<string, string> = {};
         for (const fe of classified.fieldErrors) {
@@ -409,12 +525,45 @@ export function AdminTrainingSessionsTab({
 
       setFormError(classified.message);
 
-      if (classified.kind === "STALE_VERSION") {
-        // Refresh authoritative list so staff sees current version; never auto-replay
-        await fetchSessions();
+      if (
+        classified.kind === "STALE_VERSION" &&
+        submittedMode === "edit" &&
+        submittedSession
+      ) {
+        // Immediately disable Save on stale version and load latest row for explicit staff review
+        setStaleConflict({
+          status: "loading",
+          staleVersion: submittedSession.version,
+          attemptedForm: attemptedSnapshot,
+          refreshedSession: null,
+        });
+        const refreshedItems = await fetchSessions();
+        if (
+          !isCurrentAuthGen(authGen) ||
+          editorInstanceIdRef.current !== editorInstanceId
+        ) {
+          return;
+        }
+        const refreshedRow =
+          refreshedItems?.find((item) => item.id === submittedSession.id) ??
+          null;
+        setStaleConflict({
+          status:
+            refreshedItems === null
+              ? "failed"
+              : refreshedRow
+                ? "loaded"
+                : "missing",
+          staleVersion: submittedSession.version,
+          attemptedForm: attemptedSnapshot,
+          refreshedSession: refreshedRow,
+        });
       }
     } finally {
-      if (isCurrentAuthGen(authGen)) {
+      if (
+        isCurrentAuthGen(authGen) &&
+        editorInstanceIdRef.current === editorInstanceId
+      ) {
         setSaving(false);
       }
     }
@@ -469,13 +618,23 @@ export function AdminTrainingSessionsTab({
         setPublishing(false);
         return;
       }
-      setPublishError(classified.message);
       if (
         classified.kind === "STALE_VERSION" ||
         classified.kind === "INVALID_TRANSITION"
       ) {
+        // Invalidate stale publish confirmation & acknowledgements so staff must review the refreshed draft
+        setPublishTarget(null);
+        setScheduleApproved(false);
+        setAgeRuleApproved(false);
+        setPublishError(null);
+        setBanner({
+          variant: "warning",
+          message: `${classified.message} Reopen Publish from the refreshed draft to review and confirm the updated schedule.`,
+        });
         await fetchSessions();
+        return;
       }
+      setPublishError(classified.message);
     } finally {
       if (isCurrentAuthGen(authGen)) {
         setPublishing(false);
@@ -903,6 +1062,193 @@ export function AdminTrainingSessionsTab({
             </div>
           ) : null}
 
+          {staleConflict ? (
+            <div
+              role="alert"
+              data-testid="session-stale-conflict-panel"
+              style={{
+                padding: "12px 14px",
+                borderRadius: 8,
+                backgroundColor: "#FFFBEB",
+                border: "1px solid #FDE68A",
+                color: "#78350F",
+                fontSize: "0.82rem",
+                lineHeight: 1.5,
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
+              <strong>
+                Editor paused after version conflict (stale v
+                {staleConflict.staleVersion})
+              </strong>
+              {staleConflict.status === "loaded" &&
+              staleConflict.refreshedSession ? (
+                <>
+                  <div>
+                    Latest server version:{" "}
+                    <strong>v{staleConflict.refreshedSession.version}</strong> ·{" "}
+                    <strong>
+                      {formatPublicationStateLabel(
+                        staleConflict.refreshedSession.publicationState,
+                      )}
+                    </strong>
+                    {editingSession &&
+                    staleConflict.refreshedSession.publicationState !==
+                      editingSession.publicationState ? (
+                      <span>
+                        {" "}
+                        (publication state changed from{" "}
+                        {formatPublicationStateLabel(
+                          editingSession.publicationState,
+                        )}{" "}
+                        to{" "}
+                        {formatPublicationStateLabel(
+                          staleConflict.refreshedSession.publicationState,
+                        )}
+                        )
+                      </span>
+                    ) : null}
+                  </div>
+                  <div style={{ color: "#92400E" }}>
+                    Your attempted edits (Name:{" "}
+                    <strong>{staleConflict.attemptedForm.name || "—"}</strong>,
+                    Capacity:{" "}
+                    <strong>
+                      {staleConflict.attemptedForm.capacity || "—"}
+                    </strong>
+                    , Coach:{" "}
+                    <strong>
+                      {staleConflict.attemptedForm.coachDisplayName ||
+                        "Not set"}
+                    </strong>
+                    ) are preserved above for comparison.
+                  </div>
+                  {staleConflict.refreshedSession.publicationState ===
+                  "CLOSED" ? (
+                    <div style={{ color: "#991B1B", fontWeight: 600 }}>
+                      This session is now CLOSED and can no longer be edited.
+                    </div>
+                  ) : (
+                    <div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="primary"
+                        data-testid="reload-refreshed-session-btn"
+                        onClick={handleLoadRefreshedSessionIntoEditor}
+                      >
+                        Load Latest Version (v
+                        {staleConflict.refreshedSession.version}) into Editor
+                      </Button>
+                    </div>
+                  )}
+                </>
+              ) : staleConflict.status === "missing" ? (
+                <div
+                  data-testid="session-stale-missing-notice"
+                  style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                >
+                  <div style={{ color: "#991B1B", fontWeight: 600 }}>
+                    This training session is no longer available in the
+                    refreshed session list and cannot be saved from this editor.
+                  </div>
+                  <div style={{ color: "#92400E" }}>
+                    Your attempted edits (Name:{" "}
+                    <strong>{staleConflict.attemptedForm.name || "—"}</strong>,
+                    Capacity:{" "}
+                    <strong>
+                      {staleConflict.attemptedForm.capacity || "—"}
+                    </strong>
+                    , Coach:{" "}
+                    <strong>
+                      {staleConflict.attemptedForm.coachDisplayName ||
+                        "Not set"}
+                    </strong>
+                    ) remain visible above for reference.
+                  </div>
+                  <div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      data-testid="dismiss-missing-session-btn"
+                      onClick={closeDrawer}
+                    >
+                      Close Drawer
+                    </Button>
+                  </div>
+                </div>
+              ) : staleConflict.status === "failed" ? (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span>
+                    Could not load the latest session version. Retry loading
+                    before saving again.
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    data-testid="retry-stale-session-refresh-btn"
+                    onClick={() => void handleRetryStaleConflictRefresh()}
+                  >
+                    Retry Refresh
+                  </Button>
+                </div>
+              ) : (
+                <div>Loading latest session version for review...</div>
+              )}
+            </div>
+          ) : null}
+
+          {conflictComparison && !staleConflict ? (
+            <div
+              role="status"
+              data-testid="session-conflict-comparison"
+              style={{
+                padding: "10px 12px",
+                borderRadius: 8,
+                backgroundColor: "#F8FAFC",
+                border: "1px solid #CBD5E1",
+                color: "#334155",
+                fontSize: "0.8rem",
+                lineHeight: 1.45,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: 8,
+              }}
+            >
+              <div>
+                <strong>
+                  Loaded latest version (v{editingSession?.version}).
+                </strong>{" "}
+                Previous attempted values for comparison — Name:{" "}
+                {conflictComparison.name || "—"}, Capacity:{" "}
+                {conflictComparison.capacity || "—"}, Coach:{" "}
+                {conflictComparison.coachDisplayName || "Not set"}. Review the
+                refreshed fields before saving.
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => setConflictComparison(null)}
+              >
+                Dismiss
+              </Button>
+            </div>
+          ) : null}
+
           {drawerMode === "create" ? (
             <div>
               <label htmlFor="session-programme-id" style={labelStyle}>
@@ -945,10 +1291,11 @@ export function AdminTrainingSessionsTab({
             </div>
           ) : (
             <div>
-              <label style={labelStyle}>
+              <label htmlFor="session-programme-locked" style={labelStyle}>
                 Programme (locked after creation)
               </label>
               <input
+                id="session-programme-locked"
                 type="text"
                 readOnly
                 disabled
@@ -1391,7 +1738,7 @@ export function AdminTrainingSessionsTab({
               type="submit"
               variant="primary"
               data-testid="save-session-btn"
-              disabled={saving}
+              disabled={saving || Boolean(staleConflict)}
             >
               {saving
                 ? "Saving..."

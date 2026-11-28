@@ -22,21 +22,30 @@ export default function SchedulePage() {
   const [error, setError] = useState("");
   const [serverDeferred, setServerDeferred] = useState(false);
   useEffect(() => {
+    let active = true;
     if (!portalAvailable || serverDeferred) {
       setLoading(false);
       return;
     }
     apiService
       .listMySchedule()
-      .then(setSessions)
+      .then((items) => {
+        if (active) setSessions(items);
+      })
       .catch((caught) => {
+        if (!active) return;
         if (isFeatureNotAvailableError(caught)) {
           setServerDeferred(true);
           return;
         }
         setError(t("portal.schedule.error"));
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [portalAvailable, serverDeferred, t]);
 
   return (

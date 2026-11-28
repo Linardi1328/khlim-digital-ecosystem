@@ -332,6 +332,19 @@ function setStatus(
   });
 }
 
+function expectedPredecessor(policyRow) {
+  return {
+    expectedApprovedPolicyId: policyRow?.id ?? null,
+    expectedApprovedPolicyVersion: policyRow?.version ?? null,
+  };
+}
+
+async function currentApprovedInOrg(c, organizationId = ORG_A) {
+  return c.client.academyRegistrationPolicy.findFirst({
+    where: { organizationId, status: "APPROVED" },
+  });
+}
+
 async function approvePolicy(c, label) {
   const created = await api(c, "/admin/academy/registration-policies", {
     method: "POST",
@@ -339,13 +352,17 @@ async function approvePolicy(c, label) {
     body: { policyVersion: label, content: policyContent(label) },
   });
   assert.equal(created.status, 201, created.text);
+  const current = await currentApprovedInOrg(c);
   const approved = await api(
     c,
     `/admin/academy/registration-policies/${created.body.id}/approve`,
     {
       method: "POST",
       token: "mgmt",
-      body: { expectedVersion: created.body.version },
+      body: {
+        expectedVersion: created.body.version,
+        ...expectedPredecessor(current),
+      },
     },
   );
   assert.equal(approved.status, 201, approved.text);
@@ -399,13 +416,29 @@ test(
     const denied = await api(
       c,
       `/admin/academy/registration-policies/${policy.body.id}/approve`,
-      { method: "POST", token: "admin", body: { expectedVersion: 1 } },
+      {
+        method: "POST",
+        token: "admin",
+        body: {
+          expectedVersion: 1,
+          expectedApprovedPolicyId: null,
+          expectedApprovedPolicyVersion: null,
+        },
+      },
     );
     assert.equal(denied.status, 403);
     const approved = await api(
       c,
       `/admin/academy/registration-policies/${policy.body.id}/approve`,
-      { method: "POST", token: "mgmt", body: { expectedVersion: 1 } },
+      {
+        method: "POST",
+        token: "mgmt",
+        body: {
+          expectedVersion: 1,
+          expectedApprovedPolicyId: null,
+          expectedApprovedPolicyVersion: null,
+        },
+      },
     );
     assert.equal(approved.status, 201, approved.text);
     assert.equal(approved.body.status, "APPROVED");
@@ -1487,7 +1520,11 @@ test(
       [
         "POST",
         `/admin/academy/registration-policies/${policyB.id}/approve`,
-        { expectedVersion: 1 },
+        {
+          expectedVersion: 1,
+          expectedApprovedPolicyId: null,
+          expectedApprovedPolicyVersion: null,
+        },
       ],
     ]) {
       const res = await api(c, path, { method, body, token: "mgmt" });
@@ -2792,7 +2829,10 @@ test(
       {
         method: "POST",
         token: "mgmt",
-        body: { expectedVersion: draft1.version },
+        body: {
+          expectedVersion: draft1.version,
+          ...expectedPredecessor(oldPolicy),
+        },
       },
     );
     await waitForWaiters(c, baseline, 2, "approval waits for the share lock");
@@ -2869,11 +2909,12 @@ test(
 );
 
 test(
-  "F2: concurrent policy approvals are serialized to exactly one approved policy",
+  "F2: concurrent policy approvals with same predecessor are serialized — winner approves, stale loser gets 409 STALE_VERSION",
   { skip },
   async () => {
     const c = await ctx();
     await rotateTo();
+    const prior = await currentPolicyRow(c);
     const [d1, d2] = [
       await newDraftPolicy(c, `synthetic-ric190-${RUN}-c1`),
       await newDraftPolicy(c, `synthetic-ric190-${RUN}-c2`),
@@ -2890,7 +2931,10 @@ test(
       api(c, `/admin/academy/registration-policies/${draft.id}/approve`, {
         method: "POST",
         token: "mgmt",
-        body: { expectedVersion: draft.version },
+        body: {
+          expectedVersion: draft.version,
+          ...expectedPredecessor(prior),
+        },
       }),
     );
     await waitForWaiters(c, baseline, 2, "both approvals queued");
@@ -2898,21 +2942,36 @@ test(
     const results = await Promise.all(approvals);
     await holder.done;
     assert.deepEqual(
-      results.map((r) => r.status),
-      [201, 201],
+      results.map((r) => r.status).sort((a, b) => a - b),
+      [201, 409],
       JSON.stringify(results.map((r) => r.body)),
     );
+    const rejected = results.find((r) => r.status === 409);
+    assert.equal(rejected.body.code, "STALE_VERSION");
     const approved = await c.client.academyRegistrationPolicy.findMany({
       where: { organizationId: ORG_A, status: "APPROVED" },
     });
     assert.equal(approved.length, 1, "exactly one approved policy");
-    const losers = await c.client.academyRegistrationPolicy.findMany({
-      where: { id: { in: [d1.id, d2.id] }, status: "RETIRED" },
+    assert.ok(
+      [d1.id, d2.id].includes(approved[0].id),
+      "winning draft remains approved and was not silently retired",
+    );
+    const remainingDrafts = await c.client.academyRegistrationPolicy.findMany({
+      where: { id: { in: [d1.id, d2.id] }, status: "DRAFT" },
     });
     assert.equal(
-      losers.length,
+      remainingDrafts.length,
       1,
-      "the earlier approval was retired by the later one",
+      "stale losing draft remains DRAFT instead of silently retiring the winner",
+    );
+    assert.equal(
+      (
+        await c.client.academyRegistrationPolicy.findUnique({
+          where: { id: prior.id },
+        })
+      ).status,
+      "RETIRED",
+      "reviewed predecessor was retired by the winner",
     );
     currentConsent = approved[0].policyVersion;
     // Concurrent retirement of the same policy: exactly one succeeds.
@@ -3358,20 +3417,31 @@ test(
         {
           method: "POST",
           token: "superAdmin",
-          body: { expectedVersion: 1 },
+          body:
+            action === "approve"
+              ? {
+                  expectedVersion: 1,
+                  expectedApprovedPolicyId: null,
+                  expectedApprovedPolicyVersion: null,
+                }
+              : { expectedVersion: 1 },
         },
       );
       assert.equal(res.status, 404);
     }
 
     // Authorized AAL2 SUPER_ADMIN approves; AAL2 MANAGEMENT retires.
+    const currentBeforeSuperApprove = await currentApprovedInOrg(c);
     const approved = await api(
       c,
       `/admin/academy/registration-policies/${draft.id}/approve`,
       {
         method: "POST",
         token: "superAdmin",
-        body: { expectedVersion: draft.version },
+        body: {
+          expectedVersion: draft.version,
+          ...expectedPredecessor(currentBeforeSuperApprove),
+        },
       },
     );
     assert.equal(approved.status, 201, approved.text);
@@ -3730,13 +3800,17 @@ test(
           c,
           `synthetic-ric190-${RUN}-rp${policyCounter}`,
         );
+        const currentBeforeReplace = await currentApprovedInOrg(c);
         const res = await api(
           c,
           `/admin/academy/registration-policies/${draft.id}/approve`,
           {
             method: "POST",
             token: "mgmt",
-            body: { expectedVersion: draft.version },
+            body: {
+              expectedVersion: draft.version,
+              ...expectedPredecessor(currentBeforeReplace),
+            },
           },
         );
         assert.equal(res.status, 201, res.text);
@@ -3932,7 +4006,10 @@ test(
         api(c, `/admin/academy/registration-policies/${draft.id}/approve`, {
           method: "POST",
           token: "mgmt",
-          body: { expectedVersion: draft.version },
+          body: {
+            expectedVersion: draft.version,
+            ...expectedPredecessor(current),
+          },
         });
       const retire = () =>
         api(c, `/admin/academy/registration-policies/${current.id}/retire`, {
@@ -3951,28 +4028,40 @@ test(
       const [r1, r2] = await Promise.all([first, second]);
       const [approved, retired] =
         order === "approve-first" ? [r1, r2] : [r2, r1];
-      assert.equal(approved.status, 201, approved.text);
-      if (order === "approve-first") {
-        // Auto-retirement increments the version, so the stale retire is detected.
-        assert.equal(retired.status, 409, retired.text);
-        assert.equal(retired.body.code, "STALE_VERSION");
-      } else {
-        assert.equal(retired.status, 201, retired.text);
-      }
       const after = await c.client.academyRegistrationPolicy.findMany({
         where: { id: { in: [current.id, draft.id] } },
       });
       const byId = Object.fromEntries(after.map((row) => [row.id, row]));
-      assert.equal(byId[draft.id].status, "APPROVED");
-      assert.equal(byId[current.id].status, "RETIRED");
-      assert.equal(byId[current.id].version, current.version + 1);
-      assert.equal(
-        await c.client.academyRegistrationPolicy.count({
-          where: { organizationId: ORG_A, status: "APPROVED" },
-        }),
-        1,
-      );
-      currentConsent = draft.policyVersion;
+      if (order === "approve-first") {
+        assert.equal(approved.status, 201, approved.text);
+        // Auto-retirement increments the version, so the stale retire is detected.
+        assert.equal(retired.status, 409, retired.text);
+        assert.equal(retired.body.code, "STALE_VERSION");
+        assert.equal(byId[draft.id].status, "APPROVED");
+        assert.equal(byId[current.id].status, "RETIRED");
+        assert.equal(byId[current.id].version, current.version + 1);
+        assert.equal(
+          await c.client.academyRegistrationPolicy.count({
+            where: { organizationId: ORG_A, status: "APPROVED" },
+          }),
+          1,
+        );
+        currentConsent = draft.policyVersion;
+      } else {
+        // Retire committed first -> expected predecessor is no longer approved -> approve rejects with 409 STALE_VERSION
+        assert.equal(retired.status, 201, retired.text);
+        assert.equal(approved.status, 409, approved.text);
+        assert.equal(approved.body.code, "STALE_VERSION");
+        assert.equal(byId[draft.id].status, "DRAFT");
+        assert.equal(byId[current.id].status, "RETIRED");
+        assert.equal(byId[current.id].version, current.version + 1);
+        assert.equal(
+          await c.client.academyRegistrationPolicy.count({
+            where: { organizationId: ORG_A, status: "APPROVED" },
+          }),
+          0,
+        );
+      }
     }
   },
 );
@@ -4008,6 +4097,7 @@ test(
     process.env.NODE_ENV = "production";
     delete process.env.KHLIM_ENV;
     let refused;
+    const currentBeforeEnvCheck = await currentApprovedInOrg(c);
     try {
       refused = await api(
         c,
@@ -4015,7 +4105,10 @@ test(
         {
           method: "POST",
           token: "mgmt",
-          body: { expectedVersion: draft.version },
+          body: {
+            expectedVersion: draft.version,
+            ...expectedPredecessor(currentBeforeEnvCheck),
+          },
         },
       );
     } finally {
@@ -5307,7 +5400,7 @@ test(
 );
 
 test(
-  "Lock corrections: replacement audit names only policies the approval actually retired",
+  "Lock corrections + CR-17: direct SQL retirement of expected predecessor rejects replacement approval with 409 STALE_VERSION and writes zero misleading audit rows",
   { skip },
   async () => {
     const c = await ctx();
@@ -5332,7 +5425,10 @@ test(
       {
         method: "POST",
         token: "mgmt",
-        body: { expectedVersion: draft.version },
+        body: {
+          expectedVersion: draft.version,
+          ...expectedPredecessor(current),
+        },
       },
     );
     try {
@@ -5350,17 +5446,20 @@ test(
     }
     await directRetire.done;
     const approved = await approval;
-    assert.equal(approved.status, 201, approved.text);
-    const approvalAudit = await c.client.auditEvent.findFirst({
-      where: {
-        action: "ACADEMY_REGISTRATION_POLICY_APPROVED",
-        entityId: draft.id,
-      },
+    assert.equal(approved.status, 409, approved.text);
+    assert.equal(approved.body.code, "STALE_VERSION");
+    const draftAfter = await c.client.academyRegistrationPolicy.findUnique({
+      where: { id: draft.id },
     });
+    assert.equal(draftAfter.status, "DRAFT");
     assert.equal(
-      approvalAudit.metadata.retiredPolicyId,
-      null,
-      "the approval did not retire the policy, so it must not claim it",
+      await c.client.auditEvent.count({
+        where: {
+          action: "ACADEMY_REGISTRATION_POLICY_APPROVED",
+          entityId: draft.id,
+        },
+      }),
+      0,
     );
     assert.equal(
       await c.client.auditEvent.count({
@@ -5376,8 +5475,234 @@ test(
       await c.client.academyRegistrationPolicy.count({
         where: { organizationId: ORG_A, status: "APPROVED" },
       }),
-      1,
+      0,
     );
-    currentConsent = draft.policyVersion;
+  },
+);
+
+test(
+  "CR-17: approval contract requires explicit predecessor binding and serializes no-predecessor concurrent approvals",
+  { skip },
+  async () => {
+    const c = await ctx();
+    await rotateTo();
+    const current = await currentPolicyRow(c);
+    policyCounter += 1;
+    const draft = await newDraftPolicy(
+      c,
+      `synthetic-ric190-${RUN}-cr17-${policyCounter}`,
+    );
+
+    // 1) Missing predecessor expectations -> 400 VALIDATION_FAILED (never bypasses validation)
+    for (const badBody of [
+      { expectedVersion: draft.version },
+      {
+        expectedVersion: draft.version,
+        expectedApprovedPolicyId: current.id,
+      },
+      {
+        expectedVersion: draft.version,
+        expectedApprovedPolicyVersion: current.version,
+      },
+      {
+        expectedVersion: draft.version,
+        expectedApprovedPolicyId: null,
+        expectedApprovedPolicyVersion: 1,
+      },
+      {
+        expectedVersion: draft.version,
+        expectedApprovedPolicyId: current.id,
+        expectedApprovedPolicyVersion: null,
+      },
+    ]) {
+      const res = await api(
+        c,
+        `/admin/academy/registration-policies/${draft.id}/approve`,
+        {
+          method: "POST",
+          token: "mgmt",
+          body: badBody,
+        },
+      );
+      assert.equal(
+        res.status,
+        400,
+        `${JSON.stringify(badBody)} -> ${res.text}`,
+      );
+      assert.equal(res.body.code, "VALIDATION_FAILED");
+    }
+
+    // 2) Wrong predecessor ID, wrong version, or expecting no predecessor when one exists -> 409 STALE_VERSION
+    for (const staleBody of [
+      {
+        expectedVersion: draft.version,
+        expectedApprovedPolicyId: null,
+        expectedApprovedPolicyVersion: null,
+      },
+      {
+        expectedVersion: draft.version,
+        expectedApprovedPolicyId: randomUUID(),
+        expectedApprovedPolicyVersion: current.version,
+      },
+      {
+        expectedVersion: draft.version,
+        expectedApprovedPolicyId: current.id,
+        expectedApprovedPolicyVersion: current.version + 99,
+      },
+    ]) {
+      const res = await api(
+        c,
+        `/admin/academy/registration-policies/${draft.id}/approve`,
+        {
+          method: "POST",
+          token: "mgmt",
+          body: staleBody,
+        },
+      );
+      assert.equal(
+        res.status,
+        409,
+        `${JSON.stringify(staleBody)} -> ${res.text}`,
+      );
+      assert.equal(res.body.code, "STALE_VERSION");
+    }
+    assert.equal(
+      (
+        await c.client.academyRegistrationPolicy.findUnique({
+          where: { id: current.id },
+        })
+      ).status,
+      "APPROVED",
+    );
+
+    // 3) Retire current policy so organization has NO approved predecessor, then race two no-predecessor approvals
+    const retired = await api(
+      c,
+      `/admin/academy/registration-policies/${current.id}/retire`,
+      {
+        method: "POST",
+        token: "mgmt",
+        body: { expectedVersion: current.version },
+      },
+    );
+    assert.equal(retired.status, 201, retired.text);
+
+    policyCounter += 1;
+    const draft2 = await newDraftPolicy(
+      c,
+      `synthetic-ric190-${RUN}-cr17-${policyCounter}`,
+    );
+    const lockKey = `registration-policy:${ORG_A}`;
+    const holder = holdTransaction(c, (tx) =>
+      tx.$executeRawUnsafe(
+        `SELECT pg_advisory_xact_lock(hashtextextended('${lockKey}', 0))`,
+      ),
+    );
+    await holder.ready;
+    const baseline = await waitingLocks(c);
+    const concurrentNoPred = [draft, draft2].map((target) =>
+      api(c, `/admin/academy/registration-policies/${target.id}/approve`, {
+        method: "POST",
+        token: "mgmt",
+        body: {
+          expectedVersion: target.version,
+          expectedApprovedPolicyId: null,
+          expectedApprovedPolicyVersion: null,
+        },
+      }),
+    );
+    await waitForWaiters(
+      c,
+      baseline,
+      2,
+      "both no-predecessor approvals serialized on org advisory lock",
+    );
+    holder.release();
+    const results = await Promise.all(concurrentNoPred);
+    await holder.done;
+
+    assert.deepEqual(
+      results.map((r) => r.status).sort((a, b) => a - b),
+      [201, 409],
+      JSON.stringify(results.map((r) => r.body)),
+    );
+    assert.equal(
+      results.find((r) => r.status === 409).body.code,
+      "STALE_VERSION",
+    );
+    const approvedRows = await c.client.academyRegistrationPolicy.findMany({
+      where: { organizationId: ORG_A, status: "APPROVED" },
+    });
+    assert.equal(approvedRows.length, 1);
+    assert.ok([draft.id, draft2.id].includes(approvedRows[0].id));
+    currentConsent = approvedRows[0].policyVersion;
+  },
+);
+
+test(
+  "CR-25: /admin/session returns server-authoritative organizationId, preserves null when unresolved, and rejects unauthorized organization headers",
+  { skip },
+  async () => {
+    const c = await ctx();
+    const orgBSlug = `ric190-b-${RUN.toLowerCase()}`;
+
+    // 1) Authenticated staff in ORG_A receives server-resolved organizationId === ORG_A
+    const sessionA = await api(c, "/admin/session", { token: "admin" });
+    assert.equal(sessionA.status, 200, sessionA.text);
+    assert.equal(sessionA.body.organizationId, ORG_A);
+    assert.equal(sessionA.body.id, c.ids.admin);
+
+    // 2) Staff belonging only to ORG_B is rejected (403) on ORG_A /admin/session
+    const foreignOnDefaultOrg = await api(c, "/admin/session", {
+      token: "foreign",
+    });
+    assert.equal(foreignOnDefaultOrg.status, 403, foreignOnDefaultOrg.text);
+
+    // 3) Arbitrary client x-khlim-organization header is rejected (403)
+    const spoofedOrg = await api(c, "/admin/session", {
+      token: "admin",
+      headers: { "x-khlim-organization": orgBSlug },
+    });
+    assert.equal(spoofedOrg.status, 403, spoofedOrg.text);
+
+    // 4) Server-resolved organization context propagates exact ORG_B id and preserves null when absent
+    const { AdminService } =
+      await import("../../apps/api/dist/admin/admin.service.js");
+    const { OrganizationService } =
+      await import("../../apps/api/dist/organization/organization.service.js");
+    const adminService = c.app.get(AdminService);
+    const orgService = c.app.get(OrganizationService);
+
+    const orgBContext = await orgService.resolveContext(
+      {
+        id: c.ids.foreign,
+        authProviderSubject: `ric190-${RUN}-foreign`,
+        email: `foreign.${RUN}@example.test`.toLowerCase(),
+        roles: ["ACADEMY_ADMIN"],
+        authenticatorAssuranceLevel: "aal2",
+      },
+      orgBSlug,
+    );
+    assert.equal(orgBContext.id, ORG_B);
+    assert.deepEqual(orgBContext.roles, ["ACADEMY_ADMIN"]);
+
+    const resolvedSessionB = await adminService.getSession({
+      id: c.ids.foreign,
+      authProviderSubject: `ric190-${RUN}-foreign`,
+      email: `foreign.${RUN}@example.test`.toLowerCase(),
+      roles: orgBContext.roles,
+      authenticatorAssuranceLevel: "aal2",
+      organization: orgBContext,
+    });
+    assert.equal(resolvedSessionB.organizationId, ORG_B);
+
+    const unresolvedSession = await adminService.getSession({
+      id: c.ids.admin,
+      authProviderSubject: `ric190-${RUN}-admin`,
+      email: `admin.${RUN}@example.test`.toLowerCase(),
+      roles: ["ACADEMY_ADMIN"],
+      authenticatorAssuranceLevel: "aal2",
+    });
+    assert.equal(unresolvedSession.organizationId, null);
   },
 );

@@ -618,12 +618,146 @@ describe("RIC-191 Academy Registration V1 frontend helpers & contract rules", ()
       "FORBIDDEN",
     );
 
-    // Deferred enrolment, checkout, and parent portal consumers handle 403 FEATURE_NOT_AVAILABLE
-    // without automatic recovery lookups or retries
+    // Behavioral regression coverage for PR #129 deferred enrolment & checkout handling:
+    // mock FEATURE_NOT_AVAILABLE responses and assert deferred UI outcome, zero recovery
+    // lookups, and zero confirmation redirects, alongside ordinary recoverable failure controls.
+    const { executeEnrolmentCheckout } =
+      await import("../apps/web/lib/enrol-submission.ts");
+    const deferredApiError = Object.assign(new Error("Feature deferred"), {
+      status: 403,
+      responseBody: {
+        statusCode: 403,
+        code: "FEATURE_NOT_AVAILABLE",
+        feature: "V1_ENROLMENT",
+        message: "This feature is not available yet",
+      },
+    });
+    const sampleOffering = { id: "offering-1" };
+    const samplePlan = { id: "plan-1" };
+    const pendingMembership = {
+      id: "mem-pending-1",
+      programmeOfferingId: "offering-1",
+      membershipPlanId: "plan-1",
+      status: "PENDING",
+    };
+
+    // 1) Deferred createPendingMembership -> returns deferred without calling listAthleteMemberships or prepareCheckout
+    let listCalls1 = 0;
+    let checkoutCalls1 = 0;
+    const outcomeDeferredCreate = await executeEnrolmentCheckout(
+      {
+        async createPendingMembership() {
+          throw deferredApiError;
+        },
+        async listAthleteMemberships() {
+          listCalls1 += 1;
+          return [pendingMembership];
+        },
+        async prepareCheckout() {
+          checkoutCalls1 += 1;
+          return { checkoutUrl: "https://checkout.example.invalid" };
+        },
+      },
+      "athlete-1",
+      sampleOffering,
+      samplePlan,
+    );
+    assert.deepEqual(outcomeDeferredCreate, { kind: "deferred" });
+    assert.equal(listCalls1, 0);
+    assert.equal(checkoutCalls1, 0);
+
+    // 2) Deferred prepareCheckout -> returns deferred without redirecting to /enrol/confirmation
+    const outcomeDeferredCheckout = await executeEnrolmentCheckout(
+      {
+        async createPendingMembership() {
+          return pendingMembership;
+        },
+        async listAthleteMemberships() {
+          return [];
+        },
+        async prepareCheckout() {
+          throw deferredApiError;
+        },
+      },
+      "athlete-1",
+      sampleOffering,
+      samplePlan,
+    );
+    assert.deepEqual(outcomeDeferredCheckout, { kind: "deferred" });
+
+    // 3) Control A: Ordinary recoverable failure on createPendingMembership -> runs listAthleteMemberships recovery lookup
+    let listCallsControl = 0;
+    const outcomeRecovered = await executeEnrolmentCheckout(
+      {
+        async createPendingMembership() {
+          throw new Error("Temporary conflict");
+        },
+        async listAthleteMemberships() {
+          listCallsControl += 1;
+          return [pendingMembership];
+        },
+        async prepareCheckout() {
+          return { checkoutUrl: "https://checkout.example.invalid/session-1" };
+        },
+      },
+      "athlete-1",
+      sampleOffering,
+      samplePlan,
+    );
+    assert.equal(listCallsControl, 1);
+    assert.deepEqual(outcomeRecovered, {
+      kind: "checkout",
+      checkoutUrl: "https://checkout.example.invalid/session-1",
+    });
+
+    // 4) Control B: Ordinary payment-provider unavailability on prepareCheckout -> falls back to confirmation route
+    const outcomeConfirmationFallback = await executeEnrolmentCheckout(
+      {
+        async createPendingMembership() {
+          return pendingMembership;
+        },
+        async listAthleteMemberships() {
+          return [];
+        },
+        async prepareCheckout() {
+          throw new Error("Payment provider disabled in preview");
+        },
+      },
+      "athlete-1",
+      sampleOffering,
+      samplePlan,
+    );
+    assert.deepEqual(outcomeConfirmationFallback, {
+      kind: "confirmation",
+      confirmationUrl:
+        "/enrol/confirmation?athleteId=athlete-1&membershipId=mem-pending-1",
+    });
+
+    // 5) Ordinary create failure + deferred listAthleteMemberships -> returns deferred
+    const outcomeDeferredRecoveryLookup = await executeEnrolmentCheckout(
+      {
+        async createPendingMembership() {
+          throw new Error("Temporary conflict");
+        },
+        async listAthleteMemberships() {
+          throw deferredApiError;
+        },
+        async prepareCheckout() {
+          throw new Error("Should not be called");
+        },
+      },
+      "athlete-1",
+      sampleOffering,
+      samplePlan,
+    );
+    assert.deepEqual(outcomeDeferredRecoveryLookup, { kind: "deferred" });
+
+    // IR-05: Restore regression coverage across all deferred portal & enrolment consumers
     const fs = await import("node:fs");
     const path = await import("node:path");
     const deferredConsumerPaths = [
       "apps/web/lib/family-context.tsx",
+      "apps/web/lib/family-session-isolation.ts",
       "apps/web/components/portal/portal-shell.tsx",
       "apps/web/app/enrol/page.tsx",
       "apps/web/app/enrol/confirmation/page.tsx",
@@ -647,20 +781,861 @@ describe("RIC-191 Academy Registration V1 frontend helpers & contract rules", ()
       path.resolve("apps/web/app/enrol/page.tsx"),
       "utf8",
     );
-    const guardIdx = enrolSrc.indexOf(
-      "if (isFeatureNotAvailableError(caught))",
+    assert.ok(
+      enrolSrc.includes("executeEnrolmentCheckout") &&
+        enrolSrc.includes('checkout.kind === "deferred"'),
+      "enrol/page.tsx must delegate checkout flow to executeEnrolmentCheckout and handle deferred outcome",
     );
-    const recoveryLookupIdx = enrolSrc.indexOf(
-      "apiService.listAthleteMemberships(athleteId)",
+  });
+
+  test("IR-04 FamilySessionController isolates delayed refreshFamily and addChild outcomes across auth transitions", async () => {
+    const {
+      FamilySessionController,
+      StaleAuthContextError,
+      isStaleAuthContextError,
+      buildWebAuthContextKey,
+    } = await import("../apps/web/lib/family-session-isolation.ts");
+
+    assert.equal(buildWebAuthContextKey(false, "acc-a"), "anonymous");
+    assert.equal(buildWebAuthContextKey(true, "acc-a"), "acc-a");
+    assert.notEqual(
+      buildWebAuthContextKey(true, "acc-a"),
+      buildWebAuthContextKey(true, "acc-b"),
+    );
+
+    const athleteA = {
+      id: "ath-a1",
+      displayName: "Account A Player",
+      dateOfBirth: "2015-03-02",
+    };
+    const athleteB = {
+      id: "ath-b1",
+      displayName: "Account B Player",
+      dateOfBirth: "2014-06-10",
+    };
+    const linkA = { id: "link-a1", athlete: athleteA };
+    const linkB = { id: "link-b1", athlete: athleteB };
+
+    // 1) Delayed refreshFamily success from Account A must NOT overwrite Account B
+    let resolveListA;
+    let listCall = 0;
+    const snapshots = [];
+    const ctrl = new FamilySessionController(
+      {
+        async listManagedAthletes() {
+          listCall += 1;
+          if (listCall === 1) {
+            return new Promise((resolve) => {
+              resolveListA = resolve;
+            });
+          }
+          return [linkB];
+        },
+        async createManagedAthlete() {
+          throw new Error("unused");
+        },
+      },
+      (s) => snapshots.push(s),
+    );
+
+    ctrl.setAuthContext("acc-a");
+    const refreshA = ctrl.refreshFamily({
+      isAuthenticated: true,
+      familyFeatureEnabled: true,
+    });
+    // Logout -> login Account B while Account A's refresh is still in flight
+    ctrl.setAuthContext("anonymous");
+    ctrl.setAuthContext("acc-b");
+    await ctrl.refreshFamily({
+      isAuthenticated: true,
+      familyFeatureEnabled: true,
+    });
+    assert.equal(ctrl.getState().activeChild?.id, "ath-b1");
+
+    // Release delayed Account A response -> Account B state remains untouched
+    resolveListA([linkA]);
+    await refreshA;
+    assert.deepEqual(
+      ctrl.getState().athleteLinks.map((l) => l.athlete.id),
+      ["ath-b1"],
+    );
+    assert.equal(ctrl.getState().activeChild?.id, "ath-b1");
+    assert.equal(ctrl.getState().isPortalFeatureDeferred, false);
+
+    // 2) Delayed refreshFamily failure & FEATURE_NOT_AVAILABLE from Account A must NOT corrupt Account B
+    for (const delayedErr of [
+      new Error("Account A transient failure"),
+      Object.assign(new Error("Feature deferred"), {
+        status: 403,
+        responseBody: {
+          statusCode: 403,
+          code: "FEATURE_NOT_AVAILABLE",
+          feature: "V1_PORTAL",
+        },
+      }),
+    ]) {
+      let rejectListA;
+      let calls = 0;
+      const errCtrl = new FamilySessionController(
+        {
+          async listManagedAthletes() {
+            calls += 1;
+            if (calls === 1) {
+              return new Promise((_, reject) => {
+                rejectListA = reject;
+              });
+            }
+            return [linkB];
+          },
+          async createManagedAthlete() {
+            throw new Error("unused");
+          },
+        },
+        () => {},
+      );
+      errCtrl.setAuthContext("acc-a");
+      const pA = errCtrl.refreshFamily({
+        isAuthenticated: true,
+        familyFeatureEnabled: true,
+      });
+      errCtrl.setAuthContext("acc-b");
+      await errCtrl.refreshFamily({
+        isAuthenticated: true,
+        familyFeatureEnabled: true,
+      });
+      rejectListA(delayedErr);
+      await pA;
+      assert.equal(errCtrl.getState().activeChild?.id, "ath-b1");
+      assert.equal(errCtrl.getState().isPortalFeatureDeferred, false);
+    }
+
+    // 3) Delayed addChild success from Account A after switch to Account B rejects with StaleAuthContextError
+    let resolveCreateA;
+    const addCtrl = new FamilySessionController(
+      {
+        async listManagedAthletes() {
+          return [linkB];
+        },
+        async createManagedAthlete() {
+          return new Promise((resolve) => {
+            resolveCreateA = resolve;
+          });
+        },
+      },
+      () => {},
+    );
+    addCtrl.setAuthContext("acc-a");
+    const addPromiseA = addCtrl.addChild(
+      { displayName: "Stale Child A", dateOfBirth: "2015-01-01" },
+      { isAuthenticated: true, familyFeatureEnabled: true },
+    );
+    addCtrl.setAuthContext("anonymous");
+    addCtrl.setAuthContext("acc-b");
+    await addCtrl.refreshFamily({
+      isAuthenticated: true,
+      familyFeatureEnabled: true,
+    });
+    resolveCreateA({ athlete: athleteA });
+    await assert.rejects(addPromiseA, (err) => {
+      assert.ok(err instanceof StaleAuthContextError);
+      assert.equal(isStaleAuthContextError(err), true);
+      return true;
+    });
+    assert.equal(addCtrl.getState().activeChild?.id, "ath-b1");
+    assert.deepEqual(
+      addCtrl.getState().athleteLinks.map((l) => l.athlete.id),
+      ["ath-b1"],
+    );
+
+    // 4) Delayed addChild FEATURE_NOT_AVAILABLE from Account A after switch rejects with StaleAuthContextError & does NOT defer Account B
+    let rejectCreateDeferred;
+    const addDefCtrl = new FamilySessionController(
+      {
+        async listManagedAthletes() {
+          return [linkB];
+        },
+        async createManagedAthlete() {
+          return new Promise((_, reject) => {
+            rejectCreateDeferred = reject;
+          });
+        },
+      },
+      () => {},
+    );
+    addDefCtrl.setAuthContext("acc-a");
+    const addDefPromise = addDefCtrl.addChild(
+      { displayName: "Deferred Child A", dateOfBirth: "2015-01-01" },
+      { isAuthenticated: true, familyFeatureEnabled: true },
+    );
+    addDefCtrl.setAuthContext("acc-b");
+    await addDefCtrl.refreshFamily({
+      isAuthenticated: true,
+      familyFeatureEnabled: true,
+    });
+    rejectCreateDeferred(
+      Object.assign(new Error("Feature deferred"), {
+        status: 403,
+        responseBody: {
+          statusCode: 403,
+          code: "FEATURE_NOT_AVAILABLE",
+          feature: "V1_PORTAL",
+        },
+      }),
+    );
+    await assert.rejects(addDefPromise, (err) => isStaleAuthContextError(err));
+    assert.equal(addDefCtrl.getState().isPortalFeatureDeferred, false);
+    assert.equal(addDefCtrl.getState().activeChild?.id, "ath-b1");
+  });
+
+  test("Strict capacity parsing, minute-precision enrollment timestamp preservation, and local DB host guard", async () => {
+    const {
+      parseStrictSessionCapacity,
+      buildSessionCreatePayload,
+      buildSessionUpdatePayload,
+      createEmptySessionForm,
+      sessionDtoToFormState,
+    } = await import("../apps/admin/lib/registration-admin-rules.ts");
+
+    assert.equal(parseStrictSessionCapacity("20"), 20);
+    assert.equal(parseStrictSessionCapacity(" 1 "), 1);
+    assert.equal(parseStrictSessionCapacity("10000"), 10000);
+    assert.equal(parseStrictSessionCapacity("1e3"), null);
+    assert.equal(parseStrictSessionCapacity("12.5"), null);
+    assert.equal(parseStrictSessionCapacity("20abc"), null);
+    assert.equal(parseStrictSessionCapacity("0"), null);
+    assert.equal(parseStrictSessionCapacity("-5"), null);
+    assert.equal(parseStrictSessionCapacity("10001"), null);
+    assert.equal(parseStrictSessionCapacity(""), null);
+
+    assert.throws(() =>
+      buildSessionCreatePayload({
+        ...createEmptySessionForm(),
+        programmeId: "prog-1",
+        name: "Bad Cap Session",
+        venueId: "venue-1",
+        capacity: "1e3",
+      }),
+    );
+
+    const sessionWithSeconds = {
+      id: "sess-sec-1",
+      programmeOfferingId: "off-sec-1",
+      name: "Second Precision Cohort",
+      publicationState: "PUBLISHED",
+      version: 4,
+      programme: {
+        id: "prog-1",
+        name: "KHLIM Academy",
+        minimumAge: 10,
+        maximumAge: 12,
+      },
+      venue: { id: "venue-1", name: "Sports Garage", address: "PJ" },
+      capacity: 20,
+      seatsRemaining: 15,
+      seatCounts: {
+        RECEIVED: 0,
+        UNDER_REVIEW: 0,
+        CONFIRMED: 5,
+        REJECTED: 0,
+        CANCELLED: 0,
+      },
+      enrollmentOpensAt: "2026-12-03T01:00:30.000Z",
+      enrollmentClosesAt: "2026-12-10T15:59:45.000Z",
+      coachDisplayName: "Coach Old",
+      weekday: 6,
+      startTime: "14:00",
+      endTime: "16:00",
+      timezone: "Asia/Kuala_Lumpur",
+      firstSessionDate: "2026-12-19",
+      recurrence: "WEEKLY",
+      ageReferenceRule: "FIXED_DATE",
+      ageReferenceDate: "2026-12-31",
+      publishedAt: "2026-12-01T00:00:00.000Z",
+      closedAt: null,
+      createdAt: "2026-12-01T00:00:00.000Z",
+      updatedAt: "2026-12-01T00:00:00.000Z",
+    };
+
+    // Coach-only edit must NOT rewrite enrollmentOpensAt/enrollmentClosesAt when displayed MYT minutes are unchanged
+    const coachOnlyPatch = buildSessionUpdatePayload(sessionWithSeconds, {
+      ...sessionDtoToFormState(sessionWithSeconds),
+      coachDisplayName: "Coach New",
+    });
+    assert.deepEqual(coachOnlyPatch, {
+      expectedVersion: 4,
+      coachDisplayName: "Coach New",
+    });
+
+    // Editing displayed minute DOES send updated timestamp
+    const windowChangedPatch = buildSessionUpdatePayload(sessionWithSeconds, {
+      ...sessionDtoToFormState(sessionWithSeconds),
+      enrollmentOpensAt: "2026-12-03T09:15",
+    });
+    assert.deepEqual(windowChangedPatch, {
+      expectedVersion: 4,
+      enrollmentOpensAt: "2026-12-03T01:15:00.000Z",
+    });
+
+    // IR-02: Local integration harness DB guard validates effective host, database name, query overrides, and env fallbacks
+    const {
+      assertSafeDisposableLocalDatabase,
+      assertLoopbackPortAvailable,
+      verifyListenerOwnership,
+      waitForHttpReady,
+      stopOwnedChild,
+    } = await import("./integration/ric-191-integrated-acceptance.mjs");
+    assert.doesNotThrow(() =>
+      assertSafeDisposableLocalDatabase({
+        KHLIM_TEST_DATABASE: "1",
+        DATABASE_URL:
+          "postgresql://postgres:postgres@127.0.0.1:5432/ric191_test", // betterleaks:allow -- synthetic DB parser fixture only; never connected
+      }),
+    );
+    for (const [label, envObj, pattern] of [
+      [
+        "query ?host override",
+        {
+          KHLIM_TEST_DATABASE: "1",
+          DATABASE_URL:
+            "postgresql://postgres:postgres@127.0.0.1:5432/ric191_test?host=db.example.invalid", // betterleaks:allow -- synthetic DB parser fixture only; never connected
+        },
+        /db\.example\.invalid/,
+      ],
+      [
+        "multi ?host override",
+        {
+          KHLIM_TEST_DATABASE: "1",
+          DATABASE_URL:
+            "postgresql://postgres:postgres@localhost:5432/ric191_test?host=127.0.0.1&host=remote.example.invalid", // betterleaks:allow -- synthetic DB parser fixture only; never connected
+        },
+        /remote\.example\.invalid/,
+      ],
+      [
+        "query ?hostaddr override",
+        {
+          KHLIM_TEST_DATABASE: "1",
+          DATABASE_URL:
+            "postgresql://postgres:postgres@127.0.0.1:5432/ric191_test?hostaddr=203.0.113.10", // betterleaks:allow -- synthetic DB parser fixture only; never connected
+        },
+        /203\.0\.113\.10/,
+      ],
+      [
+        "query ?database override",
+        {
+          KHLIM_TEST_DATABASE: "1",
+          DATABASE_URL:
+            "postgresql://postgres:postgres@127.0.0.1:5432/ric191_test?database=production", // betterleaks:allow -- synthetic DB parser fixture only; never connected
+        },
+        /production/,
+      ],
+      [
+        "query ?dbname override",
+        {
+          KHLIM_TEST_DATABASE: "1",
+          DATABASE_URL:
+            "postgresql://postgres:postgres@127.0.0.1:5432/ric191_test?dbname=staging", // betterleaks:allow -- synthetic DB parser fixture only; never connected
+        },
+        /staging/,
+      ],
+      [
+        "missing database name in URL",
+        {
+          KHLIM_TEST_DATABASE: "1",
+          DATABASE_URL: "postgresql://postgres:postgres@127.0.0.1:5432/", // betterleaks:allow -- synthetic DB parser fixture only; never connected
+        },
+        /include "test"/,
+      ],
+      [
+        "non-test database name in URL",
+        {
+          KHLIM_TEST_DATABASE: "1",
+          DATABASE_URL:
+            "postgresql://postgres:postgres@127.0.0.1:5432/postgres", // betterleaks:allow -- synthetic DB parser fixture only; never connected
+        },
+        /include "test"/,
+      ],
+      [
+        "empty host with credentials in URL",
+        {
+          KHLIM_TEST_DATABASE: "1",
+          DATABASE_URL: "postgresql://postgres:postgres@/ric191_test",
+        },
+        /not a valid URL|non-local/,
+      ],
+      [
+        "socket-style empty host URL",
+        {
+          KHLIM_TEST_DATABASE: "1",
+          DATABASE_URL: "postgresql:///ric191_test",
+        },
+        /non-local/,
+      ],
+      [
+        "non-local PGHOST fallback",
+        {
+          KHLIM_TEST_DATABASE: "1",
+          DATABASE_URL:
+            "postgresql://postgres:postgres@127.0.0.1:5432/ric191_test", // betterleaks:allow -- synthetic DB parser fixture only; never connected
+          PGHOST: "hosted.supabase.example.invalid",
+        },
+        /PGHOST/,
+      ],
+      [
+        "non-local PGHOSTADDR fallback",
+        {
+          KHLIM_TEST_DATABASE: "1",
+          DATABASE_URL:
+            "postgresql://postgres:postgres@127.0.0.1:5432/ric191_test", // betterleaks:allow -- synthetic DB parser fixture only; never connected
+          PGHOSTADDR: "198.51.100.7",
+        },
+        /PGHOSTADDR/,
+      ],
+      [
+        "non-test PGDATABASE fallback",
+        {
+          KHLIM_TEST_DATABASE: "1",
+          DATABASE_URL:
+            "postgresql://postgres:postgres@127.0.0.1:5432/ric191_test", // betterleaks:allow -- synthetic DB parser fixture only; never connected
+          PGDATABASE: "postgres",
+        },
+        /PGDATABASE/,
+      ],
+    ]) {
+      assert.throws(
+        () => assertSafeDisposableLocalDatabase(envObj),
+        pattern,
+        `Expected DB guard to reject ${label}`,
+      );
+    }
+
+    // IR-01: Fail-closed loopback port availability, listener ownership verification, premature exit, and owned-only cleanup
+    const net = await import("node:net");
+    const occupier = net.createServer();
+    await new Promise((resolve) => occupier.listen(0, "127.0.0.1", resolve));
+    const occupiedPort = occupier.address().port;
+    try {
+      await assert.rejects(
+        assertLoopbackPortAvailable(occupiedPort, "TestServer"),
+        /already occupied/,
+      );
+    } finally {
+      await new Promise((resolve) => occupier.close(resolve));
+    }
+    await assert.doesNotReject(
+      assertLoopbackPortAvailable(occupiedPort, "TestServer"),
+    );
+
+    // Unavailable ownership verification (null or empty list) MUST fail closed
+    assert.throws(
+      () =>
+        verifyListenerOwnership({
+          port: 3199,
+          rootPid: 12345,
+          label: "TestServer",
+          getListeningPids: () => null,
+          collectTreePids: () => new Set([12345]),
+        }),
+      /Fail-closed: unable to verify listener ownership/,
+    );
+    assert.throws(
+      () =>
+        verifyListenerOwnership({
+          port: 3199,
+          rootPid: 12345,
+          label: "TestServer",
+          getListeningPids: () => [],
+          collectTreePids: () => new Set([12345]),
+        }),
+      /Fail-closed: unable to verify listener ownership/,
+    );
+    // Foreign PID listening on port MUST fail closed
+    assert.throws(
+      () =>
+        verifyListenerOwnership({
+          port: 3199,
+          rootPid: 12345,
+          label: "TestServer",
+          getListeningPids: () => [99999],
+          collectTreePids: () => new Set([12345, 12346]),
+        }),
+      /not exclusively by spawned TestServer/,
+    );
+    // Descendant PID in process tree passes
+    assert.deepEqual(
+      verifyListenerOwnership({
+        port: 3199,
+        rootPid: 12345,
+        label: "TestServer",
+        getListeningPids: () => [12346],
+        collectTreePids: () => new Set([12345, 12346]),
+      }),
+      [12346],
+    );
+
+    // Premature child exit fails readiness immediately
+    await assert.rejects(
+      waitForHttpReady(
+        "http://127.0.0.1:3199/health",
+        {
+          child: { pid: 12345, exitCode: 1, signalCode: null },
+          spawnError: null,
+          getLogs: () => "boom",
+        },
+        3199,
+        "TestServer",
+        { timeoutMs: 2000, pollIntervalMs: 20 },
+      ),
+      /exited prematurely/,
+    );
+
+    // Unavailable ownership inside waitForHttpReady fails closed (does NOT accept readiness)
+    let observedSignal = null;
+    await assert.rejects(
+      waitForHttpReady(
+        "http://127.0.0.1:3199/health",
+        {
+          child: { pid: 12345, exitCode: null, signalCode: null },
+          spawnError: null,
+          getLogs: () => "",
+        },
+        3199,
+        "TestServer",
+        {
+          timeoutMs: 2000,
+          requestTimeoutMs: 500,
+          pollIntervalMs: 20,
+          fetchImpl: async (_url, init) => {
+            observedSignal = init?.signal ?? null;
+            return { ok: true };
+          },
+          getListeningPids: () => null,
+        },
+      ),
+      /Fail-closed: unable to verify listener ownership/,
     );
     assert.ok(
-      guardIdx > 0 && recoveryLookupIdx > guardIdx,
-      "enrol/page.tsx must short-circuit FEATURE_NOT_AVAILABLE before listAthleteMemberships recovery lookup",
+      observedSignal instanceof AbortSignal,
+      "waitForHttpReady must pass a bounded AbortSignal timeout to fetch",
     );
-    assert.ok(
-      enrolSrc.includes("if (isFeatureNotAvailableError(checkoutError))"),
-      "enrol/page.tsx must handle FEATURE_NOT_AVAILABLE on prepareCheckout without redirecting to confirmation lookups",
+
+    // Owned-only cleanup refuses to kill handles not registered by the current run
+    let unownedKilled = false;
+    const unownedHandle = {
+      child: {
+        killed: false,
+        exitCode: null,
+        kill() {
+          unownedKilled = true;
+        },
+        once() {},
+      },
+    };
+    const stoppedUnowned = await stopOwnedChild(unownedHandle, new Set());
+    assert.equal(stoppedUnowned, false);
+    assert.equal(unownedKilled, false);
+  });
+
+  test("FINAL-01 AdminAuthSessionController fails closed during revalidation, isolates superseded failures, and invalidates pending loads on logout", async () => {
+    const { AdminAuthSessionController } =
+      await import("../apps/admin/lib/admin-auth-session-controller.ts");
+
+    const makeSession = (orgId, userId = "staff-1") => ({
+      id: userId,
+      organizationId: orgId,
+      email: "staff@example.test",
+      displayName: "Synthetic Staff",
+      preferredLocale: "en",
+      roles: ["SUPER_ADMIN", "ACADEMY_ADMIN"],
+      authenticatorAssuranceLevel: "aal2",
+      mfaSatisfied: true,
+    });
+
+    const gates = [];
+    let sessionCall = 0;
+    let invalidateCalls = 0;
+    let signOutCalls = 0;
+    let hasStoredSession = true;
+
+    const controller = new AdminAuthSessionController(
+      {
+        storageKey: "khlim_admin_supabase_session",
+        async restoreSession() {
+          return hasStoredSession ? { access_token: "synthetic-token" } : null;
+        },
+        async getAdminSession() {
+          sessionCall += 1;
+          const idx = sessionCall;
+          return new Promise((resolve, reject) => {
+            gates[idx] = { resolve, reject };
+          });
+        },
+        async signIn() {
+          hasStoredSession = true;
+        },
+        async signOut() {
+          signOutCalls += 1;
+          hasStoredSession = false;
+        },
+        invalidateSessionOperations() {
+          invalidateCalls += 1;
+        },
+      },
+      () => {},
     );
+
+    // 1) Initial bootstrap loads Org A
+    const bootPromise = controller.bootstrap();
+    assert.equal(controller.getState().isLoading, true);
+    assert.equal(controller.getState().user, null);
+    await Promise.resolve();
+    gates[1].resolve(makeSession("org-a"));
+    await bootPromise;
+    assert.equal(controller.getState().user?.organizationId, "org-a");
+    assert.equal(controller.getState().isLoading, false);
+
+    // Irrelevant localStorage key change must NOT invalidate current session or trigger reload
+    const ignored = controller.handleStorageChange({
+      key: "unrelated_key",
+      newValue: "1",
+    });
+    assert.equal(ignored, null);
+    assert.equal(controller.getState().user?.organizationId, "org-a");
+    assert.equal(sessionCall, 1);
+
+    // 2) Cross-tab credential transition -> synchronously fails closed BEFORE /admin/session resolves
+    const revalB = controller.handleStorageChange({
+      key: "khlim_admin_supabase_session",
+      newValue: '{"access_token":"tok-b"}',
+    });
+    assert.ok(revalB);
+    assert.equal(invalidateCalls, 1);
+    assert.equal(controller.getState().user, null);
+    assert.equal(controller.getState().role, null);
+    assert.equal(controller.getState().isLoading, true);
+    await Promise.resolve();
+    assert.ok(gates[2], "revalB /admin/session should be in flight");
+
+    // 3) Newer revalidation (Org C) supersedes pending Org B and succeeds first
+    const revalC = controller.handleStorageChange({
+      key: "khlim_admin_supabase_session",
+      newValue: '{"access_token":"tok-c"}',
+    });
+    assert.equal(controller.getState().user, null);
+    assert.equal(controller.getState().isLoading, true);
+    await Promise.resolve();
+    assert.ok(gates[3], "revalC /admin/session should be in flight");
+
+    gates[3].resolve(makeSession("org-c"));
+    await revalC;
+    assert.equal(controller.getState().user?.organizationId, "org-c");
+    assert.equal(controller.getState().isLoading, false);
+    assert.equal(controller.getState().authError, null);
+
+    // 4) Superseded Org B request FAILS after Org C succeeded -> MUST NOT clear or overwrite Org C!
+    gates[2].reject(new Error("Superseded session failure"));
+    await revalB;
+    assert.equal(controller.getState().user?.organizationId, "org-c");
+    assert.equal(controller.getState().isLoading, false);
+    assert.equal(controller.getState().authError, null);
+
+    // 5) Logout during pending session restoration immediately clears state & invalidates in-flight load
+    const revalPending = controller.handleStorageChange({
+      key: "khlim_admin_supabase_session",
+      newValue: '{"access_token":"tok-d"}',
+    });
+    assert.equal(controller.getState().isLoading, true);
+    assert.equal(controller.getState().user, null);
+    await Promise.resolve();
+    assert.ok(gates[4], "revalPending /admin/session should be in flight");
+
+    const logoutPromise = controller.logout();
+    // Synchronously cleared before awaiting signOut
+    assert.equal(controller.getState().user, null);
+    assert.equal(controller.getState().role, null);
+    assert.equal(controller.getState().isLoading, false);
+    await logoutPromise;
+    assert.equal(signOutCalls, 1);
+
+    // Stale restoration resolving with valid Org D after logout MUST be discarded
+    gates[4].resolve(makeSession("org-d"));
+    await revalPending;
+    assert.equal(controller.getState().user, null);
+    assert.equal(controller.getState().role, null);
+    assert.equal(controller.getState().isLoading, false);
+
+    // 6) Subsequent valid revalidation loads Org B cleanly
+    hasStoredSession = true;
+    const revalFinal = controller.handleStorageChange({
+      key: "khlim_admin_supabase_session",
+      newValue: '{"access_token":"tok-b-final"}',
+    });
+    await Promise.resolve();
+    gates[5].resolve(makeSession("org-b"));
+    await revalFinal;
+    assert.equal(controller.getState().user?.organizationId, "org-b");
+    assert.equal(controller.getState().isLoading, false);
+    assert.equal(controller.getState().authError, null);
+  });
+
+  test("FINAL-01 supabase-auth token refresh prevents stale credential writes across logout and account replacement while preserving same-session refresh", async () => {
+    const prevWindow = globalThis.window;
+    const prevFetch = globalThis.fetch;
+    const prevUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const prevAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    const storage = new Map();
+    globalThis.window = {
+      localStorage: {
+        getItem: (k) => (storage.has(k) ? storage.get(k) : null),
+        setItem: (k, v) => {
+          storage.set(k, String(v));
+        },
+        removeItem: (k) => {
+          storage.delete(k);
+        },
+      },
+    };
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "synthetic-local-anon-key";
+
+    const makeStored = (userId, accessToken, refreshToken, expiresAt) =>
+      JSON.stringify({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        expires_in: 3600,
+        expires_at: expiresAt,
+        token_type: "bearer",
+        user: { id: userId, email: `${userId}@example.test` },
+      });
+
+    try {
+      const supabaseAuth = await import("../apps/admin/lib/supabase-auth.ts");
+      const storageKey = supabaseAuth.ADMIN_SUPABASE_SESSION_STORAGE_KEY;
+      const expiredAt = Math.floor(Date.now() / 1000) - 10;
+      const futureAt = Math.floor(Date.now() / 1000) + 3600;
+
+      // 1) Ordinary same-session refresh: concurrent calls deduplicate & persist refreshed token
+      let refreshFetchCount = 0;
+      let releaseRefresh1;
+      const refreshGate1 = new Promise((r) => {
+        releaseRefresh1 = r;
+      });
+      globalThis.fetch = async () => {
+        refreshFetchCount += 1;
+        await refreshGate1;
+        return new Response(
+          makeStored("user-a", "at-a-refreshed", "rt-a-2", futureAt),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      };
+
+      storage.set(
+        storageKey,
+        makeStored("user-a", "at-a-1", "rt-a-1", expiredAt),
+      );
+      const p1 = supabaseAuth.refreshAdminSupabaseSession();
+      const p2 = supabaseAuth.refreshAdminSupabaseSession();
+      releaseRefresh1();
+      const [r1, r2] = await Promise.all([p1, p2]);
+      assert.equal(refreshFetchCount, 1);
+      assert.equal(r1?.access_token, "at-a-refreshed");
+      assert.equal(r2?.access_token, "at-a-refreshed");
+      assert.equal(
+        JSON.parse(storage.get(storageKey)).access_token,
+        "at-a-refreshed",
+      );
+
+      // 2) Logout during pending token refresh -> stale refresh cannot resurrect credentials
+      let releaseStaleRefresh;
+      const staleRefreshGate = new Promise((r) => {
+        releaseStaleRefresh = r;
+      });
+      let releaseLogout;
+      const logoutGate = new Promise((r) => {
+        releaseLogout = r;
+      });
+      globalThis.fetch = async (url) => {
+        if (String(url).includes("/logout")) {
+          await logoutGate;
+          return new Response(null, { status: 204 });
+        }
+        await staleRefreshGate;
+        return new Response(
+          makeStored("user-a", "at-a-resurrected", "rt-a-3", futureAt),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      };
+
+      storage.set(
+        storageKey,
+        makeStored("user-a", "at-a-old", "rt-a-old", expiredAt),
+      );
+      const staleRefreshPromise = supabaseAuth.refreshAdminSupabaseSession();
+      const signOutPromise = supabaseAuth.adminSupabaseSignOut();
+      // Stored session must already be cleared synchronously before /logout resolves
+      assert.equal(storage.has(storageKey), false);
+
+      releaseStaleRefresh();
+      const staleResult = await staleRefreshPromise;
+      assert.equal(staleResult, null);
+      assert.equal(storage.has(storageKey), false);
+      releaseLogout();
+      await signOutPromise;
+      assert.equal(storage.has(storageKey), false);
+
+      // 3) Cross-tab account replacement during pending refresh (both stale success and stale failure)
+      for (const staleOutcome of ["success", "failure"]) {
+        let releaseReplacedRefresh;
+        const replacedGate = new Promise((r) => {
+          releaseReplacedRefresh = r;
+        });
+        globalThis.fetch = async () => {
+          await replacedGate;
+          if (staleOutcome === "failure") {
+            return new Response(
+              JSON.stringify({ msg: "Invalid refresh token" }),
+              {
+                status: 400,
+                headers: { "content-type": "application/json" },
+              },
+            );
+          }
+          return new Response(
+            makeStored("user-a", "at-a-overwrite", "rt-a-9", futureAt),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        };
+
+        storage.set(
+          storageKey,
+          makeStored("user-a", "at-a-0", "rt-a-0", expiredAt),
+        );
+        const pendingOldRefresh = supabaseAuth.refreshAdminSupabaseSession();
+
+        // Account B replaces credentials in localStorage and invalidates in-flight ops
+        storage.set(
+          storageKey,
+          makeStored("user-b", "at-b-valid", "rt-b-1", futureAt),
+        );
+        supabaseAuth.invalidateAdminSessionOperations();
+
+        releaseReplacedRefresh();
+        const res = await pendingOldRefresh;
+        assert.equal(res, null);
+        const persisted = JSON.parse(storage.get(storageKey));
+        assert.equal(persisted.user.id, "user-b");
+        assert.equal(persisted.access_token, "at-b-valid");
+      }
+    } finally {
+      if (prevWindow === undefined) delete globalThis.window;
+      else globalThis.window = prevWindow;
+      globalThis.fetch = prevFetch;
+      if (prevUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      else process.env.NEXT_PUBLIC_SUPABASE_URL = prevUrl;
+      if (prevAnon === undefined)
+        delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      else process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = prevAnon;
+    }
   });
 
   test("Admin display label formatters map raw API enums cleanly and handle missing ages safely", async () => {

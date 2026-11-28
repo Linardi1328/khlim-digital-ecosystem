@@ -143,6 +143,7 @@ export class AdminService {
 
     return {
       id: user.id,
+      organizationId: actor.organization?.id ?? null,
       email: user.email,
       displayName,
       preferredLocale: user.preferredLocale,

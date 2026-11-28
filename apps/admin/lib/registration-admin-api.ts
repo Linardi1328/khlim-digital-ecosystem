@@ -5,6 +5,7 @@ import type {
   AdminRegistrationPolicyListDto,
   AdminRegistrationSessionDto,
   AdminRegistrationSessionListDto,
+  ApproveRegistrationPolicyRequestDto,
   CreateRegistrationPolicyRequestDto,
   CreateRegistrationSessionRequestDto,
   PublishRegistrationSessionRequestDto,
@@ -17,13 +18,22 @@ import type {
   VersionRequestDto,
 } from "@khlim/api-client";
 import { adminApiClient } from "./admin-api";
+import { ADMIN_DEMO_MODE } from "./demo-mode";
 import type { ProgrammeItem, VenueItem } from "./types";
+
+const DEMO_MODE_REGISTRATIONS_ERROR =
+  "Academy registration operations are unavailable in Admin demo mode.";
+
+function rejectInDemoMode<T>(): Promise<T> {
+  return Promise.reject(new Error(DEMO_MODE_REGISTRATIONS_ERROR));
+}
 
 export {
   AGE_REFERENCE_RULE_OPTIONS,
   CONSENT_CATEGORY_META,
   DATE_ONLY_REGEX,
   ISO_WEEKDAY_OPTIONS,
+  MAX_SESSION_CAPACITY,
   POLICY_LOCALE_META,
   POLICY_VERSION_REGEX,
   REGISTRATION_REASON_CODES,
@@ -57,6 +67,7 @@ export {
   isTerminalRegistrationStatus,
   isoToMytDateTimeLocal,
   mytDateTimeLocalToIso,
+  parseStrictSessionCapacity,
   sessionDtoToFormState,
   validatePolicyDraftInput,
   type AdminRegistrationErrorKind,
@@ -79,6 +90,7 @@ export interface ListAdminRegistrationsQuery {
 export function listAdminRegistrations(
   query: ListAdminRegistrationsQuery = {},
 ): Promise<RegistrationListDto> {
+  if (ADMIN_DEMO_MODE) return rejectInDemoMode();
   const params = new URLSearchParams();
   if (query.status) params.set("status", query.status);
   if (query.sessionId) params.set("sessionId", query.sessionId);
@@ -103,6 +115,7 @@ export function searchAdminRegistrations(
   body: RegistrationSearchRequestDto,
   signal?: AbortSignal,
 ): Promise<RegistrationListDto> {
+  if (ADMIN_DEMO_MODE) return rejectInDemoMode();
   const payload: RegistrationSearchRequestDto = {
     q: body.q.trim().slice(0, 100),
     ...(body.status ? { status: body.status } : {}),
@@ -128,6 +141,7 @@ export function getAdminRegistrationDetail(
   id: string,
   signal?: AbortSignal,
 ): Promise<RegistrationDetailDto> {
+  if (ADMIN_DEMO_MODE) return rejectInDemoMode();
   return adminApiClient.get<RegistrationDetailDto>(
     `/admin/academy/registrations/${encodeURIComponent(id)}`,
     {
@@ -144,6 +158,7 @@ export function changeAdminRegistrationStatus(
   id: string,
   body: RegistrationStatusChangeRequestDto,
 ): Promise<RegistrationDetailDto> {
+  if (ADMIN_DEMO_MODE) return rejectInDemoMode();
   return adminApiClient.patch<RegistrationDetailDto>(
     `/admin/academy/registrations/${encodeURIComponent(id)}/status`,
     body,
@@ -159,6 +174,7 @@ export function changeAdminRegistrationStatus(
 export function listAdminRegistrationSessions(
   signal?: AbortSignal,
 ): Promise<AdminRegistrationSessionListDto> {
+  if (ADMIN_DEMO_MODE) return rejectInDemoMode();
   return adminApiClient.get<AdminRegistrationSessionListDto>(
     "/admin/academy/registration-sessions",
     {
@@ -172,6 +188,7 @@ export function getAdminRegistrationSession(
   id: string,
   signal?: AbortSignal,
 ): Promise<AdminRegistrationSessionDto> {
+  if (ADMIN_DEMO_MODE) return rejectInDemoMode();
   return adminApiClient.get<AdminRegistrationSessionDto>(
     `/admin/academy/registration-sessions/${encodeURIComponent(id)}`,
     {
@@ -184,6 +201,7 @@ export function getAdminRegistrationSession(
 export function createAdminRegistrationSession(
   body: CreateRegistrationSessionRequestDto,
 ): Promise<AdminRegistrationSessionDto> {
+  if (ADMIN_DEMO_MODE) return rejectInDemoMode();
   return adminApiClient.post<AdminRegistrationSessionDto>(
     "/admin/academy/registration-sessions",
     body,
@@ -197,6 +215,7 @@ export function updateAdminRegistrationSession(
   id: string,
   body: UpdateRegistrationSessionRequestDto,
 ): Promise<AdminRegistrationSessionDto> {
+  if (ADMIN_DEMO_MODE) return rejectInDemoMode();
   return adminApiClient.patch<AdminRegistrationSessionDto>(
     `/admin/academy/registration-sessions/${encodeURIComponent(id)}`,
     body,
@@ -210,6 +229,7 @@ export function publishAdminRegistrationSession(
   id: string,
   body: PublishRegistrationSessionRequestDto,
 ): Promise<AdminRegistrationSessionDto> {
+  if (ADMIN_DEMO_MODE) return rejectInDemoMode();
   return adminApiClient.post<AdminRegistrationSessionDto>(
     `/admin/academy/registration-sessions/${encodeURIComponent(id)}/publish`,
     body,
@@ -223,6 +243,7 @@ export function closeAdminRegistrationSession(
   id: string,
   body: VersionRequestDto,
 ): Promise<AdminRegistrationSessionDto> {
+  if (ADMIN_DEMO_MODE) return rejectInDemoMode();
   return adminApiClient.post<AdminRegistrationSessionDto>(
     `/admin/academy/registration-sessions/${encodeURIComponent(id)}/close`,
     body,
@@ -238,6 +259,7 @@ export function closeAdminRegistrationSession(
 export function listAdminRegistrationPolicies(
   signal?: AbortSignal,
 ): Promise<AdminRegistrationPolicyListDto> {
+  if (ADMIN_DEMO_MODE) return rejectInDemoMode();
   return adminApiClient.get<AdminRegistrationPolicyListDto>(
     "/admin/academy/registration-policies",
     {
@@ -250,6 +272,7 @@ export function listAdminRegistrationPolicies(
 export function createAdminRegistrationPolicy(
   body: CreateRegistrationPolicyRequestDto,
 ): Promise<AdminRegistrationPolicyDto> {
+  if (ADMIN_DEMO_MODE) return rejectInDemoMode();
   return adminApiClient.post<AdminRegistrationPolicyDto>(
     "/admin/academy/registration-policies",
     body,
@@ -261,8 +284,9 @@ export function createAdminRegistrationPolicy(
 
 export function approveAdminRegistrationPolicy(
   id: string,
-  body: VersionRequestDto,
+  body: ApproveRegistrationPolicyRequestDto,
 ): Promise<AdminRegistrationPolicyDto> {
+  if (ADMIN_DEMO_MODE) return rejectInDemoMode();
   return adminApiClient.post<AdminRegistrationPolicyDto>(
     `/admin/academy/registration-policies/${encodeURIComponent(id)}/approve`,
     body,
@@ -276,6 +300,7 @@ export function retireAdminRegistrationPolicy(
   id: string,
   body: VersionRequestDto,
 ): Promise<AdminRegistrationPolicyDto> {
+  if (ADMIN_DEMO_MODE) return rejectInDemoMode();
   return adminApiClient.post<AdminRegistrationPolicyDto>(
     `/admin/academy/registration-policies/${encodeURIComponent(id)}/retire`,
     body,
@@ -291,6 +316,7 @@ export function retireAdminRegistrationPolicy(
 export function listAuthoritativeProgrammes(
   signal?: AbortSignal,
 ): Promise<ProgrammeItem[]> {
+  if (ADMIN_DEMO_MODE) return rejectInDemoMode();
   return adminApiClient.get<ProgrammeItem[]>(
     "/admin/operations-data/programmes",
     {
@@ -303,6 +329,7 @@ export function listAuthoritativeProgrammes(
 export function listAuthoritativeVenues(
   signal?: AbortSignal,
 ): Promise<VenueItem[]> {
+  if (ADMIN_DEMO_MODE) return rejectInDemoMode();
   return adminApiClient.get<VenueItem[]>("/admin/operations-data/venues", {
     cache: "no-store",
     signal,

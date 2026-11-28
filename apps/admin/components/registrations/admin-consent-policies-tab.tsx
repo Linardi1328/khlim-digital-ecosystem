@@ -108,8 +108,12 @@ export function AdminConsentPoliciesTab({
   const [creating, setCreating] = useState(false);
 
   // Approve & Retire dialogs (only accessible to SUPER_ADMIN / MANAGEMENT)
-  const [approveTarget, setApproveTarget] =
-    useState<AdminRegistrationPolicyDto | null>(null);
+  // Snapshot both the target draft and the currently approved predecessor at dialog open
+  // so approval is strictly bound to the predecessor confirmed by staff.
+  const [approveDialogState, setApproveDialogState] = useState<{
+    target: AdminRegistrationPolicyDto;
+    predecessor: AdminRegistrationPolicyDto | null;
+  } | null>(null);
   const [retireTarget, setRetireTarget] =
     useState<AdminRegistrationPolicyDto | null>(null);
   const [mutating, setMutating] = useState(false);
@@ -145,7 +149,7 @@ export function AdminConsentPoliciesTab({
     setCreateOpen(false);
     setDraftVersion("");
     setDraftContent(createEmptyPolicyContentMap());
-    setApproveTarget(null);
+    setApproveDialogState(null);
     setRetireTarget(null);
     setFieldErrors({});
     setFormError(null);
@@ -226,6 +230,7 @@ export function AdminConsentPoliciesTab({
     field: "ref" | "sha256",
     value: string,
   ) => {
+    if (creating) return;
     setDraftContent((prev) => ({
       ...prev,
       [category]: {
@@ -300,18 +305,23 @@ export function AdminConsentPoliciesTab({
   };
 
   const handleConfirmApprove = async () => {
-    if (!approveTarget || !canApprovePolicies || mutating) return;
+    if (!approveDialogState || !canApprovePolicies || mutating) return;
     const authGen = authGenerationRef.current;
-    const targetId = approveTarget.id;
-    const targetVersion = approveTarget.version;
+    const targetId = approveDialogState.target.id;
+    const targetVersion = approveDialogState.target.version;
+    const expectedApprovedPolicyId = approveDialogState.predecessor?.id ?? null;
+    const expectedApprovedPolicyVersion =
+      approveDialogState.predecessor?.version ?? null;
     setMutating(true);
     setBanner(null);
     try {
       const approved = await approveAdminRegistrationPolicy(targetId, {
         expectedVersion: targetVersion,
+        expectedApprovedPolicyId,
+        expectedApprovedPolicyVersion,
       });
       if (!isCurrentAuthGen(authGen)) return;
-      setApproveTarget(null);
+      setApproveDialogState(null);
       setBanner({
         variant: "success",
         message: `Consent policy "${approved.policyVersion}" is now APPROVED (v${approved.version}). Any previously approved policy has been retired.`,
@@ -320,7 +330,7 @@ export function AdminConsentPoliciesTab({
     } catch (error: unknown) {
       if (!isCurrentAuthGen(authGen)) return;
       const classified = classifyAdminRegistrationError(error);
-      setApproveTarget(null);
+      setApproveDialogState(null);
       if (
         classified.kind === "UNAUTHENTICATED" ||
         classified.kind === "FORBIDDEN"
@@ -457,7 +467,12 @@ export function AdminConsentPoliciesTab({
               size="sm"
               variant="primary"
               data-testid={`approve-policy-${policy.id}`}
-              onClick={() => setApproveTarget(policy)}
+              onClick={() =>
+                setApproveDialogState({
+                  target: policy,
+                  predecessor: currentPolicy,
+                })
+              }
             >
               Approve
             </Button>
@@ -896,7 +911,9 @@ export function AdminConsentPoliciesTab({
               type="text"
               maxLength={64}
               value={draftVersion}
+              disabled={creating}
               onChange={(e) => {
+                if (creating) return;
                 setDraftVersion(e.target.value);
                 setFieldErrors((prev) => {
                   if (!prev.policyVersion) return prev;
@@ -968,6 +985,7 @@ export function AdminConsentPoliciesTab({
                         type="text"
                         maxLength={300}
                         value={cell.ref}
+                        disabled={creating}
                         onChange={(e) =>
                           updateContentCell(
                             cat.type,
@@ -1011,6 +1029,7 @@ export function AdminConsentPoliciesTab({
                         type="text"
                         maxLength={64}
                         value={cell.sha256}
+                        disabled={creating}
                         onChange={(e) =>
                           updateContentCell(
                             cat.type,
@@ -1064,23 +1083,24 @@ export function AdminConsentPoliciesTab({
 
       {/* Approve Policy Confirmation Dialog */}
       <ConfirmDialog
-        isOpen={Boolean(approveTarget)}
+        isOpen={Boolean(approveDialogState)}
         onClose={() => {
-          if (!mutating) setApproveTarget(null);
+          if (!mutating) setApproveDialogState(null);
         }}
         onConfirm={() => void handleConfirmApprove()}
         isLoading={mutating}
         variant="primary"
-        title={`Approve policy "${approveTarget?.policyVersion ?? ""}"?`}
+        title={`Approve policy "${approveDialogState?.target.policyVersion ?? ""}"?`}
         confirmLabel="Approve Policy"
         description={
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <p style={{ margin: 0, color: "#334155" }}>
-              Approving <strong>{approveTarget?.policyVersion}</strong> (v
-              {approveTarget?.version}) makes it the active consent policy for
-              public Academy registration.
+              Approving{" "}
+              <strong>{approveDialogState?.target.policyVersion}</strong> (v
+              {approveDialogState?.target.version}) makes it the active consent
+              policy for public Academy registration.
             </p>
-            {currentPolicy ? (
+            {approveDialogState?.predecessor ? (
               <p
                 style={{
                   margin: 0,
@@ -1092,10 +1112,25 @@ export function AdminConsentPoliciesTab({
                 }}
               >
                 Approving this replacement automatically retires the currently
-                approved policy (<strong>{currentPolicy.policyVersion}</strong>)
-                and increments its version.
+                approved policy (
+                <strong>{approveDialogState.predecessor.policyVersion}</strong>,
+                v{approveDialogState.predecessor.version}) and increments its
+                version.
               </p>
-            ) : null}
+            ) : (
+              <p
+                style={{
+                  margin: 0,
+                  padding: "8px 10px",
+                  borderRadius: 6,
+                  backgroundColor: "#F8FAFC",
+                  color: "#475569",
+                  fontSize: "0.82rem",
+                }}
+              >
+                No currently approved consent policy will be retired.
+              </p>
+            )}
           </div>
         }
       />

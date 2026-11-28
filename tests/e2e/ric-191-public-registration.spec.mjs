@@ -6,11 +6,12 @@ const SCREENSHOT_DIR = process.env.RIC191_SCREENSHOT_DIR || "";
 
 async function maybeCapture(page, filename, fullPage = true) {
   if (!SCREENSHOT_DIR) return;
-  fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
+  const projectDir = path.join(SCREENSHOT_DIR, test.info().project.name);
+  fs.mkdirSync(projectDir, { recursive: true });
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.waitForTimeout(100);
   await page.screenshot({
-    path: path.join(SCREENSHOT_DIR, filename),
+    path: path.join(projectDir, filename),
     fullPage,
   });
 }
@@ -519,18 +520,22 @@ test.describe("RIC-191 Public Academy Registration V1", () => {
     await page.check("#consent-checkbox-GUARDIAN_AUTHORITY");
     await page.check("#consent-checkbox-REGISTRATION_PRIVACY");
 
-    // 1) SESSION_FULL -> refreshes sessions and clears selection (never silently switches!)
+    // SESSION_FULL: failed list refresh must not permit another submission.
     await page.unroute("**/v1/academy/sessions*");
-    await page.route("**/v1/academy/sessions*", (route) =>
-      route.fulfill({
+    let sessionRefreshCalls = 0;
+    await page.route("**/v1/academy/sessions*", (route) => {
+      sessionRefreshCalls += 1;
+      if (sessionRefreshCalls === 1)
+        return route.fulfill({ status: 503, body: "outage" });
+      return route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
           registrationOpen: true,
           items: [SYNTHETIC_SESSIONS.items[1]],
         }),
-      }),
-    );
+      });
+    });
     await page.route("**/v1/academy/registrations", (route) =>
       route.fulfill({
         status: 409,
@@ -545,12 +550,18 @@ test.describe("RIC-191 Public Academy Registration V1", () => {
 
     await page.getByTestId("registration-submit-btn").click();
     await expect(page.getByTestId("registration-step-1")).toBeVisible();
-    await expect(page.getByTestId("registration-error-banner")).toContainText(
-      "capacity",
-    );
+    const retrySessions = page.getByTestId("registration-session-refresh-btn");
+    await expect(retrySessions).toBeEnabled();
+    expect(sessionRefreshCalls).toBe(1);
     await expect(
       page.locator("#session-option-00000000-0000-4000-8000-000000000002"),
     ).not.toBeChecked();
+    await retrySessions.click();
+    await expect(retrySessions).toHaveCount(0);
+    expect(sessionRefreshCalls).toBe(2);
+    await expect(
+      page.locator("#session-option-00000000-0000-4000-8000-000000000001"),
+    ).toHaveCount(0);
     await maybeCapture(page, "09-session-full-error.png");
 
     // Pick remaining session and test CONSENT_VERSION_MISMATCH
@@ -559,13 +570,17 @@ test.describe("RIC-191 Public Academy Registration V1", () => {
     await page.getByTestId("step2-next-btn").click();
 
     await page.unroute("**/v1/academy/registration-config*");
-    await page.route("**/v1/academy/registration-config*", (route) =>
-      route.fulfill({
+    let configRefreshCalls = 0;
+    await page.route("**/v1/academy/registration-config*", (route) => {
+      configRefreshCalls += 1;
+      if (configRefreshCalls === 1)
+        return route.fulfill({ status: 503, body: "outage" });
+      return route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify(makeSyntheticConfig("SYNTHETIC-EXAMPLE-2")),
-      }),
-    );
+      });
+    });
 
     await page.unroute("**/v1/academy/registrations");
     let postCall = 0;
@@ -596,6 +611,19 @@ test.describe("RIC-191 Public Academy Registration V1", () => {
     });
 
     await page.getByTestId("registration-submit-btn").click();
+    // Failed refresh leaves rejected wording unusable; GET-only retry recovers.
+    await expect(page.getByTestId("registration-submit-btn")).toBeDisabled();
+    const retryConfig = page.getByTestId("registration-config-refresh-btn");
+    await expect(retryConfig).toBeEnabled();
+    expect(postCall).toBe(1);
+    expect(configRefreshCalls).toBe(1);
+    await expect(
+      page.locator("#consent-checkbox-GUARDIAN_AUTHORITY"),
+    ).toHaveCount(0);
+    await retryConfig.click();
+    await expect(retryConfig).toHaveCount(0);
+    expect(postCall).toBe(1);
+    expect(configRefreshCalls).toBe(2);
     // Consent updated -> checkboxes reset, non-consent details preserved!
     await expect(page.getByTestId("registration-step-3")).toContainText(
       "SYNTHETIC-EXAMPLE-2",
@@ -654,7 +682,97 @@ test.describe("RIC-191 Public Academy Registration V1", () => {
     await expect(page.getByTestId("registration-submit-btn")).toBeDisabled();
   });
 
-  test("Network interruption -> identical idempotent retry reuses Idempotency-Key & accepts HTTP 200 replay; double-submit prevented", async ({
+  test("Network interruption preserves exact idempotent retry key and payload, blocks double-submit and edits while pending", async ({
+    page,
+  }) => {
+    await setupBasePublicMocks(page);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(
+      "/academy/register?sessionId=00000000-0000-4000-8000-000000000001",
+      { waitUntil: "networkidle" },
+    );
+    await fillStep1And2(page);
+    await page.check("#consent-checkbox-GUARDIAN_AUTHORITY");
+    await page.check("#consent-checkbox-REGISTRATION_PRIVACY");
+
+    let releaseFirstPost;
+    const firstPostGate = new Promise((resolve) => {
+      releaseFirstPost = resolve;
+    });
+    let firstPostStarted;
+    const firstPostStartedPromise = new Promise((resolve) => {
+      firstPostStarted = resolve;
+    });
+
+    const seenKeys = [];
+    const seenPayloads = [];
+    await page.route("**/v1/academy/registrations", async (route) => {
+      const key = route.request().headers()["idempotency-key"];
+      const payload = route.request().postDataJSON();
+      seenKeys.push(key);
+      seenPayloads.push(payload);
+      if (seenKeys.length === 1) {
+        firstPostStarted();
+        await firstPostGate;
+        await route.abort("failed");
+        return;
+      }
+      // Return HTTP 200 idempotent replay ONLY when both key and payload match the original request
+      const keysMatch = key === seenKeys[0];
+      const payloadsMatch =
+        JSON.stringify(payload) === JSON.stringify(seenPayloads[0]);
+      if (!keysMatch || !payloadsMatch) {
+        await route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({
+            statusCode: 409,
+            code: "IDEMPOTENCY_KEY_CONFLICT",
+            message: "Key or payload mismatch on retry",
+          }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(SYNTHETIC_RECEIPT),
+      });
+    });
+
+    await page.getByTestId("registration-submit-btn").click();
+    await firstPostStartedPromise;
+
+    // While first POST is pending: submit, edit buttons, and consent controls are disabled; second submit sends 0 extra POSTs
+    await expect(page.getByTestId("registration-submit-btn")).toBeDisabled();
+    await expect(
+      page.locator("#consent-checkbox-GUARDIAN_AUTHORITY"),
+    ).toBeDisabled();
+    await expect(
+      page
+        .getByTestId("registration-step-3")
+        .getByRole("button", {
+          name: "Edit",
+        })
+        .first(),
+    ).toBeDisabled();
+    await page.getByTestId("registration-step-3").dispatchEvent("submit");
+    expect(seenKeys.length).toBe(1);
+
+    // Abort held request -> ambiguous retry panel appears
+    releaseFirstPost();
+    await expect(page.getByTestId("ambiguous-retry-panel")).toBeVisible();
+    expect(seenKeys.length).toBe(1);
+
+    // Retry original attempt -> must reuse EXACT same Idempotency-Key and payload
+    await page.getByTestId("retry-original-attempt-btn").click();
+    await expect(page.getByTestId("registration-receipt-card")).toBeVisible();
+    expect(seenKeys.length).toBe(2);
+    expect(seenKeys[1]).toBe(seenKeys[0]);
+    expect(seenPayloads[1]).toEqual(seenPayloads[0]);
+  });
+
+  test("Malformed success receipt preserves exact idempotent retry key and payload", async ({
     page,
   }) => {
     await setupBasePublicMocks(page);
@@ -668,10 +786,16 @@ test.describe("RIC-191 Public Academy Registration V1", () => {
     await page.check("#consent-checkbox-REGISTRATION_PRIVACY");
 
     const seenKeys = [];
+    const seenPayloads = [];
     await page.route("**/v1/academy/registrations", async (route) => {
       seenKeys.push(route.request().headers()["idempotency-key"]);
+      seenPayloads.push(route.request().postDataJSON());
       if (seenKeys.length === 1) {
-        await route.abort("failed");
+        await route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({}),
+        });
         return;
       }
       // Second call succeeds with HTTP 200 idempotent replay!
@@ -691,6 +815,7 @@ test.describe("RIC-191 Public Academy Registration V1", () => {
     await expect(page.getByTestId("registration-receipt-card")).toBeVisible();
     expect(seenKeys.length).toBe(2);
     expect(seenKeys[1]).toBe(seenKeys[0]);
+    expect(seenPayloads[1]).toEqual(seenPayloads[0]);
   });
 
   test("Language switching resets consents, hides competing header CTA, and all 7 viewports (360-1440px) have zero overflow including Receipt in EN, MS, ZH-Hans", async ({
@@ -816,6 +941,10 @@ test.describe("RIC-191 Public Academy Registration V1", () => {
         .first()
         .selectOption(loc);
       await expect(page.locator("html")).toHaveAttribute("lang", loc);
+      await expect(page.getByTestId("registration-receipt-card")).toBeVisible();
+      await expect(page.getByTestId("receipt-reference-code")).toHaveText(
+        "KAR-7H3QK9XM",
+      );
       for (const vp of VIEWPORTS) {
         await page.setViewportSize(vp);
         const overflow = await page.evaluate(
@@ -829,5 +958,74 @@ test.describe("RIC-191 Public Academy Registration V1", () => {
         ).toBeLessThanOrEqual(2);
       }
     }
+
+    // Clipboard fallback: when navigator.clipboard is unavailable, never claim copied and direct user to manual copy
+    await page.evaluate(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: undefined,
+      });
+    });
+    await page.getByTestId("copy-reference-code-btn").click();
+    await expect(
+      page.getByTestId("copy-reference-manual-notice"),
+    ).toBeVisible();
+    await expect(page.getByTestId("copy-reference-code-btn")).not.toContainText(
+      /copied|disalin|已复制/i,
+    );
+  });
+
+  test("Consent gate blocks ambiguous retry when switched to locale with unapproved wording", async ({
+    page,
+  }) => {
+    const partialMsConfig = makeSyntheticConfig("SYNTHETIC-EXAMPLE");
+    partialMsConfig.consent.items[0].content.ms = {
+      ref: "unapproved/ms/guardian-authority",
+      sha256: "f".repeat(64),
+    };
+    await page.route("**/v1/academy/registration-config*", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(partialMsConfig),
+      }),
+    );
+    await page.route("**/v1/academy/sessions*", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(SYNTHETIC_SESSIONS),
+      }),
+    );
+
+    let postCount = 0;
+    await page.route("**/v1/academy/registrations", async (route) => {
+      postCount += 1;
+      await route.abort("failed");
+    });
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto(
+      "/academy/register?sessionId=00000000-0000-4000-8000-000000000001",
+      { waitUntil: "networkidle" },
+    );
+    await fillStep1And2(page);
+    await page.check("#consent-checkbox-GUARDIAN_AUTHORITY");
+    await page.check("#consent-checkbox-REGISTRATION_PRIVACY");
+
+    await page.getByTestId("registration-submit-btn").click();
+    await expect(page.getByTestId("ambiguous-retry-panel")).toBeVisible();
+    await expect(page.getByTestId("retry-original-attempt-btn")).toBeEnabled();
+    expect(postCount).toBe(1);
+
+    // Switch to MS where wording is unresolved -> both Submit and Retry original must be disabled
+    await page
+      .locator(".public-header-locale select")
+      .first()
+      .selectOption("ms");
+    await expect(page.locator("html")).toHaveAttribute("lang", "ms");
+    await expect(page.getByTestId("registration-submit-btn")).toBeDisabled();
+    await expect(page.getByTestId("retry-original-attempt-btn")).toBeDisabled();
+    expect(postCount).toBe(1);
   });
 });

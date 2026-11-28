@@ -3,6 +3,73 @@ import path from "node:path";
 import { expect, test } from "@playwright/test";
 
 const SCREENSHOT_DIR = process.env.RIC191_SCREENSHOT_DIR || "";
+const ADMIN_SUPABASE_SESSION_STORAGE_KEY = "khlim_admin_supabase_session";
+const DEFAULT_ORG_ID = "00000000-0000-4000-8000-000000000001";
+const SECONDARY_ORG_ID = "00000000-0000-4000-8000-000000000002";
+
+async function setupAuthenticatedAdminSession(page, initialOverrides = {}) {
+  let currentSession = {
+    id: "staff-user-1",
+    organizationId: DEFAULT_ORG_ID,
+    email: "super@example.test",
+    displayName: "Synthetic Super Admin",
+    preferredLocale: "en",
+    roles: ["SUPER_ADMIN", "ACADEMY_ADMIN"],
+    authenticatorAssuranceLevel: "aal2",
+    mfaSatisfied: true,
+    ...initialOverrides,
+  };
+  let sessionFetchCount = 0;
+
+  const expiresAt = Math.floor(Date.now() / 1000) + 3600;
+  await page.addInitScript(
+    ({ storageKey, exp }) => {
+      window.localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          access_token: "synthetic-e2e-aal2-token",
+          refresh_token: "synthetic-e2e-refresh-token",
+          expires_in: 3600,
+          expires_at: exp,
+          token_type: "bearer",
+          user: {
+            id: "staff-user-1",
+            email: "super@example.test",
+          },
+        }),
+      );
+    },
+    { storageKey: ADMIN_SUPABASE_SESSION_STORAGE_KEY, exp: expiresAt },
+  );
+
+  await page.route(/\/v1\/admin\/session$/, (route) => {
+    sessionFetchCount += 1;
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(currentSession),
+    });
+  });
+
+  return {
+    setSession(nextOverrides) {
+      currentSession = { ...currentSession, ...nextOverrides };
+    },
+    async switchSession(nextOverrides) {
+      const before = sessionFetchCount;
+      currentSession = { ...currentSession, ...nextOverrides };
+      await page.evaluate((storageKey) => {
+        window.dispatchEvent(
+          new StorageEvent("storage", {
+            key: storageKey,
+            newValue: window.localStorage.getItem(storageKey),
+          }),
+        );
+      }, ADMIN_SUPABASE_SESSION_STORAGE_KEY);
+      await expect.poll(() => sessionFetchCount).toBeGreaterThan(before);
+    },
+  };
+}
 
 async function maybeCapture(page, filename, fullPage = false) {
   if (!SCREENSHOT_DIR) return;
@@ -20,6 +87,29 @@ async function maybeCapture(page, filename, fullPage = false) {
     path: path.join(SCREENSHOT_DIR, filename),
     fullPage,
   });
+}
+
+function trackRequestSettlement(page, req) {
+  return new Promise((resolve) => {
+    const onDone = (candidate) => {
+      if (candidate !== req) return;
+      page.off("requestfinished", onDone);
+      page.off("requestfailed", onDone);
+      resolve();
+    };
+    page.on("requestfinished", onDone);
+    page.on("requestfailed", onDone);
+  });
+}
+
+async function flushUiAfterSettled(page, settledPromise) {
+  await settledPromise;
+  await page.evaluate(
+    () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      ),
+  );
 }
 
 const VIEWPORTS = [
@@ -262,6 +352,7 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
   test("Authoritative session filter, POST search (HTTP 200, MY local & E.164 phone), detail, and status transitions", async ({
     page,
   }) => {
+    await setupAuthenticatedAdminSession(page);
     let currentDetail = makeSyntheticDetail();
     const listUrls = [];
     const searchBodies = [];
@@ -404,18 +495,19 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
     await page.selectOption("#registration-reason-code", "GUARDIAN_REQUEST");
     await page.getByTestId("open-status-confirm-btn").click();
     await page.getByRole("button", { name: "Confirm Status Change" }).click();
+    await expect(page.getByTestId("terminal-status-notice")).toBeVisible();
 
     expect(patchBodies[1]).toEqual({
       status: "CANCELLED",
       reasonCode: "GUARDIAN_REQUEST",
       expectedVersion: 2,
     });
-    await expect(page.getByTestId("terminal-status-notice")).toBeVisible();
   });
 
   test("Functional Admin Training Sessions: empty state, incomplete draft create, edit, incomplete publish rejection, publish with approvals, stale version, and terminal close", async ({
     page,
   }) => {
+    await setupAuthenticatedAdminSession(page);
     let sessionsStore = [];
     const createBodies = [];
     const patchBodies = [];
@@ -618,10 +710,14 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
     expect(createBodies[0].weekday).toBeNull();
     expect(createBodies[0].firstSessionDate).toBeNull();
 
-    // 3) Edit draft -> first hits STALE_VERSION (refreshes list, never silently retries)
+    // 3) Edit draft -> verify accessible locked Programme label, then hit STALE_VERSION
+    // (disables Save, shows attempted changes, requires explicit reload into editor)
     await page
       .getByTestId("edit-session-00000000-0000-4000-8000-000000000501")
       .click();
+    await expect(
+      page.getByLabel("Programme (locked after creation)"),
+    ).toHaveValue("KHLIM Academy U12");
     await page.fill("#session-coach-name", "Coach Sengjun");
     await page.selectOption("#session-weekday", "6");
     await page.fill("#session-start-time", "14:00");
@@ -635,13 +731,18 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
     await expect(page.getByTestId("session-form-error")).toContainText(
       "modified by another administrator",
     );
+    await expect(page.getByTestId("save-session-btn")).toBeDisabled();
+    await expect(
+      page.getByTestId("session-stale-conflict-panel"),
+    ).toContainText("Coach Sengjun");
     expect(patchCalls).toBe(1);
 
-    // Close & re-open edit with refreshed v2 -> saves cleanly
-    await page.getByRole("button", { name: "Cancel" }).click();
-    await page
-      .getByTestId("edit-session-00000000-0000-4000-8000-000000000501")
-      .click();
+    // Explicitly load refreshed v2 into editor -> review comparison -> re-apply and save cleanly
+    await page.getByTestId("reload-refreshed-session-btn").click();
+    await expect(page.getByTestId("session-conflict-comparison")).toContainText(
+      "Loaded latest version (v2)",
+    );
+    await expect(page.getByTestId("save-session-btn")).toBeEnabled();
     await page.fill("#session-coach-name", "Coach Sengjun");
     await page.selectOption("#session-weekday", "6");
     await page.fill("#session-start-time", "14:00");
@@ -713,10 +814,10 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
     ).toHaveCount(0);
   });
 
-  test("Functional Admin Consent Policies: no current policy, create draft, approve & replace, retire, stale version, and ACADEMY_ADMIN role boundary", async ({
+  test("Functional Admin Consent Policies: no current policy, create draft, approve & replace with predecessor binding, retire, stale version, and ACADEMY_ADMIN role boundary", async ({
     page,
-    viewport,
   }) => {
+    const auth = await setupAuthenticatedAdminSession(page);
     let policyState = {
       current: null,
       items: [],
@@ -897,22 +998,36 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
 
     // 3) Approve draft -> first hits STALE_VERSION (refreshes to v2, no silent retry)
     await page.getByTestId("approve-policy-pol-1").click();
+    const initialApproveDialog = page.getByRole("dialog", {
+      name: /Approve policy "SYNTHETIC-V1"/i,
+    });
+    await expect(initialApproveDialog).toContainText(
+      "No currently approved consent policy will be retired",
+    );
     await page.getByRole("button", { name: "Approve Policy" }).click();
     await expect(page.getByTestId("policies-action-banner")).toContainText(
       "modified by another administrator",
     );
-    expect(approveBodies[0]).toEqual({ expectedVersion: 1 });
+    expect(approveBodies[0]).toEqual({
+      expectedVersion: 1,
+      expectedApprovedPolicyId: null,
+      expectedApprovedPolicyVersion: null,
+    });
 
-    // Second approve succeeds using refreshed v2 -> becomes Current Approved Policy
+    // Second approve succeeds using refreshed v2 -> becomes Current Approved Policy (v3)
     await page.getByTestId("approve-policy-pol-1").click();
     await page.getByRole("button", { name: "Approve Policy" }).click();
     await expect(
       page.getByTestId("current-approved-policy-card"),
     ).toContainText("SYNTHETIC-V1");
-    expect(approveBodies[1]).toEqual({ expectedVersion: 2 });
+    expect(approveBodies[1]).toEqual({
+      expectedVersion: 2,
+      expectedApprovedPolicyId: null,
+      expectedApprovedPolicyVersion: null,
+    });
     await maybeCapture(page, "22-admin-policies-active.png", true);
 
-    // 4) Add a 2nd draft and approve replacement -> dialog warns previous policy will retire
+    // 4) Add a 2nd draft and approve replacement -> dialog names exact predecessor & sends predecessor binding
     policyState = {
       ...policyState,
       items: [
@@ -936,7 +1051,7 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
       name: /Approve policy "SYNTHETIC-V2"/i,
     });
     await expect(approveReplacementDialog).toContainText(
-      "automatically retires the currently approved policy",
+      "automatically retires the currently approved policy (SYNTHETIC-V1, v3)",
     );
     await maybeCapture(page, "23-admin-policy-approve-dialog.png");
 
@@ -944,29 +1059,44 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
     await expect(
       page.getByTestId("current-approved-policy-card"),
     ).toContainText("SYNTHETIC-V2");
+    expect(approveBodies[2]).toEqual({
+      expectedVersion: 1,
+      expectedApprovedPolicyId: "pol-1",
+      expectedApprovedPolicyVersion: 3,
+    });
 
-    // 5) ACADEMY_ADMIN role boundary: must NOT see Approve or Retire controls
-    if (viewport && viewport.width >= 1024) {
-      await page
-        .getByRole("button", { name: "Switch active work view" })
-        .click();
-      await page
-        .getByRole("menuitemradio", { name: "ACADEMY ADMIN", exact: true })
-        .click();
-      await expect(page.getByTestId("policy-authority-readonly")).toBeVisible();
-      await expect(page.getByTestId("retire-current-policy-btn")).toHaveCount(
-        0,
-      );
-      await expect(page.getByTestId("retire-policy-pol-2")).toHaveCount(0);
+    // 5) ACADEMY_ADMIN server-authoritative role boundary across all viewports
+    policyState = {
+      ...policyState,
+      items: [
+        {
+          id: "pol-3",
+          policyVersion: "SYNTHETIC-V3-DRAFT",
+          status: "DRAFT",
+          version: 1,
+          content: makeSyntheticPolicyContent("v3"),
+          approvedAt: null,
+          retiredAt: null,
+          createdAt: "2026-12-03T01:00:00.000Z",
+          updatedAt: "2026-12-03T01:00:00.000Z",
+        },
+        ...policyState.items,
+      ],
+    };
+    await page.getByRole("button", { name: "Refresh" }).click();
+    await expect(page.getByTestId("approve-policy-pol-3")).toBeVisible();
+    await expect(page.getByTestId("retire-policy-pol-3")).toBeVisible();
 
-      // Switch back to SUPER_ADMIN to test retirement
-      await page
-        .getByRole("button", { name: "Switch active work view" })
-        .click();
-      await page
-        .getByRole("menuitemradio", { name: "SUPER ADMIN", exact: true })
-        .click();
-    }
+    await auth.switchSession({ roles: ["ACADEMY_ADMIN"] });
+    await expect(page.getByTestId("policy-authority-readonly")).toBeVisible();
+    await expect(page.getByTestId("approve-policy-pol-3")).toHaveCount(0);
+    await expect(page.getByTestId("retire-current-policy-btn")).toHaveCount(0);
+    await expect(page.getByTestId("retire-policy-pol-2")).toHaveCount(0);
+    await expect(page.getByTestId("retire-policy-pol-3")).toHaveCount(0);
+
+    // Restore SUPER_ADMIN session to confirm draft approval returns and test retirement
+    await auth.switchSession({ roles: ["SUPER_ADMIN", "ACADEMY_ADMIN"] });
+    await expect(page.getByTestId("approve-policy-pol-3")).toBeVisible();
 
     // 6) Retire current policy -> dialog warns registration closes -> current becomes null
     await page.getByTestId("retire-current-policy-btn").click();
@@ -988,6 +1118,7 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
   test("Handles 401/403 sensitive-state cleanup, session filter retry, and zero horizontal overflow across 7 viewports", async ({
     page,
   }) => {
+    await setupAuthenticatedAdminSession(page);
     const listPattern = /\/v1\/admin\/academy\/registrations(\?.*)?$/;
     const sessionsPattern = /\/v1\/admin\/academy\/registration-sessions$/;
 
@@ -1020,7 +1151,8 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
       "Ages 10–12 Saturday (Synthetic)",
     );
 
-    // 2) 401 expiration clears loaded records
+    // 2) 401 expiration clears already-mounted records without reloading the page
+    await expect(page.locator("body")).toContainText("KAR-7H3QK9XM");
     await page.unroute(listPattern);
     await page.route(listPattern, (route) =>
       route.fulfill({
@@ -1033,7 +1165,8 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
         }),
       }),
     );
-    await page.reload({ waitUntil: "networkidle" });
+    // Trigger an in-place refetch on the mounted registrations list (no page reload)
+    await page.selectOption("#registration-status-filter", "RECEIVED");
     await expect(page.getByTestId("registrations-error-state")).toContainText(
       "Session Expired",
     );
@@ -1089,12 +1222,14 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
     }
   });
 
-  test("Asynchronous auth-context isolation prevents delayed mutations, STALE_VERSION follow-ups, and 401/403 leaks", async ({
+  test("CR-25 same-user, same-role organization switching isolates delayed reads, mutations, STALE_VERSION follow-ups, and 401 cleanup", async ({
     page,
-    viewport,
   }) => {
-    // Role switcher is exposed in the desktop header; mobile verifies 401 search-clear below
-    const hasDesktopSwitcher = Boolean(viewport && viewport.width >= 1024);
+    const auth = await setupAuthenticatedAdminSession(page, {
+      id: "staff-user-1",
+      roles: ["SUPER_ADMIN"],
+      organizationId: DEFAULT_ORG_ID,
+    });
 
     let contextPhase = "OLD_CONTEXT";
     let listRequestsInNewContext = 0;
@@ -1191,33 +1326,56 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
     let patchCallCount = 0;
     let failNextDetailWith401 = false;
 
-    await page.route(/\/v1\/admin\/academy\/registrations(\?.*)?$/, (route) => {
-      if (contextPhase === "NEW_EMPTY_CONTEXT") {
-        listRequestsInNewContext += 1;
+    let releaseDelayedOrgAList;
+    const delayedOrgAListGate = new Promise((resolve) => {
+      releaseDelayedOrgAList = resolve;
+    });
+    let delayedOrgAListStarted;
+    const delayedOrgAListStartedPromise = new Promise((resolve) => {
+      delayedOrgAListStarted = resolve;
+    });
+    let delayedOrgAListSettled;
+    let holdNextOrgAList = false;
+
+    await page.route(
+      /\/v1\/admin\/academy\/registrations(\?.*)?$/,
+      async (route) => {
+        if (contextPhase === "NEW_EMPTY_CONTEXT") {
+          listRequestsInNewContext += 1;
+          return route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              items: [],
+              total: 0,
+              page: 1,
+              limit: 20,
+              totalPages: 1,
+            }),
+          });
+        }
+        if (holdNextOrgAList) {
+          holdNextOrgAList = false;
+          delayedOrgAListSettled = trackRequestSettlement(
+            page,
+            route.request(),
+          );
+          delayedOrgAListStarted();
+          await delayedOrgAListGate;
+        }
         return route.fulfill({
           status: 200,
           contentType: "application/json",
           body: JSON.stringify({
-            items: [],
-            total: 0,
+            items: [oldSummary],
+            total: 1,
             page: 1,
             limit: 20,
             totalPages: 1,
           }),
         });
-      }
-      return route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          items: [oldSummary],
-          total: 1,
-          page: 1,
-          limit: 20,
-          totalPages: 1,
-        }),
-      });
-    });
+      },
+    );
 
     await page.route(/\/v1\/admin\/academy\/registrations\/search$/, (route) =>
       route.fulfill({
@@ -1232,6 +1390,11 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
         }),
       }),
     );
+
+    let patchSuccessSettled;
+    let followUpDetailSettled;
+    let sessionCloseSettled;
+    let policyRetireSettled;
 
     await page.route(
       /\/v1\/admin\/academy\/registrations\/reg-old-1$/,
@@ -1250,6 +1413,7 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
         }
         // 3rd detail GET is the STALE_VERSION follow-up read -> hold until after auth switch
         if (detailGetCount === 3) {
+          followUpDetailSettled = trackRequestSettlement(page, route.request());
           followUpDetailStarted();
           await followUpDetailGate;
           return route.fulfill({
@@ -1275,6 +1439,7 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
       async (route) => {
         patchCallCount += 1;
         if (patchCallCount === 1) {
+          patchSuccessSettled = trackRequestSettlement(page, route.request());
           patchSuccessStarted();
           await patchSuccessGate;
           return route.fulfill({
@@ -1312,6 +1477,7 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
     await page.route(
       /\/v1\/admin\/academy\/registration-sessions\/00000000-0000-4000-8000-000000000901\/close$/,
       async (route) => {
+        sessionCloseSettled = trackRequestSettlement(page, route.request());
         sessionCloseStarted();
         await sessionCloseGate;
         return route.fulfill({
@@ -1342,6 +1508,7 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
     await page.route(
       /\/v1\/admin\/academy\/registration-policies\/pol-old-1\/retire$/,
       async (route) => {
+        policyRetireSettled = trackRequestSettlement(page, route.request());
         policyRetireStarted();
         await policyRetireGate;
         return route.fulfill({
@@ -1360,122 +1527,139 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
     await page.goto("/registrations", { waitUntil: "networkidle" });
     await expect(page.locator("body")).toContainText("KAR-OLDORG01");
 
-    if (hasDesktopSwitcher) {
-      const switchWorkView = async (label) => {
-        await page
-          .getByRole("button", { name: "Switch active work view" })
-          .dispatchEvent("click");
-        await page
-          .getByRole("menuitemradio", { name: label, exact: true })
-          .dispatchEvent("click");
-      };
+    // Keep identical user id ("staff-user-1") and identical role ("SUPER_ADMIN"),
+    // rotating ONLY the server-resolved organizationId (CR-25).
+    const switchOrg = async (orgId) => {
+      await auth.switchSession({
+        id: "staff-user-1",
+        roles: ["SUPER_ADMIN"],
+        organizationId: orgId,
+      });
+    };
 
-      // 1) Delayed registration status mutation -> switch auth context -> release old response
-      await page.getByRole("button", { name: "Review" }).first().click();
-      await expect(page.locator("body")).toContainText("+60129990001");
-      await page.selectOption("#registration-next-status", "CONFIRMED");
-      await page.getByTestId("open-status-confirm-btn").click();
-      await page.getByRole("button", { name: "Confirm Status Change" }).click();
-      await patchSuccessStartedPromise;
+    // 0) Delayed list read from Org A -> switch to Org B (same user, same role) -> release Org A list
+    holdNextOrgAList = true;
+    await page.selectOption("#registration-status-filter", "RECEIVED");
+    await delayedOrgAListStartedPromise;
+    contextPhase = "NEW_EMPTY_CONTEXT";
+    await switchOrg(SECONDARY_ORG_ID);
+    await expect(page.getByText("No registrations found")).toBeVisible();
+    releaseDelayedOrgAList();
+    await flushUiAfterSettled(page, delayedOrgAListSettled);
+    await expect(page.locator("body")).not.toContainText("KAR-OLDORG01");
+    await expect(page.locator("body")).not.toContainText(
+      "Synthetic Old Org Player",
+    );
 
-      // Switch auth context while PATCH is in flight (models out-of-band auth change while modal/drawer is open)
-      contextPhase = "NEW_EMPTY_CONTEXT";
-      await switchWorkView("ACADEMY ADMIN");
+    // Return to Org A for mutation & conflict follow-up isolation tests
+    contextPhase = "OLD_CONTEXT";
+    await switchOrg(DEFAULT_ORG_ID);
+    await expect(page.locator("body")).toContainText("KAR-OLDORG01");
 
-      await expect(page.getByText("No registrations found")).toBeVisible();
-      await expect(page.locator("body")).not.toContainText("KAR-OLDORG01");
-      await expect(page.locator("body")).not.toContainText(
-        "Synthetic Old Org Player",
-      );
-      const refreshesBeforeRelease = listRequestsInNewContext;
+    // 1) Delayed registration status mutation -> switch org -> release old response
+    await page.getByRole("button", { name: "Review" }).first().click();
+    await expect(page.locator("body")).toContainText("+60129990001");
+    await page.selectOption("#registration-next-status", "CONFIRMED");
+    await page.getByTestId("open-status-confirm-btn").click();
+    await page.getByRole("button", { name: "Confirm Status Change" }).click();
+    await patchSuccessStartedPromise;
 
-      // Release stale PATCH response -> MUST be ignored completely!
-      releasePatchSuccess();
-      await page.waitForTimeout(200);
-      await expect(page.locator("body")).not.toContainText("KAR-OLDORG01");
-      await expect(page.locator("body")).not.toContainText(
-        "Synthetic Old Org Player",
-      );
-      await expect(page.locator("body")).not.toContainText(
-        "Registration status updated",
-      );
-      await expect(page.getByRole("dialog")).toHaveCount(0);
-      expect(listRequestsInNewContext).toBe(refreshesBeforeRelease);
+    contextPhase = "NEW_EMPTY_CONTEXT";
+    await switchOrg(SECONDARY_ORG_ID);
 
-      // 2) Delayed STALE_VERSION follow-up detail GET -> switch auth context -> release old detail
-      contextPhase = "OLD_CONTEXT";
-      await switchWorkView("SUPER ADMIN");
-      await expect(page.locator("body")).toContainText("KAR-OLDORG01");
+    await expect(page.getByText("No registrations found")).toBeVisible();
+    await expect(page.locator("body")).not.toContainText("KAR-OLDORG01");
+    await expect(page.locator("body")).not.toContainText(
+      "Synthetic Old Org Player",
+    );
+    const refreshesBeforeRelease = listRequestsInNewContext;
 
-      await page.getByRole("button", { name: "Review" }).first().click();
-      await expect(page.locator("body")).toContainText("+60129990001");
-      await page.selectOption("#registration-next-status", "CONFIRMED");
-      await page.getByTestId("open-status-confirm-btn").click();
-      await page.getByRole("button", { name: "Confirm Status Change" }).click();
-      await followUpDetailStartedPromise;
+    // Release stale PATCH response -> observe browser settlement -> MUST be ignored completely!
+    releasePatchSuccess();
+    await flushUiAfterSettled(page, patchSuccessSettled);
+    await expect(page.locator("body")).not.toContainText("KAR-OLDORG01");
+    await expect(page.locator("body")).not.toContainText(
+      "Synthetic Old Org Player",
+    );
+    await expect(page.locator("body")).not.toContainText(
+      "Registration status updated",
+    );
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    expect(listRequestsInNewContext).toBe(refreshesBeforeRelease);
 
-      contextPhase = "NEW_EMPTY_CONTEXT";
-      await switchWorkView("ACADEMY ADMIN");
-      await expect(page.getByText("No registrations found")).toBeVisible();
+    // 2) Delayed STALE_VERSION follow-up detail GET -> switch org -> release old detail
+    contextPhase = "OLD_CONTEXT";
+    await switchOrg(DEFAULT_ORG_ID);
+    await expect(page.locator("body")).toContainText("KAR-OLDORG01");
 
-      releaseFollowUpDetail();
-      await page.waitForTimeout(200);
-      await expect(page.locator("body")).not.toContainText("KAR-OLDORG01");
-      await expect(page.locator("body")).not.toContainText("+60129990001");
-      await expect(page.getByRole("dialog")).toHaveCount(0);
+    await page.getByRole("button", { name: "Review" }).first().click();
+    await expect(page.locator("body")).toContainText("+60129990001");
+    await page.selectOption("#registration-next-status", "CONFIRMED");
+    await page.getByTestId("open-status-confirm-btn").click();
+    await page.getByRole("button", { name: "Confirm Status Change" }).click();
+    await followUpDetailStartedPromise;
 
-      // 3) Delayed Training Session close mutation -> switch auth context -> release old response
-      contextPhase = "OLD_CONTEXT";
-      await switchWorkView("SUPER ADMIN");
-      await page.getByRole("tab", { name: /Training Sessions/i }).click();
-      await expect(page.locator("body")).toContainText("Old Org Session Alpha");
+    contextPhase = "NEW_EMPTY_CONTEXT";
+    await switchOrg(SECONDARY_ORG_ID);
+    await expect(page.getByText("No registrations found")).toBeVisible();
 
-      await page
-        .getByTestId("close-session-00000000-0000-4000-8000-000000000901")
-        .click();
-      await page.getByRole("button", { name: "Close Session" }).click();
-      await sessionCloseStartedPromise;
+    releaseFollowUpDetail();
+    await flushUiAfterSettled(page, followUpDetailSettled);
+    await expect(page.locator("body")).not.toContainText("KAR-OLDORG01");
+    await expect(page.locator("body")).not.toContainText("+60129990001");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
 
-      contextPhase = "NEW_EMPTY_CONTEXT";
-      await switchWorkView("ACADEMY ADMIN");
-      await expect(page.getByTestId("sessions-empty-state")).toBeVisible();
+    // 3) Delayed Training Session close mutation -> switch org -> release old response
+    contextPhase = "OLD_CONTEXT";
+    await switchOrg(DEFAULT_ORG_ID);
+    await page.getByRole("tab", { name: /Training Sessions/i }).click();
+    await expect(page.locator("body")).toContainText("Old Org Session Alpha");
 
-      releaseSessionClose();
-      await page.waitForTimeout(200);
-      await expect(page.locator("body")).not.toContainText(
-        "Old Org Session Alpha",
-      );
-      await expect(page.getByTestId("sessions-action-banner")).toHaveCount(0);
+    await page
+      .getByTestId("close-session-00000000-0000-4000-8000-000000000901")
+      .click();
+    await page.getByRole("button", { name: "Close Session" }).click();
+    await sessionCloseStartedPromise;
 
-      // 4) Delayed Consent Policy retire mutation -> switch auth context -> release old response
-      contextPhase = "OLD_CONTEXT";
-      await switchWorkView("SUPER ADMIN");
-      await page.getByRole("tab", { name: /Consent Policies/i }).click();
-      await expect(
-        page.getByTestId("current-approved-policy-card"),
-      ).toContainText("SYNTHETIC-OLD-POL");
+    contextPhase = "NEW_EMPTY_CONTEXT";
+    await switchOrg(SECONDARY_ORG_ID);
+    await expect(page.getByTestId("sessions-empty-state")).toBeVisible();
 
-      await page.getByTestId("retire-current-policy-btn").click();
-      await page.getByRole("button", { name: "Retire Policy" }).click();
-      await policyRetireStartedPromise;
+    releaseSessionClose();
+    await flushUiAfterSettled(page, sessionCloseSettled);
+    await expect(page.locator("body")).not.toContainText(
+      "Old Org Session Alpha",
+    );
+    await expect(page.getByTestId("sessions-action-banner")).toHaveCount(0);
 
-      contextPhase = "NEW_EMPTY_CONTEXT";
-      await switchWorkView("ACADEMY ADMIN");
-      await expect(
-        page.getByTestId("no-current-approved-policy-card"),
-      ).toBeVisible();
+    // 4) Delayed Consent Policy retire mutation -> switch org -> release old response
+    contextPhase = "OLD_CONTEXT";
+    await switchOrg(DEFAULT_ORG_ID);
+    await page.getByRole("tab", { name: /Consent Policies/i }).click();
+    await expect(
+      page.getByTestId("current-approved-policy-card"),
+    ).toContainText("SYNTHETIC-OLD-POL");
 
-      releasePolicyRetire();
-      await page.waitForTimeout(200);
-      await expect(page.locator("body")).not.toContainText("SYNTHETIC-OLD-POL");
-      await expect(page.getByTestId("policies-action-banner")).toHaveCount(0);
+    await page.getByTestId("retire-current-policy-btn").click();
+    await page.getByRole("button", { name: "Retire Policy" }).click();
+    await policyRetireStartedPromise;
 
-      // Return to Registrations tab under OLD_CONTEXT for 401 search-input clearing verification
-      contextPhase = "OLD_CONTEXT";
-      await switchWorkView("SUPER ADMIN");
-      await page.getByRole("tab", { name: /Registrations/i }).click();
-      await expect(page.locator("body")).toContainText("KAR-OLDORG01");
-    }
+    contextPhase = "NEW_EMPTY_CONTEXT";
+    await switchOrg(SECONDARY_ORG_ID);
+    await expect(
+      page.getByTestId("no-current-approved-policy-card"),
+    ).toBeVisible();
+
+    releasePolicyRetire();
+    await flushUiAfterSettled(page, policyRetireSettled);
+    await expect(page.locator("body")).not.toContainText("SYNTHETIC-OLD-POL");
+    await expect(page.getByTestId("policies-action-banner")).toHaveCount(0);
+
+    // Return to Registrations tab under OLD_CONTEXT for 401 search-input clearing verification
+    contextPhase = "OLD_CONTEXT";
+    await switchOrg(DEFAULT_ORG_ID);
+    await page.getByRole("tab", { name: /Registrations/i }).click();
+    await expect(page.locator("body")).toContainText("KAR-OLDORG01");
 
     // 5) 401 clears sensitive search input + pending state + loaded records immediately
     const searchBox = page.locator('input[type="search"]');
@@ -1498,6 +1682,7 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
   test("Global 401/403 invalidation from one concurrent request blocks delayed responses in other mounted components", async ({
     page,
   }) => {
+    await setupAuthenticatedAdminSession(page);
     // Part A (Parent fetchAuthoritativeSessionFilter 401 -> Child AdminTrainingSessionsTab delayed response):
     // Parent's session filter read returns 401 while the mounted Sessions tab has a delayed
     // session list response in flight. Releasing the delayed child response MUST NOT restore old data.
@@ -1519,6 +1704,7 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
       childSessionsStarted = resolve;
     });
 
+    let childSessionsSettled;
     let sessionGetCount = 0;
 
     await page.route(/\/v1\/admin\/academy\/registrations(\?.*)?$/, (route) =>
@@ -1554,6 +1740,7 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
           });
         }
         // 2nd GET is mounted child AdminTrainingSessionsTab -> delayed success response
+        childSessionsSettled = trackRequestSettlement(page, route.request());
         childSessionsStarted();
         await childSessionsGate;
         return route.fulfill({
@@ -1585,9 +1772,9 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
       "Session Expired",
     );
 
-    // Now release the child tab's delayed session response -> MUST NOT populate old data!
+    // Now release the child tab's delayed session response -> observe settlement -> MUST NOT populate old data!
     releaseChildSessions();
-    await page.waitForTimeout(250);
+    await flushUiAfterSettled(page, childSessionsSettled);
     await expect(page.locator("body")).not.toContainText(
       "Leaked Concurrent Session",
     );
@@ -1609,6 +1796,7 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
     const parentFilterStartedPromise = new Promise((resolve) => {
       parentFilterStarted = resolve;
     });
+    let parentFilterSettled;
 
     await page.route(/\/v1\/admin\/academy\/registrations(\?.*)?$/, (route) =>
       route.fulfill({
@@ -1627,6 +1815,7 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
     await page.route(
       /\/v1\/admin\/academy\/registration-sessions$/,
       async (route) => {
+        parentFilterSettled = trackRequestSettlement(page, route.request());
         parentFilterStarted();
         await delayedParentFilterGate;
         return route.fulfill({
@@ -1666,9 +1855,9 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
       "Access Restricted",
     );
 
-    // Release delayed parent session filter response -> MUST NOT populate session count or dropdown!
+    // Release delayed parent session filter response -> observe settlement -> MUST NOT populate session count or dropdown!
     releaseDelayedParentFilter();
-    await page.waitForTimeout(250);
+    await flushUiAfterSettled(page, parentFilterSettled);
     await expect(
       page.getByRole("tab", { name: /Training Sessions/i }),
     ).toContainText("0");
@@ -1684,6 +1873,7 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
   test("Post-401/403 ordinary UI interactions (tab switching) never clear invalidation, never fire refetches, and never re-enable child tabs", async ({
     page,
   }) => {
+    await setupAuthenticatedAdminSession(page);
     let regListRequests = 0;
     let sessionListRequests = 0;
     let policyListRequests = 0;
@@ -1854,6 +2044,7 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
   test("Admin usability: readable labels, safe missing age, discoverable mobile tabs, and drawer responsiveness at 360px-1440px", async ({
     page,
   }) => {
+    await setupAuthenticatedAdminSession(page);
     const listWithMissingAge = {
       ...SYNTHETIC_LIST,
       items: [
@@ -1999,5 +2190,885 @@ test.describe("RIC-191 Admin Academy Registrations, Sessions & Consent Policies"
     expect(polOverflow).toBeLessThanOrEqual(2);
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toHaveCount(0);
+  });
+
+  test("Behavioral regressions: pagination clamping, conflict-refresh 401 invalidation, stale mutation isolation, strict capacity, publish conflict invalidation, editor instance isolation, and policy draft pending lock", async ({
+    page,
+  }) => {
+    await setupAuthenticatedAdminSession(page);
+    const regPage1 = {
+      ...SYNTHETIC_LIST.items[0],
+      id: "reg-p1",
+      referenceCode: "KAR-PAGEONE1",
+      playerFullName: "Page One Player",
+    };
+    const regPage2 = {
+      ...SYNTHETIC_LIST.items[0],
+      id: "reg-p2",
+      referenceCode: "KAR-PAGETWO2",
+      playerFullName: "Page Two Player",
+    };
+
+    const sessA = makeSyntheticSession({
+      id: "00000000-0000-4000-8000-000000000801",
+      name: "Session Alpha Draft",
+      publicationState: "DRAFT",
+      version: 3,
+      coachDisplayName: "Coach Alpha",
+    });
+    const sessB = makeSyntheticSession({
+      id: "00000000-0000-4000-8000-000000000802",
+      name: "Session Beta Draft",
+      publicationState: "DRAFT",
+      version: 1,
+      coachDisplayName: "Coach Beta",
+    });
+
+    let page2Collapsed = false;
+    const requestedPages = [];
+    await page.route(/\/v1\/admin\/academy\/registrations(\?.*)?$/, (route) => {
+      const url = new URL(route.request().url());
+      const reqPage = Number(url.searchParams.get("page") || "1");
+      requestedPages.push(reqPage);
+      if (reqPage === 2 && !page2Collapsed) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            items: [regPage2],
+            total: 2,
+            page: 2,
+            limit: 20,
+            totalPages: 2,
+          }),
+        });
+      }
+      if (reqPage === 2 && page2Collapsed) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            items: [],
+            total: 1,
+            page: 2,
+            limit: 20,
+            totalPages: 1,
+          }),
+        });
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          items: [regPage1],
+          total: page2Collapsed ? 1 : 2,
+          page: 1,
+          limit: 20,
+          totalPages: page2Collapsed ? 1 : 2,
+        }),
+      });
+    });
+
+    let conflictRefreshReturns401 = false;
+    let detailP1Gets = 0;
+    await page.route(
+      /\/v1\/admin\/academy\/registrations\/reg-p1$/,
+      (route) => {
+        detailP1Gets += 1;
+        if (conflictRefreshReturns401 && detailP1Gets >= 2) {
+          return route.fulfill({
+            status: 401,
+            contentType: "application/json",
+            body: JSON.stringify({
+              statusCode: 401,
+              message: "Unauthorized",
+              error: "Unauthorized",
+            }),
+          });
+        }
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(
+            makeSyntheticDetail({
+              id: "reg-p1",
+              referenceCode: "KAR-PAGEONE1",
+              playerFullName: "Page One Player",
+              status: "RECEIVED",
+              version: 1,
+            }),
+          ),
+        });
+      },
+    );
+
+    await page.route(/\/v1\/admin\/academy\/registrations\/reg-p2$/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(
+          makeSyntheticDetail({
+            id: "reg-p2",
+            referenceCode: "KAR-PAGETWO2",
+            playerFullName: "Page Two Player",
+            status: "RECEIVED",
+            version: 1,
+          }),
+        ),
+      }),
+    );
+
+    let holdP2Patch = false;
+    let releaseP2Patch;
+    const p2PatchGate = new Promise((resolve) => {
+      releaseP2Patch = resolve;
+    });
+    let p2PatchStarted;
+    const p2PatchStartedPromise = new Promise((resolve) => {
+      p2PatchStarted = resolve;
+    });
+    let p2PatchSettled;
+
+    await page.route(
+      /\/v1\/admin\/academy\/registrations\/reg-p2\/status$/,
+      async (route) => {
+        page2Collapsed = true;
+        if (holdP2Patch) {
+          p2PatchSettled = trackRequestSettlement(page, route.request());
+          p2PatchStarted();
+          await p2PatchGate;
+        }
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(
+            makeSyntheticDetail({
+              id: "reg-p2",
+              referenceCode: "KAR-PAGETWO2",
+              playerFullName: "Page Two Player",
+              status: "CONFIRMED",
+              version: 2,
+            }),
+          ),
+        });
+      },
+    );
+
+    await page.route(
+      /\/v1\/admin\/academy\/registrations\/reg-p1\/status$/,
+      (route) =>
+        route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({
+            statusCode: 409,
+            code: "STALE_VERSION",
+            message: "stale version",
+          }),
+        }),
+    );
+
+    let sessionListState = [sessA, sessB];
+    let sessionCreatePosts = 0;
+    await page.route(
+      /\/v1\/admin\/academy\/registration-sessions$/,
+      (route) => {
+        if (route.request().method() === "POST") {
+          sessionCreatePosts += 1;
+          return route.fulfill({ status: 201, body: JSON.stringify(sessA) });
+        }
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ items: sessionListState }),
+        });
+      },
+    );
+
+    await page.route(/\/v1\/admin\/operations-data\/programmes$/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(SYNTHETIC_PROGRAMMES),
+      }),
+    );
+    await page.route(/\/v1\/admin\/operations-data\/venues$/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(SYNTHETIC_VENUES),
+      }),
+    );
+
+    let releaseSessionASave;
+    const sessionASaveGate = new Promise((resolve) => {
+      releaseSessionASave = resolve;
+    });
+    let sessionASaveStarted;
+    const sessionASaveStartedPromise = new Promise((resolve) => {
+      sessionASaveStarted = resolve;
+    });
+    let sessionASaveSettled;
+    await page.route(
+      /\/v1\/admin\/academy\/registration-sessions\/00000000-0000-4000-8000-000000000801$/,
+      async (route) => {
+        sessionASaveSettled = trackRequestSettlement(page, route.request());
+        sessionASaveStarted();
+        await sessionASaveGate;
+        const updated = {
+          ...sessA,
+          coachDisplayName: "Coach Alpha Updated",
+          version: 4,
+        };
+        sessionListState = [updated, sessB];
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(updated),
+        });
+      },
+    );
+
+    await page.route(
+      /\/v1\/admin\/academy\/registration-sessions\/00000000-0000-4000-8000-000000000801\/publish$/,
+      (route) => {
+        sessionListState = [{ ...sessA, version: 5 }, sessB];
+        return route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({
+            statusCode: 409,
+            code: "STALE_VERSION",
+            message: "Session changed before publish",
+          }),
+        });
+      },
+    );
+
+    let releasePolicyPost;
+    const policyPostGate = new Promise((resolve) => {
+      releasePolicyPost = resolve;
+    });
+    let policyPostStarted;
+    const policyPostStartedPromise = new Promise((resolve) => {
+      policyPostStarted = resolve;
+    });
+    await page.route(
+      /\/v1\/admin\/academy\/registration-policies$/,
+      async (route) => {
+        if (route.request().method() === "GET") {
+          return route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ current: null, items: [] }),
+          });
+        }
+        policyPostStarted();
+        await policyPostGate;
+        return route.fulfill({
+          status: 201,
+          contentType: "application/json",
+          body: JSON.stringify({
+            id: "pol-pending-1",
+            policyVersion: "SYNTHETIC-LOCK",
+            status: "DRAFT",
+            version: 1,
+            content: makeSyntheticPolicyContent("v1"),
+            approvedAt: null,
+            retiredAt: null,
+            createdAt: "2026-12-01T00:00:00.000Z",
+            updatedAt: "2026-12-01T00:00:00.000Z",
+          }),
+        });
+      },
+    );
+
+    // 1) Pagination recovery + ConfirmDialog Escape guard while status PATCH is pending:
+    // on page 2, hold PATCH open and press Escape -> neither ConfirmDialog nor underlying Drawer closes!
+    // Release PATCH -> page 2 refresh returns items=[] & totalPages=1 -> clamps to page 1.
+    await page.goto("/registrations", { waitUntil: "networkidle" });
+    await expect(page.locator("body")).toContainText("KAR-PAGEONE1");
+    await page.getByRole("button", { name: "Next page" }).click();
+    await expect(page.locator("body")).toContainText("KAR-PAGETWO2");
+
+    holdP2Patch = true;
+    await page.getByTestId("review-registration-reg-p2").click();
+    await expect(page.getByTestId("registration-detail-content")).toBeVisible();
+    await page.selectOption("#registration-next-status", "CONFIRMED");
+    await page.getByTestId("open-status-confirm-btn").click();
+    await page.getByRole("button", { name: "Confirm Status Change" }).click();
+    await p2PatchStartedPromise;
+
+    // Pressing Escape while ConfirmDialog is loading must NOT close ConfirmDialog or the underlying Drawer
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("registration-detail-content")).toBeVisible();
+    await expect(
+      page.getByRole("dialog", { name: /Change status to CONFIRMED/i }),
+    ).toBeVisible();
+
+    releaseP2Patch();
+    await flushUiAfterSettled(page, p2PatchSettled);
+    await expect(page.getByTestId("status-update-feedback")).toContainText(
+      "CONFIRMED",
+    );
+    await page.getByRole("button", { name: "Close drawer" }).click();
+    await expect(page.locator("body")).toContainText("KAR-PAGEONE1");
+    expect(requestedPages[requestedPages.length - 1]).toBe(1);
+
+    // 2) Training Sessions: strict capacity validation rejects "1e3" and "12.5" (0 POSTs)
+    await page.getByRole("tab", { name: /Training Sessions/i }).click();
+    await page.getByTestId("create-session-draft-btn").click();
+    await page.selectOption(
+      "#session-programme-id",
+      "00000000-0000-4000-8000-000000000101",
+    );
+    await page.fill("#session-name", "Strict Capacity Check");
+    await page.selectOption(
+      "#session-venue-id",
+      "00000000-0000-4000-8000-000000000201",
+    );
+    // Input type=number rejects non-numeric on some browsers, so set value via DOM to test noValidate parser directly
+    await page.locator("#session-capacity").evaluate((el) => {
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value",
+      ).set;
+      setter.call(el, "12.5");
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await page.getByTestId("save-session-btn").click();
+    await expect(page.getByTestId("session-form-error")).toBeVisible();
+    expect(sessionCreatePosts).toBe(0);
+    await page.getByRole("button", { name: "Close drawer" }).click();
+
+    // 3) Pending save on Session A must NOT close Session B's editor drawer
+    await page
+      .getByTestId("edit-session-00000000-0000-4000-8000-000000000801")
+      .click();
+    await page.fill("#session-coach-name", "Coach Alpha Updated");
+    await page.getByTestId("save-session-btn").click();
+    await sessionASaveStartedPromise;
+
+    // Close Session A drawer with Escape while its PATCH is pending, then open Session B
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("session-editor-form")).toHaveCount(0);
+    await page
+      .getByTestId("edit-session-00000000-0000-4000-8000-000000000802")
+      .click();
+    await expect(page.locator("#session-name")).toHaveValue(
+      "Session Beta Draft",
+    );
+
+    releaseSessionASave();
+    await flushUiAfterSettled(page, sessionASaveSettled);
+    // Session B drawer must remain open with Session B's values intact!
+    await expect(page.getByTestId("session-editor-form")).toBeVisible();
+    await expect(page.locator("#session-name")).toHaveValue(
+      "Session Beta Draft",
+    );
+    await page.getByRole("button", { name: "Close drawer" }).click();
+
+    // 4) Publish STALE_VERSION invalidates publish dialog and clears acknowledgements
+    await page
+      .getByTestId("publish-session-00000000-0000-4000-8000-000000000801")
+      .click();
+    await page.check("#publish-schedule-approved");
+    await page.check("#publish-age-rule-approved");
+    await page.getByRole("button", { name: "Publish Session" }).click();
+    // Dialog closes and warning banner instructs staff to reopen from refreshed draft
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByTestId("sessions-action-banner")).toContainText(
+      "Reopen Publish",
+    );
+    // Reopening starts with BOTH checkboxes unchecked
+    await page
+      .getByTestId("publish-session-00000000-0000-4000-8000-000000000801")
+      .click();
+    await expect(page.locator("#publish-schedule-approved")).not.toBeChecked();
+    await expect(page.locator("#publish-age-rule-approved")).not.toBeChecked();
+    await page.getByRole("button", { name: "Cancel" }).click();
+
+    // 5) Consent Policy Create Drawer disables content inputs while draft POST is pending
+    await page.getByRole("tab", { name: /Consent Policies/i }).click();
+    await page.getByTestId("create-policy-draft-btn").click();
+    await page.fill("#policy-version-input", "SYNTHETIC-LOCK");
+    const content = makeSyntheticPolicyContent("v1");
+    for (const [cat, locales] of Object.entries(content)) {
+      for (const [loc, val] of Object.entries(locales)) {
+        await page.fill(`#policy-ref-${cat}-${loc}`, val.ref);
+        await page.fill(`#policy-sha-${cat}-${loc}`, val.sha256);
+      }
+    }
+    await page.getByTestId("submit-policy-draft-btn").click();
+    await policyPostStartedPromise;
+    await expect(page.locator("#policy-version-input")).toBeDisabled();
+    await expect(
+      page.locator("#policy-ref-GUARDIAN_AUTHORITY-en"),
+    ).toBeDisabled();
+    await expect(
+      page.locator("#policy-sha-GUARDIAN_AUTHORITY-en"),
+    ).toBeDisabled();
+    releasePolicyPost();
+    await expect(page.getByTestId("policies-action-banner")).toContainText(
+      "SYNTHETIC-LOCK",
+    );
+
+    // 6) Conflict refresh follow-up GET returning 401 triggers global auth invalidation
+    await page.getByRole("tab", { name: /Registrations/i }).click();
+    await expect(page.locator("body")).toContainText("KAR-PAGEONE1");
+    conflictRefreshReturns401 = true;
+    await page.getByTestId("review-registration-reg-p1").click();
+    await expect(page.getByTestId("registration-detail-content")).toBeVisible();
+    await page.selectOption("#registration-next-status", "CONFIRMED");
+    await page.getByTestId("open-status-confirm-btn").click();
+    await page.getByRole("button", { name: "Confirm Status Change" }).click();
+    await expect(page.getByTestId("registrations-error-state")).toContainText(
+      "Session Expired",
+    );
+    await expect(page.locator("body")).not.toContainText("KAR-PAGEONE1");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  });
+
+  test("IR-03 Missing session after STALE_VERSION conflict refresh renders honest unavailable notice with disabled Save and safe dismissal", async ({
+    page,
+  }) => {
+    await setupAuthenticatedAdminSession(page);
+    const missingSessionId = "00000000-0000-4000-8000-000000000888";
+    let sessionsStore = [
+      makeSyntheticSession({
+        id: missingSessionId,
+        name: "Vanishing Cohort Draft",
+        publicationState: "DRAFT",
+        version: 1,
+        coachDisplayName: "Coach Original",
+      }),
+    ];
+
+    await page.route(/\/v1\/admin\/academy\/registrations(\?.*)?$/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          items: [],
+          total: 0,
+          page: 1,
+          limit: 20,
+          totalPages: 1,
+        }),
+      }),
+    );
+    await page.route(/\/v1\/admin\/operations-data\/programmes$/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(SYNTHETIC_PROGRAMMES),
+      }),
+    );
+    await page.route(/\/v1\/admin\/operations-data\/venues$/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(SYNTHETIC_VENUES),
+      }),
+    );
+    await page.route(/\/v1\/admin\/academy\/registration-sessions$/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: sessionsStore }),
+      }),
+    );
+    await page.route(
+      new RegExp(
+        `/v1/admin/academy/registration-sessions/${missingSessionId}$`,
+      ),
+      (route) => {
+        // Target session disappears before the conflict refresh GET runs
+        sessionsStore = [];
+        return route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({
+            statusCode: 409,
+            code: "STALE_VERSION",
+            message: "stale version",
+          }),
+        });
+      },
+    );
+
+    await page.goto("/registrations", { waitUntil: "networkidle" });
+    await page.getByRole("tab", { name: /Training Sessions/i }).click();
+    await page.getByTestId(`edit-session-${missingSessionId}`).click();
+    await page.fill("#session-coach-name", "Coach Attempted Edit");
+    await page.getByTestId("save-session-btn").click();
+
+    const missingNotice = page.getByTestId("session-stale-missing-notice");
+    await expect(missingNotice).toBeVisible();
+    await expect(missingNotice).toContainText("no longer available");
+    await expect(page.locator("body")).not.toContainText(
+      "Loading latest session version",
+    );
+    await expect(
+      page.getByTestId("session-stale-conflict-panel"),
+    ).toContainText("Coach Attempted Edit");
+    await expect(page.getByTestId("save-session-btn")).toBeDisabled();
+    await expect(page.getByTestId("reload-refreshed-session-btn")).toHaveCount(
+      0,
+    );
+
+    await page.getByTestId("dismiss-missing-session-btn").click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByTestId("sessions-empty-state")).toBeVisible();
+  });
+
+  test("FINAL-01 fail-closed authentication revalidation blocks UI during pending /admin/session, isolates delayed Org A responses, survives superseded session failure, and handles logout during pending restore", async ({
+    page,
+  }) => {
+    const expiresAt = Math.floor(Date.now() / 1000) + 3600;
+    await page.addInitScript(
+      ({ storageKey, exp }) => {
+        window.localStorage.setItem(
+          storageKey,
+          JSON.stringify({
+            access_token: "synthetic-final01-token-org-a",
+            refresh_token: "synthetic-final01-refresh",
+            expires_in: 3600,
+            expires_at: exp,
+            token_type: "bearer",
+            user: { id: "staff-user-1", email: "super@example.test" },
+          }),
+        );
+      },
+      { storageKey: ADMIN_SUPABASE_SESSION_STORAGE_KEY, exp: expiresAt },
+    );
+
+    const orgASummary = {
+      ...SYNTHETIC_LIST.items[0],
+      id: "reg-org-a-1",
+      referenceCode: "KAR-ORGA0001",
+      playerFullName: "Org A Player One",
+    };
+    const orgADetail = makeSyntheticDetail({
+      id: "reg-org-a-1",
+      referenceCode: "KAR-ORGA0001",
+      playerFullName: "Org A Player One",
+    });
+    const orgBSummary = {
+      ...SYNTHETIC_LIST.items[0],
+      id: "reg-org-b-2",
+      referenceCode: "KAR-ORGB0002",
+      playerFullName: "Org B Player Two",
+    };
+
+    let activeBackendOrg = "ORG_A";
+    let sessionCallCount = 0;
+
+    // Explicit Promise gates for deterministic ordering (zero fixed delays)
+    let releaseSupersededFailSession;
+    const supersededFailSessionGate = new Promise((r) => {
+      releaseSupersededFailSession = r;
+    });
+    let supersededSessionStarted;
+    const supersededSessionStartedPromise = new Promise((r) => {
+      supersededSessionStarted = r;
+    });
+    let supersededSessionSettled;
+
+    let releaseLogoutRaceSession;
+    const logoutRaceSessionGate = new Promise((r) => {
+      releaseLogoutRaceSession = r;
+    });
+    let logoutRaceSessionStarted;
+    const logoutRaceSessionStartedPromise = new Promise((r) => {
+      logoutRaceSessionStarted = r;
+    });
+    let logoutRaceSessionSettled;
+
+    let releaseDelayedOrgAPatch;
+    const delayedOrgAPatchGate = new Promise((r) => {
+      releaseDelayedOrgAPatch = r;
+    });
+    let delayedOrgAPatchStarted;
+    const delayedOrgAPatchStartedPromise = new Promise((r) => {
+      delayedOrgAPatchStarted = r;
+    });
+    let delayedOrgAPatchSettled;
+
+    let releaseDelayedOrgAList;
+    const delayedOrgAListGate = new Promise((r) => {
+      releaseDelayedOrgAList = r;
+    });
+    let delayedOrgAListStarted;
+    const delayedOrgAListStartedPromise = new Promise((r) => {
+      delayedOrgAListStarted = r;
+    });
+    let delayedOrgAListSettled;
+    let holdNextOrgAList = false;
+
+    await page.route(/\/v1\/admin\/session$/, async (route) => {
+      sessionCallCount += 1;
+      const callNum = sessionCallCount;
+
+      // Call #1: Initial Org A load
+      if (callNum === 1) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            id: "staff-user-1",
+            organizationId: DEFAULT_ORG_ID,
+            email: "super@example.test",
+            displayName: "Synthetic Super Admin",
+            preferredLocale: "en",
+            roles: ["SUPER_ADMIN"],
+            authenticatorAssuranceLevel: "aal2",
+            mfaSatisfied: true,
+          }),
+        });
+      }
+
+      // Call #2: Held pending revalidation that will later FAIL after Call #3 succeeds
+      if (callNum === 2) {
+        supersededSessionSettled = trackRequestSettlement(
+          page,
+          route.request(),
+        );
+        supersededSessionStarted();
+        await supersededFailSessionGate;
+        return route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({
+            statusCode: 500,
+            message: "Superseded session failure",
+          }),
+        });
+      }
+
+      // Call #3: Newer valid Org B session succeeds while Call #2 is still pending
+      if (callNum === 3) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            id: "staff-user-1",
+            organizationId: SECONDARY_ORG_ID,
+            email: "super@example.test",
+            displayName: "Synthetic Super Admin",
+            preferredLocale: "en",
+            roles: ["SUPER_ADMIN"],
+            authenticatorAssuranceLevel: "aal2",
+            mfaSatisfied: true,
+          }),
+        });
+      }
+
+      // Call #4: Pending restoration racing against cross-tab logout -> resolves 200 after logout
+      logoutRaceSessionSettled = trackRequestSettlement(page, route.request());
+      logoutRaceSessionStarted();
+      await logoutRaceSessionGate;
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "staff-user-1",
+          organizationId: DEFAULT_ORG_ID,
+          email: "super@example.test",
+          displayName: "Synthetic Super Admin",
+          preferredLocale: "en",
+          roles: ["SUPER_ADMIN"],
+          authenticatorAssuranceLevel: "aal2",
+          mfaSatisfied: true,
+        }),
+      });
+    });
+
+    await page.route(/\/v1\/admin\/academy\/registration-sessions$/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: [makeSyntheticSession()] }),
+      }),
+    );
+
+    await page.route(
+      /\/v1\/admin\/academy\/registrations(\?.*)?$/,
+      async (route) => {
+        if (holdNextOrgAList) {
+          holdNextOrgAList = false;
+          delayedOrgAListSettled = trackRequestSettlement(
+            page,
+            route.request(),
+          );
+          delayedOrgAListStarted();
+          await delayedOrgAListGate;
+          return route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              items: [orgASummary],
+              total: 1,
+              page: 1,
+              limit: 20,
+              totalPages: 1,
+            }),
+          });
+        }
+        const item = activeBackendOrg === "ORG_B" ? orgBSummary : orgASummary;
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            items: [item],
+            total: 1,
+            page: 1,
+            limit: 20,
+            totalPages: 1,
+          }),
+        });
+      },
+    );
+
+    await page.route(
+      /\/v1\/admin\/academy\/registrations\/reg-org-a-1$/,
+      (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(orgADetail),
+        }),
+    );
+
+    await page.route(
+      /\/v1\/admin\/academy\/registrations\/reg-org-a-1\/status$/,
+      async (route) => {
+        delayedOrgAPatchSettled = trackRequestSettlement(page, route.request());
+        delayedOrgAPatchStarted();
+        await delayedOrgAPatchGate;
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            ...orgADetail,
+            status: "CONFIRMED",
+            version: 2,
+          }),
+        });
+      },
+    );
+
+    // 1) Load Org A, open detail drawer, and queue a delayed Org A status mutation
+    await page.goto("/registrations", { waitUntil: "networkidle" });
+    await expect(page.locator("body")).toContainText("KAR-ORGA0001");
+    await expect(
+      page.getByTestId("review-registration-reg-org-a-1"),
+    ).toBeVisible();
+
+    await page.getByTestId("review-registration-reg-org-a-1").click();
+    await expect(page.getByTestId("registration-detail-content")).toBeVisible();
+    await page.selectOption("#registration-next-status", "CONFIRMED");
+    await page.getByTestId("open-status-confirm-btn").click();
+    await page.getByRole("button", { name: "Confirm Status Change" }).click();
+    await delayedOrgAPatchStartedPromise;
+
+    // 2) Begin cross-tab session revalidation (Call #2 held pending behind supersededFailSessionGate)
+    await page.evaluate((storageKey) => {
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: storageKey,
+          newValue: window.localStorage.getItem(storageKey),
+        }),
+      );
+    }, ADMIN_SUPABASE_SESSION_STORAGE_KEY);
+    await supersededSessionStartedPromise;
+
+    // Throughout the pending /admin/session interval, Org A records & mutation controls MUST be gone!
+    await expect(page.getByText("Verifying staff access…")).toBeVisible();
+    await expect(page.locator("body")).not.toContainText("KAR-ORGA0001");
+    await expect(page.locator("body")).not.toContainText("Org A Player One");
+    await expect(
+      page.getByTestId("review-registration-reg-org-a-1"),
+    ).toHaveCount(0);
+    await expect(page.getByRole("tab", { name: /Registrations/i })).toHaveCount(
+      0,
+    );
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
+    // Release delayed Org A mutation while /admin/session is STILL pending -> MUST NOT restore Org A!
+    releaseDelayedOrgAPatch();
+    await flushUiAfterSettled(page, delayedOrgAPatchSettled);
+    await expect(page.getByText("Verifying staff access…")).toBeVisible();
+    await expect(page.locator("body")).not.toContainText("KAR-ORGA0001");
+    await expect(page.locator("body")).not.toContainText("Org A Player One");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+
+    // 3) Newer revalidation (Call #3) succeeds for Org B while Call #2 is still pending -> Org B loads normally
+    activeBackendOrg = "ORG_B";
+    await page.evaluate((storageKey) => {
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: storageKey,
+          newValue: window.localStorage.getItem(storageKey),
+        }),
+      );
+    }, ADMIN_SUPABASE_SESSION_STORAGE_KEY);
+    await expect(page.locator("body")).toContainText("KAR-ORGB0002");
+    await expect(page.locator("body")).toContainText("Org B Player Two");
+    await expect(page.locator("body")).not.toContainText("KAR-ORGA0001");
+
+    // 4) Now release superseded Call #2 to FAIL (HTTP 500) -> MUST NOT clear or overwrite Org B!
+    releaseSupersededFailSession();
+    await flushUiAfterSettled(page, supersededSessionSettled);
+    await expect(page.locator("body")).toContainText("KAR-ORGB0002");
+    await expect(page.locator("body")).toContainText("Org B Player Two");
+    await expect(page.getByText("Sign in to Admin Console")).toHaveCount(0);
+
+    // 5) Queue a delayed list read, then start pending revalidation (Call #4) and cross-tab logout ->
+    // releasing BOTH the delayed read and superseded Call #4 (200 OK) MUST NOT restore UI!
+    holdNextOrgAList = true;
+    await page.selectOption("#registration-status-filter", "RECEIVED");
+    await delayedOrgAListStartedPromise;
+
+    await page.evaluate((storageKey) => {
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: storageKey,
+          newValue: window.localStorage.getItem(storageKey),
+        }),
+      );
+    }, ADMIN_SUPABASE_SESSION_STORAGE_KEY);
+    await logoutRaceSessionStartedPromise;
+    await expect(page.getByText("Verifying staff access…")).toBeVisible();
+    await expect(page.locator("body")).not.toContainText("KAR-ORGB0002");
+
+    releaseDelayedOrgAList();
+    await flushUiAfterSettled(page, delayedOrgAListSettled);
+    await expect(page.getByText("Verifying staff access…")).toBeVisible();
+    await expect(page.locator("body")).not.toContainText("KAR-ORGA0001");
+    await expect(page.locator("body")).not.toContainText("KAR-ORGB0002");
+
+    // Cross-tab logout clears localStorage and dispatches storage event while Call #4 is still in flight
+    await page.evaluate((storageKey) => {
+      window.localStorage.removeItem(storageKey);
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: storageKey,
+          newValue: null,
+        }),
+      );
+    }, ADMIN_SUPABASE_SESSION_STORAGE_KEY);
+    await expect(
+      page.getByRole("button", { name: "Sign in to Admin Console" }),
+    ).toBeVisible();
+
+    // Release superseded Call #4 (200 OK) -> MUST NOT restore authenticated UI!
+    releaseLogoutRaceSession();
+    await flushUiAfterSettled(page, logoutRaceSessionSettled);
+    await expect(
+      page.getByRole("button", { name: "Sign in to Admin Console" }),
+    ).toBeVisible();
+    await expect(page.locator("body")).not.toContainText("KAR-ORGA0001");
+    await expect(page.locator("body")).not.toContainText("KAR-ORGB0002");
   });
 });
